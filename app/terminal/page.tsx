@@ -1,6 +1,5 @@
 'use client'
 import dynamic from 'next/dynamic'
-import SiteNav from '../components/SiteNav'
 
 const TerminalChart = dynamic(() => import('./TerminalChart'), { ssr: false,
   loading: () => <div style={{ height: 320, background: '#04050a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'monospace', fontSize: 12, color: '#7a7f9a' }}>Cargando gráfico…</span></div>,
@@ -73,8 +72,6 @@ function Label({ text }: { text: string }) {
 export default function TerminalPage() {
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
-      <SiteNav />
-
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}

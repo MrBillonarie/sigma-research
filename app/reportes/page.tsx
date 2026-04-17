@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import SiteNav from '../components/SiteNav'
 
 const C = {
   bg: '#04050a', surface: '#0b0d14', border: '#1a1d2e',
@@ -60,8 +59,6 @@ export default function ReportesPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
-      <SiteNav />
-
       {/* ── Hero ── */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '100px 24px 0' }}>
         <div style={{ textAlign: 'center', marginBottom: 64 }}>

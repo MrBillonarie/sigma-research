@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 const companyLinks = [
   { label: 'Quiénes somos', href: '/quienes-somos' },
+  { label: 'Contacto',       href: '/contacto' },
   { label: 'FAQ',            href: '/faq' },
   { label: 'Términos',       href: '/terminos' },
   { label: 'Privacidad',     href: '/privacidad' },
