@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import dynamic from 'next/dynamic'
-import SiteNav from '../components/SiteNav'
+import { fmt, fmtK } from '../lib/format'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
@@ -57,9 +57,6 @@ function project(capital: number, ahorro: number, retorno: number, gastoFire: nu
   return { data, target, fireYear }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt  = (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
-const fmtK = (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(1)}K`
 
 function Slider({ label, value, min, max, step, display, onChange }: {
   label: string; value: number; min: number; max: number
@@ -110,8 +107,6 @@ export default function FirePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
-      <SiteNav />
-
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}

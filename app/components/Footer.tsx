@@ -1,6 +1,4 @@
-'use client'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
 
 const plataforma = [
   { label: 'Productos',       href: '/#productos' },
@@ -23,8 +21,7 @@ const social = [
 ]
 
 export default function Footer() {
-  const [year, setYear] = useState(2025)
-  useEffect(() => { setYear(new Date().getFullYear()) }, [])
+  const year = new Date().getFullYear()
 
   return (
     <footer className="bg-bg border-t border-border px-6 py-16">
@@ -89,7 +86,7 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-border">
-          <span className="terminal-text text-xs text-muted">
+          <span className="terminal-text text-xs text-muted" suppressHydrationWarning>
             © {year} Sigma Research. Todos los derechos reservados.
           </span>
           <span className="terminal-text text-xs text-muted">

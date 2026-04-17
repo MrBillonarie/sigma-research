@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useDeferredValue, useEffect } from 'react'
+import { fmt } from '../lib/format'
 
 function monteCarlo(
   capital: number,
@@ -75,11 +76,6 @@ export default function FireSimulator() {
     const progressPct = Math.min((capital / metaFire) * 100, 100)
     return { años, mc, metaFire, progressPct, edadFire: edad + años }
   }, [deferred, mounted])
-
-  const fmt = (n: number) =>
-    n >= 1_000_000
-      ? `$${(n / 1_000_000).toFixed(2)}M`
-      : `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
 
   return (
     <section id="fire" className="bg-surface py-24 px-6">
