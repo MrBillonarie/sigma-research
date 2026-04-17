@@ -89,13 +89,13 @@ const models = [
 
 export default function Models() {
   return (
-    <section id="modelos" className="bg-bg py-24 px-6">
+    <section id="modelos" className="bg-bg py-16 px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-16 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+        <div className="mb-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
           <div>
-            <div className="section-label text-gold mb-4">{'// MODELOS CUANTITATIVOS'}</div>
-            <h2 className="display-heading text-5xl sm:text-7xl text-text">
+            <div className="section-label text-gold mb-3">{'// MODELOS CUANTITATIVOS'}</div>
+            <h2 className="display-heading text-4xl sm:text-5xl lg:text-7xl text-text">
               MOTOR
               <br />
               <span className="gold-text">ANALÍTICO</span>
@@ -110,7 +110,7 @@ export default function Models() {
         {/* Models grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
           {models.map((m) => (
-            <div key={m.id} className="bg-surface p-6 flex flex-col gap-4 hover:bg-surface/80 transition-colors group">
+            <div key={m.id} className="bg-surface p-5 flex flex-col gap-3 hover:bg-surface/80 transition-colors group">
               {/* Header row */}
               <div className="flex items-center justify-between">
                 <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5">{m.tag}</span>
@@ -125,7 +125,7 @@ export default function Models() {
 
               {/* Metric */}
               <div className="flex items-baseline gap-2">
-                <span className="display-heading text-5xl gold-text">{m.accuracy}</span>
+                <span className="display-heading text-5xl gold-text num tabular-nums">{m.accuracy}</span>
                 <span className="section-label text-text-dim">{m.metric}</span>
               </div>
 
@@ -162,8 +162,8 @@ export default function Models() {
             { label: 'Años de datos históricos', value: '25+' },
             { label: 'Universo cubierto', value: '3,500 tickers' },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-surface p-6">
-              <div className="display-heading text-4xl text-gold">{value}</div>
+            <div key={label} className="bg-surface p-5">
+              <div className="display-heading text-4xl text-gold num tabular-nums">{value}</div>
               <div className="section-label text-text-dim mt-1">{label}</div>
             </div>
           ))}

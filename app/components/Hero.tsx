@@ -77,7 +77,7 @@ export default function Hero() {
           >
             {'// SIGMA RESEARCH v2.4.1'}
           </div>
-          <h1 className="display-heading text-6xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[9rem] 2xl:text-[10rem] leading-none mb-4 overflow-hidden">
+          <h1 className="display-heading text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[9rem] 2xl:text-[10rem] leading-none mb-4 overflow-hidden">
             <span
               className="block text-text animate-fade-up"
               style={{ animationDelay: '80ms' }}
@@ -109,7 +109,7 @@ export default function Hero() {
 
         {/* CTA buttons */}
         <div
-          className="flex flex-wrap gap-4 mb-16 animate-fade-up"
+          className="flex flex-wrap gap-4 mb-10 animate-fade-up"
           style={{ animationDelay: '520ms' }}
         >
           <a
@@ -131,7 +131,7 @@ export default function Hero() {
           {metrics.map((m) => (
             <div key={m.label} className="bg-surface p-4 flex flex-col gap-1">
               <span className="section-label text-text-dim text-xs">{m.label}</span>
-              <span className="display-heading text-2xl text-gold">
+              <span className="display-heading text-2xl text-gold num tabular-nums">
                 {m.prefix}
                 <AnimatedNumber
                   target={parseFloat(m.value)}

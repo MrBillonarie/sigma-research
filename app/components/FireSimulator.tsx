@@ -78,12 +78,12 @@ export default function FireSimulator() {
   }, [deferred, mounted])
 
   return (
-    <section id="fire" className="bg-surface py-24 px-6">
+    <section id="fire" className="bg-surface py-16 px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-16">
-          <div className="section-label text-gold mb-4">{'// CALCULADORA FIRE'}</div>
-          <h2 className="display-heading text-5xl sm:text-7xl text-text">
+        <div className="mb-10">
+          <div className="section-label text-gold mb-3">{'// CALCULADORA FIRE'}</div>
+          <h2 className="display-heading text-4xl sm:text-5xl lg:text-7xl text-text">
             SIMULADOR
             <br />
             <span className="gold-text">INDEPENDENCIA</span>
@@ -97,7 +97,7 @@ export default function FireSimulator() {
 
         <div className="grid lg:grid-cols-2 gap-px bg-border">
           {/* Controls */}
-          <div className="bg-bg p-8 lg:p-10 space-y-8">
+          <div className="bg-bg p-6 lg:p-8 space-y-6">
             {[
               { label: 'Capital Actual', value: capital, set: setCapital, min: 0, max: 2000000, step: 5000, fmt: true },
               { label: 'Ahorro Mensual', value: ahorro, set: setAhorro, min: 0, max: 20000, step: 100, fmt: true },
@@ -132,11 +132,11 @@ export default function FireSimulator() {
           </div>
 
           {/* Results */}
-          <div className={`bg-surface p-8 lg:p-10 flex flex-col justify-between transition-opacity duration-150 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
+          <div className={`bg-surface p-6 lg:p-8 flex flex-col justify-between transition-opacity duration-150 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
             {/* Primary result */}
             <div className="mb-8">
               <div className="section-label text-text-dim mb-2">EDAD DE INDEPENDENCIA</div>
-              <div className="display-heading text-8xl gold-text">{result.edadFire}</div>
+              <div className="display-heading text-8xl gold-text num tabular-nums">{result.edadFire}</div>
               <div className="terminal-text text-text-dim mt-1">
                 en {result.años} años · Año {new Date().getFullYear() + result.años}
               </div>
@@ -165,7 +165,7 @@ export default function FireSimulator() {
               <div className="bg-bg p-4">
                 <div className="section-label text-text-dim text-xs mb-1">TASA ÉXITO</div>
                 <div
-                  className={`display-heading text-3xl ${
+                  className={`display-heading text-3xl num tabular-nums ${
                     result.mc.exito > 80 ? 'text-emerald-400' : result.mc.exito > 60 ? 'text-yellow-400' : 'text-red-400'
                   }`}
                 >
@@ -175,12 +175,12 @@ export default function FireSimulator() {
               </div>
               <div className="bg-bg p-4">
                 <div className="section-label text-text-dim text-xs mb-1">MEDIANA</div>
-                <div className="display-heading text-3xl text-gold">{fmt(result.mc.mediana)}</div>
+                <div className="display-heading text-3xl text-gold num tabular-nums">{fmt(result.mc.mediana)}</div>
                 <div className="terminal-text text-xs text-muted">capital restante</div>
               </div>
               <div className="bg-bg p-4">
                 <div className="section-label text-text-dim text-xs mb-1">PEOR 10%</div>
-                <div className="display-heading text-3xl text-red-400">{fmt(result.mc.percentil10)}</div>
+                <div className="display-heading text-3xl text-red-400 num tabular-nums">{fmt(result.mc.percentil10)}</div>
                 <div className="terminal-text text-xs text-muted">percentil 10</div>
               </div>
             </div>

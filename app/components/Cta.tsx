@@ -64,12 +64,12 @@ export default function Cta() {
   }
 
   return (
-    <section id="cta" className="bg-surface py-24 px-6">
+    <section id="cta" className="bg-surface py-16 px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-20 text-center">
-          <div className="section-label text-gold mb-4">{'// ACCESO A LA PLATAFORMA'}</div>
-          <h2 className="display-heading text-5xl sm:text-8xl text-text mb-6">
+        <div className="mb-12 text-center">
+          <div className="section-label text-gold mb-3">{'// ACCESO A LA PLATAFORMA'}</div>
+          <h2 className="display-heading text-4xl sm:text-6xl lg:text-8xl text-text mb-4">
             EMPIEZA A
             <br />
             <span className="gold-text">OPERAR CON</span>
@@ -86,7 +86,7 @@ export default function Cta() {
           {tiers.map((tier) => (
             <div
               key={tier.name}
-              className={`p-8 flex flex-col gap-6 relative ${
+              className={`p-6 flex flex-col gap-5 relative ${
                 tier.highlight ? 'bg-bg animate-glow-pulse' : 'bg-bg'
               }`}
             >
@@ -99,7 +99,7 @@ export default function Cta() {
                   {tier.name}
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className={`display-heading text-5xl ${tier.highlight ? 'gold-text' : 'text-text'}`}>
+                  <span className={`display-heading text-5xl num tabular-nums ${tier.highlight ? 'gold-text' : 'text-text'}`}>
                     {tier.price}
                   </span>
                   {tier.period && (

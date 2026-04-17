@@ -123,12 +123,12 @@ export default function Products() {
   const p = products[active]
 
   return (
-    <section id="productos" className="bg-bg py-24 px-6">
+    <section id="productos" className="bg-bg py-16 px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-16">
-          <div className="section-label text-gold mb-4">{'// SUITE DE PRODUCTOS'}</div>
-          <h2 className="display-heading text-5xl sm:text-7xl text-text">
+        <div className="mb-10">
+          <div className="section-label text-gold mb-3">{'// SUITE DE PRODUCTOS'}</div>
+          <h2 className="display-heading text-4xl sm:text-5xl lg:text-7xl text-text">
             HERRAMIENTAS
             <br />
             <span className="gold-text">INSTITUCIONALES</span>
@@ -156,7 +156,7 @@ export default function Products() {
         {/* Content panel */}
         <div className="grid lg:grid-cols-2 gap-px bg-border">
           {/* Left: description */}
-          <div className="bg-surface p-8 lg:p-12">
+          <div className="bg-surface p-6 lg:p-8">
             <div className="flex items-center gap-3 mb-6">
               <span className={`terminal-text text-xs px-2 py-1 ${badgeBg[p.color]}`}>
                 {p.badge}
@@ -186,7 +186,7 @@ export default function Products() {
           </div>
 
           {/* Right: terminal preview */}
-          <div className="bg-bg p-8 lg:p-12 font-mono">
+          <div className="bg-bg p-6 lg:p-8 font-mono">
             <div className="flex items-center gap-2 mb-6">
               <span className="w-3 h-3 rounded-full bg-red-500/60" />
               <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
