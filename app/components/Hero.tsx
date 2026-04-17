@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import TickerBar from './TickerBar'
+import StatBar from './StatBar'
 
 const metrics = [
   { label: 'Sharpe Ratio', value: '2.41', unit: '', prefix: '' },
@@ -42,6 +43,7 @@ export default function Hero() {
   }, [])
 
   return (
+    <>
     <section className="relative min-h-screen flex flex-col bg-bg overflow-hidden">
       {/* Grid background */}
       <div
@@ -69,15 +71,36 @@ export default function Hero() {
 
         {/* Main headline */}
         <div className="mb-6">
-          <div className="section-label text-gold mb-4">{'// SIGMA RESEARCH v2.4.1'}</div>
-          <h1 className="display-heading text-6xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[9rem] 2xl:text-[10rem] leading-none mb-4">
-            <span className="text-text">QUANT</span>
-            <br />
-            <span className="gold-text">INTELLIGENCE</span>
-            <br />
-            <span className="text-text">PLATFORM</span>
+          <div
+            className="section-label text-gold mb-4 animate-fade-up"
+            style={{ animationDelay: '0ms' }}
+          >
+            {'// SIGMA RESEARCH v2.4.1'}
+          </div>
+          <h1 className="display-heading text-6xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[9rem] 2xl:text-[10rem] leading-none mb-4 overflow-hidden">
+            <span
+              className="block text-text animate-fade-up"
+              style={{ animationDelay: '80ms' }}
+            >
+              QUANT
+            </span>
+            <span
+              className="block gold-text animate-fade-up"
+              style={{ animationDelay: '180ms' }}
+            >
+              INTELLIGENCE
+            </span>
+            <span
+              className="block text-text animate-fade-up"
+              style={{ animationDelay: '280ms' }}
+            >
+              PLATFORM
+            </span>
           </h1>
-          <p className="terminal-text text-text-dim max-w-2xl text-base leading-relaxed mt-6">
+          <p
+            className="terminal-text text-text-dim max-w-2xl text-base leading-relaxed mt-6 animate-fade-up"
+            style={{ animationDelay: '400ms' }}
+          >
             Modelos estadísticos de grado institucional para análisis de mercados,
             planificación financiera y señales algorítmicas.
             Construido sobre datos reales. Diseñado para resultados reales.
@@ -85,7 +108,10 @@ export default function Hero() {
         </div>
 
         {/* CTA buttons */}
-        <div className="flex flex-wrap gap-4 mb-16">
+        <div
+          className="flex flex-wrap gap-4 mb-16 animate-fade-up"
+          style={{ animationDelay: '520ms' }}
+        >
           <a
             href="#productos"
             className="px-8 py-3 bg-gold text-bg display-heading text-xl tracking-widest hover:bg-gold-glow transition-colors duration-200 shadow-gold-lg"
@@ -125,5 +151,9 @@ export default function Hero() {
         <TickerBar />
       </div>
     </section>
+
+    {/* Stat bar — outside hero section, below fold */}
+    <StatBar />
+    </>
   )
 }

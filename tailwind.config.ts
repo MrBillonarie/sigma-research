@@ -44,6 +44,9 @@ const config: Config = {
         'float': 'float 6s ease-in-out infinite',
         'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
         'scan-line': 'scan-line 4s linear infinite',
+        'fade-up': 'fade-up 0.6s cubic-bezier(0.16,1,0.3,1) both',
+        'flash-green': 'flash-green 0.6s ease',
+        'flash-red': 'flash-red 0.6s ease',
       },
       keyframes: {
         'ticker': {
