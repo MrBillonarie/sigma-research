@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #04050a;
+  --foreground: #e8e9f0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #04050a;
+  color: #e8e9f0;
+  font-family: var(--font-dm-mono), 'Courier New', monospace;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(212, 175, 55, 0.3);
+  color: #f0cc5a;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #04050a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4af37;
+  border-radius: 2px;
+}
+
+@layer components {
+  .gold-text {
+    background: linear-gradient(135deg, #d4af37 0%, #f0cc5a 50%, #a88c25 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gold-border {
+    border: 1px solid rgba(212, 175, 55, 0.3);
+  }
+
+  .glass-card {
+    background: rgba(11, 13, 20, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(212, 175, 55, 0.12);
+  }
+
+  .terminal-text {
+    font-family: var(--font-dm-mono), 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+
+  .section-label {
+    font-family: var(--font-dm-mono), monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #d4af37;
+  }
+
+  .display-heading {
+    font-family: var(--font-bebas), Impact, sans-serif;
+    letter-spacing: 0.04em;
+    line-height: 0.95;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
