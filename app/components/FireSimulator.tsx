@@ -96,7 +96,7 @@ export default function FireSimulator() {
             FINANCIERA
           </h2>
           <p className="terminal-text text-text-dim mt-4 max-w-2xl">
-            Motor Monte Carlo con {(2000).toLocaleString()} simulaciones. Regla del 4% + ajuste por secuencia de retornos.
+            Motor Monte Carlo con 2,000 simulaciones. Regla del 4% + ajuste por secuencia de retornos.
           </p>
         </div>
 
@@ -194,7 +194,7 @@ export default function FireSimulator() {
             <div className="mt-6 p-4 border border-border">
               <div className="section-label text-text-dim text-xs mb-1">METODOLOGÍA</div>
               <p className="terminal-text text-xs text-muted leading-relaxed">
-                Regla del 4% · {(2000).toLocaleString()} simulaciones Monte Carlo ·
+                Regla del 4% · 2,000 simulaciones Monte Carlo ·
                 Retorno con volatilidad σ=15% · Inflación compuesta
               </p>
             </div>
