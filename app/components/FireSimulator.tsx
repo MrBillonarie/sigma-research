@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 
 function monteCarlo(
   capital: number,
@@ -55,7 +55,15 @@ export default function FireSimulator() {
   const [inflacion, setInflacion] = useState(3)
   const [edad, setEdad] = useState(28)
 
+  const params = useMemo(
+    () => ({ capital, ahorro, gasto, retorno, inflacion, edad }),
+    [capital, ahorro, gasto, retorno, inflacion, edad]
+  )
+  const deferred = useDeferredValue(params)
+  const isPending = params !== deferred
+
   const result = useMemo(() => {
+    const { capital, ahorro, gasto, retorno, inflacion, edad } = deferred
     const años = fireAge(capital, ahorro, retorno / 100, gasto)
     const mc = monteCarlo(
       capital + ahorro * 12 * años,
@@ -67,7 +75,7 @@ export default function FireSimulator() {
     const metaFire = (gasto * 12) / 0.04
     const progressPct = Math.min((capital / metaFire) * 100, 100)
     return { años, mc, metaFire, progressPct, edadFire: edad + años }
-  }, [capital, ahorro, gasto, retorno, inflacion, edad])
+  }, [deferred])
 
   const fmt = (n: number) =>
     n >= 1_000_000
@@ -117,6 +125,7 @@ export default function FireSimulator() {
                   step={step}
                   value={value}
                   onChange={(e) => set(Number(e.target.value))}
+                  aria-label={label}
                   className="w-full h-1 bg-border rounded-lg appearance-none cursor-pointer accent-gold"
                 />
                 <div className="flex justify-between terminal-text text-xs text-muted mt-1">
@@ -128,7 +137,7 @@ export default function FireSimulator() {
           </div>
 
           {/* Results */}
-          <div className="bg-surface p-8 lg:p-10 flex flex-col justify-between">
+          <div className={`bg-surface p-8 lg:p-10 flex flex-col justify-between transition-opacity duration-150 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
             {/* Primary result */}
             <div className="mb-8">
               <div className="section-label text-text-dim mb-2">EDAD DE INDEPENDENCIA</div>

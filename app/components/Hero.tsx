@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import TickerBar from './TickerBar'
 
 const metrics = [
@@ -59,8 +58,6 @@ export default function Hero() {
         style={{ top: '40%' }}
       />
 
-      <Navbar />
-
       <div className="relative z-10 flex-1 flex flex-col justify-center px-6 pt-24 pb-12 max-w-7xl mx-auto w-full">
         {/* Status line */}
         <div className="flex items-center gap-3 mb-8">
@@ -73,7 +70,7 @@ export default function Hero() {
         {/* Main headline */}
         <div className="mb-6">
           <div className="section-label text-gold mb-4">{'// SIGMA RESEARCH v2.4.1'}</div>
-          <h1 className="display-heading text-6xl sm:text-8xl lg:text-[10rem] leading-none mb-4">
+          <h1 className="display-heading text-6xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[9rem] 2xl:text-[10rem] leading-none mb-4">
             <span className="text-text">QUANT</span>
             <br />
             <span className="gold-text">INTELLIGENCE</span>
@@ -116,7 +113,8 @@ export default function Hero() {
                 />
                 {m.unit}
               </span>
-              <span className="terminal-text text-xs text-text-dim">LIVE ▸</span>
+              {/* TODO: conectar a API real */}
+              <span className="terminal-text text-xs text-text-dim">DEMO</span>
             </div>
           ))}
         </div>
@@ -127,56 +125,5 @@ export default function Hero() {
         <TickerBar />
       </div>
     </section>
-  )
-}
-
-function Navbar() {
-  const [scrolled, setScrolled] = useState(false)
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40)
-    window.addEventListener('scroll', onScroll)
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-bg/95 backdrop-blur-md border-b border-border' : 'bg-transparent'
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 border border-gold flex items-center justify-center">
-            <span className="display-heading text-gold text-sm leading-none">Σ</span>
-          </div>
-          <span className="display-heading text-xl tracking-widest text-text">SIGMA RESEARCH</span>
-        </div>
-
-        <div className="hidden md:flex items-center gap-6">
-          {[
-            ['Terminal',    '/terminal'],
-            ['Modelos',     '/modelos'],
-            ['FIRE',        '/fire'],
-            ['Monte Carlo', '/montecarlo'],
-            ['Reportes',    '/reportes'],
-          ].map(([label, href]) => (
-            <Link
-              key={href}
-              href={href}
-              className="section-label text-text-dim hover:text-gold transition-colors duration-200"
-            >
-              {label}
-            </Link>
-          ))}
-          <Link
-            href="/reportes"
-            className="section-label px-4 py-2 bg-gold text-bg hover:bg-gold-glow transition-all duration-200"
-          >
-            PRO
-          </Link>
-        </div>
-      </div>
-    </nav>
   )
 }

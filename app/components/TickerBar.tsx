@@ -1,5 +1,6 @@
 'use client'
 
+// TODO: conectar a API real
 const tickers = [
   { sym: 'SPX', val: '5,234.18', chg: '+0.82%', up: true },
   { sym: 'NDX', val: '18,291.44', chg: '+1.12%', up: true },

@@ -22,6 +22,7 @@ export default function Footer() {
                 <a
                   key={s}
                   href="#"
+                  rel="noopener noreferrer"
                   className="terminal-text text-xs text-text-dim hover:text-gold transition-colors"
                 >
                   {s}

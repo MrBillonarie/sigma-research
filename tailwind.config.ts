@@ -15,7 +15,7 @@ const config: Config = {
         'gold-glow': '#f0cc5a',
         surface: '#0b0d14',
         border: '#1a1d2e',
-        muted: '#3a3f55',
+        muted: '#5a6078',
         text: '#e8e9f0',
         'text-dim': '#7a7f9a',
       },
