@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 
 const tiers = [
   {
@@ -14,6 +15,7 @@ const tiers = [
       'Alertas: 3/día',
     ],
     cta: 'CREAR CUENTA',
+    href: '/registro',
     highlight: false,
   },
   {
@@ -30,6 +32,7 @@ const tiers = [
       'FIRE Monte Carlo completo',
     ],
     cta: 'EMPEZAR PRO',
+    href: '/registro',
     highlight: true,
   },
   {
@@ -46,6 +49,7 @@ const tiers = [
       'Soporte dedicado',
     ],
     cta: 'CONTACTAR',
+    href: 'mailto:contacto@sigma-research.io',
     highlight: false,
   },
 ]
@@ -116,8 +120,8 @@ export default function Cta() {
                 ))}
               </ul>
 
-              <a
-                href="#"
+              <Link
+                href={tier.href}
                 className={`text-center display-heading text-xl tracking-widest py-3 transition-all duration-200 ${
                   tier.highlight
                     ? 'bg-gold text-bg hover:bg-gold-glow shadow-gold-lg'
@@ -125,7 +129,7 @@ export default function Cta() {
                 }`}
               >
                 {tier.cta}
-              </a>
+              </Link>
             </div>
           ))}
         </div>
