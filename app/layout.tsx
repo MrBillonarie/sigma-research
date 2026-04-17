@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import { Bebas_Neue, DM_Mono } from 'next/font/google'
 import './globals.css'
-import Navbar from './components/Navbar'
-import Footer from './components/Footer'
+import ConditionalShell from './components/ConditionalShell'
 
 const bebasNeue = Bebas_Neue({
   weight: '400',
@@ -68,9 +67,9 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className={`${bebasNeue.variable} ${dmMono.variable} bg-bg text-text antialiased`}>
-        <Navbar />
-        {children}
-        <Footer />
+        <ConditionalShell>
+          {children}
+        </ConditionalShell>
       </body>
     </html>
   )
