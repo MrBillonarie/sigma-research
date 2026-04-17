@@ -116,6 +116,16 @@ export default function Navbar() {
             )}
           </div>
 
+          {/* LOGIN */}
+          <Link
+            href="/login"
+            className={`section-label transition-colors duration-200 ${
+              isActive('/login') ? 'text-gold' : 'text-text-dim hover:text-gold'
+            }`}
+          >
+            LOGIN
+          </Link>
+
           {/* Acceso CTA */}
           <a
             href={hashHref('#cta')}
@@ -185,6 +195,17 @@ export default function Navbar() {
               ))}
             </div>
           )}
+
+          {/* LOGIN */}
+          <Link
+            href="/login"
+            className={`section-label transition-colors ${
+              isActive('/login') ? 'text-gold' : 'text-text-dim hover:text-gold'
+            }`}
+            onClick={() => setMenuOpen(false)}
+          >
+            LOGIN
+          </Link>
 
           {/* Acceso CTA */}
           <a
