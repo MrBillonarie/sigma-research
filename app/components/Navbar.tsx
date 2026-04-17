@@ -97,7 +97,8 @@ export default function Navbar() {
             </button>
 
             {desktopDropdown && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 bg-surface border border-border py-1">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 w-44 pt-2">
+              <div className="bg-surface border border-border py-1">
                 {companyLinks.map(l => (
                   <Link
                     key={l.href}
@@ -112,6 +113,7 @@ export default function Navbar() {
                     {l.label}
                   </Link>
                 ))}
+              </div>
               </div>
             )}
           </div>
