@@ -3,7 +3,6 @@ import Products from './components/Products'
 import FireSimulator from './components/FireSimulator'
 import Models from './components/Models'
 import Cta from './components/Cta'
-import Footer from './components/Footer'
 
 export default function Home() {
   return (
@@ -13,7 +12,6 @@ export default function Home() {
       <FireSimulator />
       <Models />
       <Cta />
-      <Footer />
     </main>
   )
 }
