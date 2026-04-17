@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useDeferredValue } from 'react'
+import { useState, useMemo, useDeferredValue, useEffect } from 'react'
 
 function monteCarlo(
   capital: number,
@@ -55,6 +55,9 @@ export default function FireSimulator() {
   const [inflacion, setInflacion] = useState(3)
   const [edad, setEdad] = useState(28)
 
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   const params = useMemo(
     () => ({ capital, ahorro, gasto, retorno, inflacion, edad }),
     [capital, ahorro, gasto, retorno, inflacion, edad]
@@ -65,17 +68,13 @@ export default function FireSimulator() {
   const result = useMemo(() => {
     const { capital, ahorro, gasto, retorno, inflacion, edad } = deferred
     const años = fireAge(capital, ahorro, retorno / 100, gasto)
-    const mc = monteCarlo(
-      capital + ahorro * 12 * años,
-      gasto,
-      retorno / 100,
-      inflacion / 100,
-      30
-    )
+    const mc = mounted
+      ? monteCarlo(capital + ahorro * 12 * años, gasto, retorno / 100, inflacion / 100, 30)
+      : { exito: 0, mediana: 0, percentil10: 0 }
     const metaFire = (gasto * 12) / 0.04
     const progressPct = Math.min((capital / metaFire) * 100, 100)
     return { años, mc, metaFire, progressPct, edadFire: edad + años }
-  }, [deferred])
+  }, [deferred, mounted])
 
   const fmt = (n: number) =>
     n >= 1_000_000
