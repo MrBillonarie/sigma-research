@@ -4,12 +4,12 @@ import TickerBar from './TickerBar'
 import StatBar from './StatBar'
 
 const metrics = [
-  { label: 'Sharpe Ratio', value: '2.41', unit: '', prefix: '' },
-  { label: 'Alpha Anual', value: '18.7', unit: '%', prefix: '' },
-  { label: 'Max Drawdown', value: '-4.2', unit: '%', prefix: '' },
-  { label: 'Win Rate', value: '67.3', unit: '%', prefix: '' },
-  { label: 'Calmar Ratio', value: '4.45', unit: '', prefix: '' },
-  { label: 'Beta SPX', value: '0.12', unit: '', prefix: '' },
+  { label: 'Sharpe Ratio',  value: '10.25', unit: '',  prefix: '' },
+  { label: 'Win Rate',      value: '85.2',  unit: '%', prefix: '' },
+  { label: 'Profit Factor', value: '4.16',  unit: 'x', prefix: '' },
+  { label: 'Max Drawdown',  value: '-11.8', unit: '%', prefix: '' },
+  { label: 'Expectancy',    value: '2.34',  unit: '',  prefix: '+$' },
+  { label: 'Total Trades',  value: '122',   unit: '',  prefix: '' },
 ]
 
 function AnimatedNumber({ target, decimals = 2 }: { target: number; decimals?: number }) {
@@ -75,7 +75,7 @@ export default function Hero() {
             className="section-label text-gold mb-4 animate-fade-up"
             style={{ animationDelay: '0ms' }}
           >
-            {'// SIGMA RESEARCH v2.4.1'}
+            {'// PRO.MACD v116 · Feb–Abr 2026 · 122 trades'}
           </div>
           <h1 className="display-heading text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[9rem] 2xl:text-[10rem] leading-none mb-4 overflow-hidden">
             <span

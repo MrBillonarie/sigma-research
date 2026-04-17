@@ -1,425 +1,481 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import Link from 'next/link'
-import dynamic from 'next/dynamic'
-import type { SimResult } from './types'
+import { useState, useCallback, useEffect } from 'react'
+import { Line } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale, PointElement, LineElement,
+  Filler, Tooltip, Legend,
+} from 'chart.js'
+import { fmt } from '../lib/format'
 
-// Load Chart.js only on the client — prevents SSR crash (window/document undefined)
-const McChart = dynamic(() => import('./McChart'), {
-  ssr: false,
-  loading: () => (
-    <div style={{ height: 440, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#04050a' }}>
-      <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#7a7f9a' }}>Cargando gráfico…</span>
-    </div>
-  ),
-})
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
-// ─── Palette ──────────────────────────────────────────────────────────────────
-const C = {
-  bg:      '#04050a',
-  surface: '#0b0d14',
-  border:  '#1a1d2e',
-  muted:   '#3a3f55',
-  dimText: '#7a7f9a',
-  text:    '#e8e9f0',
-  gold:    '#d4af37',
-  glow:    '#f0cc5a',
-  green:   '#34d399',
-  red:     '#f87171',
-  yellow:  '#fbbf24',
-} as const
+// ── Simulation types ──────────────────────────────────────────────────────────
+interface YearlyPercentiles {
+  p10: number; p25: number; p50: number; p75: number; p90: number
+}
 
-// ─── GBM Monte Carlo engine ───────────────────────────────────────────────────
-function normalZ(): number {
-  // Box-Muller transform
+interface SimOutput {
+  yearly:    YearlyPercentiles[]   // index = year (0..años)
+  finalVals: number[]
+  tasa:      number                // % capital > 0 at end
+  max:       number
+  min:       number
+}
+
+// ── Box-Muller N(0,1) ─────────────────────────────────────────────────────────
+function gauss(): number {
   let u = 0, v = 0
   while (!u) u = Math.random()
   while (!v) v = Math.random()
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v)
 }
 
+// ── GBM Monte Carlo engine ────────────────────────────────────────────────────
+// Annual GBM: S(t+1) = S(t) · exp((μ − σ²/2) + σ·Z) + aporte_anual_real
 function simulate(
-  capital:  number,
-  μMonthly: number,   // decimal e.g. 0.007
-  σMonthly: number,   // decimal e.g. 0.045
-  years:    number,
-  n:        number,
-  target:   number,
-): SimResult {
-  const steps = years * 12
-  const drift = μMonthly - 0.5 * σMonthly * σMonthly
+  capital:     number,   // $
+  aporteAnual: number,   // $ / año (aporte mensual × 12)
+  retorno:     number,   // decimal (e.g. 0.18)
+  volatilidad: number,   // decimal (e.g. 0.25)
+  inflacion:   number,   // decimal (e.g. 0.03)
+  años:        number,
+  n:           number,
+): SimOutput {
+  const drift = retorno - 0.5 * volatilidad * volatilidad
 
-  // Allocate all paths
-  const all = new Array<Float32Array>(n)
+  // Store column per year for percentile computation
+  const cols: Float64Array[] = Array.from({ length: años + 1 }, () => new Float64Array(n))
+  const finals = new Float64Array(n)
+
   for (let i = 0; i < n; i++) {
-    all[i] = new Float32Array(steps + 1)
-    all[i][0] = capital
-    let v = capital
-    for (let t = 1; t <= steps; t++) {
-      v = v * Math.exp(drift + σMonthly * normalZ())
-      all[i][t] = v < 0 ? 0 : v        // floor at 0
+    let c = capital
+    cols[0][i] = c
+    for (let y = 1; y <= años; y++) {
+      c = c * Math.exp(drift + volatilidad * gauss())
+      // Inflation-adjusted contribution: aporte grows with inflation
+      c += aporteAnual * Math.pow(1 + inflacion, y - 1)
+      if (c < 0) c = 0
+      cols[y][i] = c
     }
+    finals[i] = c
   }
 
-  // Percentiles at each step
-  const p10 = new Array<number>(steps + 1)
-  const p50 = new Array<number>(steps + 1)
-  const p90 = new Array<number>(steps + 1)
-  const col = new Float32Array(n)
-  for (let t = 0; t <= steps; t++) {
-    for (let i = 0; i < n; i++) col[i] = all[i][t]
-    col.sort()                           // Float32Array.sort() is numeric by default
-    p10[t] = col[Math.floor(n * 0.10)]
-    p50[t] = col[Math.floor(n * 0.50)]
-    p90[t] = col[Math.floor(n * 0.90)]
+  // Percentiles at each year
+  const yearly: YearlyPercentiles[] = cols.map(col => {
+    const s = col.slice().sort()
+    return {
+      p10: s[Math.floor(n * 0.10)],
+      p25: s[Math.floor(n * 0.25)],
+      p50: s[Math.floor(n * 0.50)],
+      p75: s[Math.floor(n * 0.75)],
+      p90: s[Math.floor(n * 0.90)],
+    }
+  })
+
+  const sortedFinals = finals.slice().sort()
+  const positivos    = Array.from(finals).filter(v => v > 0).length
+
+  return {
+    yearly,
+    finalVals: Array.from(finals),
+    tasa: (positivos / n) * 100,
+    max:  sortedFinals[n - 1],
+    min:  sortedFinals[0],
   }
-
-  // Sample ~60 evenly-spaced paths for visual rendering
-  const stride = Math.max(1, Math.floor(n / 60))
-  const samplePaths: number[][] = []
-  for (let i = 0; i < n; i += stride) {
-    samplePaths.push(Array.from(all[i]))
-  }
-
-  const finalVals = all.map(path => path[steps])
-  const probTarget = target > 0
-    ? (finalVals.filter(v => v >= target).length / n) * 100
-    : 0
-
-  // X-axis labels: show "0Y", "1Y", ... at each 12-step mark; blank otherwise
-  const labels: string[] = []
-  for (let t = 0; t <= steps; t++) {
-    labels.push(t % 12 === 0 ? `${t / 12}Y` : '')
-  }
-
-  return { samplePaths, p10, p50, p90, probTarget, finalVals: Array.from(finalVals), labels }
 }
 
-// ─── Formatters ───────────────────────────────────────────────────────────────
+// ── Formatters ────────────────────────────────────────────────────────────────
 const fmtShort = (v: number) =>
-  v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
+  v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M`
+  : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K`
+  : `$${v.toFixed(0)}`
 
-const fmtFull = (v: number) =>
-  v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
-
-// ─── Slider ───────────────────────────────────────────────────────────────────
+// ── Slider component ──────────────────────────────────────────────────────────
 function Slider({
-  label, value, min, max, step, display,
-  onChange,
+  label, value, min, max, step, display, onChange,
 }: {
   label: string; value: number; min: number; max: number
   step: number; display: string; onChange: (v: number) => void
 }) {
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>
-          {label}
-        </span>
-        <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.gold, fontWeight: 500 }}>
-          {display}
-        </span>
+      <div className="flex justify-between items-center mb-2">
+        <label className="section-label text-text-dim">{label}</label>
+        <span className="terminal-text text-gold text-sm num tabular-nums">{display}</span>
       </div>
       <input
-        type="range"
-        min={min} max={max} step={step} value={value}
+        type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(Number(e.target.value))}
-        style={{ width: '100%', accentColor: C.gold, cursor: 'pointer' }}
+        className="w-full h-1 bg-border rounded-lg appearance-none cursor-pointer accent-gold"
+        aria-label={label}
       />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 2 }}>
+      <div className="flex justify-between terminal-text text-xs text-muted mt-1">
         <span>{min}</span><span>{max}</span>
       </div>
     </div>
   )
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
+// ── Stat card ─────────────────────────────────────────────────────────────────
+function StatCard({
+  label, value, sub, color,
+}: { label: string; value: string; sub: string; color: string }) {
   return (
-    <div style={{ background: C.surface, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>
-        {label}
-      </div>
-      <div style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif", fontSize: 34, color, lineHeight: 1 }}>
-        {value}
-      </div>
-      <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, marginTop: 4 }}>
-        {sub}
-      </div>
+    <div className="bg-surface p-4 sm:p-5">
+      <div className="section-label text-text-dim text-xs mb-1">{label}</div>
+      <div className={`display-heading text-3xl num tabular-nums ${color}`}>{value}</div>
+      <div className="terminal-text text-xs text-muted mt-1">{sub}</div>
     </div>
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function MonteCarloPage() {
-  const [capital,  setCapital]  = useState(50_000)
-  const [μPct,     setMu]       = useState(0.70)
-  const [σPct,     setSigma]    = useState(4.50)
-  const [years,    setYears]    = useState(20)
-  const [nSims,    setNSims]    = useState(2000)
-  const [targetM,  setTargetM]  = useState(1.0)
-  const [result,   setResult]   = useState<SimResult | null>(null)
-  const [running,  setRunning]  = useState(false)
-  const [scrolled, setScrolled] = useState(false)
+  // Parameters
+  const [capital,     setCapital]     = useState(71_090)
+  const [aporteMes,   setAporteMes]   = useState(1_500)
+  const [retorno,     setRetorno]     = useState(18)
+  const [volatilidad, setVolatilidad] = useState(25)
+  const [inflacion,   setInflacion]   = useState(3)
+  const [años,        setAños]        = useState(30)
+  const [nSims,       setNSims]       = useState(5_000)
 
-  const target = targetM * 1_000_000
+  // Simulation state
+  const [result,  setResult]  = useState<SimOutput | null>(null)
+  const [running, setRunning] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 30)
-    window.addEventListener('scroll', fn)
-    return () => window.removeEventListener('scroll', fn)
-  }, [])
+  useEffect(() => { setMounted(true) }, [])
 
   const runSim = useCallback(() => {
     setRunning(true)
-    // Defer to next tick so React can re-render the loading state first
     setTimeout(() => {
       try {
-        const res = simulate(capital, μPct / 100, σPct / 100, years, nSims, target)
-        setResult(res)
+        const out = simulate(
+          capital,
+          aporteMes * 12,
+          retorno     / 100,
+          volatilidad / 100,
+          inflacion   / 100,
+          años,
+          nSims,
+        )
+        setResult(out)
       } finally {
         setRunning(false)
       }
     }, 0)
-  }, [capital, μPct, σPct, years, nSims, target])
+  }, [capital, aporteMes, retorno, volatilidad, inflacion, años, nSims])
 
-  // Auto-run on first mount
-  useEffect(() => { runSim() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Auto-run on mount
+  useEffect(() => { if (mounted) runSim() }, [mounted]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const stats = useMemo(() => {
-    if (!result) return null
-    const steps = years * 12
-    const annualReturn = (Math.pow(1 + μPct / 100, 12) - 1) * 100
-    const annualVol    = σPct * Math.sqrt(12)
-    const sharpe       = annualVol > 0 ? (annualReturn - 4.5) / annualVol : 0
-    return {
-      p10: result.p10[steps],
-      p50: result.p50[steps],
-      p90: result.p90[steps],
-      prob: result.probTarget,
-      annualReturn,
-      annualVol,
-      sharpe,
-    }
-  }, [result, years, μPct, σPct])
+  // ── Derived stats ──────────────────────────────────────────────────────────
+  const stats = result ? {
+    p10: result.yearly[años].p10,
+    p25: result.yearly[años].p25,
+    p50: result.yearly[años].p50,
+    p75: result.yearly[años].p75,
+    p90: result.yearly[años].p90,
+  } : null
+
+  // ── Chart data ──────────────────────────────────────────────────────────────
+  const xLabels = Array.from({ length: años + 1 }, (_, i) => `Año ${i}`)
+
+  const chartData = result ? {
+    labels: xLabels,
+    datasets: [
+      {
+        label: 'P90',
+        data: result.yearly.map(y => y.p90),
+        borderColor: '#34d399',
+        backgroundColor: 'rgba(52,211,153,0.06)',
+        borderWidth: 1.5,
+        fill: '+3',
+        tension: 0.4,
+        pointRadius: 0,
+      },
+      {
+        label: 'P75',
+        data: result.yearly.map(y => y.p75),
+        borderColor: '#86efac',
+        backgroundColor: 'rgba(134,239,172,0.06)',
+        borderWidth: 1,
+        fill: '+1',
+        tension: 0.4,
+        pointRadius: 0,
+        borderDash: [4, 3],
+      },
+      {
+        label: 'P50 (Mediana)',
+        data: result.yearly.map(y => y.p50),
+        borderColor: '#d4af37',
+        backgroundColor: 'rgba(212,175,55,0.08)',
+        borderWidth: 2.5,
+        fill: false,
+        tension: 0.4,
+        pointRadius: 0,
+      },
+      {
+        label: 'P25',
+        data: result.yearly.map(y => y.p25),
+        borderColor: '#fb923c',
+        backgroundColor: 'rgba(251,146,60,0.04)',
+        borderWidth: 1,
+        fill: '-1',
+        tension: 0.4,
+        pointRadius: 0,
+        borderDash: [4, 3],
+      },
+      {
+        label: 'P10',
+        data: result.yearly.map(y => y.p10),
+        borderColor: '#f87171',
+        backgroundColor: 'rgba(248,113,113,0.04)',
+        borderWidth: 1.5,
+        fill: '-1',
+        tension: 0.4,
+        pointRadius: 0,
+      },
+    ],
+  } : null
+
+  const chartOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index' as const, intersect: false },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top' as const,
+        align: 'start' as const,
+        labels: {
+          color: '#9298b8',
+          font: { family: 'monospace', size: 10 },
+          boxWidth: 14,
+          padding: 12,
+        },
+      },
+      tooltip: {
+        backgroundColor: '#0b0d14',
+        borderColor: '#1a1d2e',
+        borderWidth: 1,
+        titleColor: '#9298b8',
+        bodyColor: '#e8e9f0',
+        callbacks: {
+          label: (ctx: { dataset: { label?: string }; parsed: { y: number | null } }) =>
+            ` ${ctx.dataset.label}: ${fmtShort(ctx.parsed.y ?? 0)}`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(26,29,46,0.5)', display: true },
+        ticks: {
+          color: '#9298b8',
+          font: { family: 'monospace', size: 10 },
+          maxTicksLimit: 10,
+          callback: (_: unknown, i: number) => (i % 5 === 0 ? `Año ${i}` : ''),
+        },
+        border: { color: '#1a1d2e' },
+      },
+      y: {
+        grid: { color: 'rgba(26,29,46,0.6)' },
+        ticks: {
+          color: '#9298b8',
+          font: { family: 'monospace', size: 10 },
+          callback: (v: number | string) => fmtShort(Number(v)),
+        },
+        border: { color: '#1a1d2e' },
+      },
+    },
+  } as const
+
+  // ── Percentile table (every 5 years) ──────────────────────────────────────
+  const tableRows = result
+    ? Array.from({ length: Math.floor(años / 5) + 1 }, (_, i) => {
+        const y = Math.min(i * 5, años)
+        return { y, ...result.yearly[y] }
+      })
+    : []
+
+  // ── Success rate color ─────────────────────────────────────────────────────
+  function taColor(t: number) {
+    return t >= 80 ? 'text-emerald-400' : t >= 60 ? 'text-yellow-400' : 'text-red-400'
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
+    <div className="min-h-screen bg-bg text-text">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 pt-24 pb-16">
 
-      {/* ── Navbar ── */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-        background: scrolled ? 'rgba(4,5,10,0.96)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
-        borderBottom: `1px solid ${scrolled ? C.border : 'transparent'}`,
-        transition: 'all 0.3s',
-      }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
-            <div style={{ width: 28, height: 28, border: `1px solid ${C.gold}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact", color: C.gold, fontSize: 14, lineHeight: 1 }}>Σ</span>
-            </div>
-            <span style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif", fontSize: 18, letterSpacing: '0.18em', color: C.text }}>
-              SIGMA RESEARCH
-            </span>
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-            {([['Inicio', '/'], ['FIRE', '/#fire'], ['Modelos', '/#modelos']] as [string, string][]).map(([l, h]) => (
-              <Link key={h} href={h} style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.dimText, textDecoration: 'none' }}>
-                {l}
-              </Link>
-            ))}
-            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.gold, borderBottom: `1px solid ${C.gold}`, paddingBottom: 2 }}>
-              Monte Carlo
-            </span>
-          </div>
-        </div>
-      </nav>
-
-      {/* ── Main content ── */}
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '96px 24px 64px' }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: 40 }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 12 }}>
-            {'// SIMULACIÓN ESTOCÁSTICA · GBM · BOX-MULLER'}
-          </div>
-          <h1 style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif", fontSize: 'clamp(52px, 8vw, 100px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
-            <span style={{ color: C.text }}>MONTE CARLO</span><br />
-            <span style={{
-              background: `linear-gradient(135deg, ${C.gold} 0%, ${C.glow} 50%, #a88c25 100%)`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            }}>SIMULATOR</span>
+        {/* ── Header ──────────────────────────────────────────────────── */}
+        <div className="mb-10">
+          <div className="section-label text-gold mb-3">{'// SIMULACIÓN MONTE CARLO'}</div>
+          <h1 className="display-heading leading-none text-text" style={{ fontSize: 'clamp(52px,7vw,96px)' }}>
+            MOTOR{' '}
+            <span className="gold-text">PROBABILÍSTICO</span>
           </h1>
-          <p style={{ fontFamily: 'monospace', fontSize: 13, color: C.dimText, marginTop: 16, maxWidth: 620, lineHeight: 1.7 }}>
-            Cada trayectoria sigue el GBM:&nbsp;
-            <code style={{ color: C.gold, background: 'rgba(212,175,55,0.08)', padding: '1px 6px' }}>
-              S(t+Δt) = S(t) · exp((μ − σ²/2)Δt + σ√Δt · Z)
-            </code>
-            &nbsp;con Z~N(0,1) generado por Box-Muller, Δt = 1 mes.
+          <p className="terminal-text text-text-dim mt-4 max-w-2xl">
+            Cada trayectoria sigue el GBM lognormal:{' '}
+            <code className="text-gold bg-gold/5 px-1.5 py-0.5 font-mono text-xs">
+              S(t+1) = S(t) · exp((μ − σ²/2) + σ·Z) + aporte
+            </code>{' '}
+            con Z~N(0,1) via Box-Muller, Δt = 1 año.
           </p>
         </div>
 
-        {/* Grid: controls | chart */}
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 1, background: C.border }}>
+        {/* ── Two-column layout ────────────────────────────────────────── */}
+        <div className="grid xl:grid-cols-[320px_1fr] gap-px bg-border mb-px">
 
-          {/* ── Controls panel ── */}
-          <div style={{ background: C.surface, padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold }}>
-              PARÁMETROS
+          {/* ── Controls panel ─────────────────────────────────────────── */}
+          <div className="bg-surface p-6 flex flex-col gap-5">
+            <div className="section-label text-gold text-xs">PARÁMETROS</div>
+
+            <Slider label="Capital inicial"       value={capital}     min={0}  max={2_000_000} step={5_000}  display={fmt(capital)}              onChange={setCapital} />
+            <Slider label="Aporte mensual"        value={aporteMes}   min={0}  max={20_000}    step={100}    display={fmt(aporteMes)}             onChange={setAporteMes} />
+            <Slider label="Retorno anual esp."    value={retorno}     min={1}  max={30}        step={0.5}    display={`${retorno}%`}              onChange={setRetorno} />
+            <Slider label="Volatilidad anual"     value={volatilidad} min={1}  max={60}        step={0.5}    display={`${volatilidad}%`}          onChange={setVolatilidad} />
+            <Slider label="Inflación anual"       value={inflacion}   min={0}  max={10}        step={0.5}    display={`${inflacion}%`}            onChange={setInflacion} />
+            <Slider label="Años de simulación"    value={años}        min={5}  max={50}        step={1}      display={`${años} años`}             onChange={setAños} />
+
+            {/* N° simulaciones selector */}
+            <div>
+              <div className="section-label text-text-dim mb-2">N° SIMULACIONES</div>
+              <div className="flex gap-1">
+                {[1_000, 5_000, 10_000].map(n => (
+                  <button key={n} onClick={() => setNSims(n)}
+                    className={`flex-1 py-2 section-label text-xs transition-colors ${
+                      nSims === n
+                        ? 'bg-gold text-bg'
+                        : 'bg-bg border border-border text-text-dim hover:border-gold/30 hover:text-gold'
+                    }`}>
+                    {n.toLocaleString()}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <Slider label="Capital inicial" value={capital} min={5000} max={500000} step={5000}
-              display={fmtFull(capital)} onChange={setCapital} />
-
-            <Slider label="Retorno mensual μ" value={μPct} min={0} max={3} step={0.05}
-              display={`${μPct.toFixed(2)}% / mes`} onChange={setMu} />
-
-            <Slider label="Volatilidad mensual σ" value={σPct} min={0.5} max={20} step={0.25}
-              display={`${σPct.toFixed(2)}% / mes`} onChange={setSigma} />
-
-            <Slider label="Horizonte" value={years} min={1} max={40} step={1}
-              display={`${years} años`} onChange={setYears} />
-
-            <Slider label="N° simulaciones" value={nSims} min={1000} max={10000} step={500}
-              display={nSims.toLocaleString()} onChange={setNSims} />
-
-            <Slider label="Objetivo FIRE" value={targetM} min={0.1} max={5} step={0.1}
-              display={`$${targetM.toFixed(1)}M`} onChange={setTargetM} />
-
-            {/* Derived annuals */}
-            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 2 }}>
-                EQUIVALENTE ANUAL
-              </div>
+            {/* Derived stats */}
+            <div className="border-t border-border pt-4 flex flex-col gap-2">
+              <div className="section-label text-text-dim text-xs mb-1">PARÁMETROS IMPLÍCITOS</div>
               {[
-                ['Retorno anual', `${((Math.pow(1 + μPct/100, 12) - 1) * 100).toFixed(2)}%`],
-                ['Volatilidad anual', `${(σPct * Math.sqrt(12)).toFixed(2)}%`],
-                ['Sharpe implícito (rf=4.5%)', (() => {
-                  const aR = (Math.pow(1 + μPct/100, 12) - 1) * 100
-                  const aV = σPct * Math.sqrt(12)
-                  return aV > 0 ? ((aR - 4.5) / aV).toFixed(2) : '—'
-                })()],
+                ['Aporte anual',       fmt(aporteMes * 12)],
+                ['Retorno real',       `${(retorno - inflacion).toFixed(1)}%`],
+                ['Retorno ajust. σ',   `${(retorno - 0.5 * (volatilidad ** 2) / 100).toFixed(2)}%`],
+                ['Sharpe implícito',   volatilidad > 0 ? ((retorno - 4.5) / volatilidad).toFixed(2) : '—'],
               ].map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 11, gap: 8 }}>
-                  <span style={{ color: C.dimText }}>{k}</span>
-                  <span style={{ color: C.gold, whiteSpace: 'nowrap' }}>{v}</span>
+                <div key={k} className="flex justify-between">
+                  <span className="terminal-text text-xs text-text-dim">{k}</span>
+                  <span className="terminal-text text-xs text-gold num tabular-nums">{v}</span>
                 </div>
               ))}
             </div>
 
-            {/* SIMULAR button */}
+            {/* Simulate button */}
             <button
               onClick={runSim}
               disabled={running}
-              style={{
-                marginTop: 4,
-                padding: '14px 0',
-                background: running ? C.border : C.gold,
-                color: running ? C.dimText : C.bg,
-                border: 'none',
-                cursor: running ? 'wait' : 'pointer',
-                fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif",
-                fontSize: 22,
-                letterSpacing: '0.15em',
-                transition: 'background 0.15s, box-shadow 0.15s',
-                boxShadow: running ? 'none' : `0 0 20px rgba(212,175,55,0.25)`,
-              }}
-              onMouseEnter={e => { if (!running) (e.target as HTMLButtonElement).style.background = C.glow }}
-              onMouseLeave={e => { if (!running) (e.target as HTMLButtonElement).style.background = C.gold }}
+              className={`mt-1 py-3 display-heading text-xl tracking-widest transition-colors ${
+                running
+                  ? 'bg-border text-muted cursor-wait'
+                  : 'bg-gold text-bg hover:bg-gold-glow shadow-gold'
+              }`}
             >
               {running ? 'SIMULANDO…' : `SIMULAR ${nSims.toLocaleString()}`}
             </button>
           </div>
 
-          {/* ── Chart + stats panel ── */}
-          <div style={{ background: C.bg, display: 'flex', flexDirection: 'column' }}>
+          {/* ── Chart + stats panel ────────────────────────────────────── */}
+          <div className="bg-bg flex flex-col">
 
             {/* Chart header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}` }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.dimText }}>
-                TRAYECTORIAS GBM
-              </span>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+              <span className="section-label text-text-dim text-xs">FAN CHART · PERCENTILES P10 / P25 / P50 / P75 / P90</span>
               {running && (
-                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.gold }}>
-                  ⟳ EJECUTANDO {nSims.toLocaleString()} SIMULACIONES…
+                <span className="terminal-text text-xs text-gold animate-pulse">
+                  ⟳ {nSims.toLocaleString()} TRAYECTORIAS…
                 </span>
               )}
             </div>
 
-            {/* Chart — dynamic loaded, no SSR */}
-            {result && !running ? (
-              <McChart result={result} capital={capital} target={target} years={years} nSims={nSims} />
-            ) : running ? (
-              <div style={{ height: 440, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: C.bg }}>
-                <div style={{ width: 48, height: 48, border: `2px solid ${C.border}`, borderTopColor: C.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>
-                  Generando {nSims.toLocaleString()} × {years * 12} trayectorias GBM…
-                </span>
-                <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-              </div>
-            ) : (
-              <div style={{ height: 440, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>
-                  Ajusta parámetros y presiona SIMULAR
-                </span>
-              </div>
-            )}
-
-            {/* Stats grid */}
-            {stats && !running && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: C.border, borderTop: `1px solid ${C.border}` }}>
-                <StatCard
-                  label="P10 · Peor escenario"
-                  value={fmtShort(stats.p10)}
-                  sub={`peor 10% · año ${years}`}
-                  color={C.red}
-                />
-                <StatCard
-                  label="P50 · Capital mediano"
-                  value={fmtShort(stats.p50)}
-                  sub={`mediana · año ${years}`}
-                  color={C.gold}
-                />
-                <StatCard
-                  label="P90 · Mejor escenario"
-                  value={fmtShort(stats.p90)}
-                  sub={`mejor 10% · año ${years}`}
-                  color={C.green}
-                />
-                <StatCard
-                  label="Prob. Objetivo FIRE"
-                  value={`${stats.prob.toFixed(1)}%`}
-                  sub={`alcanzar ${fmtShort(target)}`}
-                  color={stats.prob >= 70 ? C.green : stats.prob >= 40 ? C.yellow : C.red}
-                />
-              </div>
-            )}
-
-            {/* Extended stats row */}
-            {stats && !running && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: C.border }}>
-                {[
-                  ['Retorno anual implícito',  `${stats.annualReturn.toFixed(2)}%`],
-                  ['Volatilidad anual (σ√12)', `${stats.annualVol.toFixed(2)}%`],
-                  ['Sharpe ratio implícito',   stats.sharpe.toFixed(3)],
-                ].map(([k, v]) => (
-                  <div key={k} style={{ background: C.surface, padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{k}</span>
-                    <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: C.gold }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Formula note */}
-            <div style={{ padding: '10px 18px', borderTop: `1px solid ${C.border}` }}>
-              <p style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted, margin: 0 }}>
-                GBM · drift = μ − σ²/2 · Float32Array · percentiles calculados sobre las {nSims.toLocaleString()} simulaciones completas · ~60 paths visibles
-              </p>
+            {/* Chart */}
+            <div className="p-4 h-80 sm:h-96 relative">
+              {running && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-bg z-10">
+                  <div className="w-10 h-10 border-2 border-border border-t-gold rounded-full animate-spin" />
+                  <span className="terminal-text text-xs text-text-dim">
+                    {nSims.toLocaleString()} × {años} trayectorias GBM…
+                  </span>
+                </div>
+              )}
+              {mounted && chartData && !running
+                ? <Line data={chartData} options={chartOpts} />
+                : !running && <div className="h-full flex items-center justify-center terminal-text text-xs text-muted">Ajusta parámetros y presiona SIMULAR</div>
+              }
             </div>
+
           </div>
         </div>
+
+        {/* ── Results grid ────────────────────────────────────────────── */}
+        {stats && !running && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border mb-px">
+            <StatCard label="TASA DE ÉXITO"      value={`${result!.tasa.toFixed(1)}%`}   sub="capital > 0 al final"   color={taColor(result!.tasa)} />
+            <StatCard label="MEDIANA FINAL"       value={fmtShort(stats.p50)}             sub={`año ${años} · P50`}    color="text-gold" />
+            <StatCard label="PEOR ESCENARIO P10"  value={fmtShort(stats.p10)}             sub={`año ${años} · P10`}    color="text-red-400" />
+            <StatCard label="MEJOR ESCENARIO P90" value={fmtShort(stats.p90)}             sub={`año ${años} · P90`}    color="text-emerald-400" />
+            <StatCard label="PERCENTIL 25"        value={fmtShort(stats.p25)}             sub={`año ${años} · P25`}    color="text-orange-400" />
+            <StatCard label="PERCENTIL 75"        value={fmtShort(stats.p75)}             sub={`año ${años} · P75`}    color="text-green-400" />
+            <StatCard label="MÁXIMO SIMULADO"     value={fmtShort(result!.max)}           sub={`de ${nSims.toLocaleString()} sims`} color="text-gold" />
+            <StatCard label="MÍNIMO SIMULADO"     value={fmtShort(result!.min)}           sub={`de ${nSims.toLocaleString()} sims`} color="text-red-400" />
+          </div>
+        )}
+
+        {/* ── Percentile table ────────────────────────────────────────── */}
+        {result && !running && (
+          <div className="bg-surface border border-border mb-6">
+            <div className="px-5 py-3 border-b border-border">
+              <div className="section-label text-gold text-xs">TABLA DE PERCENTILES · CADA 5 AÑOS</div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-border">
+                    {['AÑO', 'P10', 'P25', 'P50 MEDIANA', 'P75', 'P90'].map(h => (
+                      <th key={h} className="section-label text-text-dim text-xs font-normal text-right px-4 py-3 first:text-left">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row, i) => (
+                    <tr key={row.y} className={`border-b border-border hover:bg-gold/5 transition-colors ${i % 2 ? 'bg-gold/[0.015]' : ''}`}>
+                      <td className="terminal-text text-xs text-text-dim num px-4 py-3">Año {row.y}</td>
+                      <td className="terminal-text text-sm text-red-400    num tabular-nums text-right px-4 py-3">{fmtShort(row.p10)}</td>
+                      <td className="terminal-text text-sm text-orange-400 num tabular-nums text-right px-4 py-3">{fmtShort(row.p25)}</td>
+                      <td className="terminal-text text-sm text-gold       num tabular-nums text-right px-4 py-3 font-medium">{fmtShort(row.p50)}</td>
+                      <td className="terminal-text text-sm text-green-400  num tabular-nums text-right px-4 py-3">{fmtShort(row.p75)}</td>
+                      <td className="terminal-text text-sm text-emerald-400 num tabular-nums text-right px-4 py-3">{fmtShort(row.p90)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Methodology note ──────────────────────────────────────── */}
+        <div className="bg-surface border border-border/60 p-4">
+          <div className="section-label text-text-dim text-xs mb-2">METODOLOGÍA</div>
+          <p className="terminal-text text-xs text-muted leading-relaxed">
+            Simulación Monte Carlo lognormal · Box-Muller transform ·{' '}
+            <span className="text-gold">{nSims.toLocaleString()} trayectorias</span> ·
+            Retorno ajustado por volatilidad σ²/2 · Aportes indexados a inflación ·
+            GBM anual: <code className="text-gold/80">exp((μ − σ²/2) + σ·Z)</code> ·
+            Float64Array · percentiles calculados sobre población completa
+          </p>
+        </div>
+
       </div>
     </div>
   )
