@@ -17,7 +17,7 @@ const config: Config = {
         border: '#1a1d2e',
         muted: '#5a6078',
         text: '#e8e9f0',
-        'text-dim': '#7a7f9a',
+        'text-dim': '#9298b8',
       },
       fontFamily: {
         display: ['var(--font-bebas)', 'Impact', 'sans-serif'],

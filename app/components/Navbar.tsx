@@ -26,13 +26,20 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const onMouse = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDesktopDropdown(false)
       }
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setDesktopDropdown(false); setMenuOpen(false) }
+    }
+    document.addEventListener('mousedown', onMouse)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onMouse)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [])
 
   const hashHref = (anchor: string) => isHome ? anchor : `/${anchor}`
@@ -83,6 +90,8 @@ export default function Navbar() {
             onMouseLeave={() => setDesktopDropdown(false)}
           >
             <button
+              aria-expanded={desktopDropdown}
+              aria-haspopup="true"
               className={`section-label transition-colors duration-200 flex items-center gap-1 ${
                 companyLinks.some(l => isActive(l.href)) ? 'text-gold' : 'text-text-dim hover:text-gold'
               }`}
