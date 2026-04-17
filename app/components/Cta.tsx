@@ -49,7 +49,7 @@ const tiers = [
       'Soporte dedicado',
     ],
     cta: 'CONTACTAR',
-    href: 'mailto:contacto@sigma-research.io',
+    href: '/contacto',
     highlight: false,
   },
 ]
