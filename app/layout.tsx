@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Bebas_Neue, DM_Mono } from 'next/font/google'
 import './globals.css'
 import Navbar from './components/Navbar'
+import Footer from './components/Footer'
 
 const bebasNeue = Bebas_Neue({
   weight: '400',
@@ -69,6 +70,7 @@ export default function RootLayout({
       <body className={`${bebasNeue.variable} ${dmMono.variable} bg-bg text-text antialiased`}>
         <Navbar />
         {children}
+        <Footer />
       </body>
     </html>
   )
