@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { supabase } from '@/app/lib/supabase'
 import type { SimResult } from './types'
 
 // Load Chart.js only on the client — prevents SSR crash (window/document undefined)
@@ -150,6 +151,40 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   )
 }
 
+// ─── CSV parsing (Binance Trade History) ─────────────────────────────────────
+interface CsvStats { nTrades: number; mu: number; sigma: number; capital: number }
+
+function parseBinanceCsv(text: string): CsvStats | null {
+  const lines = text.trim().split('\n').filter(Boolean)
+  if (lines.length < 2) return null
+
+  // Find header
+  const header = lines[0].split(',').map(h => h.trim().replace(/"/g, '').toLowerCase())
+  const profitIdx = header.findIndex(h => h.includes('realized profit') || h === 'realizedprofit')
+  const amountIdx = header.findIndex(h => h === 'amount' || h.includes('total'))
+  if (profitIdx === -1 && amountIdx === -1) return null
+
+  const profits: number[] = []
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/"/g, ''))
+    const idx = profitIdx !== -1 ? profitIdx : amountIdx
+    const val = parseFloat(cols[idx] ?? '')
+    if (!isNaN(val)) profits.push(val)
+  }
+  if (profits.length < 3) return null
+
+  // Bucket by month to get monthly returns
+  const totalPnl = profits.reduce((a, b) => a + b, 0)
+  const meanR = totalPnl / profits.length
+  const variance = profits.reduce((a, p) => a + (p - meanR) ** 2, 0) / profits.length
+
+  const baseCapital = Math.max(1000, Math.abs(profits.reduce((a, b) => a + Math.abs(b), 0)) * 2)
+  const muPct   = (meanR / baseCapital) * 100
+  const sigPct  = (Math.sqrt(variance) / baseCapital) * 100
+
+  return { nTrades: profits.length, mu: Math.max(0, Math.min(3, muPct)), sigma: Math.max(0.5, Math.min(20, sigPct)), capital: baseCapital }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MonteCarloPage() {
   const [capital,  setCapital]  = useState(50_000)
@@ -162,6 +197,13 @@ export default function MonteCarloPage() {
   const [running,  setRunning]  = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
+  const [mode,      setMode]      = useState<'manual' | 'csv'>('manual')
+  const [csvStats,  setCsvStats]  = useState<CsvStats | null>(null)
+  const [csvError,  setCsvError]  = useState('')
+  const [saving,    setSaving]    = useState(false)
+  const [savedMsg,  setSavedMsg]  = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
   const target = targetM * 1_000_000
 
   useEffect(() => {
@@ -170,9 +212,28 @@ export default function MonteCarloPage() {
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
+  function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCsvError('')
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const text = ev.target?.result as string
+      const parsed = parseBinanceCsv(text)
+      if (!parsed) {
+        setCsvError('No se pudo leer el CSV. Asegúrate de que sea el historial de trades de Binance.')
+        return
+      }
+      setCsvStats(parsed)
+      setMu(parseFloat(parsed.mu.toFixed(3)))
+      setSigma(parseFloat(parsed.sigma.toFixed(3)))
+      setCapital(Math.round(parsed.capital / 1000) * 1000)
+    }
+    reader.readAsText(file)
+  }
+
   const runSim = useCallback(() => {
     setRunning(true)
-    // Defer to next tick so React can re-render the loading state first
     setTimeout(() => {
       try {
         const res = simulate(capital, μPct / 100, σPct / 100, years, nSims, target)
@@ -183,7 +244,6 @@ export default function MonteCarloPage() {
     }, 0)
   }, [capital, μPct, σPct, years, nSims, target])
 
-  // Auto-run on first mount
   useEffect(() => { runSim() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const stats = useMemo(() => {
@@ -202,6 +262,29 @@ export default function MonteCarloPage() {
       sharpe,
     }
   }, [result, years, μPct, σPct])
+
+  async function saveRun() {
+    if (!stats || !result) return
+    setSaving(true); setSavedMsg('')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('montecarlo_runs').insert({
+        user_id:       user.id,
+        modo:          mode,
+        capital,
+        n_trades:      csvStats?.nTrades ?? null,
+        anios:         years,
+        mu_mensual:    μPct,
+        sigma_mensual: σPct,
+        sharpe:        stats.sharpe,
+        var_95:        result.p10[years * 12],
+        p50_final:     stats.p50,
+        prob_objetivo: stats.prob,
+      })
+      setSavedMsg('Simulación guardada.')
+    }
+    setSaving(false)
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
@@ -269,6 +352,38 @@ export default function MonteCarloPage() {
               PARÁMETROS
             </div>
 
+            {/* Mode toggle */}
+            <div style={{ display: 'flex', gap: 1, background: C.border }}>
+              {(['manual', 'csv'] as const).map(m => (
+                <button key={m} onClick={() => setMode(m)}
+                  style={{ flex: 1, padding: '8px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', background: mode === m ? C.gold : C.surface, color: mode === m ? C.bg : C.dimText }}>
+                  {m === 'manual' ? 'MANUAL' : 'CSV BINANCE'}
+                </button>
+              ))}
+            </div>
+
+            {/* CSV upload section */}
+            {mode === 'csv' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, lineHeight: 1.6 }}>
+                  Sube tu historial de trades de Binance (CSV). Se calculan μ y σ reales a partir de los <em>Realized Profit</em>.
+                </div>
+                <button onClick={() => fileRef.current?.click()}
+                  style={{ padding: '10px', background: 'transparent', border: `1px dashed ${C.gold}60`, color: C.gold, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', cursor: 'pointer' }}>
+                  SELECCIONAR CSV
+                </button>
+                <input ref={fileRef} type="file" accept=".csv" onChange={handleCsvFile} style={{ display: 'none' }} />
+                {csvError && <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.red }}>{csvError}</div>}
+                {csvStats && (
+                  <div style={{ background: C.bg, padding: '10px 12px', border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.green }}>✓ CSV cargado — {csvStats.nTrades} trades</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>μ mensual: <span style={{ color: C.gold }}>{csvStats.mu.toFixed(3)}%</span></div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>σ mensual: <span style={{ color: C.gold }}>{csvStats.sigma.toFixed(3)}%</span></div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <Slider label="Capital inicial" value={capital} min={5000} max={500000} step={5000}
               display={fmtFull(capital)} onChange={setCapital} />
 
@@ -330,6 +445,17 @@ export default function MonteCarloPage() {
             >
               {running ? 'SIMULANDO…' : `SIMULAR ${nSims.toLocaleString()}`}
             </button>
+
+            {/* Save run */}
+            {result && !running && (
+              <div>
+                <button onClick={saveRun} disabled={saving}
+                  style={{ width: '100%', padding: '10px 0', background: 'transparent', color: C.gold, border: `1px solid ${C.gold}60`, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                  {saving ? 'GUARDANDO…' : 'GUARDAR SIMULACIÓN'}
+                </button>
+                {savedMsg && <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.green, marginTop: 6 }}>{savedMsg}</div>}
+              </div>
+            )}
           </div>
 
           {/* ── Chart + stats panel ── */}

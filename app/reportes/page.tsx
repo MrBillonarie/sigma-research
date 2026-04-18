@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/app/lib/supabase'
 
 const C = {
   bg: '#04050a', surface: '#0b0d14', border: '#1a1d2e',
@@ -48,10 +49,38 @@ const FAQ = [
   ['¿Hay prueba gratuita?', 'Puedes acceder al reporte de hace 2 meses de forma gratuita en la sección de archivos. Eso te da una idea precisa del contenido.'],
 ]
 
+interface ReporteRow {
+  id:          string
+  numero:      number
+  titulo:      string
+  fecha:       string
+  descripcion: string
+  url_pdf:     string
+}
+
 export default function ReportesPage() {
-  const [email, setEmail] = useState('')
+  const [email,     setEmail]     = useState('')
   const [submitted, setSubmitted] = useState(false)
-  const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [openFaq,   setOpenFaq]   = useState<number | null>(null)
+  const [reportes,  setReportes]  = useState<ReporteRow[]>([])
+  const [loadingR,  setLoadingR]  = useState(true)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) { setLoadingR(false); return }
+      setIsLoggedIn(true)
+      supabase
+        .from('reportes')
+        .select('id,numero,titulo,fecha,descripcion,url_pdf')
+        .eq('activo', true)
+        .order('numero', { ascending: false })
+        .then(({ data: rows }) => {
+          if (rows) setReportes(rows as ReporteRow[])
+          setLoadingR(false)
+        })
+    })
+  }, [])
 
   const handlePay = (plan: string) => {
     alert(`Redirigiendo a pago: ${plan}\n(Integración con Stripe/LemonSqueezy pendiente)`)
@@ -85,6 +114,47 @@ export default function ReportesPage() {
             ))}
           </div>
         </div>
+
+        {/* ── Mis Reportes (logged-in only) ── */}
+        {isLoggedIn && (
+          <div style={{ marginBottom: 1 }}>
+            <div style={{ background: C.surface, padding: '12px 22px', borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.gold }}>MIS REPORTES · DESCARGA</span>
+            </div>
+            {loadingR ? (
+              <div style={{ background: C.bg, padding: '32px', textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: C.muted }}>Cargando reportes…</div>
+            ) : reportes.length === 0 ? (
+              <div style={{ background: C.bg, padding: '32px', textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: C.muted }}>
+                Aún no hay reportes publicados. Recibirás acceso en cuanto se publique el primero.
+              </div>
+            ) : (
+              <div style={{ background: C.border, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {reportes.map(r => (
+                  <div key={r.id} style={{ background: C.bg, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 32, color: C.gold, lineHeight: 1, minWidth: 44 }}>
+                      #{String(r.numero).padStart(3, '0')}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: 13, color: C.text, marginBottom: 4 }}>{r.titulo}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginBottom: 4 }}>{r.descripcion}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted }}>{r.fecha}</div>
+                    </div>
+                    {r.url_pdf ? (
+                      <a href={r.url_pdf} target="_blank" rel="noopener noreferrer"
+                        style={{ padding: '10px 22px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        DESCARGAR PDF
+                      </a>
+                    ) : (
+                      <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, border: `1px solid ${C.border}`, padding: '10px 22px' }}>
+                        PRÓXIMAMENTE
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Pricing ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>

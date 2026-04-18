@@ -1,22 +1,32 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/app/lib/supabase'
 
 export default function RecuperarPage() {
-  const [email,     setEmail]     = useState('')
-  const [error,     setError]     = useState('')
-  const [submitted, setSubmitted] = useState(false)
+  const [email,    setEmail]    = useState('')
+  const [error,    setError]    = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [done,     setDone]     = useState(false)
 
-  function handleSubmit(ev: React.FormEvent) {
+  async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Introduce un email válido.')
       return
     }
     setError('')
-    // TODO: conectar a API de autenticación
-    console.log({ email })
-    setSubmitted(true)
+    setLoading(true)
+    const { error: sbError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${location.origin}/auth/callback`,
+    })
+    setLoading(false)
+
+    if (sbError) {
+      setError(sbError.message)
+      return
+    }
+    setDone(true)
   }
 
   return (
@@ -38,12 +48,16 @@ export default function RecuperarPage() {
             Introduce tu email y te enviaremos un enlace para restablecer tu contraseña.
           </p>
 
-          {submitted ? (
-            <div className="border border-gold/30 bg-gold/5 px-4 py-4 flex flex-col gap-2">
+          {done ? (
+            <div className="flex flex-col gap-3 border border-gold/30 bg-gold/5 px-5 py-4">
               <p className="section-label text-gold">ENLACE ENVIADO</p>
               <p className="terminal-text text-text-dim text-sm">
                 Si existe una cuenta con ese email, recibirás las instrucciones en breve.
+                Revisa también tu carpeta de spam.
               </p>
+              <Link href="/login" className="terminal-text text-xs text-gold hover:text-gold-glow transition-colors mt-1">
+                ← Volver al login
+              </Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
@@ -52,6 +66,7 @@ export default function RecuperarPage() {
                 <input
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="operador@sigma.io"
@@ -62,9 +77,10 @@ export default function RecuperarPage() {
 
               <button
                 type="submit"
-                className="bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors duration-200"
+                disabled={loading}
+                className="bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                ENVIAR ENLACE
+                {loading ? 'ENVIANDO…' : 'ENVIAR ENLACE'}
               </button>
             </form>
           )}

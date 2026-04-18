@@ -1,18 +1,20 @@
 import Link from 'next/link'
 
-const plataforma = [
-  { label: 'Productos',       href: '/#productos' },
-  { label: 'FIRE Calculator', href: '/#fire' },
-  { label: 'Modelos ML',      href: '/#modelos' },
-  { label: 'Precios',         href: '/#cta' },
+const herramientas = [
+  { label: 'Terminal',    href: '/terminal'   },
+  { label: 'Modelos ML',  href: '/modelos'    },
+  { label: 'Monte Carlo', href: '/montecarlo' },
+  { label: 'LP DeFi',     href: '/lp-defi'    },
+  { label: 'Reportes',    href: '/reportes'   },
+  { label: 'FIRE',        href: '/fire'       },
 ]
 
 const empresa = [
   { label: 'Quiénes somos', href: '/quienes-somos' },
-  { label: 'Contacto',      href: '/contacto' },
-  { label: 'FAQ',           href: '/faq' },
-  { label: 'Términos',      href: '/terminos' },
-  { label: 'Privacidad',    href: '/privacidad' },
+  { label: 'Contacto',      href: '/contacto'       },
+  { label: 'FAQ',           href: '/faq'            },
+  { label: 'Términos',      href: '/terminos'       },
+  { label: 'Privacidad',    href: '/privacidad'     },
 ]
 
 const social = [
@@ -56,11 +58,11 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Plataforma */}
+          {/* Herramientas */}
           <div>
-            <div className="section-label text-gold mb-4">Plataforma</div>
+            <div className="section-label text-gold mb-4">Herramientas</div>
             <ul className="space-y-2.5">
-              {plataforma.map(l => (
+              {herramientas.map(l => (
                 <li key={l.href}>
                   <Link href={l.href} className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
                     {l.label}
