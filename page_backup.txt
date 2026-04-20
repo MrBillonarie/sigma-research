@@ -1,0 +1,536 @@
+﻿'use client'
+import { useState, useMemo, useEffect } from 'react'
+import { C } from '@/app/lib/constants'
+import {
+  DEPOSITOS, STAKING, DEFI_EARN, LP_POOLS, DIV_CRYPTO, DIV_TRADFI, BOTS,
+  RISK_COLOR, CATEGORY_ICON,
+  type PositionCategory, type RiskLevel,
+} from './data'
+import { calcMonthlyIncome, calcCompoundGrowth, calcWeightedAPY, calcIL } from './logic'
+
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+interface Position {
+  id: string
+  category: PositionCategory
+  nombre: string
+  capital: number
+  apy: number
+  plazo: string
+  risk: RiskLevel
+  url: string
+  vencimiento?: string
+  ingresoMensual: number
+  ingresoAnual: number
+}
+
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function fmt(n: number) { return n.toLocaleString('es-CL', { maximumFractionDigits: 0 }) }
+function fmtApy(n: number) { return n.toFixed(1) + '%' }
+
+function RiskBadge({ risk }: { risk: RiskLevel }) {
+  const color = RISK_COLOR[risk]
+  return (
+    <span style={{
+      fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
+      color, background: color + '18', padding: '2px 7px',
+    }}>
+      {risk}
+    </span>
+  )
+}
+
+function Label({ text }: { text: string }) {
+  return <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>{text}</div>
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 28, color: C.text, letterSpacing: '0.05em', marginBottom: 16 }}>
+      {children}
+    </div>
+  )
+}
+
+const TABS: PositionCategory[] = ['DepÃ³sito', 'Staking', 'DeFi', 'LP', 'Dividendo', 'Bot']
+
+// â”€â”€â”€ Catalog table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function CatalogRow({ cols }: { cols: (string | React.ReactNode)[] }) {
+  return (
+    <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+      {cols.map((c, i) => (
+        <td key={i} style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.dimText, verticalAlign: 'middle' }}>
+          {c}
+        </td>
+      ))}
+    </tr>
+  )
+}
+
+// â”€â”€â”€ Main page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+export default function IngresoPasivosPage() {
+  const [activeTab, setActiveTab] = useState<PositionCategory>('DepÃ³sito')
+  const [positions, setPositions] = useState<Position[]>([])
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [calcCapital, setCalcCapital] = useState(10000)
+  const [calcApy, setCalcApy] = useState(6)
+  const [calcMonths, setCalcMonths] = useState(12)
+
+  // Load from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('sigma_positions')
+      if (stored) setPositions(JSON.parse(stored))
+    } catch {}
+  }, [])
+
+  function savePositions(next: Position[]) {
+    setPositions(next)
+    localStorage.setItem('sigma_positions', JSON.stringify(next))
+  }
+
+  function removePosition(id: string) {
+    savePositions(positions.filter(p => p.id !== id))
+  }
+
+  // â”€â”€â”€ Hero metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const totalCapital = useMemo(() => positions.reduce((s, p) => s + p.capital, 0), [positions])
+  const monthlyIncome = useMemo(
+    () => positions.reduce((s, p) => s + calcMonthlyIncome(p.capital, p.apy), 0),
+    [positions]
+  )
+  const weightedApy = useMemo(
+    () => calcWeightedAPY(positions.map(p => ({ capital: p.capital, apy: p.apy }))),
+    [positions]
+  )
+  const yearlyIncome = monthlyIncome * 12
+
+  // â”€â”€â”€ Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const calcMonthly = calcMonthlyIncome(calcCapital, calcApy)
+  const calcFinal   = calcCompoundGrowth(calcCapital, calcApy, calcMonths)
+  const calcGain    = calcFinal - calcCapital
+
+  // â”€â”€â”€ Catalog by tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const catalogContent = useMemo(() => {
+    if (activeTab === 'DepÃ³sito') return (
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+            {['Plataforma', 'Moneda', 'Plazo', 'APY', 'MÃ­n USD', 'Riesgo', ''].map(h => (
+              <th key={h} style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, textAlign: 'left' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {DEPOSITOS.map(d => (
+            <CatalogRow key={d.plataforma + d.moneda} cols={[
+              d.plataforma,
+              <span style={{ color: C.gold }}>{d.moneda}</span>,
+              d.plazo,
+              <span style={{ color: C.green }}>{fmtApy(d.apy)}</span>,
+              '$' + fmt(d.minUSD),
+              <RiskBadge risk={d.risk} />,
+              <a href={d.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>â†—</a>,
+            ]} />
+          ))}
+        </tbody>
+      </table>
+    )
+    if (activeTab === 'Staking') return (
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+            {['Activo', 'APY Min', 'APY Max', 'Lock-up', 'Plataforma', 'Riesgo', ''].map(h => (
+              <th key={h} style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, textAlign: 'left' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {STAKING.map(s => (
+            <CatalogRow key={s.activo} cols={[
+              <span style={{ color: C.gold }}>{s.activo}</span>,
+              fmtApy(s.apyMin),
+              <span style={{ color: C.green }}>{fmtApy(s.apyMax)}</span>,
+              s.lockup,
+              s.plataforma,
+              <RiskBadge risk={s.risk} />,
+              <a href={s.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>â†—</a>,
+            ]} />
+          ))}
+        </tbody>
+      </table>
+    )
+    if (activeTab === 'DeFi') return (
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+            {['Protocolo', 'Activo', 'APY Supply', 'TVL (M)', 'Auditado', 'Chain', 'Tipo', 'Riesgo', ''].map(h => (
+              <th key={h} style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, textAlign: 'left' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {DEFI_EARN.map(d => (
+            <CatalogRow key={d.protocolo + d.activo} cols={[
+              d.protocolo,
+              <span style={{ color: C.gold }}>{d.activo}</span>,
+              <span style={{ color: C.green }}>{fmtApy(d.apySupply)}</span>,
+              '$' + d.tvlM + 'M',
+              d.audited ? <span style={{ color: C.green }}>âœ“</span> : <span style={{ color: C.red }}>âœ—</span>,
+              d.chain,
+              d.tipo,
+              <RiskBadge risk={d.risk} />,
+              <a href={d.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>â†—</a>,
+            ]} />
+          ))}
+        </tbody>
+      </table>
+    )
+    if (activeTab === 'LP') return (
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+            {['Par', 'DEX', 'Fee APR', 'Farm APR', 'Total APR', 'IL Estimado', 'Riesgo', ''].map(h => (
+              <th key={h} style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, textAlign: 'left' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {LP_POOLS.map(lp => {
+            const totalApr = lp.feeApr + lp.farmApr
+            const il = calcIL(2) * 100 // IL at 2x price move
+            return (
+              <CatalogRow key={lp.par} cols={[
+                <span style={{ color: C.gold }}>{lp.par}</span>,
+                lp.dex,
+                fmtApy(lp.feeApr),
+                lp.farmApr > 0 ? <span style={{ color: C.purple }}>{fmtApy(lp.farmApr)}</span> : <span style={{ color: C.dimText }}>â€”</span>,
+                <span style={{ color: C.green }}>{fmtApy(totalApr)}</span>,
+                <span style={{ color: C.yellow }}>{il.toFixed(1)}%@2x</span>,
+                <RiskBadge risk={lp.risk} />,
+                <a href={lp.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>â†—</a>,
+              ]} />
+            )
+          })}
+        </tbody>
+      </table>
+    )
+    if (activeTab === 'Dividendo') return (
+      <div>
+        <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>Crypto</div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+              {['Token', 'Protocolo', 'Tipo', 'Yield Min', 'Yield Max', 'Frecuencia', 'Riesgo', ''].map(h => (
+                <th key={h} style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, textAlign: 'left' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {DIV_CRYPTO.map(d => (
+              <CatalogRow key={d.token} cols={[
+                <span style={{ color: C.gold }}>{d.token}</span>,
+                d.protocolo,
+                d.tipo,
+                fmtApy(d.yieldMin),
+                <span style={{ color: C.green }}>{fmtApy(d.yieldMax)}</span>,
+                d.freq,
+                <RiskBadge risk={d.risk} />,
+                <a href={d.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>â†—</a>,
+              ]} />
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>TradFi / ETFs</div>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+              {['Ticker', 'Fondo', 'Tipo', 'Yield Min', 'Yield Max', 'Frecuencia', 'Riesgo', ''].map(h => (
+                <th key={h} style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, textAlign: 'left' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {DIV_TRADFI.map(d => (
+              <CatalogRow key={d.token} cols={[
+                <span style={{ color: C.gold }}>{d.token}</span>,
+                d.protocolo,
+                d.tipo,
+                fmtApy(d.yieldMin),
+                <span style={{ color: C.green }}>{fmtApy(d.yieldMax)}</span>,
+                d.freq,
+                <RiskBadge risk={d.risk} />,
+                <a href={d.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>â†—</a>,
+              ]} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+    // Bot tab
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 1, background: C.border }}>
+        {BOTS.map(b => (
+          <div key={b.estrategia} style={{ background: C.surface, padding: '20px 22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+              <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: C.text }}>{b.estrategia}</div>
+              <RiskBadge risk={b.risk} />
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, lineHeight: 1.7, marginBottom: 12 }}>{b.descripcion}</div>
+            {b.retMin > 0 ? (
+              <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.green }}>
+                Retorno estimado: {b.retMin}â€“{b.retMax}% anual
+              </div>
+            ) : (
+              <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Sin retorno fijo â€” gestiÃ³n de precio medio</div>
+            )}
+            {b.url !== '#' && (
+              <a href={b.url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 12, fontFamily: 'monospace', fontSize: 11, color: C.gold }}>
+                Ver en plataforma â†—
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }, [activeTab])
+
+  return (
+    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 10 }}>
+            {'// INGRESOS PASIVOS Â· HUB FINANCIERO'}
+          </div>
+          <h1 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(44px, 6vw, 80px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
+            <span style={{ color: C.text }}>INGRESOS</span>{' '}
+            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PASIVOS</span>
+          </h1>
+          <p style={{ fontFamily: 'monospace', fontSize: 13, color: C.dimText, marginTop: 14, maxWidth: 600, lineHeight: 1.7 }}>
+            Centraliza y visualiza todas tus fuentes de ingreso pasivo. Registra posiciones, compara opciones del mercado y proyecta tu crecimiento.
+          </p>
+        </div>
+
+        {/* â”€â”€ Hero metrics â”€â”€ */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
+          {[
+            { label: 'Capital Total',    value: '$' + fmt(totalCapital),           color: C.text },
+            { label: 'Ingreso Mensual',  value: '$' + fmt(monthlyIncome),          color: C.green },
+            { label: 'Ingreso Anual',    value: '$' + fmt(yearlyIncome),           color: C.green },
+            { label: 'APY Promedio',     value: fmtApy(weightedApy),               color: C.gold },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ background: C.surface, padding: '20px 22px' }}>
+              <Label text={label} />
+              <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color, lineHeight: 1 }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* â”€â”€ Positions table â”€â”€ */}
+        <div style={{ background: C.surface, marginBottom: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>
+              MIS POSICIONES ACTIVAS Â· {positions.length} REGISTRADAS
+            </span>
+            <button
+              onClick={() => setShowAddModal(true)}
+              style={{ fontFamily: 'monospace', fontSize: 11, color: C.bg, background: C.gold, border: 'none', padding: '6px 16px', cursor: 'pointer', letterSpacing: '0.1em' }}
+            >
+              + AGREGAR
+            </button>
+          </div>
+
+          {positions.length === 0 ? (
+            <div style={{ padding: '32px 18px', fontFamily: 'monospace', fontSize: 13, color: C.muted, textAlign: 'center' }}>
+              Sin posiciones registradas. Haz clic en + AGREGAR para comenzar.
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                  {['CategorÃ­a', 'Nombre', 'Capital', 'APY', 'Ingreso/mes', 'Riesgo', 'Plazo', ''].map(h => (
+                    <th key={h} style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, textAlign: 'left' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {positions.map(p => (
+                  <tr key={p.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>
+                      {CATEGORY_ICON[p.category]} {p.category}
+                    </td>
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.text }}>{p.nombre}</td>
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.text }}>${fmt(p.capital)}</td>
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.green }}>{fmtApy(p.apy)}</td>
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.green }}>${fmt(calcMonthlyIncome(p.capital, p.apy))}</td>
+                    <td style={{ padding: '10px 14px' }}><RiskBadge risk={p.risk} /></td>
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>{p.plazo}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <button onClick={() => removePosition(p.id)} style={{ fontFamily: 'monospace', fontSize: 11, color: C.red, background: 'transparent', border: 'none', cursor: 'pointer' }}>âœ•</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* â”€â”€ Category catalog tabs â”€â”€ */}
+        <div style={{ marginTop: 40, marginBottom: 16 }}>
+          <SectionTitle>CATÃLOGO DE OPORTUNIDADES</SectionTitle>
+          <div style={{ display: 'flex', gap: 1, background: C.border, marginBottom: 1 }}>
+            {TABS.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  flex: 1, padding: '11px 8px', fontFamily: 'monospace', fontSize: 11,
+                  letterSpacing: '0.12em', textTransform: 'uppercase', border: 'none', cursor: 'pointer',
+                  background: activeTab === tab ? C.surface : C.bg,
+                  color: activeTab === tab ? C.gold : C.dimText,
+                  borderBottom: activeTab === tab ? `2px solid ${C.gold}` : '2px solid transparent',
+                }}
+              >
+                {CATEGORY_ICON[tab]} {tab}
+              </button>
+            ))}
+          </div>
+          <div style={{ background: C.surface, overflowX: 'auto' }}>
+            {catalogContent}
+          </div>
+        </div>
+
+        {/* â”€â”€ Compound calculator â”€â”€ */}
+        <div style={{ marginTop: 40 }}>
+          <SectionTitle>CALCULADORA DE CRECIMIENTO</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: C.border }}>
+            <div style={{ background: C.surface, padding: '24px 24px' }}>
+              <Label text="ParÃ¡metros" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+                {[
+                  { label: 'Capital inicial (USD)', value: calcCapital, min: 100, max: 1_000_000, step: 100, set: setCalcCapital },
+                  { label: 'APY anual (%)', value: calcApy, min: 0.1, max: 100, step: 0.1, set: setCalcApy },
+                  { label: 'Plazo (meses)', value: calcMonths, min: 1, max: 120, step: 1, set: setCalcMonths },
+                ].map(({ label, value, min, max, step, set }) => (
+                  <div key={label}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{label}</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.gold }}>{value}</span>
+                    </div>
+                    <input
+                      type="range" min={min} max={max} step={step} value={value}
+                      onChange={e => set(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: C.gold }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: C.bg, padding: '24px 24px' }}>
+              <Label text="ProyecciÃ³n con interÃ©s compuesto" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+                {[
+                  { label: 'Capital inicial',     value: '$' + fmt(calcCapital),               color: C.text },
+                  { label: 'Ingreso mensual',      value: '$' + fmt(calcMonthly),               color: C.green },
+                  { label: 'Ganancia total',       value: '+$' + fmt(calcGain),                 color: C.green },
+                  { label: 'Capital final',        value: '$' + fmt(calcFinal),                 color: C.gold },
+                  { label: 'Crecimiento',          value: '+' + ((calcGain / calcCapital) * 100).toFixed(1) + '%', color: C.gold },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>{label}</span>
+                    <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* â”€â”€ Add position modal â”€â”€ */}
+      {showAddModal && (
+        <AddPositionModal
+          onClose={() => setShowAddModal(false)}
+          onSave={(pos) => { savePositions([...positions, pos]); setShowAddModal(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// â”€â”€â”€ Add position modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function AddPositionModal({ onClose, onSave }: {
+  onClose: () => void
+  onSave: (p: Position) => void
+}) {
+  const [category, setCategory] = useState<PositionCategory>('DepÃ³sito')
+  const [nombre, setNombre]     = useState('')
+  const [capital, setCapital]   = useState(1000)
+  const [apy, setApy]           = useState(5)
+  const [plazo, setPlazo]       = useState('Flexible')
+  const [risk, setRisk]         = useState<RiskLevel>('Bajo')
+
+  function handleSave() {
+    if (!nombre.trim()) return
+    onSave({
+      id: Date.now().toString(),
+      category, nombre: nombre.trim(), capital, apy, plazo, risk,
+      url: '',
+    })
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(4,5,10,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '32px', width: '100%', maxWidth: 440 }}>
+        <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 26, color: C.text, marginBottom: 24 }}>NUEVA POSICIÃ“N</div>
+
+        {[
+          { label: 'CategorÃ­a', node: (
+            <select value={category} onChange={e => setCategory(e.target.value as PositionCategory)}
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontFamily: 'monospace', fontSize: 12, padding: '8px 10px' }}>
+              {(['DepÃ³sito','Staking','DeFi','LP','Dividendo','Bot'] as PositionCategory[]).map(c => <option key={c}>{c}</option>)}
+            </select>
+          )},
+          { label: 'Nombre / DescripciÃ³n', node: (
+            <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: USDT Binance 30d"
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontFamily: 'monospace', fontSize: 12, padding: '8px 10px', boxSizing: 'border-box' }} />
+          )},
+          { label: 'Capital (USD)', node: (
+            <input type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} min={1}
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontFamily: 'monospace', fontSize: 12, padding: '8px 10px', boxSizing: 'border-box' }} />
+          )},
+          { label: 'APY (%)', node: (
+            <input type="number" value={apy} onChange={e => setApy(Number(e.target.value))} min={0} step={0.1}
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontFamily: 'monospace', fontSize: 12, padding: '8px 10px', boxSizing: 'border-box' }} />
+          )},
+          { label: 'Plazo', node: (
+            <input value={plazo} onChange={e => setPlazo(e.target.value)} placeholder="Flexible / 30 dÃ­as / â€¦"
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontFamily: 'monospace', fontSize: 12, padding: '8px 10px', boxSizing: 'border-box' }} />
+          )},
+          { label: 'Nivel de riesgo', node: (
+            <select value={risk} onChange={e => setRisk(e.target.value as RiskLevel)}
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontFamily: 'monospace', fontSize: 12, padding: '8px 10px' }}>
+              {(['Muy bajo','Bajo','Medio','Alto','Muy alto'] as RiskLevel[]).map(r => <option key={r}>{r}</option>)}
+            </select>
+          )},
+        ].map(({ label, node }) => (
+          <div key={label} style={{ marginBottom: 14 }}>
+            <Label text={label} />
+            {node}
+          </div>
+        ))}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
+          <button onClick={handleSave} style={{ flex: 1, background: C.gold, color: C.bg, border: 'none', fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.12em', padding: '10px', cursor: 'pointer' }}>
+            GUARDAR
+          </button>
+          <button onClick={onClose} style={{ flex: 1, background: C.bg, color: C.dimText, border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 12, padding: '10px', cursor: 'pointer' }}>
+            CANCELAR
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
