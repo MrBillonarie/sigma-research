@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import {
   ALL_CHALLENGES, WEEKLY_CHALLENGES,
-  getLevelFromPoints, BADGES,
+  getLevelFromPoints,
 } from '@/app/(dashboard)/fire/challenges'
 
 const sb = createClient(
@@ -107,7 +107,16 @@ export async function POST(req: NextRequest) {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { challenge_id } = await req.json()
+    let challenge_id: string
+    try {
+      const body = await req.json()
+      challenge_id = body?.challenge_id
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+    if (!challenge_id || typeof challenge_id !== 'string') {
+      return NextResponse.json({ error: 'challenge_id required' }, { status: 400 })
+    }
 
     const challenge = ALL_CHALLENGES.find(c => c.id === challenge_id)
     if (!challenge) return NextResponse.json({ error: 'Challenge not found' }, { status: 404 })
@@ -131,7 +140,7 @@ export async function POST(req: NextRequest) {
     if (existing) return NextResponse.json({ error: 'Already completed' }, { status: 409 })
 
     // Insert completion
-    await sb.from('fire_completions').insert({
+    const { error: insertError } = await sb.from('fire_completions').insert({
       user_id: user.id,
       challenge_id,
       challenge_type: challenge.type,
@@ -140,6 +149,13 @@ export async function POST(req: NextRequest) {
       week_number: challenge.type === 'weekly' ? week : null,
       week_year: challenge.type === 'weekly' ? year : null,
     })
+    if (insertError) {
+      if ((insertError as { code?: string }).code === '23505') {
+        return NextResponse.json({ error: 'Already completed' }, { status: 409 })
+      }
+      console.error('[POST /api/fire-challenges] completion insert error', insertError)
+      return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    }
 
     // Get current progress
     let { data: prog } = await sb
@@ -189,7 +205,10 @@ export async function POST(req: NextRequest) {
     if (challenge.type === 'daily') updatePayload.last_daily_at = today
     if (challenge.type === 'weekly') updatePayload.last_weekly_at = today
 
-    await sb.from('fire_progress').upsert(updatePayload, { onConflict: 'user_id' })
+    const { error: upsertError } = await sb.from('fire_progress').upsert(updatePayload, { onConflict: 'user_id' })
+    if (upsertError) {
+      console.error('[POST /api/fire-challenges] fire_progress upsert error', upsertError)
+    }
 
     // ─── Badge evaluation ─────────────────────────────────────────────────────
     const [allCompRes, badgesRes, weekCompRes] = await Promise.all([
@@ -225,8 +244,12 @@ export async function POST(req: NextRequest) {
     const newBadges: string[] = []
     for (const [badgeId, condition] of checks) {
       if (condition && !earned.has(badgeId)) {
-        await sb.from('fire_badges').insert({ user_id: user.id, badge_id: badgeId })
-        newBadges.push(badgeId)
+        const { error: badgeError } = await sb.from('fire_badges').insert({ user_id: user.id, badge_id: badgeId })
+        if (badgeError && (badgeError as { code?: string }).code !== '23505') {
+          console.error('[POST /api/fire-challenges] badge insert error', badgeError)
+        } else if (!badgeError) {
+          newBadges.push(badgeId)
+        }
       }
     }
 
