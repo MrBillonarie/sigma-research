@@ -284,3 +284,16 @@ ALTER TABLE fire_badges ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "fire_badges_own" ON fire_badges
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- ─── FIRE INDEXES ────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_fire_completions_user_id
+  ON fire_completions(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_fire_completions_user_type_date
+  ON fire_completions(user_id, challenge_type, day_date);
+
+CREATE INDEX IF NOT EXISTS idx_fire_completions_user_week
+  ON fire_completions(user_id, week_number, week_year);
+
+CREATE INDEX IF NOT EXISTS idx_fire_badges_user_id
+  ON fire_badges(user_id);
