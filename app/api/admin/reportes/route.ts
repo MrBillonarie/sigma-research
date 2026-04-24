@@ -35,12 +35,13 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error }, { status: 500 })
 
   // Notificar suscriptores activos en background
-  const service = makeService()
-  service
-    .from('subscriptions')
-    .select('user_id')
-    .eq('status', 'active')
-    .then(async ({ data: subs }) => {
+  void (async () => {
+    try {
+      const service = makeService()
+      const { data: subs } = await service
+        .from('subscriptions')
+        .select('user_id')
+        .eq('status', 'active')
       if (!subs?.length) return
       const ids = subs.map(s => s.user_id)
       const { data: users } = await service.auth.admin.listUsers()
@@ -48,10 +49,12 @@ export async function POST(req: Request) {
         .filter(u => ids.includes(u.id))
         .map(u => ({ email: u.email!, nombre: (u.user_metadata?.nombre as string) || u.email!.split('@')[0] }))
       if (subscribers.length) {
-        sendNuevoReporte(subscribers, data).catch(e => console.error('[reportes] email', e))
+        await sendNuevoReporte(subscribers, data)
       }
-    })
-    .catch(e => console.error('[reportes] subs query', e))
+    } catch (e) {
+      console.error('[reportes] notify', e)
+    }
+  })()
 
   return NextResponse.json({ reporte: data })
 }
