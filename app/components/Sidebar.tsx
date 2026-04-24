@@ -4,7 +4,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  LayoutDashboard,
   Home,
   Activity,
   BookOpen,
