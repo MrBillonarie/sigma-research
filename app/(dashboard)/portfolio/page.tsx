@@ -31,6 +31,40 @@ const PLATFORM_META = [
 
 const CRYPTO_IDS = new Set(['binance_spot', 'binance_futures'])
 
+// ─── Risk profile data ────────────────────────────────────────────────────────
+const PROFILE_DATA = {
+  conservador: {
+    label: 'Conservador', badgeColor: '#60a5fa',
+    desc: 'Tu perfil prioriza la preservación del capital y la estabilidad. Alta exposición a renta fija con suficiente liquidez para no depender de activos volátiles.',
+    allocation: [
+      { name: 'Renta Fija', color: '#8b5cf6', rec: 50 },
+      { name: 'Acciones',   color: '#3b82f6', rec: 20 },
+      { name: 'Cash',       color: '#6b7280', rec: 20 },
+      { name: 'BTC/Crypto', color: '#f59e0b', rec: 10 },
+    ],
+  },
+  moderado: {
+    label: 'Moderado', badgeColor: '#d4af37',
+    desc: 'Tu perfil busca un balance entre crecimiento y estabilidad. Acciones y crypto como motores de retorno, con renta fija que amortigua la volatilidad.',
+    allocation: [
+      { name: 'Acciones',   color: '#3b82f6', rec: 40 },
+      { name: 'BTC/Crypto', color: '#f59e0b', rec: 25 },
+      { name: 'Renta Fija', color: '#8b5cf6', rec: 20 },
+      { name: 'Cash',       color: '#6b7280', rec: 15 },
+    ],
+  },
+  agresivo: {
+    label: 'Agresivo', badgeColor: '#ef4444',
+    desc: 'Tu perfil maximiza el crecimiento aceptando alta volatilidad. Dominado por crypto y acciones de alto potencial, con mínima renta fija como colchón.',
+    allocation: [
+      { name: 'BTC/Crypto', color: '#f59e0b', rec: 50 },
+      { name: 'Acciones',   color: '#3b82f6', rec: 35 },
+      { name: 'Renta Fija', color: '#8b5cf6', rec: 10 },
+      { name: 'Cash',       color: '#6b7280', rec:  5 },
+    ],
+  },
+} as const
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function seededRng(seed: number) {
   return () => {
@@ -64,6 +98,20 @@ function yearsToFire(current: number, target: number, monthlySavings: number, an
     if (bal >= target) return +(m / 12).toFixed(1)
   }
   return null
+}
+
+function calcProfile(a: { horizonte: string; reaccion: string; objetivo: string }): 'conservador' | 'moderado' | 'agresivo' {
+  let score = 0
+  if (a.horizonte === '1-3')  score += 1
+  else if (a.horizonte === '3-10') score += 2
+  else if (a.horizonte === '10+')  score += 3
+  if (a.reaccion === 'esperaria')      score += 1
+  else if (a.reaccion === 'oportunidad') score += 2
+  if (a.objetivo === 'moderado') score += 1
+  else if (a.objetivo === 'maximo')  score += 2
+  if (score <= 2) return 'conservador'
+  if (score <= 5) return 'moderado'
+  return 'agresivo'
 }
 
 function fmtUSD(n: number) { return '$' + Math.round(n).toLocaleString('es-CL') }
@@ -114,6 +162,7 @@ export default function PortfolioPage() {
   const [storedTotal,  setStoredTotal]  = useState(0)
   const [loading,      setLoading]      = useState(true)
   const [trm,          setTrm]          = useState('950')
+  const [trmLive,      setTrmLive]      = useState(false)
   const [monthlySav,   setMonthlySav]   = useState('500')
 
   // Modal
@@ -130,6 +179,13 @@ export default function PortfolioPage() {
   const [errorBinanceFutures,   setErrorBinanceFutures]   = useState('')
   const [errorBinanceSpot,      setErrorBinanceSpot]      = useState('')
 
+  // Quiz
+  const [quizAnswers, setQuizAnswers] = useState({ horizonte: '', reaccion: '', objetivo: '' })
+  const [quizResult,  setQuizResult]  = useState<'conservador' | 'moderado' | 'agresivo' | null>(null)
+  const donutRef      = useRef<HTMLCanvasElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const donutChartRef = useRef<any>(null)
+
   const trmVal = num(trm) || 950
 
   // ─── Load: localStorage → Supabase ──────────────────────────────────────────
@@ -137,6 +193,13 @@ export default function PortfolioPage() {
     async function load() {
       try { const r = localStorage.getItem('sigma_positions'); if (r) setPositions((JSON.parse(r) as PassivePosition[]).map(p => ({ ...p, ingresoMensual: p.ingresoMensual ?? (p.capital * p.apy) / 100 / 12 }))) } catch {}
       try { const n = Number(localStorage.getItem('sigma_portfolio_total')); if (n > 0) setStoredTotal(n) } catch {}
+
+      // Fetch live CLP/USD rate
+      try {
+        const res = await fetch('/api/trm')
+        const json = await res.json()
+        if (json.clpPerUsd > 0) { setTrm(String(json.clpPerUsd)); setTrmLive(true) }
+      } catch {}
 
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
@@ -297,6 +360,23 @@ export default function PortfolioPage() {
     }
   }, [platforms, positions, trmVal, monthlySav, storedTotal, totalCurrent])
 
+  // Actual allocation by asset class (USD-normalised)
+  const actualAlloc = useMemo((): Record<string, number> | null => {
+    const find = (id: string) => platforms.find(p => p.id === id)?.current ?? 0
+    const rfija  = find('fintual') + find('santander')
+    const stocks = find('ibkr')
+    const crypto = find('binance_spot') + find('binance_futures')
+    const cash   = find('cash')
+    const total  = rfija + stocks + crypto + cash
+    if (total === 0) return null
+    return {
+      'Renta Fija': (rfija  / total) * 100,
+      'Acciones':   (stocks / total) * 100,
+      'BTC/Crypto': (crypto / total) * 100,
+      'Cash':       (cash   / total) * 100,
+    }
+  }, [platforms])
+
   // Write totalUSD to localStorage for LP DeFi + home pages
   useEffect(() => {
     if (D.totalUSD > 0) {
@@ -304,7 +384,35 @@ export default function PortfolioPage() {
     }
   }, [D.totalUSD])
 
-  const hasSavedData = totalCurrent > 0 || D.totalUSD > 0
+  // Draw / redraw donut chart when quiz result changes
+  useEffect(() => {
+    if (!quizResult || !donutRef.current) return
+    const profile = PROFILE_DATA[quizResult]
+    let alive = true
+    ;(async () => {
+      const { default: Chart } = await import('chart.js/auto')
+      if (!alive || !donutRef.current) return
+      if (donutChartRef.current) { donutChartRef.current.destroy(); donutChartRef.current = null }
+      donutChartRef.current = new Chart(donutRef.current, {
+        type: 'doughnut',
+        data: {
+          labels: profile.allocation.map(a => a.name),
+          datasets: [{ data: profile.allocation.map(a => a.rec), backgroundColor: profile.allocation.map(a => a.color), borderWidth: 0, hoverOffset: 6 }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '68%',
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw}%` } },
+          },
+        },
+      })
+    })()
+    return () => { alive = false; if (donutChartRef.current) { donutChartRef.current.destroy(); donutChartRef.current = null } }
+  }, [quizResult])
+
+  const hasSavedData   = totalCurrent > 0 || D.totalUSD > 0
+  const activeProfile  = quizResult ? PROFILE_DATA[quizResult] : null
 
   // ─── Render ──────────────────────────────────────────────────────���────────
   return (
@@ -324,9 +432,14 @@ export default function PortfolioPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: C.surface, border: `1px solid ${C.border}` }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText }}>TRM CLP/USD</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText }}>TRM CLP/USD</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: trmLive ? C.green : C.muted, letterSpacing: '0.1em' }}>
+                  {trmLive ? '● live' : '○ manual'}
+                </span>
+              </div>
               <input
-                type="number" value={trm} onChange={e => setTrm(e.target.value)} min={1}
+                type="number" value={trm} onChange={e => { setTrm(e.target.value); setTrmLive(false) }} min={1}
                 style={{ width: 80, background: C.bg, border: `1px solid ${C.gold}44`, color: C.gold, fontFamily: 'monospace', fontSize: 13, padding: '4px 8px', outline: 'none', textAlign: 'right' }}
               />
             </div>
@@ -615,6 +728,179 @@ export default function PortfolioPage() {
               </Link>
             </div>
           </>
+        )}
+
+        {/* ── 11. ASSET ALLOCATION RECOMENDADA ── */}
+        {!loading && (
+          <div style={{ marginTop: 40 }}>
+            <SectionTitle>ASSET ALLOCATION RECOMENDADA</SectionTitle>
+
+            {quizResult === null ? (
+              /* ── Quiz form ── */
+              <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '28px 24px' }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginBottom: 28, lineHeight: 1.8 }}>
+                  Responde 3 preguntas para recibir una recomendación de allocation personalizada según tu perfil de riesgo.
+                </div>
+
+                {/* Q1 */}
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.text, marginBottom: 10, letterSpacing: '0.05em' }}>
+                    1. ¿Cuál es tu horizonte de inversión?
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {[
+                      { value: 'menos1', label: 'Menos de 1 año' },
+                      { value: '1-3',    label: '1–3 años'       },
+                      { value: '3-10',   label: '3–10 años'      },
+                      { value: '10+',    label: 'Más de 10 años' },
+                    ].map(opt => (
+                      <button key={opt.value}
+                        onClick={() => setQuizAnswers(a => ({ ...a, horizonte: opt.value }))}
+                        style={{ padding: '8px 16px', background: quizAnswers.horizonte === opt.value ? C.gold + '20' : 'transparent', border: `1px solid ${quizAnswers.horizonte === opt.value ? C.gold : C.border}`, color: quizAnswers.horizonte === opt.value ? C.gold : C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer', letterSpacing: '0.08em' }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Q2 */}
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.text, marginBottom: 10, letterSpacing: '0.05em' }}>
+                    2. ¿Cómo reaccionarías si tu cartera cae 20%?
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {[
+                      { value: 'venderia',    label: 'Vendería todo'                  },
+                      { value: 'esperaria',   label: 'Me preocuparía pero esperaría' },
+                      { value: 'oportunidad', label: 'Lo vería como oportunidad'      },
+                    ].map(opt => (
+                      <button key={opt.value}
+                        onClick={() => setQuizAnswers(a => ({ ...a, reaccion: opt.value }))}
+                        style={{ padding: '8px 16px', background: quizAnswers.reaccion === opt.value ? C.gold + '20' : 'transparent', border: `1px solid ${quizAnswers.reaccion === opt.value ? C.gold : C.border}`, color: quizAnswers.reaccion === opt.value ? C.gold : C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer', letterSpacing: '0.08em' }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Q3 */}
+                <div style={{ marginBottom: 28 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.text, marginBottom: 10, letterSpacing: '0.05em' }}>
+                    3. ¿Cuál es tu objetivo principal?
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {[
+                      { value: 'preservar', label: 'Preservar capital'    },
+                      { value: 'moderado',  label: 'Crecimiento moderado' },
+                      { value: 'maximo',    label: 'Máximo crecimiento'   },
+                    ].map(opt => (
+                      <button key={opt.value}
+                        onClick={() => setQuizAnswers(a => ({ ...a, objetivo: opt.value }))}
+                        style={{ padding: '8px 16px', background: quizAnswers.objetivo === opt.value ? C.gold + '20' : 'transparent', border: `1px solid ${quizAnswers.objetivo === opt.value ? C.gold : C.border}`, color: quizAnswers.objetivo === opt.value ? C.gold : C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer', letterSpacing: '0.08em' }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  disabled={!quizAnswers.horizonte || !quizAnswers.reaccion || !quizAnswers.objetivo}
+                  onClick={() => setQuizResult(calcProfile(quizAnswers))}
+                  style={{ padding: '12px 32px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: 'none', cursor: 'pointer', opacity: (!quizAnswers.horizonte || !quizAnswers.reaccion || !quizAnswers.objetivo) ? 0.4 : 1 }}>
+                  VER MI PERFIL →
+                </button>
+              </div>
+
+            ) : activeProfile && (
+              /* ── Result ── */
+              <div>
+                {/* Badge + description */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 13, letterSpacing: '0.22em', padding: '6px 18px', background: activeProfile.badgeColor + '18', border: `1px solid ${activeProfile.badgeColor}`, color: activeProfile.badgeColor }}>
+                    PERFIL: {activeProfile.label.toUpperCase()}
+                  </div>
+                  <button
+                    onClick={() => { setQuizResult(null); setQuizAnswers({ horizonte: '', reaccion: '', objetivo: '' }) }}
+                    style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: C.dimText, background: 'transparent', border: `1px solid ${C.border}`, padding: '5px 14px', cursor: 'pointer' }}>
+                    REPETIR TEST
+                  </button>
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, lineHeight: 1.8, marginBottom: 28, maxWidth: 580 }}>
+                  {activeProfile.desc}
+                </div>
+
+                {/* Donut + comparison table */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 260px) 1fr', gap: 32, alignItems: 'start' }}>
+
+                  {/* Donut chart + legend */}
+                  <div>
+                    <div style={{ position: 'relative', width: '100%', height: 200, marginBottom: 16 }}>
+                      <canvas ref={donutRef} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {activeProfile.allocation.map(a => (
+                        <div key={a.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 10, height: 10, background: a.color, borderRadius: 1, flexShrink: 0 }} />
+                          <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, flex: 1, letterSpacing: '0.08em' }}>{a.name}</span>
+                          <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, color: C.text }}>{a.rec}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Comparison table */}
+                  <div style={{ background: C.surface }}>
+                    <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>RECOMENDADO vs. TU CARTERA ACTUAL</span>
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                          {['Clase de Activo', 'Recomendado', 'Tu cartera', 'Diferencia'].map(h => (
+                            <th key={h} style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: C.dimText, textAlign: 'left', fontWeight: 400 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeProfile.allocation.map(a => {
+                          const actual = actualAlloc ? (actualAlloc[a.name] ?? 0) : null
+                          const diff   = actual !== null ? actual - a.rec : null
+                          return (
+                            <tr key={a.name} style={{ borderBottom: `1px solid ${C.border}` }}>
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <div style={{ width: 8, height: 8, background: a.color, borderRadius: 1, flexShrink: 0 }} />
+                                  <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.text }}>{a.name}</span>
+                                </div>
+                              </td>
+                              <td style={{ padding: '12px 16px', fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 24, color: a.color }}>{a.rec}%</td>
+                              <td style={{ padding: '12px 16px', fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 24, color: C.text }}>
+                                {actual !== null ? `${actual.toFixed(1)}%` : '—'}
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                {diff !== null ? (
+                                  <span style={{ fontFamily: 'monospace', fontSize: 12, color: Math.abs(diff) < 5 ? C.green : diff > 0 ? '#f59e0b' : C.red, background: (Math.abs(diff) < 5 ? C.green : diff > 0 ? '#f59e0b' : C.red) + '18', padding: '3px 10px' }}>
+                                    {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
+                                  </span>
+                                ) : (
+                                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted }}>—</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                    {!actualAlloc && (
+                      <div style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: 11, color: C.muted, borderTop: `1px solid ${C.border}` }}>
+                        Configura tu portafolio para comparar con tu cartera actual.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
