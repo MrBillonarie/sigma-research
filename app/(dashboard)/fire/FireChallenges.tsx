@@ -139,11 +139,11 @@ export default function FireChallenges({ ahorro, gasto, fireYear }: Props) {
   useEffect(() => {
     if (loading || initAhorro.current === null || initGasto.current === null) return
 
-    const aorroDelta = ahorro - initAhorro.current
+    const ahorroDelta = ahorro - initAhorro.current
     const gastoDelta = initGasto.current - gasto
-    const ahorroPct  = initAhorro.current > 0 ? (aorroDelta / initAhorro.current) * 100 : 0
+    const ahorroPct  = initAhorro.current > 0 ? (ahorroDelta / initAhorro.current) * 100 : 0
 
-    if (aorroDelta >= 100 && !autoFired.current.has('daily_ahorro_up') && !state.todayIds.has('daily_ahorro_up')) {
+    if (ahorroDelta >= 100 && !autoFired.current.has('daily_ahorro_up') && !state.todayIds.has('daily_ahorro_up')) {
       autoFired.current.add('daily_ahorro_up')
       completeChallenge('daily_ahorro_up')
     }
