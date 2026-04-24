@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sendContactoNotif } from '@/lib/email'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,9 +36,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Error al guardar solicitud' }, { status: 500 })
     }
 
+    await sendContactoNotif({ nombre: nombre.trim(), email: email.trim().toLowerCase(), empresa: empresa?.trim(), motivo, mensaje: mensaje.trim() })
+      .catch(e => console.error('[/api/contacto] email', e))
+
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err) {
     console.error('[/api/contacto]', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
+
