@@ -1,8 +1,15 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Instantiate lazily so env vars are always resolved at call time
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  console.log('[email] RESEND_API_KEY present:', !!key, key ? `(${key.slice(0, 8)}...)` : 'MISSING')
+  return new Resend(key)
+}
 
-const FROM     = process.env.EMAIL_FROM     ?? 'Sigma Research <noreply@sigma-research.com>'
+// onboarding@resend.dev works without domain verification.
+// Once you verify your domain in Resend, set EMAIL_FROM in the env.
+const FROM     = process.env.EMAIL_FROM     ?? 'onboarding@resend.dev'
 const ADMIN_TO = process.env.EMAIL_ADMIN_TO ?? 'alonsomoyanoreyes@gmail.com'
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -115,31 +122,38 @@ export function nuevoReporteHtml(nombre: string, reporte: { numero: number; titu
 
 // ── Send helpers ──────────────────────────────────────────────────────────────
 export async function sendWelcome(to: string, nombre: string) {
-  return resend.emails.send({
+  console.log('[email] sendWelcome →', to)
+  const result = await getResend().emails.send({
     from: FROM,
     to,
     subject: 'Bienvenido a Sigma Research',
     html: welcomeHtml(nombre),
   })
+  console.log('[email] sendWelcome result:', JSON.stringify(result))
+  return result
 }
 
 export async function sendContactoNotif(data: Parameters<typeof contactoHtml>[0]) {
-  return resend.emails.send({
+  console.log('[email] sendContactoNotif → FROM:', FROM, 'TO:', ADMIN_TO)
+  const result = await getResend().emails.send({
     from: FROM,
     to: ADMIN_TO,
     replyTo: data.email,
     subject: `[Sigma] Nuevo contacto de ${data.nombre}`,
     html: contactoHtml(data),
   })
+  console.log('[email] sendContactoNotif result:', JSON.stringify(result))
+  return result
 }
 
 export async function sendNuevoReporte(
   subscribers: { email: string; nombre: string }[],
   reporte: Parameters<typeof nuevoReporteHtml>[1]
 ) {
+  console.log('[email] sendNuevoReporte → subscribers:', subscribers.length)
   await Promise.all(
     subscribers.map(s =>
-      resend.emails.send({
+      getResend().emails.send({
         from: FROM,
         to: s.email,
         subject: `Sigma Research · Nuevo reporte #${String(reporte.numero).padStart(3, '0')} disponible`,
