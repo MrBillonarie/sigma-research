@@ -1,3 +1,4 @@
+'use client'
 import type { Challenge } from './challenges'
 
 const C = {

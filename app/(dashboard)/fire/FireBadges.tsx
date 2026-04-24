@@ -1,3 +1,4 @@
+'use client'
 import { BADGES } from './challenges'
 
 const C = {

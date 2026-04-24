@@ -46,9 +46,12 @@ export default function FireChallenges({ ahorro, gasto, fireYear }: Props) {
   const initGasto  = useRef<number | null>(null)
   const autoFired  = useRef<Set<string>>(new Set())
 
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const showToast = (msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast(msg)
-    setTimeout(() => setToast(null), 3500)
+    toastTimer.current = setTimeout(() => setToast(null), 3500)
   }
 
   const loadData = useCallback(async () => {
@@ -82,48 +85,53 @@ export default function FireChallenges({ ahorro, gasto, fireYear }: Props) {
     if (!session) return
 
     setCompleting(challengeId)
-    const res = await fetch('/api/fire-challenges', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ challenge_id: challengeId }),
-    })
-    setCompleting(null)
+    try {
+      const res = await fetch('/api/fire-challenges', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ challenge_id: challengeId }),
+      })
 
-    if (!res.ok) return
+      if (!res.ok) return
 
-    const data = await res.json() as {
-      points_earned: number
-      new_total: number
-      new_level: string
-      new_badges: string[]
-      streak_days: number
-    }
+      const data = await res.json() as {
+        points_earned: number
+        new_total: number
+        new_level: string
+        new_badges: string[]
+        streak_days: number
+      }
 
-    const challenge = ALL_CHALLENGES.find(c => c.id === challengeId)!
-    setState(prev => ({
-      progress: {
-        points: data.new_total,
-        level: data.new_level,
-        streak_days: data.streak_days,
-        streak_weeks: prev.progress?.streak_weeks ?? 0,
-      },
-      todayIds: challenge.type === 'daily'
-        ? new Set(Array.from(prev.todayIds).concat(challengeId))
-        : prev.todayIds,
-      weekIds: challenge.type === 'weekly'
-        ? new Set(Array.from(prev.weekIds).concat(challengeId))
-        : prev.weekIds,
-      badges: [...prev.badges, ...data.new_badges],
-    }))
+      const challenge = ALL_CHALLENGES.find(c => c.id === challengeId)!
+      setState(prev => ({
+        progress: {
+          points: data.new_total,
+          level: data.new_level,
+          streak_days: data.streak_days,
+          streak_weeks: prev.progress?.streak_weeks ?? 0,
+        },
+        todayIds: challenge.type === 'daily'
+          ? new Set(Array.from(prev.todayIds).concat(challengeId))
+          : prev.todayIds,
+        weekIds: challenge.type === 'weekly'
+          ? new Set(Array.from(prev.weekIds).concat(challengeId))
+          : prev.weekIds,
+        badges: [...prev.badges, ...data.new_badges],
+      }))
 
-    if (data.new_badges.length > 0) {
-      const b = BADGES.find(b => b.id === data.new_badges[0])
-      showToast(`${b?.emoji ?? '🏆'} ¡Badge: ${b?.name ?? data.new_badges[0]}! +${data.points_earned} pts`)
-    } else {
-      showToast(`+${data.points_earned} pts`)
+      if (data.new_badges.length > 0) {
+        const b = BADGES.find(b => b.id === data.new_badges[0])
+        showToast(`${b?.emoji ?? '🏆'} ¡Badge: ${b?.name ?? data.new_badges[0]}! +${data.points_earned} pts`)
+      } else {
+        showToast(`+${data.points_earned} pts`)
+      }
+    } catch {
+      // network error — ignore silently, spinner will clear
+    } finally {
+      setCompleting(null)
     }
   }, [])
 
