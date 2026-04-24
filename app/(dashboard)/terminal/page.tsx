@@ -190,6 +190,12 @@ export default function TerminalPage() {
     return { totalCurrent, totalPrev, ytdReturn, platformHistories, totalHistory, sharpe, maxDD }
   }, [platforms])
 
+  useEffect(() => {
+    if (totalCurrent > 0) {
+      try { localStorage.setItem('sigma_portfolio_total', String(totalCurrent)) } catch {}
+    }
+  }, [totalCurrent])
+
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>

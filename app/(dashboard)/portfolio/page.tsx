@@ -64,11 +64,12 @@ type PortfolioRow = Record<string, number>
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function PortfolioPage() {
-  const [portfolio,  setPortfolio]  = useState<PortfolioRow>({})
-  const [positions,  setPositions]  = useState<PassivePosition[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [trm,        setTrm]        = useState('950')
-  const [monthlySav, setMonthlySav] = useState('500')
+  const [portfolio,    setPortfolio]    = useState<PortfolioRow>({})
+  const [positions,    setPositions]    = useState<PassivePosition[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [trm,          setTrm]          = useState('950')
+  const [monthlySav,   setMonthlySav]   = useState('500')
+  const [storedTotal,  setStoredTotal]  = useState(0)
 
   const trmVal = num(trm) || 950
 
@@ -90,6 +91,11 @@ export default function PortfolioPage() {
       }
     } catch {}
 
+    try {
+      const n = Number(localStorage.getItem('sigma_portfolio_total'))
+      if (n > 0) setStoredTotal(n)
+    } catch {}
+
     setLoading(false)
   }, [])
 
@@ -108,8 +114,8 @@ export default function PortfolioPage() {
     const passiveCapital  = positions.reduce((s, p) => s + p.capital, 0)
     const passiveMonthly  = positions.reduce((s, p) => s + p.ingresoMensual, 0)
 
-    // Grand total USD
-    const totalUSD = platformTotal + passiveCapital
+    // Grand total USD — fall back to Terminal's sigma_portfolio_total when no per-platform data
+    const totalUSD = (platformTotal + passiveCapital) || storedTotal
     const totalCLP = totalUSD * trmVal
 
     // Ingreso ratio
@@ -180,7 +186,7 @@ export default function PortfolioPage() {
       fireTarget, firePct, fireYears, FIRE_GOAL_MONTHLY,
       tableRows,
     }
-  }, [portfolio, positions, trmVal, monthlySav])
+  }, [portfolio, positions, trmVal, monthlySav, storedTotal])
 
   const hasData = D.totalUSD > 0
 
