@@ -1,0 +1,171 @@
+<h2>Diseño: FIRE Challenges Panel</h2>
+<p class="subtitle">Así quedaría el panel debajo del simulador. Revisa cada sección.</p>
+
+<div class="section">
+  <div class="label">Vista general del panel</div>
+  <div class="mockup">
+    <div class="mockup-header">// RETOS FIRE · Panel inferior</div>
+    <div class="mockup-body" style="background:#04050a;padding:16px;font-family:monospace">
+
+      <!-- Header con stats -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:#1a1d2e;margin-bottom:1px">
+        <div style="background:#0b0d14;padding:14px 16px">
+          <div style="font-size:9px;color:#7a7f9a;letter-spacing:0.2em;margin-bottom:4px">PUNTOS TOTALES</div>
+          <div style="font-size:28px;color:#d4af37;font-family:'Bebas Neue',Impact,sans-serif;line-height:1">340</div>
+          <div style="font-size:9px;color:#7a7f9a;margin-top:2px">nivel SILVER</div>
+        </div>
+        <div style="background:#0b0d14;padding:14px 16px">
+          <div style="font-size:9px;color:#7a7f9a;letter-spacing:0.2em;margin-bottom:4px">RACHA DIARIA</div>
+          <div style="font-size:28px;color:#f59e0b;font-family:'Bebas Neue',Impact,sans-serif;line-height:1">🔥 7</div>
+          <div style="font-size:9px;color:#7a7f9a;margin-top:2px">días seguidos</div>
+        </div>
+        <div style="background:#0b0d14;padding:14px 16px">
+          <div style="font-size:9px;color:#7a7f9a;letter-spacing:0.2em;margin-bottom:4px">SEMANA ACTUAL</div>
+          <div style="font-size:28px;color:#34d399;font-family:'Bebas Neue',Impact,sans-serif;line-height:1">3/5</div>
+          <div style="font-size:9px;color:#7a7f9a;margin-top:2px">retos completados</div>
+        </div>
+        <div style="background:#0b0d14;padding:14px 16px">
+          <div style="font-size:9px;color:#7a7f9a;letter-spacing:0.2em;margin-bottom:4px">PRÓXIMO BADGE</div>
+          <div style="font-size:22px;line-height:1;margin-bottom:2px">🏆</div>
+          <div style="font-size:9px;color:#d4af37;margin-top:2px">160 pts para GOLD</div>
+        </div>
+      </div>
+
+      <!-- Tabs diarios / semanales -->
+      <div style="display:flex;gap:1px;background:#1a1d2e;margin-bottom:1px">
+        <div style="flex:1;background:#d4af3718;padding:10px 16px;border-bottom:2px solid #d4af37;cursor:pointer">
+          <span style="font-size:10px;color:#d4af37;letter-spacing:0.15em">RETOS DIARIOS · HOY</span>
+          <span style="margin-left:8px;font-size:10px;color:#34d399">2/3</span>
+        </div>
+        <div style="flex:1;background:#0b0d14;padding:10px 16px;border-bottom:2px solid transparent;cursor:pointer">
+          <span style="font-size:10px;color:#7a7f9a;letter-spacing:0.15em">RETOS SEMANALES</span>
+          <span style="margin-left:8px;font-size:10px;color:#7a7f9a">3/5</span>
+        </div>
+        <div style="flex:1;background:#0b0d14;padding:10px 16px;border-bottom:2px solid transparent;cursor:pointer">
+          <span style="font-size:10px;color:#7a7f9a;letter-spacing:0.15em">MIS INSIGNIAS</span>
+          <span style="margin-left:8px;font-size:10px;color:#7a7f9a">4/12</span>
+        </div>
+      </div>
+
+      <!-- Daily challenges list -->
+      <div style="background:#0b0d14;padding:16px;display:flex;flex-direction:column;gap:8px">
+
+        <!-- Completado automático -->
+        <div style="background:#04050a;border:1px solid #34d399;padding:12px 16px;display:flex;align-items:center;gap:12px;opacity:0.7">
+          <div style="width:20px;height:20px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="color:#000;font-size:11px">✓</span>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:#34d399;margin-bottom:2px">COMPLETADO · AUTO-DETECTADO</div>
+            <div style="font-size:13px;color:#e8e9f0">Visitaste el FIRE Planner hoy</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:14px;color:#34d399;font-family:'Bebas Neue',Impact,sans-serif">+10 PTS</div>
+          </div>
+        </div>
+
+        <!-- Completado automático por slider -->
+        <div style="background:#04050a;border:1px solid #34d399;padding:12px 16px;display:flex;align-items:center;gap:12px;opacity:0.7">
+          <div style="width:20px;height:20px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="color:#000;font-size:11px">✓</span>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:#34d399;margin-bottom:2px">COMPLETADO · SLIDER DETECTADO</div>
+            <div style="font-size:13px;color:#e8e9f0">Subiste tu ahorro mensual $100+</div>
+            <div style="font-size:10px;color:#7a7f9a;margin-top:2px">Tu fecha FIRE se adelantó 3 meses 🎯</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:14px;color:#34d399;font-family:'Bebas Neue',Impact,sans-serif">+25 PTS</div>
+          </div>
+        </div>
+
+        <!-- Pendiente manual -->
+        <div style="background:#04050a;border:1px solid #1a1d2e;padding:12px 16px;display:flex;align-items:center;gap:12px">
+          <div style="width:20px;height:20px;border-radius:4px;border:1px solid #3a3f55;flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:#7a7f9a;margin-bottom:2px">PENDIENTE · MANUAL</div>
+            <div style="font-size:13px;color:#e8e9f0">Evita una compra impulsiva hoy</div>
+            <div style="font-size:10px;color:#7a7f9a;margin-top:2px">Vence en 14h 32m</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:#d4af37;font-family:'Bebas Neue',Impact,sans-serif;margin-bottom:4px">+15 PTS</div>
+            <div style="background:#d4af37;color:#000;font-size:9px;padding:3px 10px;letter-spacing:0.1em;cursor:pointer">MARCAR ✓</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Insignias preview -->
+      <div style="background:#0b0d14;border-top:1px solid #1a1d2e;padding:12px 16px;display:flex;gap:8px;align-items:center">
+        <span style="font-size:9px;color:#7a7f9a;letter-spacing:0.15em">BADGES RECIENTES:</span>
+        <span title="Primer reto" style="font-size:20px;cursor:pointer">⚡</span>
+        <span title="7 días seguidos" style="font-size:20px;cursor:pointer">🔥</span>
+        <span title="100 puntos" style="font-size:20px;cursor:pointer">💰</span>
+        <span style="font-size:18px;opacity:0.2;cursor:pointer">🏆</span>
+        <span style="font-size:18px;opacity:0.2;cursor:pointer">💎</span>
+        <span style="font-size:9px;color:#7a7f9a;margin-left:4px">→ 8 bloqueados</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">Catálogo de retos</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <h3 style="font-size:13px;color:#d4af37;margin-bottom:8px">☀️ DIARIOS (se renuevan a medianoche)</h3>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px;color:#7a7f9a">AUTO</td><td style="padding:6px;color:#e8e9f0">Visita el FIRE Planner</td><td style="padding:6px;color:#d4af37">+10</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px;color:#7a7f9a">AUTO</td><td style="padding:6px;color:#e8e9f0">Sube el ahorro $100+</td><td style="padding:6px;color:#d4af37">+25</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px;color:#3a3f55">MANUAL</td><td style="padding:6px;color:#e8e9f0">Evita una compra impulsiva</td><td style="padding:6px;color:#d4af37">+15</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px;color:#3a3f55">MANUAL</td><td style="padding:6px;color:#e8e9f0">Cocina en casa hoy</td><td style="padding:6px;color:#d4af37">+10</td></tr>
+        <tr><td style="padding:6px;color:#3a3f55">MANUAL</td><td style="padding:6px;color:#e8e9f0">Revisa tus gastos del día</td><td style="padding:6px;color:#d4af37">+10</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 style="font-size:13px;color:#34d399;margin-bottom:8px">📅 SEMANALES (lunes a domingo)</h3>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px;color:#7a7f9a">AUTO</td><td style="padding:6px;color:#e8e9f0">Sube tu tasa de ahorro 5%</td><td style="padding:6px;color:#34d399">+50</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px;color:#7a7f9a">AUTO</td><td style="padding:6px;color:#e8e9f0">Reduce gasto mensual FIRE</td><td style="padding:6px;color:#34d399">+40</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px;color:#3a3f55">MANUAL</td><td style="padding:6px;color:#e8e9f0">Cancela una suscripción</td><td style="padding:6px;color:#34d399">+60</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px;color:#3a3f55">MANUAL</td><td style="padding:6px;color:#e8e9f0">Transfiere dinero a inversiones</td><td style="padding:6px;color:#34d399">+75</td></tr>
+        <tr><td style="padding:6px;color:#3a3f55">MANUAL</td><td style="padding:6px;color:#e8e9f0">Lee sobre FIRE 15 min</td><td style="padding:6px;color:#34d399">+30</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">Sistema de niveles y badges</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <h3 style="font-size:13px;color:#e8e9f0;margin-bottom:8px">Niveles por puntos</h3>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px">🌱 STARTER</td><td style="padding:6px;color:#7a7f9a">0 – 99 pts</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px">🥈 SILVER</td><td style="padding:6px;color:#7a7f9a">100 – 499 pts</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px">🥇 GOLD</td><td style="padding:6px;color:#7a7f9a">500 – 999 pts</td></tr>
+        <tr><td style="padding:6px">💎 DIAMOND</td><td style="padding:6px;color:#7a7f9a">1000+ pts</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 style="font-size:13px;color:#e8e9f0;margin-bottom:8px">Badges desbloqueables</h3>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px">⚡ Primer paso</td><td style="padding:6px;color:#7a7f9a">1er reto completado</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px">🔥 On Fire</td><td style="padding:6px;color:#7a7f9a">7 días seguidos</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px">💰 Centenario</td><td style="padding:6px;color:#7a7f9a">100 puntos</td></tr>
+        <tr style="border-bottom:1px solid #1a1d2e"><td style="padding:6px">✂️ Recortador</td><td style="padding:6px;color:#7a7f9a">Cancela 3 suscripciones</td></tr>
+        <tr><td style="padding:6px">🎯 FIRE Ready</td><td style="padding:6px;color:#7a7f9a">Completa 1 semana entera</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">Base de datos (tablas nuevas en Supabase)</div>
+  <div style="background:#0b0d14;border:1px solid #1a1d2e;padding:16px;font-size:11px;font-family:monospace;color:#7a7f9a;line-height:2">
+    <span style="color:#d4af37">fire_progress</span> — user_id, points, level, streak_days, streak_weeks, last_daily_at, last_weekly_at<br>
+    <span style="color:#d4af37">fire_completions</span> — id, user_id, challenge_id, challenge_type (daily/weekly), completed_at, points_earned<br>
+    <span style="color:#d4af37">fire_badges</span> — user_id, badge_id, earned_at
+  </div>
+</div>

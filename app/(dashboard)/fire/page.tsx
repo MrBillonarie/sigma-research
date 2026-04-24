@@ -2,19 +2,11 @@
 import { useState, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { fmt, fmtK } from '@/app/lib/format'
+import FireChallenges from './FireChallenges'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
   loading: () => <div style={{ height: 320, background: '#04050a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'monospace', fontSize: 12, color: '#7a7f9a' }}>Cargando proyección…</span></div>,
-})
-
-const FireChallenges = dynamic(() => import('./FireChallenges'), {
-  ssr: false,
-  loading: () => (
-    <div style={{ borderTop: '1px solid #1a1d2e', padding: 32, textAlign: 'center' }}>
-      <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#7a7f9a' }}>Cargando retos…</span>
-    </div>
-  ),
 })
 
 const C = {
@@ -266,8 +258,8 @@ export default function FirePage() {
           </div>
         </div>
 
-        {/* Challenges panel */}
-        <FireChallenges ahorro={ahorro} gasto={gasto} fireYear={fireYear} />
+        {/* ── Retos FIRE ── */}
+        <FireChallenges ahorro={ahorro} capital={capital} />
 
       </div>
     </div>
