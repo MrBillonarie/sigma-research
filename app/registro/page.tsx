@@ -45,6 +45,13 @@ export default function RegistroPage() {
       setErrors({ form: traducirError(error.message) })
       return
     }
+
+    fetch('/api/email/welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, nombre }),
+    }).catch(() => {})
+
     setDone(true)
   }
 

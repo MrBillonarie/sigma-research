@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sendNuevoReporte } from '@/lib/email'
 
 function makeService() {
   return createClient(
@@ -32,6 +33,26 @@ export async function POST(req: Request) {
     .select()
     .single()
   if (error) return NextResponse.json({ error }, { status: 500 })
+
+  // Notificar suscriptores activos en background
+  const service = makeService()
+  service
+    .from('subscriptions')
+    .select('user_id')
+    .eq('status', 'active')
+    .then(async ({ data: subs }) => {
+      if (!subs?.length) return
+      const ids = subs.map(s => s.user_id)
+      const { data: users } = await service.auth.admin.listUsers()
+      const subscribers = (users?.users ?? [])
+        .filter(u => ids.includes(u.id))
+        .map(u => ({ email: u.email!, nombre: (u.user_metadata?.nombre as string) || u.email!.split('@')[0] }))
+      if (subscribers.length) {
+        sendNuevoReporte(subscribers, data).catch(e => console.error('[reportes] email', e))
+      }
+    })
+    .catch(e => console.error('[reportes] subs query', e))
+
   return NextResponse.json({ reporte: data })
 }
 
