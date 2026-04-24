@@ -1,16 +1,29 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { C } from '@/app/lib/constants'
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
-const MONO = "var(--font-dm-mono,'DM Mono',monospace)"
-const GN   = '#1D9E75'
-const RD   = '#E24B4A'
-const AM   = '#BA7517'
-const GOLD = '#d4af37'
-const BL   = '#4a9eff'
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface Kline { open: number; high: number; low: number; close: number }
+type PoolApiData = Record<string, unknown>
 
-// ── Same PLATFORMS as Home for totalUSD ────────────────────────────────────────
+interface PoolResult {
+  name: string
+  feeTierDisplay: string
+  poolUrl: string
+  aprPct: number
+  tvlUSD: number
+  apiFailed: boolean
+  obRange: { lowerTick: number; upperTick: number; rangeWidthPct: number }
+  kelly: { pct: number; usd: number }
+  il: { ilPct: number; netYieldPct: number; breakEvenDays: number }
+  score: number
+  signal: { label: 'ENTRAR' | 'ESPERAR' | 'SALIR'; color: string }
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const MONO = "var(--font-dm-mono,'DM Mono',monospace)"
+const SANS = "'Space Grotesk',system-ui,sans-serif"
+
 const PLATFORMS = [
   { id: 'ibkr',            isCLP: false },
   { id: 'binance_spot',    isCLP: false },
@@ -19,77 +32,299 @@ const PLATFORMS = [
   { id: 'santander',       isCLP: true  },
   { id: 'cash',            isCLP: false },
 ] as const
-
 const TRM = 950
 
-type PortfolioRow = Record<string, number>
-type AutoStrategy = 'conservadora' | 'balanceada' | 'agresiva'
+interface PoolConfig {
+  name: string
+  proxyKey: string
+  fallbackApr: number
+  fallbackFeeTier: number
+  fallbackTvl: number
+  fallbackVol24h: number
+  url: string
+}
+const POOL_CONFIGS: PoolConfig[] = [
+  {
+    name: 'BTC/USDT',  proxyKey: 'btc',
+    fallbackApr: 22, fallbackFeeTier: 0.0025, fallbackTvl: 5_000_000, fallbackVol24h: 300_000,
+    url: 'https://pancakeswap.finance/add/0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c/0x55d398326f99059fF775485246999027B3197955/500',
+  },
+  {
+    name: 'BNB/USDT',  proxyKey: 'bnb',
+    fallbackApr: 35, fallbackFeeTier: 0.0005, fallbackTvl: 8_000_000, fallbackVol24h: 550_000,
+    url: 'https://pancakeswap.finance/add/BNB/0x55d398326f99059fF775485246999027B3197955/500',
+  },
+  {
+    name: 'USDC/USDT', proxyKey: 'usdc',
+    fallbackApr: 8,  fallbackFeeTier: 0.0001, fallbackTvl: 12_000_000, fallbackVol24h: 250_000,
+    url: 'https://pancakeswap.finance/add/0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d/0x55d398326f99059fF775485246999027B3197955/100',
+  },
+]
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-const usd  = (n: number) => '$' + Math.round(n).toLocaleString('en-US', { maximumFractionDigits: 0 })
-const usd2 = (n: number) => '$' + n.toFixed(2)
-const pct  = (n: number, d = 1) => n.toFixed(d) + '%'
-
-function regimeColor(regime: string): string {
-  if (regime === 'COMPRESIÓN') return GN
-  if (regime === 'RANGO')      return GOLD
-  if (regime === 'TENDENCIA')  return BL
-  return RD
+const KELLY_BASE: Record<string, number> = {
+  'BTC/USDT': 0.35, 'BNB/USDT': 0.25, 'USDC/USDT': 0.15,
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
-function Label({ children }: { children: string }) {
-  return (
-    <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>
-      {children}
-    </div>
-  )
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const usd     = (n: number) => '$' + Math.round(n).toLocaleString('en-US', { maximumFractionDigits: 0 })
+const pct     = (n: number, d = 1) => isNaN(n) ? '—' : n.toFixed(d) + '%'
+const pad2    = (n: number) => String(n).padStart(2, '0')
+const fmtTime = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+
+function extractPoolFields(raw: PoolApiData, cfg: PoolConfig): { vol24h: number; feeTierDec: number; tvl: number } {
+  const d = (raw.data as PoolApiData) ?? raw
+  const vol24h     = Number(d.volumeUSD24h ?? d.volumeUSD ?? 0)
+  const rawFt      = Number(d.feeTier ?? 2500)
+  const feeTierDec = rawFt >= 1 ? rawFt / 1_000_000 : rawFt
+  const tvl        = Number(d.tvlUSD ?? d.totalValueLockedUSD ?? 0)
+  if (vol24h > 0 && feeTierDec > 0 && tvl > 0) return { vol24h, feeTierDec, tvl }
+  return { vol24h: cfg.fallbackVol24h, feeTierDec: cfg.fallbackFeeTier, tvl: cfg.fallbackTvl }
 }
 
-function Panel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 22px', ...style }}>
-      {children}
-    </div>
-  )
+// ─── Quant engines ────────────────────────────────────────────────────────────
+function wilderSmooth(data: number[], period: number): number[] {
+  if (data.length < period) return []
+  const r: number[] = [data.slice(0, period).reduce((a, b) => a + b, 0)]
+  for (let i = period; i < data.length; i++)
+    r.push(r[r.length - 1] - r[r.length - 1] / period + data[i])
+  return r
 }
 
-function SectionTitle({ children }: { children: string }) {
-  return (
-    <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.dimText, marginBottom: 14 }}>
-      {children}
-    </div>
-  )
+function calcADX(klines: Kline[], period = 14): number {
+  if (klines.length < period + 2) return 20
+  const trs: number[] = [], pDMs: number[] = [], mDMs: number[] = []
+  for (let i = 1; i < klines.length; i++) {
+    const c = klines[i], p = klines[i - 1]
+    trs.push(Math.max(c.high - c.low, Math.abs(c.high - p.close), Math.abs(c.low - p.close)))
+    const up = c.high - p.high, dn = p.low - c.low
+    pDMs.push(up > dn && up > 0 ? up : 0)
+    mDMs.push(dn > up && dn > 0 ? dn : 0)
+  }
+  const sTR = wilderSmooth(trs, period), sP = wilderSmooth(pDMs, period), sM = wilderSmooth(mDMs, period)
+  const dxs: number[] = []
+  for (let i = 0; i < sTR.length; i++) {
+    if (sTR[i] === 0) continue
+    const pDI = sP[i] / sTR[i] * 100, mDI = sM[i] / sTR[i] * 100, sum = pDI + mDI
+    if (sum === 0) continue
+    dxs.push(Math.abs(pDI - mDI) / sum * 100)
+  }
+  if (!dxs.length) return 20
+  const sl = dxs.slice(-period)
+  return sl.reduce((a, b) => a + b, 0) / sl.length
 }
 
-
-function StatBox({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, padding: '12px 14px', textAlign: 'center' }}>
-      <Label>{label}</Label>
-      <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 600, color }}>{value}</div>
-    </div>
-  )
+function calcBBWidth(klines: Kline[], period = 20): number {
+  if (klines.length < period) return 0.05
+  const cls = klines.slice(-period).map(k => k.close)
+  const mean = cls.reduce((a, b) => a + b, 0) / period
+  const std  = Math.sqrt(cls.reduce((s, c) => s + (c - mean) ** 2, 0) / period)
+  return mean > 0 ? (4 * std) / mean : 0.05
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────────
-export default function LpDefiPage() {
-  const [btcPrice,    setBtcPrice]    = useState(84_000)
-  const [priceChange, setPriceChange] = useState(0)
-  const [portfolio,   setPortfolio]   = useState<PortfolioRow>({})
-  const [copied,      setCopied]      = useState(false)
+function calcATR(klines: Kline[], period = 14): number {
+  if (klines.length < 2) return 0
+  const trs: number[] = []
+  for (let i = 1; i < klines.length; i++) {
+    const c = klines[i], p = klines[i - 1]
+    trs.push(Math.max(c.high - c.low, Math.abs(c.high - p.close), Math.abs(c.low - p.close)))
+  }
+  const sl = trs.slice(-period)
+  return sl.reduce((a, b) => a + b, 0) / sl.length
+}
 
-  // Live BTC price via Binance WebSocket
+function detectBTCRegime(klines: Kline[]): { regime: 'TRENDING' | 'LATERAL' | 'VOLATILE'; adx: number; bbWidth: number } {
+  const adx = calcADX(klines), bbWidth = calcBBWidth(klines)
+  const regime: 'TRENDING' | 'LATERAL' | 'VOLATILE' =
+    adx < 25 && bbWidth < 0.04 ? 'LATERAL' : adx > 35 ? 'TRENDING' : 'VOLATILE'
+  return { regime, adx, bbWidth }
+}
+
+// FIX 2 — Per-pool range with different ATR multipliers
+function calcPoolRange(
+  poolName: string,
+  btcPrice: number,
+  bnbPrice: number,
+  btcAtr: number,
+): { lowerTick: number; upperTick: number; rangeWidthPct: number } {
+  if (poolName === 'USDC/USDT') {
+    return { lowerTick: 0.997, upperTick: 1.003, rangeWidthPct: 0.6 }
+  }
+  if (poolName === 'BNB/USDT') {
+    const ref = bnbPrice > 0 ? bnbPrice : 600
+    const atr = ref * 0.04
+    const lo  = ref - atr * 1.2
+    const hi  = ref + atr * 1.8
+    return { lowerTick: lo, upperTick: hi, rangeWidthPct: ref > 0 ? (hi - lo) / ref * 100 : 10 }
+  }
+  // BTC/USDT
+  const lo = btcPrice - btcAtr * 1.5
+  const hi = btcPrice + btcAtr * 2.0
+  return { lowerTick: lo, upperTick: hi, rangeWidthPct: btcPrice > 0 ? (hi - lo) / btcPrice * 100 : 10 }
+}
+
+function kellySize(totalUSD: number, regime: 'TRENDING' | 'LATERAL' | 'VOLATILE', poolName: string) {
+  const base = KELLY_BASE[poolName] ?? 0
+  const mul  = regime === 'LATERAL' ? 1 : regime === 'VOLATILE' ? 0.5 : 0
+  const p    = Math.min(base * mul, 0.5)
+  return { pct: p, usd: totalUSD * p }
+}
+
+function calcILConcentrated(currentPrice: number, lowerPrice: number, upperPrice: number): number {
+  if (currentPrice <= 0 || lowerPrice <= 0 || upperPrice <= lowerPrice) return 0
+
+  if (currentPrice >= lowerPrice && currentPrice <= upperPrice) {
+    const k  = Math.sqrt(currentPrice) / Math.sqrt(upperPrice)
+    return Math.abs(2 * Math.sqrt(k) / (1 + k) - 1) * 100
+  }
+  if (currentPrice < lowerPrice) {
+    const ratio = currentPrice / lowerPrice
+    return Math.abs(2 * Math.sqrt(ratio) / (1 + ratio) - 1) * 100
+  }
+  const ratio = upperPrice / currentPrice
+  return Math.abs(2 * Math.sqrt(ratio) / (1 + ratio) - 1) * 100
+}
+
+function projectIL(currentPrice: number, lowerTick: number, upperTick: number, aprPct: number, days = 30) {
+  const ilPct          = calcILConcentrated(currentPrice, lowerTick, upperTick)
+  const dailyFeeReturn = aprPct / 365
+  const netYieldPct    = aprPct * days / 365 - ilPct
+  const breakEvenDays  = ilPct > 0 && dailyFeeReturn > 0 ? Math.ceil(ilPct / dailyFeeReturn) : 1
+  return { ilPct, netYieldPct, breakEvenDays }
+}
+
+// FIX 3 — Score differentiates by APR, TVL, and range quality
+function scorePool(
+  regime: string,
+  rangeWidthPct: number,
+  netYieldPct: number,
+  apr: number,
+  tvl: number,
+): number {
+  let s = 0
+
+  if (regime === 'LATERAL')  s += 35
+  if (regime === 'VOLATILE') s += 15
+
+  if (apr > 30)       s += 25
+  else if (apr > 15)  s += 18
+  else if (apr > 5)   s += 10
+  else                s += 3
+
+  if (netYieldPct > 3)      s += 20
+  else if (netYieldPct > 1) s += 12
+  else if (netYieldPct > 0) s += 6
+  else                       s -= 10
+
+  if (rangeWidthPct >= 3 && rangeWidthPct <= 8) s += 12
+  else if (rangeWidthPct <= 15)                  s += 7
+  else                                            s += 3
+
+  if (tvl > 10_000_000)     s += 8
+  else if (tvl > 3_000_000) s += 5
+  else                       s += 2
+
+  return Math.min(100, Math.max(0, s))
+}
+
+function getSignal(score: number): { label: 'ENTRAR' | 'ESPERAR' | 'SALIR'; color: string } {
+  if (score >= 60) return { label: 'ENTRAR', color: '#22c55e' }
+  if (score >= 35) return { label: 'ESPERAR', color: C.gold }
+  return { label: 'SALIR', color: '#ef4444' }
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+export default function LpSignalPage() {
+  const [btcPrice,       setBtcPrice]       = useState(0)
+  const [priceChange,    setPriceChange]    = useState(0)
+  const [bnbPrice,       setBnbPrice]       = useState(0)       // FIX 2
+  const [klines,         setKlines]         = useState<Kline[]>([])
+  const [poolsData,      setPoolsData]      = useState<(PoolApiData | null)[]>([null, null, null])
+  const [totalUSD,       setTotalUSD]       = useState(0)
+  const [capitalInput,   setCapitalInput]   = useState('')      // FIX 1
+  const [editingCapital, setEditingCapital] = useState(false)   // FIX 1
+  const [portfolioEmpty, setPortfolioEmpty] = useState(false)
+  const [loading,        setLoading]        = useState(true)
+  const [apiError,       setApiError]       = useState(false)
+  const [lastUpdate,     setLastUpdate]     = useState<Date | null>(null)
+
+  const prevRef     = useRef(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // FIX 1 — Portfolio: sigma_lp_capital first, then other keys
+  useEffect(() => {
+    let total = 0
+
+    try {
+      const lpCap = localStorage.getItem('sigma_lp_capital')
+      if (lpCap) { const n = Number(lpCap); if (n > 0) total = n }
+    } catch {}
+
+    if (total === 0) {
+      try {
+        const raw1 = localStorage.getItem('sigma_portfolio')
+        if (raw1) {
+          const arr = JSON.parse(raw1)
+          if (Array.isArray(arr))
+            total = arr.reduce((s: number, i: Record<string, unknown>) => s + (Number(i.usd) || Number(i.value) || 0), 0)
+          else if (arr && typeof arr === 'object' && (arr as Record<string, unknown>).total)
+            total = Number((arr as Record<string, unknown>).total)
+          if (total === 0 && arr && typeof arr === 'object' && !Array.isArray(arr))
+            total = PLATFORMS.reduce((sum, pl) => { const v = (arr as Record<string, number>)[pl.id] ?? 0; return sum + (pl.isCLP ? v / TRM : v) }, 0)
+        }
+      } catch {}
+    }
+
+    if (total === 0) {
+      try {
+        const raw2 = localStorage.getItem('sigma_macro_portfolio')
+        if (raw2) {
+          const arr = JSON.parse(raw2)
+          if (Array.isArray(arr))
+            total = arr.reduce((s: number, i: Record<string, unknown>) => s + (Number(i.usd) || Number(i.value) || 0), 0)
+        }
+      } catch {}
+    }
+
+    if (total === 0) {
+      try {
+        const raw3 = localStorage.getItem('sigma_positions')
+        if (raw3) {
+          const arr = JSON.parse(raw3)
+          if (Array.isArray(arr))
+            total = arr.reduce((s: number, i: Record<string, unknown>) => s + (Number(i.usd) || Number(i.notional) || 0), 0)
+        }
+      } catch {}
+    }
+
+    setTotalUSD(total)
+    setCapitalInput(total > 0 ? String(total) : '')
+    if (total === 0) setPortfolioEmpty(true)
+  }, [])
+
+  // FIX 1 — Handle manual capital entry
+  function handleCapitalChange(val: string) {
+    setCapitalInput(val)
+    const n = parseFloat(val)
+    if (!isNaN(n) && n > 0) {
+      setTotalUSD(n)
+      setPortfolioEmpty(false)
+      try { localStorage.setItem('sigma_lp_capital', String(n)) } catch {}
+    } else {
+      setTotalUSD(0)
+      setPortfolioEmpty(true)
+    }
+  }
+
+  // BTC WebSocket
   useEffect(() => {
     let ws: WebSocket
-    let prev = 0
     function connect() {
       ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@miniTicker')
       ws.onmessage = (e: MessageEvent) => {
         const d = JSON.parse(e.data as string) as { c: string }
         const p = parseFloat(d.c)
-        if (prev > 0) setPriceChange(((p - prev) / prev) * 100)
-        prev = p
+        if (prevRef.current > 0) setPriceChange(((p - prevRef.current) / prevRef.current) * 100)
+        prevRef.current = p
         setBtcPrice(p)
       }
       ws.onclose = () => setTimeout(connect, 5000)
@@ -98,373 +333,317 @@ export default function LpDefiPage() {
     return () => ws?.close()
   }, [])
 
-  // Portfolio from localStorage (same key as Home)
-  useEffect(() => {
+  // Klines + BNB price + PancakeSwap proxy
+  const fetchData = useCallback(async () => {
     try {
-      const r = localStorage.getItem('sigma_portfolio')
-      if (r) setPortfolio(JSON.parse(r) as PortfolioRow)
-    } catch { /* ignore */ }
+      const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=4h&limit=50')
+      if (res.ok) {
+        const raw = await res.json() as [number, string, string, string, string, ...unknown[]][]
+        setKlines(raw.map(r => ({ open: parseFloat(r[1]), high: parseFloat(r[2]), low: parseFloat(r[3]), close: parseFloat(r[4]) })))
+      }
+    } catch {}
+
+    // FIX 2 — Fetch BNB spot price
+    try {
+      const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT')
+      if (res.ok) {
+        const d = await res.json() as { price: string }
+        const p = parseFloat(d.price)
+        if (p > 0) setBnbPrice(p)
+      }
+    } catch {}
+
+    const results = await Promise.all(
+      POOL_CONFIGS.map(async (cfg): Promise<PoolApiData | null> => {
+        try {
+          const res = await fetch(`/api/pancakeswap/pools?pool=${cfg.proxyKey}`)
+          if (!res.ok) return null
+          const json = await res.json() as PoolApiData
+          if ((json as Record<string, unknown>).error) return null
+          return json
+        } catch { return null }
+      })
+    )
+    setApiError(results.every(r => r === null))
+    setPoolsData(results)
+    setLoading(false)
+    setLastUpdate(new Date())
   }, [])
 
-  // totalUSD — identical logic to Home
-  const totalUSD = useMemo(() =>
-    PLATFORMS.reduce((sum, p) => {
-      const raw = portfolio[p.id] ?? 0
-      return sum + (p.isCLP ? raw / TRM : raw)
-    }, 0),
-    [portfolio]
-  )
+  useEffect(() => {
+    fetchData()
+    intervalRef.current = setInterval(fetchData, 5 * 60 * 1000)
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [fetchData])
 
-  // ── Quantitative engine ───────────────────────────────────────────────────────
+  // ─── Engine ──────────────────────────────────────────────────────────────────
   const engine = useMemo(() => {
-    // REGIME from price volatility (priceChange as ATR proxy)
-    const absChange = Math.abs(priceChange)
-    const atrPct = Math.max(0.5, Math.min(15, absChange * 8))
+    const { regime, adx, bbWidth } = klines.length > 15
+      ? detectBTCRegime(klines)
+      : { regime: 'VOLATILE' as const, adx: 20, bbWidth: 0.05 }
 
-    const regime: string =
-      atrPct < 1.5 ? 'COMPRESIÓN' :
-      atrPct < 4   ? 'RANGO'      :
-      atrPct < 8   ? 'TENDENCIA'  : 'ALTA VOL'
+    const price  = btcPrice || 84_000
+    const btcAtr = calcATR(klines)
 
-    // OB levels (auto)
-    const obLower = btcPrice * (1 - atrPct / 100)
-    const obUpper = btcPrice * (1 + atrPct / 100)
+    const pools: PoolResult[] = POOL_CONFIGS.map((cfg, i) => {
+      const apiPool   = poolsData[i]
+      const apiFailed = !apiPool
 
-    // Strategy selection by regime
-    const autoStrategy: AutoStrategy =
-      regime === 'COMPRESIÓN' ? 'agresiva' :
-      regime === 'RANGO'      ? 'balanceada' : 'conservadora'
+      const { vol24h, feeTierDec, tvl: tvlUSD } = apiPool
+        ? extractPoolFields(apiPool, cfg)
+        : { vol24h: cfg.fallbackVol24h, feeTierDec: cfg.fallbackFeeTier, tvl: cfg.fallbackTvl }
 
-    // Range per strategy
-    const ranges: Record<AutoStrategy, { lo: number; hi: number; label: string }> = {
-      conservadora: { lo: 0.12, hi: 0.12, label: '±12%' },
-      balanceada:   { lo: 0.06, hi: 0.06, label: '±6%'  },
-      agresiva:     { lo: 0.03, hi: 0.03, label: '±3%'  },
-    }
-    const r = ranges[autoStrategy]
-    const pLow  = btcPrice * (1 - r.lo)
-    const pHigh = btcPrice * (1 + r.hi)
+      const aprPct         = tvlUSD > 0 ? Math.min(Math.max((vol24h * feeTierDec * 365) / tvlUSD * 100, 0.1), 500) : cfg.fallbackApr
+      const feeTierDisplay = (feeTierDec * 100).toFixed(2) + '%'
+      const kelly          = kellySize(totalUSD, regime, cfg.name)
 
-    // Capital efficiency
-    const sqrtR = Math.sqrt(pHigh / pLow)
-    const eff   = sqrtR / (sqrtR - 1)
+      // FIX 2 — Per-pool range and correct current price for IL
+      const obRange     = calcPoolRange(cfg.name, price, bnbPrice, btcAtr)
+      const poolPrice   = cfg.name === 'BNB/USDT' ? (bnbPrice || 600) : cfg.name === 'USDC/USDT' ? 1.0 : price
 
-    // IL max
-    const ilPct = Math.abs(2 * sqrtR / (1 + sqrtR) - 1) * 100
+      // FIX 3 — Updated scorePool with apr and tvl
+      const il    = projectIL(poolPrice, obRange.lowerTick, obRange.upperTick, aprPct, 30)
+      const score = scorePool(regime, obRange.rangeWidthPct, il.netYieldPct, aprPct, tvlUSD)
 
-    // Kelly sizing (Sigma PRO.MACD parameters)
-    const winRate   = 0.852
-    const avgWin    = 3.62
-    const avgLoss   = 5.03
-    const kellyFull = winRate - (1 - winRate) / (avgWin / avgLoss)
-    const kellyFrac = kellyFull * 0.25
-    const regimeFactor: number =
-      regime === 'COMPRESIÓN' ? 0.6 :
-      regime === 'RANGO'      ? 1.0 :
-      regime === 'TENDENCIA'  ? 0.3 : 0.1
-    const capitalLP = Math.max(0, totalUSD * kellyFrac * regimeFactor)
-
-    // Days recommended
-    const daysRec: number =
-      regime === 'COMPRESIÓN' ? 7  :
-      regime === 'RANGO'      ? 14 :
-      regime === 'TENDENCIA'  ? 3  : 1
-
-    // APR estimate (BTC/USDC pool ~$131M daily, 0.05% fee)
-    const poolVolume   = 131_000_000
-    const feeTier      = 0.0005
-    const liqShare     = capitalLP > 0 ? capitalLP / (capitalLP + 2_000_000) : 0
-    const feesPerDay   = poolVolume * feeTier * liqShare * eff * 0.0012
-    const feesTotal    = feesPerDay * daysRec
-    const aprEstimated = capitalLP > 0 ? (feesPerDay * 365 / capitalLP) * 100 : 0
-
-    // IL in USD
-    const ilUSD    = capitalLP * (ilPct / 100)
-    const breakEven = feesPerDay > 0 ? ilUSD / feesPerDay : 999
-
-    // Net PnL
-    const netPnL = feesTotal - ilUSD
-
-    // Monte Carlo (500 sims)
-    const mc: number[] = []
-    for (let i = 0; i < 500; i++) {
-      const volF   = 0.4 + Math.random() * 1.8
-      const walk   = (Math.random() - 0.48) * 0.15
-      const daysIn = Math.max(0, daysRec * (1 - Math.abs(walk) * 3.5))
-      const earned = feesPerDay * volF * daysIn
-      const ilCost = capitalLP * (ilPct / 100) * Math.min(1, Math.abs(walk) * 7)
-      mc.push(capitalLP > 0 ? (earned - ilCost) / capitalLP * 100 : 0)
-    }
-    mc.sort((a, b) => a - b)
-    const mcMean    = mc.reduce((a, b) => a + b, 0) / mc.length
-    const mcP10     = mc[Math.floor(mc.length * 0.1)]
-    const mcP90     = mc[Math.floor(mc.length * 0.9)]
-    const mcPosProb = mc.filter(v => v > 0).length / mc.length * 100
-
-    // Histogram (24 bins)
-    const BINS = 24
-    const minV = mc[0]
-    const maxV = mc[mc.length - 1]
-    const bw   = ((maxV - minV) / BINS) || 1
-    const bins = Array.from({ length: BINS }, (_, i) => {
-      const lo  = minV + i * bw
-      const hi  = lo + bw
-      const mid = (lo + hi) / 2
-      return {
-        count: mc.filter(v => v >= lo && v < hi).length,
-        mid,
-        positive: mid > 0,
-      }
+      return { name: cfg.name, feeTierDisplay, poolUrl: cfg.url, aprPct, tvlUSD, apiFailed, obRange, kelly, il, score, signal: getSignal(score) }
     })
-    const maxCount = Math.max(...bins.map(b => b.count), 1)
 
-    return {
-      regime, autoStrategy, atrPct,
-      obLower, obUpper,
-      pLow, pHigh, rangeLabel: r.label,
-      eff, ilPct, ilUSD,
-      capitalLP, kellyFrac, regimeFactor,
-      daysRec, feesPerDay, feesTotal,
-      aprEstimated, breakEven, netPnL,
-      mcMean, mcP10, mcP90, mcPosProb,
-      bins, maxCount,
-    }
-  }, [btcPrice, priceChange, totalUSD])
+    const best = [...pools].sort((a, b) => b.score - a.score)[0]
+    const summary = regime === 'TRENDING'
+      ? `Régimen TRENDING detectado (ADX=${adx.toFixed(1)}, BB Width=${(bbWidth * 100).toFixed(1)}%). El mercado está en tendencia — los pools LP no son eficientes ahora. Capital sugerido: $0 en todos los pools. Espera régimen LATERAL o VOLATILE antes de desplegar liquidez.`
+      : `Régimen ${regime} detectado (ADX=${adx.toFixed(1)}, BB Width=${(bbWidth * 100).toFixed(1)}%). El pool más eficiente es ${best?.name ?? '—'} con score ${best?.score ?? 0}/100. Capital total disponible: ${usd(totalUSD)}. Asignación recomendada: ${usd(best?.kelly.usd ?? 0)} (${((best?.kelly.pct ?? 0) * 100).toFixed(0)}%) en ${best?.name ?? '—'}.`
 
-  const rColor = regimeColor(engine.regime)
+    return { regime, adx, bbWidth, pools, summary }
+  }, [klines, btcPrice, bnbPrice, poolsData, totalUSD])
 
-  // Range visualization helpers (±15% window, price always at center)
-  const chartSpan = btcPrice * 0.30
-  const chartMin  = btcPrice - chartSpan / 2
-  const toX = (v: number) => Math.max(0, Math.min(100, ((v - chartMin) / chartSpan) * 100))
-  const xLow   = toX(engine.pLow)
-  const xHigh  = toX(engine.pHigh)
-  const xPrice = toX(btcPrice) // always ~50%
+  const regimeColor = engine.regime === 'LATERAL' ? C.green : engine.regime === 'TRENDING' ? C.red : C.yellow
 
-  // Executive summary
-  const summaryText =
-`SIGMA RESEARCH — LP CUANTITATIVO
-─────────────────────────────────
-Régimen:        ${engine.regime}
-Estrategia:     ${engine.autoStrategy.toUpperCase()} (${engine.rangeLabel})
-BTC Precio:     ${usd(btcPrice)}
-─────────────────────────────────
-Tick inferior:  ${usd(engine.pLow)}
-Tick superior:  ${usd(engine.pHigh)}
-Cap. efficiency:${engine.eff.toFixed(1)}x
-─────────────────────────────────
-Patrimonio:     ${usd(totalUSD)}
-Capital LP:     ${usd(engine.capitalLP)}
-Kelly aplicado: ${pct(engine.kellyFrac * engine.regimeFactor * 100)}
-─────────────────────────────────
-APR estimado:   ${pct(engine.aprEstimated)}
-Fees /${engine.daysRec}d:      ${usd2(engine.feesTotal)}
-IL máximo:      ${pct(engine.ilPct, 2)} (${usd2(engine.ilUSD)})
-Retorno esp.:   ${usd2(engine.netPnL)}
-Break-even:     ${engine.breakEven.toFixed(0)}d
-─────────────────────────────────
-MC Esperado:    ${pct(engine.mcMean, 2)}
-MC P10/P90:     ${pct(engine.mcP10, 2)} / ${pct(engine.mcP90, 2)}
-Prob >0:        ${pct(engine.mcPosProb, 0)}
-─────────────────────────────────
-Generado: ${new Date().toLocaleString('es-CL')}`
-
-  function handleCopy() {
-    navigator.clipboard.writeText(summaryText).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    })
+  const inputStyle: React.CSSProperties = {
+    fontFamily: MONO, fontSize: 11, background: C.bg,
+    border: `1px solid ${C.gold}44`, color: C.text,
+    padding: '5px 8px', width: '100%', boxSizing: 'border-box',
+    outline: 'none', marginTop: 2,
   }
 
   return (
-    <div style={{ background: C.bg, color: C.text, fontFamily: MONO, minHeight: '100%' }}>
+    <div style={{ background: C.bg, color: C.text, minHeight: '100%' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '40px 24px 80px' }}>
 
-        {/* ── A) HEADER ───────────────────────────────────────────────────────── */}
+        {/* ── HEADER ──────────────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: GOLD, marginBottom: 6 }}>
-            {'// LP DEFI · MOTOR CUANTITATIVO AUTOMÁTICO'}
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 6 }}>
+            {'// LP SIGNAL PANEL · PANCAKESWAP V3 BSC'}
           </div>
-          <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,68px)', lineHeight: 0.95, letterSpacing: '0.03em', margin: '0 0 6px' }}>
-            <span style={{ color: C.text }}>LP </span>
-            <span style={{ color: GOLD }}>DEFI</span>
+          <h1 style={{ fontFamily: SANS, fontSize: 'clamp(32px,4vw,56px)', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.02em', margin: '0 0 6px' }}>
+            <span style={{ color: C.text }}>LP </span><span style={{ color: C.gold }}>SIGNAL</span><span style={{ color: C.text }}> PANEL</span>
           </h1>
-          <div style={{ fontSize: 11, color: C.dimText, letterSpacing: '0.08em' }}>
-            Señal calculada en tiempo real · sin inputs manuales
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dimText, letterSpacing: '0.08em' }}>
+            Señales cuantitativas en tiempo real · sin inputs manuales
           </div>
         </div>
 
-        {/* ── B) STATUS BAR — 4 panels ────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border, marginBottom: 16 }}>
+        {/* ── TOP BAR ─────────────────────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border, marginBottom: 24 }}>
 
-          {/* 1. BTC price live */}
-          <div style={{ background: C.surface, padding: '16px 18px' }}>
-            <Label>BTC PRICE LIVE</Label>
-            <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-              {usd(btcPrice)}
+          <TopCell label="BTC PRICE LIVE">
+            <div style={{ fontFamily: SANS, fontSize: 26, fontWeight: 700, color: C.gold, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+              {btcPrice > 0 ? usd(btcPrice) : <LoadPulse w={120} h={26} />}
             </div>
-            <div style={{ fontSize: 11, color: priceChange >= 0 ? GN : RD, marginTop: 4, fontWeight: 600 }}>
-              {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(3)}%
+            <div style={{ fontFamily: MONO, fontSize: 11, color: priceChange >= 0 ? C.green : C.red, marginTop: 4 }}>
+              {btcPrice > 0 ? (priceChange >= 0 ? '+' : '') + priceChange.toFixed(4) + '%' : '...'}
             </div>
-          </div>
+          </TopCell>
 
-          {/* 2. Patrimonio base */}
-          <div style={{ background: C.surface, padding: '16px 18px' }}>
-            <Label>PATRIMONIO BASE</Label>
-            <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, lineHeight: 1 }}>
-              {totalUSD > 0 ? usd(totalUSD) : '—'}
+          <TopCell label="RÉGIMEN BTC 4H">
+            {loading
+              ? <LoadPulse w={100} h={28} />
+              : <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 700, color: regimeColor }}>{engine.regime}</div>
+            }
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.dimText, marginTop: 4 }}>
+              ADX {engine.adx.toFixed(1)} · BB {(engine.bbWidth * 100).toFixed(1)}%
+              {bnbPrice > 0 && <span style={{ marginLeft: 8 }}>BNB {usd(bnbPrice)}</span>}
             </div>
-            <div style={{ fontSize: 9, color: C.dimText, marginTop: 4 }}>base de cálculo Kelly</div>
-          </div>
+          </TopCell>
 
-          {/* 3. Régimen actual */}
-          <div style={{ background: C.surface, padding: '16px 18px' }}>
-            <Label>RÉGIMEN ACTUAL</Label>
-            <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: rColor, lineHeight: 1, letterSpacing: '0.04em' }}>
-              {engine.regime}
-            </div>
-            <div style={{ fontSize: 9, color: C.dimText, marginTop: 4 }}>ATR proxy: {engine.atrPct.toFixed(1)}%</div>
-          </div>
+          {/* FIX 1 — Capital input */}
+          <TopCell label="PORTAFOLIO">
+            {(portfolioEmpty || editingCapital) ? (
+              <div>
+                <input
+                  type="number"
+                  placeholder="Ingresa tu capital total ($)"
+                  value={capitalInput}
+                  onChange={e => handleCapitalChange(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && totalUSD > 0) setEditingCapital(false) }}
+                  style={inputStyle}
+                  autoFocus={editingCapital}
+                />
+                {editingCapital && totalUSD > 0 && (
+                  <button onClick={() => setEditingCapital(false)} style={{
+                    fontFamily: MONO, fontSize: 9, background: C.gold + '20',
+                    border: `1px solid ${C.gold}44`, color: C.gold,
+                    padding: '3px 8px', cursor: 'pointer', marginTop: 4,
+                  }}>✓ OK</button>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 700, color: C.gold, lineHeight: 1 }}>
+                  {usd(totalUSD)}
+                </div>
+                <button onClick={() => setEditingCapital(true)} style={{
+                  background: 'transparent', border: 'none',
+                  color: C.dimText, cursor: 'pointer', fontSize: 13, padding: 2,
+                  lineHeight: 1, marginTop: 2,
+                }}>✎</button>
+              </div>
+            )}
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.dimText, marginTop: 4 }}>base Kelly</div>
+          </TopCell>
 
-          {/* 4. Capital a deployar */}
-          <div style={{ background: C.surface, padding: '16px 18px' }}>
-            <Label>CAPITAL A DEPLOYAR</Label>
-            <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, lineHeight: 1 }}>
-              {engine.capitalLP > 0 ? usd(engine.capitalLP) : '—'}
+          <TopCell label="ACTUALIZACIÓN">
+            <div style={{ fontFamily: MONO, fontSize: 16, color: C.text, lineHeight: 1 }}>
+              {lastUpdate ? fmtTime(lastUpdate) : <LoadPulse w={80} h={20} />}
             </div>
-            <div style={{ fontSize: 9, color: C.dimText, marginTop: 4 }}>
-              Kelly {pct(engine.kellyFrac * 100)} × régimen {pct(engine.regimeFactor * 100, 0)}
+            <div style={{ fontFamily: MONO, fontSize: 9, color: apiError ? C.red : C.green, marginTop: 4, letterSpacing: '0.1em' }}>
+              {apiError ? '⚠ API ERROR' : '● API OK'}
             </div>
-          </div>
+          </TopCell>
         </div>
 
-        {/* ── C) SIGNAL BANNER ────────────────────────────────────────────────── */}
-        <div style={{
-          padding: '12px 20px', marginBottom: 20,
-          background: `${rColor}0d`,
-          borderLeft: `3px solid ${rColor}`,
-          borderTop: `1px solid ${rColor}30`,
-          borderBottom: `1px solid ${rColor}30`,
-          borderRight: `1px solid ${rColor}30`,
-        }}>
-          <span style={{ fontSize: 10, color: rColor, letterSpacing: '0.2em', marginRight: 12 }}>▶ MOTOR SIGMA</span>
-          <span style={{ fontSize: 11, color: C.text }}>
-            Régimen <strong style={{ color: rColor }}>{engine.regime}</strong> detectado ·{' '}
-            Estrategia AUTO: <strong style={{ color: GOLD }}>{engine.autoStrategy.toUpperCase()}</strong> ·{' '}
-            Días recomendados: <strong>{engine.daysRec}d</strong> ·{' '}
-            OB Lower: <span style={{ color: RD }}>{usd(engine.obLower)}</span> ·{' '}
-            OB Upper: <span style={{ color: GN }}>{usd(engine.obUpper)}</span>
-          </span>
-        </div>
-
-        {/* ── D) RANGE VISUALIZATION ──────────────────────────────────────────── */}
-        <Panel style={{ marginBottom: 20 }}>
-          <SectionTitle>{`// RANGO ÓPTIMO · ${engine.rangeLabel} · Capital efficiency ${engine.eff.toFixed(1)}x`}</SectionTitle>
-
-          {/* Visual bar */}
-          <div style={{ position: 'relative', height: 56, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
-            {/* Left red zone */}
-            <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${xLow}%`, background: `${RD}22` }} />
-            {/* Green in-range zone */}
-            <div style={{ position: 'absolute', top: 0, left: `${xLow}%`, height: '100%', width: `${Math.max(0, xHigh - xLow)}%`, background: `${GN}22` }} />
-            {/* Right red zone */}
-            <div style={{ position: 'absolute', top: 0, left: `${xHigh}%`, height: '100%', width: `${100 - xHigh}%`, background: `${RD}22` }} />
-            {/* pLow tick (blue) */}
-            <div style={{ position: 'absolute', top: 0, left: `${xLow}%`, height: '100%', width: 2, background: BL, opacity: 0.8 }} />
-            {/* pHigh tick (blue) */}
-            <div style={{ position: 'absolute', top: 0, left: `${xHigh}%`, height: '100%', width: 2, background: BL, opacity: 0.8 }} />
-            {/* BTC price (gold) */}
-            <div style={{ position: 'absolute', top: 0, left: `calc(${xPrice}% - 1px)`, height: '100%', width: 2, background: GOLD }} />
-            {/* Labels */}
-            <div style={{ position: 'absolute', bottom: 4, left: `${Math.max(1, xLow - 1)}%`, fontSize: 9, color: BL, fontFamily: MONO, transform: 'translateX(-50%)' }}>
-              {usd(engine.pLow)}
-            </div>
-            <div style={{ position: 'absolute', bottom: 4, left: `${xPrice}%`, fontSize: 9, color: GOLD, fontFamily: MONO, transform: 'translateX(-50%)' }}>
-              BTC {usd(btcPrice)}
-            </div>
-            <div style={{ position: 'absolute', bottom: 4, left: `${Math.min(99, xHigh + 1)}%`, fontSize: 9, color: BL, fontFamily: MONO, transform: 'translateX(-50%)' }}>
-              {usd(engine.pHigh)}
-            </div>
-          </div>
-
-          {/* 4 stat boxes below bar */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 12 }}>
-            <StatBox label="TICK INFERIOR" value={usd(engine.pLow)}    color={RD}  />
-            <StatBox label="TICK SUPERIOR" value={usd(engine.pHigh)}   color={GN}  />
-            <StatBox label="OB LOWER (AUTO)" value={usd(engine.obLower)} color={RD} />
-            <StatBox label="OB UPPER (AUTO)" value={usd(engine.obUpper)} color={GN} />
-          </div>
-        </Panel>
-
-        {/* ── E) PROJECTION GRID (6 boxes) ────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1, background: C.border, marginBottom: 20 }}>
-          {[
-            { label: 'CAPITAL LP',                    value: usd(engine.capitalLP),                      color: GOLD },
-            { label: 'APR ESTIMADO',                  value: pct(engine.aprEstimated),                   color: GN   },
-            { label: 'FEES / DÍA',                    value: usd2(engine.feesPerDay),                    color: C.text },
-            { label: 'IL MÁXIMO',                     value: `${pct(engine.ilPct, 2)} → ${usd(engine.ilUSD)}`, color: AM },
-            { label: `RETORNO ${engine.daysRec}D`,    value: usd2(engine.netPnL),                        color: engine.netPnL >= 0 ? GN : RD },
-            { label: 'BREAK-EVEN',                    value: `${engine.breakEven.toFixed(0)}d`,          color: C.text },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{ background: C.surface, padding: '16px 18px' }}>
-              <Label>{label}</Label>
-              <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color, lineHeight: 1, letterSpacing: '0.02em' }}>{value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── F) MONTE CARLO ──────────────────────────────────────────────────── */}
-        <Panel style={{ marginBottom: 20 }}>
-          <SectionTitle>{`// MONTE CARLO · 500 ESCENARIOS · ${engine.daysRec} DÍAS · ${engine.autoStrategy.toUpperCase()}`}</SectionTitle>
-
-          {/* 4 stat boxes */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
-            <StatBox label="P10"      value={pct(engine.mcP10, 2)}     color={AM}    />
-            <StatBox label="ESPERADO" value={pct(engine.mcMean, 2)}    color={GN}    />
-            <StatBox label="P90"      value={pct(engine.mcP90, 2)}     color={GN}    />
-            <StatBox label="PROB >0"  value={pct(engine.mcPosProb, 0)} color={C.text} />
-          </div>
-
-          {/* CSS histogram */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 100, background: C.bg, padding: '8px 8px 0', border: `1px solid ${C.border}` }}>
-            {engine.bins.map((bin, i) => (
-              <div key={i} style={{
-                flex: 1,
-                height: `${(bin.count / engine.maxCount) * 100}%`,
-                background: bin.positive ? `${GN}cc` : `${RD}cc`,
-                minHeight: bin.count > 0 ? 2 : 0,
-              }} />
+        {/* ── POOL CARDS ──────────────────────────────────────────────────────── */}
+        {loading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} className="animate-pulse" style={{ background: C.surface, border: `1px solid ${C.border}`, height: 400 }} />
             ))}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-            <span style={{ fontSize: 9, color: C.dimText }}>{pct(engine.mcP10, 1)}</span>
-            <span style={{ fontSize: 9, color: C.dimText }}>0%</span>
-            <span style={{ fontSize: 9, color: C.dimText }}>{pct(engine.mcP90, 1)}</span>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+            {engine.pools.map(p => <PoolCard key={p.name} pool={p} />)}
           </div>
-        </Panel>
+        )}
 
-        {/* ── G) EXECUTIVE SUMMARY ────────────────────────────────────────────── */}
-        <Panel>
-          <SectionTitle>{'// RESUMEN EJECUTIVO'}</SectionTitle>
-          <pre style={{
-            fontFamily: MONO, fontSize: 11, color: C.dimText, lineHeight: 1.8,
-            background: C.bg, border: `1px solid ${C.border}`, padding: '16px',
-            whiteSpace: 'pre-wrap', margin: '0 0 12px', overflowX: 'auto',
-          }}>
-            {summaryText}
-          </pre>
-          <button onClick={handleCopy} style={{
-            fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em',
-            background: copied ? `${GN}20` : 'transparent',
-            border: `1px solid ${copied ? GN : C.border}`,
-            color: copied ? GN : C.dimText,
-            padding: '8px 20px', cursor: 'pointer', transition: 'all 0.2s',
-          }}>
-            {copied ? '✓ COPIADO' : 'COPIAR RESUMEN'}
-          </button>
-        </Panel>
+        {/* ── RESUMEN EJECUTIVO ────────────────────────────────────────────────── */}
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 22px' }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.dimText, marginBottom: 14 }}>
+            {'// RESUMEN EJECUTIVO'}
+          </div>
+          <p style={{ fontFamily: MONO, fontSize: 12, color: C.text, lineHeight: 1.9, margin: 0 }}>
+            {engine.summary}
+          </p>
+        </div>
 
       </div>
     </div>
   )
+}
+
+// ─── Pool Card ────────────────────────────────────────────────────────────────
+function PoolCard({ pool }: { pool: PoolResult }) {
+  const { signal, score, il } = pool
+  return (
+    <div style={{
+      background: C.surface, border: `1px solid ${C.border}`,
+      borderTop: `2px solid ${signal.color}`, padding: 20,
+      display: 'flex', flexDirection: 'column', gap: 14,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 700, color: C.text }}>{pool.name}</div>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dimText, marginTop: 2, letterSpacing: '0.1em' }}>
+            FEE {pool.feeTierDisplay}
+            {pool.apiFailed && <span style={{ color: C.yellow, marginLeft: 8 }}>FALLBACK</span>}
+          </div>
+        </div>
+        <div style={{
+          fontFamily: MONO, fontSize: 13, fontWeight: 700, letterSpacing: '0.1em',
+          color: signal.color, background: signal.color + '18',
+          border: `1px solid ${signal.color}44`, padding: '5px 12px',
+        }}>
+          {signal.label}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.15em', color: C.dimText }}>SCORE</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.gold }}>{score}/100</span>
+        </div>
+        <div style={{ height: 3, background: C.border, borderRadius: 2 }}>
+          <div style={{ width: `${score}%`, height: '100%', background: C.gold, borderRadius: 2, transition: 'width 0.5s' }} />
+        </div>
+      </div>
+
+      <PRow label="RANGO"
+        value={`${usd(pool.obRange.lowerTick)} → ${usd(pool.obRange.upperTick)}`}
+        sub={`ancho: ${pool.obRange.rangeWidthPct.toFixed(1)}%`}
+      />
+      <PRow label="CAPITAL SUGERIDO"
+        value={pool.kelly.usd > 0 ? usd(pool.kelly.usd) : '—'}
+        sub={`${(pool.kelly.pct * 100).toFixed(0)}% portafolio`}
+        valueColor={C.gold}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+        <Metric label="APR"    value={pct(pool.aprPct)}    color={C.green} />
+        <Metric label="IL 30D" value={pct(il.ilPct, 2)}   color={il.ilPct > 5 ? C.red : C.yellow} />
+        <Metric label="NET"    value={pct(il.netYieldPct)} color={il.netYieldPct >= 0 ? C.green : C.red} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        <PRow label="BREAK-EVEN"
+          value={il.breakEvenDays < 9999 ? `${il.breakEvenDays}d` : '—'}
+          valueColor={il.breakEvenDays < 30 ? C.green : C.yellow}
+        />
+        {pool.tvlUSD > 0 && <PRow label="TVL" value={usd(pool.tvlUSD)} />}
+      </div>
+
+      <a href={pool.poolUrl} target="_blank" rel="noopener noreferrer" style={{
+        display: 'block', textAlign: 'center', textDecoration: 'none',
+        fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em',
+        color: C.gold, background: C.gold + '14',
+        border: `1px solid ${C.gold}44`, padding: '8px', marginTop: 2,
+      }}>
+        Ver en PancakeSwap ↗
+      </a>
+    </div>
+  )
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function TopCell({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: C.surface, padding: '16px 18px' }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText, marginBottom: 6 }}>
+        {label}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function PRow({ label, value, sub, valueColor }: { label: string; value: string; sub?: string; valueColor?: string }) {
+  return (
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.dimText, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: valueColor ?? C.text }}>
+        {value}
+        {sub && <span style={{ fontSize: 9, color: C.dimText, marginLeft: 6 }}>{sub}</span>}
+      </div>
+    </div>
+  )
+}
+
+function Metric({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div style={{ background: C.bg, border: `1px solid ${C.border}`, padding: '8px 6px', textAlign: 'center' }}>
+      <div style={{ fontFamily: MONO, fontSize: 8, color: C.dimText, letterSpacing: '0.15em', marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, color, fontWeight: 600 }}>{value}</div>
+    </div>
+  )
+}
+
+function LoadPulse({ w, h }: { w: number; h: number }) {
+  return <div className="animate-pulse" style={{ width: w, height: h, background: C.border, borderRadius: 2 }} />
 }
