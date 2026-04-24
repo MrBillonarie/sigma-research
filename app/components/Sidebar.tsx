@@ -42,9 +42,8 @@ const MONO   = 'var(--font-dm-mono)'
 // ─── Nav items ────────────────────────────────────────────────────────────────
 const navItems = [
   { label: 'Home',           href: '/home',             icon: Home            },
-  { label: 'Terminal',       href: '/terminal',         icon: LayoutDashboard },
   { label: 'HUD',            href: '/hud',              icon: Activity        },
-  { label: 'Portfolio',      href: '/portfolio',        icon: PieChart        },
+  { label: 'Portafolio',     href: '/portfolio',        icon: PieChart        },
   { label: 'Journal',        href: '/journal',          icon: BookOpen        },
   { label: 'Diagnosticador', href: '/diagnosticador',   icon: Stethoscope     },
   { label: 'Monte Carlo',    href: '/montecarlo',       icon: TrendingUp      },
@@ -72,9 +71,8 @@ const TICKER_LIST = ['BTC','ETH','SOL','BNB','XRP','ADA','AVAX','MATIC','DOT','L
 const ALL_ITEMS: SearchItem[] = [
   // Pages
   { id: '/home',             label: 'Home',           href: '/home',             category: 'Página', icon: Home            },
-  { id: '/terminal',         label: 'Terminal',       href: '/terminal',         category: 'Página', icon: LayoutDashboard },
   { id: '/hud',              label: 'HUD',            href: '/hud',              category: 'Página', icon: Activity        },
-  { id: '/portfolio',        label: 'Portfolio',      href: '/portfolio',        category: 'Página', icon: PieChart        },
+  { id: '/portfolio',        label: 'Portafolio',     href: '/portfolio',        category: 'Página', icon: PieChart        },
   { id: '/journal',          label: 'Journal',        href: '/journal',          category: 'Página', icon: BookOpen        },
   { id: '/diagnosticador',   label: 'Diagnosticador', href: '/diagnosticador',   category: 'Página', icon: Stethoscope     },
   { id: '/montecarlo',       label: 'Monte Carlo',    href: '/montecarlo',       category: 'Página', icon: TrendingUp      },

@@ -108,6 +108,7 @@ export default function DashboardHome() {
   const [fireTarget,      setFireTarget]      = useState<number | null>(null)
   const [fireProbability, setFireProbability] = useState<number | null>(null)
   const [activity,        setActivity]        = useState<Record<string, number>>({})
+  const [storedTotal,     setStoredTotal]     = useState(0)
   const [username,        setUsername]        = useState('TRADER')
   const [loading,         setLoading]         = useState(true)
   const [now,             setNow]             = useState(new Date())
@@ -129,6 +130,7 @@ export default function DashboardHome() {
     try { const r = localStorage.getItem('sigma_fire_target');  if (r) setFireTarget(Number(r))       } catch {}
     try { const r = localStorage.getItem('sigma_montecarlo');   if (r) { const d = JSON.parse(r); if (d?.fireProbability) setFireProbability(d.fireProbability) } } catch {}
     try { const r = localStorage.getItem('sigma_activity');     if (r) setActivity(JSON.parse(r))     } catch {}
+    try { const r = localStorage.getItem('sigma_portfolio_total'); if (r && Number(r) > 0) setStoredTotal(Number(r)) } catch {}
     setLoading(false)
   }, [])
 
@@ -177,7 +179,7 @@ export default function DashboardHome() {
   const D = useMemo(() => {
     const FIRE_TARGET = fireTarget ?? 600_000
     const platformTotals = PLATFORMS.map(p => { const raw = portfolio[p.id] ?? 0; return p.isCLP ? raw / TRM : raw })
-    const totalUSD = platformTotals.reduce((s, v) => s + v, 0)
+    const totalUSD = platformTotals.reduce((s, v) => s + v, 0) || storedTotal
     const segments = PLATFORMS.map((p, i) => ({ ...p, usd: platformTotals[i], pct: totalUSD > 0 ? (platformTotals[i] / totalUSD) * 100 : 0 })).filter(s => s.usd > 0)
     const monthlyPassive = positions.reduce((s, p) => s + (p.ingresoMensual ?? 0), 0)
 
@@ -232,7 +234,7 @@ export default function DashboardHome() {
       firePct, FIRE_TARGET, fireYears, nextEvent, upcoming: upcoming.slice(0, 5),
       monthTradesCount: monthTrades.length, totalTrades: trades.length,
     }
-  }, [portfolio, positions, trades, fireTarget, now])
+  }, [portfolio, positions, trades, fireTarget, now, storedTotal])
 
   // Spotlight results
   const spotResults = useMemo(() => {
