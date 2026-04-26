@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { C } from '@/app/lib/constants'
 
 const MONO  = 'var(--font-dm-mono)'
@@ -8,22 +8,19 @@ const BEBAS = "'Bebas Neue', Impact, sans-serif"
 type FondoItem = {
   nombre: string; adm: string; tipo: string; riesgo: number
   r1m: number; r3m: number; r1a: number; r3a: number | null
-  tac: number; minCLP: number; source?: 'live' | 'static'
+  tac: number | null; minCLP: number; source?: 'live' | 'static'
 }
 
-const FONDOS_STATIC: FondoItem[] = [
-  { nombre: 'LarrainVial Enfoque LV',   adm: 'LarrainVial AGF', tipo: 'agresivo',    riesgo: 5, r1m:  1.80, r3m: 7.20, r1a: 22.30, r3a: 41.20, tac: 1.95, minCLP: 500000 },
-  { nombre: 'Risky Norris',             adm: 'Fintual',         tipo: 'agresivo',    riesgo: 5, r1m:  1.32, r3m: 9.94, r1a: 18.50, r3a: null,  tac: 1.19, minCLP: 1000   },
-  { nombre: 'BTG Pactual Acciones CL',  adm: 'BTG Pactual AGF', tipo: 'agresivo',    riesgo: 4, r1m: -0.50, r3m: 4.20, r1a: 13.20, r3a: 26.80, tac: 1.60, minCLP: 500000 },
-  { nombre: 'Moderate Pitt',            adm: 'Fintual',         tipo: 'moderado',    riesgo: 3, r1m:  1.10, r3m: 6.06, r1a:  9.61, r3a: null,  tac: 1.19, minCLP: 1000   },
-  { nombre: 'Sura Acciones Chile',      adm: 'Sura AGF',        tipo: 'moderado',    riesgo: 3, r1m:  0.20, r3m: 3.50, r1a:  8.40, r3a: 18.20, tac: 1.40, minCLP: 100000 },
-  { nombre: 'Conservative Clooney',    adm: 'Fintual',         tipo: 'conservador', riesgo: 2, r1m:  0.53, r3m: 2.90, r1a:  8.79, r3a: null,  tac: 1.19, minCLP: 1000   },
-  { nombre: 'Security Plus',           adm: 'Security AGF',    tipo: 'renta fija',  riesgo: 1, r1m:  0.41, r3m: 1.78, r1a:  5.15, r3a: 11.80, tac: 0.68, minCLP: 100000 },
-  { nombre: 'BTG Pactual Renta Corto', adm: 'BTG Pactual AGF', tipo: 'renta fija',  riesgo: 1, r1m:  0.42, r3m: 1.75, r1a:  5.10, r3a: null,  tac: 0.60, minCLP: 100000 },
-  { nombre: 'BCI Competitivo',         adm: 'BCI Asset Mgmt',  tipo: 'renta fija',  riesgo: 1, r1m:  0.38, r3m: 1.65, r1a:  4.90, r3a: 11.20, tac: 0.70, minCLP: 50000  },
-  { nombre: 'Sura Renta Depósito',     adm: 'Sura AGF',        tipo: 'renta fija',  riesgo: 1, r1m:  0.39, r3m: 1.70, r1a:  5.00, r3a: 11.00, tac: 0.75, minCLP: 100000 },
-  { nombre: 'Very Conservative Streep',adm: 'Fintual',         tipo: 'conservador', riesgo: 1, r1m:  0.30, r3m: 1.20, r1a:  4.80, r3a: null,  tac: 1.19, minCLP: 1000   },
-]
+type ApiResponse = {
+  ok: boolean
+  data: FondoItem[]
+  total: number
+  page: number
+  pages: number
+  liveCount: number
+  agfs: string[]
+  ultima_actualizacion: string | null
+}
 
 type Tipo = 'todos' | 'renta fija' | 'conservador' | 'moderado' | 'agresivo'
 
@@ -42,7 +39,6 @@ const RISK_COLOR: Record<number, string> = {
   4: C.purple,
   5: C.red,
 }
-
 const RISK_LABEL: Record<number, string> = {
   1: 'Bajo',
   2: 'Bajo-Med',
@@ -53,6 +49,11 @@ const RISK_LABEL: Record<number, string> = {
 
 function fmtCLP(n: number) {
   return '$' + Math.round(n).toLocaleString('es-CL')
+}
+
+function fmtDate(iso: string | null) {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function PctCell({ v }: { v: number | null }) {
@@ -69,7 +70,7 @@ function RiesgoPill({ n }: { n: number }) {
       borderRadius: 4, padding: '2px 7px', fontSize: 10, letterSpacing: '0.1em',
       fontFamily: MONO, whiteSpace: 'nowrap',
     }}>
-      {n} · {RISK_LABEL[n]}
+      {n} · {RISK_LABEL[n] ?? '—'}
     </span>
   )
 }
@@ -77,32 +78,54 @@ function RiesgoPill({ n }: { n: number }) {
 export default function FondosMutuosPage() {
   const [monto,     setMonto]     = useState(5_000_000)
   const [filtro,    setFiltro]    = useState<Tipo>('todos')
+  const [agf,       setAgf]       = useState('')
+  const [searchRaw, setSearchRaw] = useState('')
+  const [search,    setSearch]    = useState('')
   const [view,      setView]      = useState<'tabla' | 'ranking'>('tabla')
-  const [fondos,    setFondos]    = useState<FondoItem[]>(FONDOS_STATIC)
+  const [fondos,    setFondos]    = useState<FondoItem[]>([])
+  const [agfs,      setAgfs]      = useState<string[]>([])
   const [loading,   setLoading]   = useState(true)
-  const [liveCount, setLiveCount] = useState(0)
+  const [page,      setPage]      = useState(1)
+  const [pages,     setPages]     = useState(0)
+  const [total,     setTotal]     = useState(0)
+  const [ultimaAct, setUltimaAct] = useState<string | null>(null)
 
+  // Debounce search input
   useEffect(() => {
-    fetch('/api/cmf/fondos-mutuos')
+    const t = setTimeout(() => { setSearch(searchRaw); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchRaw])
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1) }, [filtro, agf])
+
+  const fetchFondos = useCallback(() => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (search)              params.set('search', search)
+    if (agf)                 params.set('agf', agf)
+    if (filtro !== 'todos')  params.set('tipo', filtro)
+    params.set('page', String(page))
+
+    fetch(`/api/cmf/fondos-mutuos?${params}`)
       .then(r => r.json())
-      .then(json => {
-        if (json.ok && Array.isArray(json.data)) {
-          setFondos(json.data)
-          setLiveCount(json.liveCount ?? 0)
+      .then((json: ApiResponse) => {
+        if (json.ok) {
+          setFondos(json.data ?? [])
+          setTotal(json.total ?? 0)
+          setPages(json.pages ?? 0)
+          setUltimaAct(json.ultima_actualizacion ?? null)
+          if (json.agfs?.length) setAgfs(json.agfs)
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [search, agf, filtro, page])
 
-  const filtered = useMemo(
-    () => filtro === 'todos' ? fondos : fondos.filter(f => f.tipo === filtro),
-    [filtro, fondos],
-  )
+  useEffect(() => { fetchFondos() }, [fetchFondos])
 
-  const maxR1a = useMemo(() => Math.max(...filtered.map(f => f.r1a)), [filtered])
-
-  const ranked = useMemo(() => [...filtered].sort((a, b) => b.r1a - a.r1a), [filtered])
+  const maxR1a = useMemo(() => Math.max(0, ...fondos.map(f => f.r1a)), [fondos])
+  const ranked = useMemo(() => [...fondos].sort((a, b) => b.r1a - a.r1a), [fondos])
 
   const pill = (active: boolean) => ({
     padding: '6px 12px', borderRadius: 6, fontSize: 12, fontFamily: MONO,
@@ -122,6 +145,8 @@ export default function FondosMutuosPage() {
 
   const TABLE_HEADERS = ['Fondo', 'Administradora', 'Riesgo', '1M%', '3M%', '12M%', '3A%', 'TAC%', 'Ganancia est. 12M']
 
+  const isEmpty = !loading && fondos.length === 0
+
   return (
     <div style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
 
@@ -139,13 +164,13 @@ export default function FondosMutuosPage() {
             }}>
               CARGANDO…
             </span>
-          ) : liveCount > 0 ? (
+          ) : ultimaAct ? (
             <span style={{
               fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: C.green,
               background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.3)',
               padding: '3px 8px', borderRadius: 4,
             }}>
-              ● LIVE · {liveCount}/{fondos.length} fondos
+              ● LIVE · {total} fondos
             </span>
           ) : (
             <span style={{
@@ -153,14 +178,14 @@ export default function FondosMutuosPage() {
               background: C.surface, border: `1px solid ${C.border}`,
               padding: '3px 8px', borderRadius: 4,
             }}>
-              ESTÁTICO
+              SIN SYNC
             </span>
           )}
         </div>
         <div style={{ fontSize: 12, color: C.dimText, marginTop: 4 }}>
-          {liveCount > 0
-            ? `Fintual API + CMF Chile · Actualizado ${new Date().toLocaleDateString('es-CL')}`
-            : 'Fondos registrados CMF Chile · Rentabilidades históricas'}
+          {ultimaAct
+            ? `Fintual API · Supabase · Actualizado ${fmtDate(ultimaAct)}`
+            : 'Ejecuta el primer sync para cargar todos los fondos'}
         </div>
       </div>
 
@@ -187,6 +212,45 @@ export default function FondosMutuosPage() {
           </div>
         </div>
 
+        {/* Search */}
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6, textTransform: 'uppercase' }}>
+            Buscar
+          </div>
+          <input
+            type="text"
+            value={searchRaw}
+            onChange={e => setSearchRaw(e.target.value)}
+            placeholder="nombre del fondo…"
+            style={{
+              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+              padding: '8px 12px', color: C.text, fontSize: 13,
+              fontFamily: MONO, width: 200, outline: 'none',
+            }}
+          />
+        </div>
+
+        {/* AGF dropdown */}
+        {agfs.length > 0 && (
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6, textTransform: 'uppercase' }}>
+              Administradora
+            </div>
+            <select
+              value={agf}
+              onChange={e => setAgf(e.target.value)}
+              style={{
+                background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+                padding: '8px 12px', color: agf ? C.text : C.dimText, fontSize: 13,
+                fontFamily: MONO, outline: 'none', cursor: 'pointer',
+              }}
+            >
+              <option value="">Todas las AGF</option>
+              {agfs.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+        )}
+
         {/* Tipo pills */}
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6, textTransform: 'uppercase' }}>
@@ -210,8 +274,35 @@ export default function FondosMutuosPage() {
         </div>
       </div>
 
+      {/* Empty state — sin sync */}
+      {isEmpty && (
+        <div style={{
+          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+          padding: '48px 32px', textAlign: 'center',
+        }}>
+          <div style={{ fontFamily: BEBAS, fontSize: 22, color: C.dimText, letterSpacing: '0.08em', marginBottom: 8 }}>
+            SIN DATOS
+          </div>
+          <div style={{ fontSize: 12, color: C.dimText, maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>
+            {search || agf || filtro !== 'todos'
+              ? 'No hay fondos que coincidan con los filtros aplicados.'
+              : 'La base de datos está vacía. Ejecuta el primer sync:'}
+          </div>
+          {!search && !agf && filtro === 'todos' && (
+            <code style={{
+              display: 'block', marginTop: 16, padding: '12px 20px', background: C.bg,
+              border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 11, color: C.gold,
+              fontFamily: MONO, textAlign: 'left', maxWidth: 520, margin: '16px auto 0',
+            }}>
+              GET /api/cron/sync-fondos<br />
+              Authorization: Bearer sigma_cron_2024_fondos
+            </code>
+          )}
+        </div>
+      )}
+
       {/* ── TABLA ─────────────────────────────────────────────────────────────── */}
-      {view === 'tabla' && (
+      {!isEmpty && view === 'tabla' && (
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
@@ -232,14 +323,14 @@ export default function FondosMutuosPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((f, i) => {
-                  const isBest   = f.r1a === maxR1a
+                {fondos.map((f, i) => {
+                  const isBest   = f.r1a === maxR1a && maxR1a > 0
                   const ganancia = monto * (f.r1a / 100)
                   return (
                     <tr
-                      key={f.nombre}
+                      key={`${f.nombre}-${i}`}
                       style={{
-                        borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
+                        borderBottom: i < fondos.length - 1 ? `1px solid ${C.border}` : 'none',
                         background:   isBest ? 'rgba(212,175,55,0.04)' : 'transparent',
                       }}
                     >
@@ -273,7 +364,7 @@ export default function FondosMutuosPage() {
                         <PctCell v={f.r3a} />
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontFamily: MONO, fontSize: 12, color: C.dimText }}>
-                        {f.tac.toFixed(2)}%
+                        {f.tac != null ? `${f.tac.toFixed(2)}%` : <span style={{ color: C.muted }}>—</span>}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontFamily: MONO, fontSize: 12, color: C.green }}>
                         {fmtCLP(ganancia)}
@@ -288,14 +379,14 @@ export default function FondosMutuosPage() {
       )}
 
       {/* ── RANKING ───────────────────────────────────────────────────────────── */}
-      {view === 'ranking' && (
+      {!isEmpty && view === 'ranking' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {ranked.map((f, i) => {
             const isFirst  = i === 0
             const ganancia = monto * (f.r1a / 100)
             return (
               <div
-                key={f.nombre}
+                key={`${f.nombre}-${i}`}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
                   background: isFirst ? 'rgba(212,175,55,0.06)' : C.surface,
@@ -310,7 +401,7 @@ export default function FondosMutuosPage() {
                   color:      isFirst ? '#000' : C.dimText,
                   fontFamily: MONO, fontSize: 12, fontWeight: 700,
                 }}>
-                  {i + 1}
+                  {(page - 1) * 50 + i + 1}
                 </div>
 
                 <div style={{ flex: 1, minWidth: 140 }}>
@@ -351,11 +442,44 @@ export default function FondosMutuosPage() {
         </div>
       )}
 
+      {/* ── PAGINACIÓN ────────────────────────────────────────────────────────── */}
+      {pages > 1 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 24,
+        }}>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            style={{
+              padding: '7px 16px', fontFamily: MONO, fontSize: 11, letterSpacing: '0.12em',
+              background: page <= 1 ? C.bg : C.surface, color: page <= 1 ? C.muted : C.dimText,
+              border: `1px solid ${C.border}`, borderRadius: 6, cursor: page <= 1 ? 'default' : 'pointer',
+            }}
+          >
+            ← ANTERIOR
+          </button>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.dimText }}>
+            {page} / {pages} · {total} fondos
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(pages, p + 1))}
+            disabled={page >= pages}
+            style={{
+              padding: '7px 16px', fontFamily: MONO, fontSize: 11, letterSpacing: '0.12em',
+              background: page >= pages ? C.bg : C.surface, color: page >= pages ? C.muted : C.dimText,
+              border: `1px solid ${C.border}`, borderRadius: 6, cursor: page >= pages ? 'default' : 'pointer',
+            }}
+          >
+            SIGUIENTE →
+          </button>
+        </div>
+      )}
+
       {/* Footer */}
       <div style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.dimText, fontFamily: MONO, letterSpacing: '0.02em' }}>
-        {liveCount > 0
-          ? `Fuente: Fintual API (fondos Fintual) + CMF SBIF API (resto) · Valor cuota diario · Caché 24h · Rentabilidades pasadas no garantizan resultados futuros`
-          : 'Fuente: Portal Fondos Mutuos CMF Chile · Datos estáticos · Rentabilidades pasadas no garantizan resultados futuros'}
+        {ultimaAct
+          ? `Fuente: Fintual API + Supabase · Sync diario a las 2am UTC · Rentabilidades pasadas no garantizan resultados futuros`
+          : 'Fuente: Fintual API (pública) · Ejecuta el sync para cargar datos · Rentabilidades pasadas no garantizan resultados futuros'}
       </div>
     </div>
   )

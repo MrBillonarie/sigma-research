@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/lp-model",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/sync-fondos",
+      "schedule": "0 2 * * *"
     }
   ]
 }
