@@ -1,13 +1,13 @@
-export const dynamic = 'force-dynamic'
-export const maxDuration = 300 // 5 min — efectivo solo en Vercel Pro/Enterprise
+export const dynamic    = 'force-dynamic'
+export const maxDuration = 300 // 5 min — efectivo en Vercel Pro/Enterprise
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const FINTUAL_BASE = 'https://fintual.com/api'
+const FINTUAL_BASE    = 'https://fintual.com/api'
 const FINTUAL_HEADERS = { Accept: 'application/json' }
-const BATCH_SIZE = 5
-const DELAY_MS  = 500
+const BATCH_SIZE      = 5
+const DELAY_MS        = 500
 
 function sb() {
   return createClient(
@@ -17,9 +17,9 @@ function sb() {
   )
 }
 
-function delay(ms: number) { return new Promise(r => setTimeout(r, ms)) }
-function dateStr(d: Date)  { return d.toISOString().split('T')[0] }
-function daysAgo(n: number) { const d = new Date(); d.setDate(d.getDate() - n); return d }
+function delay(ms: number)    { return new Promise(r => setTimeout(r, ms)) }
+function dateStr(d: Date)     { return d.toISOString().split('T')[0] }
+function daysAgo(n: number)   { const d = new Date(); d.setDate(d.getDate() - n); return d }
 
 function pct(now: number, past: number): number | null {
   if (!past || past <= 0) return null
@@ -41,25 +41,18 @@ function priceAt(days: { date: string; price: number }[], target: Date): number 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchJson(url: string, treat404AsEmpty = false): Promise<any> {
-  const RETRY_DELAYS = [2000, 5000] // backoff en ms para 429: 2s → 5s → fallo
-
+  const RETRY_DELAYS = [2000, 5000]
   for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
     const res = await fetch(url, { headers: FINTUAL_HEADERS, cache: 'no-store' })
-
     if (res.status === 429) {
-      if (attempt < RETRY_DELAYS.length) {
-        await delay(RETRY_DELAYS[attempt])
-        continue // reintentar
-      }
+      if (attempt < RETRY_DELAYS.length) { await delay(RETRY_DELAYS[attempt]); continue }
       throw new Error(`HTTP 429 rate-limit (3 intentos) — ${url.replace(FINTUAL_BASE, '')}`)
     }
-
     if (!res.ok) {
       if (treat404AsEmpty && res.status === 404) return { data: [] }
       const body = await res.text().catch(() => '')
       throw new Error(`HTTP ${res.status} ${url.replace(FINTUAL_BASE, '')} — ${body.slice(0, 120)}`)
     }
-
     return res.json()
   }
 }
@@ -89,6 +82,26 @@ function inferCategoria(nombre: string, attrs: any): string {
   return 'moderado'
 }
 
+// FIX: Extraer TAC (expense ratio / fee anual) desde los atributos de Fintual
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractTac(attrs: any): number | null {
+  if (!attrs) return null
+  // Fintual puede retornar el fee bajo distintos nombres — probamos todos
+  const raw =
+    attrs.expense_ratio   ??   // decimal: 0.0051 → 0.51%
+    attrs.annual_fee      ??
+    attrs.management_fee  ??
+    attrs.tac             ??
+    attrs.total_expense   ??
+    attrs.fee             ??
+    null
+  if (raw == null) return null
+  const n = parseFloat(String(raw))
+  if (isNaN(n) || n <= 0) return null
+  // Si viene como decimal (< 1) convertir a porcentaje; si ya es % dejarlo
+  return n < 1 ? +(n * 100).toFixed(4) : +n.toFixed(4)
+}
+
 export async function GET(req: NextRequest) {
   const isDev = process.env.NODE_ENV === 'development'
   const auth  = req.headers.get('authorization')
@@ -96,70 +109,58 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
-  const db = sb()
+  const db        = sb()
   const startedAt = Date.now()
   const log = { providers: 0, conceptual: 0, real_found: 0, synced: 0, errors: 0, skipped: 0 }
 
-  // ── Diagnóstico: captura primer error y muestra de datos en cada paso ──────
   const diag: Record<string, unknown> = {
-    step2_first_error:    null,  // primer error al buscar conceptual_assets
-    step3_first_error:    null,  // primer error al buscar real_assets
-    step3_first_raw:      null,  // respuesta cruda del primer conceptual_assets/{id}/real_assets
-    step4_first_error:    null,  // primer error al buscar days
-    step4_first_day_attr: null,  // atributos del primer day para ver el nombre del campo precio
-    supabase_first_error: null,  // primer error de upsert a Supabase
-    sample_provider_id:   null,  // id del primer provider
-    sample_conceptual:    null,  // nombre + id del primer conceptual asset encontrado
+    step2_first_error:    null,
+    step3_first_error:    null,
+    step3_first_raw:      null,
+    step4_first_error:    null,
+    step4_first_day_attr: null,
+    supabase_first_error: null,
+    sample_provider_id:   null,
+    sample_conceptual:    null,
   }
 
-  const processedIds = new Set<string>()
+  // FIX: conjuntos separados para control correcto de inactivos
+  const allResolvedIds = new Set<string>()  // todos los que llegaron a paso 4
   const agfUpserts:   { id: string; nombre: string }[] = []
   const fondoUpserts: Record<string, unknown>[] = []
 
   try {
-    // ── PASO 1: Providers ───────────────────────────────────────────────────
+    // ── PASO 1: Providers ────────────────────────────────────────────────────
     const providersData = await fetchJson(`${FINTUAL_BASE}/asset_providers`)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const providers: any[] = providersData.data ?? []
     log.providers = providers.length
     if (providers[0]) diag.sample_provider_id = `id=${providers[0].id} name=${providers[0].attributes?.name}`
 
-    for (const p of providers) {
-      agfUpserts.push({ id: String(p.id), nombre: p.attributes?.name ?? 'Desconocido' })
-    }
+    for (const p of providers) agfUpserts.push({ id: String(p.id), nombre: p.attributes?.name ?? 'Desconocido' })
     if (agfUpserts.length) {
       const { error } = await db.from('agf').upsert(agfUpserts, { onConflict: 'id' })
       if (error && !diag.supabase_first_error) diag.supabase_first_error = `agf upsert: ${error.message}`
     }
 
-    // ── PASO 2: Conceptual assets por provider ──────────────────────────────
+    // ── PASO 2: Conceptual assets ────────────────────────────────────────────
     type ConceptualEntry = {
-      id: string; agf_id: string; nombre: string
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      symbol: string | null; attrs: any
+      id: string; agf_id: string; nombre: string; symbol: string | null; attrs: any
     }
     const allConceptual: ConceptualEntry[] = []
 
-    // Providers en serie (1 a la vez) para no saturar la API de Fintual
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const p of providers) {
       try {
-        // treat404AsEmpty=true → providers sin fondos no cuentan como error
-        const cData = await fetchJson(
-          `${FINTUAL_BASE}/asset_providers/${p.id}/conceptual_assets`,
-          true
-        )
+        const cData = await fetchJson(`${FINTUAL_BASE}/asset_providers/${p.id}/conceptual_assets`, true)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const c of (cData.data ?? []) as any[]) {
-          if (!diag.sample_conceptual) {
+          if (!diag.sample_conceptual)
             diag.sample_conceptual = { id: c.id, nombre: c.attributes?.name, attrs_keys: Object.keys(c.attributes ?? {}) }
-          }
           allConceptual.push({
-            id:     String(c.id),
-            agf_id: String(p.id),
-            nombre: c.attributes?.name ?? '',
-            symbol: c.attributes?.symbol ?? null,
-            attrs:  c.attributes,
+            id: String(c.id), agf_id: String(p.id),
+            nombre: c.attributes?.name ?? '', symbol: c.attributes?.symbol ?? null,
+            attrs: c.attributes,
           })
         }
         log.conceptual += cData.data?.length ?? 0
@@ -170,11 +171,13 @@ export async function GET(req: NextRequest) {
       await delay(DELAY_MS)
     }
 
-    // ── PASO 3: Real assets → elegir la serie más reciente ──────────────────
+    // ── PASO 3: Real assets → elegir la mejor serie ──────────────────────────
     type FundEntry = ConceptualEntry & {
       real_asset_id: string
       ultimo_precio: number | null
-      ultima_fecha: string | null
+      ultima_fecha:  string | null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      real_attrs:    any
     }
     const fundsWithReal: FundEntry[] = []
     let step3Inspected = false
@@ -182,31 +185,26 @@ export async function GET(req: NextRequest) {
     await processBatch(allConceptual, async (c) => {
       try {
         const rData = await fetchJson(`${FINTUAL_BASE}/conceptual_assets/${c.id}/real_assets`)
-
-        // Capturar la respuesta cruda del primer éxito para ver la estructura real
         if (!step3Inspected) {
           step3Inspected = true
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const first = rData.data?.[0] as any
           diag.step3_first_raw = {
-            data_length: rData.data?.length ?? 0,
-            first_id:    first?.id,
-            first_type:  first?.type,
+            data_length:      rData.data?.length ?? 0,
+            first_id:         first?.id,
+            first_type:       first?.type,
             first_attrs_keys: Object.keys(first?.attributes ?? {}),
-            first_attrs: first?.attributes,
+            first_attrs:      first?.attributes,
           }
         }
-
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const series: any[] = rData.data ?? []
         if (!series.length) return
 
         const serieA = series.find(s => String(s.attributes?.serie ?? '').toUpperCase() === 'A')
-        const byDate = [...series].sort((a, b) => {
-          const dateA = a.attributes?.last_day?.date ?? ''
-          const dateB = b.attributes?.last_day?.date ?? ''
-          return dateB.localeCompare(dateA)
-        })
+        const byDate = [...series].sort((a, b) =>
+          (b.attributes?.last_day?.date ?? '').localeCompare(a.attributes?.last_day?.date ?? '')
+        )
         const best = serieA ?? byDate[0]
 
         fundsWithReal.push({
@@ -214,15 +212,15 @@ export async function GET(req: NextRequest) {
           real_asset_id: String(best.id),
           ultimo_precio: best.attributes?.last_day?.price ?? null,
           ultima_fecha:  best.attributes?.last_day?.date  ?? null,
+          real_attrs:    best.attributes,
         })
         log.real_found++
       } catch (e) {
         log.errors++
         if (!diag.step3_first_error) diag.step3_first_error = String(e)
-        // Intento alternativo: inspeccionar igual el primer error
         if (!step3Inspected) {
           step3Inspected = true
-          diag.step3_first_raw = { error: String(e), conceptual_id: c.id, url: `/conceptual_assets/${c.id}/real_assets` }
+          diag.step3_first_raw = { error: String(e), conceptual_id: c.id }
         }
       }
     })
@@ -232,30 +230,35 @@ export async function GET(req: NextRequest) {
     const to   = dateStr(new Date())
 
     await processBatch(fundsWithReal, async (f) => {
-      processedIds.add(f.id)
+      allResolvedIds.add(f.id)  // FIX: marcar siempre, independiente del resultado
       try {
         const dData = await fetchJson(
           `${FINTUAL_BASE}/real_assets/${f.real_asset_id}/days?from_date=${from}&to_date=${to}`
         )
-
-        // Capturar atributos del primer day para saber cómo se llama el campo precio
-        if (!diag.step4_first_day_attr && dData.data?.[0]) {
+        if (!diag.step4_first_day_attr && dData.data?.[0])
           diag.step4_first_day_attr = dData.data[0].attributes
-        }
 
-        // Intentar los distintos nombres de campo que usa Fintual
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const days: { date: string; price: number }[] = (dData.data ?? []).map((d: any) => {
-          const attrs = d.attributes ?? {}
+          const attrs    = d.attributes ?? {}
           const rawPrice = attrs.price ?? attrs.nav ?? attrs.value ?? attrs.close ?? null
-          return {
-            date:  String(attrs.date ?? ''),
-            price: rawPrice != null ? parseFloat(String(rawPrice)) : 0,
-          }
+          return { date: String(attrs.date ?? ''), price: rawPrice != null ? parseFloat(String(rawPrice)) : 0 }
         }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
           .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
 
-        if (days.length < 5) { log.skipped++; processedIds.delete(f.id); return }
+        // FIX: si no hay suficientes días no eliminamos de allResolvedIds, solo marcamos skipped
+        // El fondo sigue siendo válido, solo no tiene rentabilidades calculables
+        if (days.length < 5) {
+          log.skipped++
+          fondoUpserts.push({
+            id: f.id, agf_id: f.agf_id, nombre: f.nombre, symbol: f.symbol,
+            real_asset_id: f.real_asset_id, categoria: inferCategoria(f.nombre, f.attrs),
+            tac: extractTac(f.real_attrs) ?? extractTac(f.attrs),
+            ultimo_precio: f.ultimo_precio, ultima_fecha: f.ultima_fecha,
+            activo: true, updated_at: new Date().toISOString(),
+          })
+          return
+        }
 
         const nowPrice = days[days.length - 1].price
         const p1m  = priceAt(days, daysAgo(30))
@@ -271,6 +274,8 @@ export async function GET(req: NextRequest) {
           real_asset_id: f.real_asset_id,
           categoria:     inferCategoria(f.nombre, f.attrs),
           moneda:        'CLP',
+          // FIX: extraer TAC desde los atributos del real_asset o del conceptual
+          tac:           extractTac(f.real_attrs) ?? extractTac(f.attrs),
           rent_1m:       p1m  ? pct(nowPrice, p1m)  : null,
           rent_3m:       p3m  ? pct(nowPrice, p3m)  : null,
           rent_12m:      p12m ? pct(nowPrice, p12m) : null,
@@ -284,18 +289,13 @@ export async function GET(req: NextRequest) {
       } catch (e) {
         log.errors++
         if (!diag.step4_first_error) diag.step4_first_error = String(e)
-        // Guardar el fondo sin rentabilidades para que quede registrado
+        // Guardar sin rentabilidades para que no desaparezca de la BD
         fondoUpserts.push({
-          id:            f.id,
-          agf_id:        f.agf_id,
-          nombre:        f.nombre,
-          symbol:        f.symbol,
-          real_asset_id: f.real_asset_id,
-          categoria:     inferCategoria(f.nombre, f.attrs),
-          ultimo_precio: f.ultimo_precio,
-          ultima_fecha:  f.ultima_fecha,
-          activo:        true,
-          updated_at:    new Date().toISOString(),
+          id:            f.id, agf_id: f.agf_id, nombre: f.nombre, symbol: f.symbol,
+          real_asset_id: f.real_asset_id, categoria: inferCategoria(f.nombre, f.attrs),
+          tac:           extractTac(f.real_attrs) ?? extractTac(f.attrs),
+          ultimo_precio: f.ultimo_precio, ultima_fecha: f.ultima_fecha,
+          activo:        true, updated_at: new Date().toISOString(),
         })
       }
     })
@@ -312,17 +312,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Marcar inactivos ─────────────────────────────────────────────────────
-    if (processedIds.size > 0) {
-      const ids = Array.from(processedIds).join(',')
+    // FIX: marcar inactivos — solo si el sync fue exitoso (mínimo 10 fondos procesados)
+    // Evita desactivar todo si hubo un fallo total de la API de Fintual
+    if (allResolvedIds.size >= 10) {
+      const ids = Array.from(allResolvedIds)
       await db
         .from('fondos_mutuos')
         .update({ activo: false, updated_at: new Date().toISOString() })
-        .not('id', 'in', `(${ids})`)
+        .not('id', 'in', `(${ids.join(',')})`)
     }
 
     return NextResponse.json({
-      ok: true,
+      ok:         true,
       duration_s: +((Date.now() - startedAt) / 1000).toFixed(1),
       log,
       diag,

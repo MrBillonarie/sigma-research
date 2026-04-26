@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "email:dev": "email dev --dir emails --port 3333"
+    "email:dev": "email dev --dir emails --port 3333",
+    "sync:fondos": "curl -s -X GET http://localhost:3000/api/cron/sync-fondos -H \"Authorization: Bearer ${CRON_SECRET:-sigma_cron_2024_fondos}\" | npx json"
   },
   "dependencies": {
     "@react-email/components": "^1.0.12",
