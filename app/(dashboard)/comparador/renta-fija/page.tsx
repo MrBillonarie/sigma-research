@@ -198,7 +198,6 @@ export default function RentaFijaPage() {
               </thead>
               <tbody>
                 {BANCOS.map((banco, i) => {
-                  const tasa     = getTasa(banco)
                   const ganancia = getGanancia(banco)
                   const isBest   = banco.d30 === maxTasa
                   return (
