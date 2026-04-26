@@ -25,6 +25,7 @@ import {
   Search,
   Settings,
   Bell,
+  Landmark,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,6 +56,11 @@ const navItems = [
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
 ]
 
+const comparadorItems = [
+  { label: 'Renta Fija',    href: '/comparador/renta-fija',    icon: Landmark   },
+  { label: 'Fondos Mutuos', href: '/comparador/fondos-mutuos', icon: TrendingUp },
+]
+
 // ─── Search data ──────────────────────────────────────────────────────────────
 interface SearchItem {
   id:        string
@@ -81,8 +87,10 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/modelos',          label: 'Modelos',        href: '/modelos',          category: 'Página', icon: BrainCircuit    },
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
   { id: '/tax',              label: 'Tax Chile',      href: '/tax',              category: 'Página', icon: Receipt         },
-  { id: '/mis-reportes',     label: 'Reportes',       href: '/mis-reportes',     category: 'Página', icon: FileText        },
-  { id: '/perfil',           label: 'Perfil',         href: '/perfil',           category: 'Página', icon: User            },
+  { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
+  { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
+  { id: '/comparador/renta-fija',     label: 'Renta Fija',     href: '/comparador/renta-fija',    category: 'Comparador',  icon: Landmark        },
+  { id: '/comparador/fondos-mutuos',  label: 'Fondos Mutuos',  href: '/comparador/fondos-mutuos', category: 'Comparador',  icon: TrendingUp      },
   // Tickers
   ...TICKER_LIST.map(t => ({
     id: `ticker-${t}`, label: `Ver ${t} en Terminal`, href: `/terminal?symbol=${t}`,
@@ -395,6 +403,37 @@ export default function Sidebar() {
       {/* Nav items */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflowY: 'auto', padding: '12px 8px' }}>
         {navItems.map(({ label, href, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(href + '/')
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={collapsed ? label : undefined}
+              style={{
+                ...navLinkBase,
+                color:      active ? GOLD  : MUTED,
+                background: active ? 'rgba(212,175,55,0.08)' : 'transparent',
+              }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = MUTED }}
+            >
+              <Icon size={18} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
+              {!collapsed && <span>{label}</span>}
+            </Link>
+          )
+        })}
+
+        {/* COMPARADOR section */}
+        <div style={{ borderTop: `1px solid ${BORDER}`, margin: '8px 0' }} />
+        {!collapsed && (
+          <div style={{
+            padding: '0 4px 4px', fontFamily: MONO, fontSize: 9,
+            letterSpacing: '0.22em', color: MUTED, textTransform: 'uppercase',
+          }}>
+            Comparador
+          </div>
+        )}
+        {comparadorItems.map(({ label, href, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link
