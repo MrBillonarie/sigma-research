@@ -314,7 +314,7 @@ export async function GET(req: NextRequest) {
 
     // ── Marcar inactivos ─────────────────────────────────────────────────────
     if (processedIds.size > 0) {
-      const ids = [...processedIds].join(',')
+      const ids = Array.from(processedIds).join(',')
       await db
         .from('fondos_mutuos')
         .update({ activo: false, updated_at: new Date().toISOString() })
