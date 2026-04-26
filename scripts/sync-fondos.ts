@@ -192,8 +192,8 @@ async function main() {
             const a = d.attributes ?? {}
             const rawPrice = a.price ?? a.nav ?? a.value ?? a.close ?? null
             return { date: String(a.date ?? ''), price: rawPrice != null ? parseFloat(String(rawPrice)) : 0 }
-          }).filter(d => d.date && d.price > 0)
-            .sort((a, b) => a.date.localeCompare(b.date))
+          }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
+            .sort((a: { date: string; price: number }, b: { date: string; price: number }) => a.date.localeCompare(b.date))
 
           if (days.length >= 5) {
             const nowP = days[days.length - 1].price
@@ -262,7 +262,7 @@ async function main() {
 
   // ── Marcar como inactivos los fondos que ya no están en la API ──────────────
   if (processedIds.size > 0) {
-    const ids = [...processedIds].join(',')
+    const ids = Array.from(processedIds).join(',')
     const { error: inactErr } = await db
       .from('fondos_mutuos')
       .update({ activo: false, updated_at: new Date().toISOString() })
