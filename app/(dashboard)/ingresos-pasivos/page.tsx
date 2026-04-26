@@ -92,6 +92,15 @@ export default function IngresoPasivosPage() {
   const [calcCapital, setCalcCapital] = useState(10000)
   const [calcApy, setCalcApy] = useState(6)
   const [calcMonths, setCalcMonths] = useState(12)
+  const [liveRates, setLiveRates] = useState<Record<string, number | null>>({})
+  const [liveAt, setLiveAt] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/apy-live')
+      .then(r => r.json())
+      .then(j => { if (j.ok) { setLiveRates(j.rates); setLiveAt(j.fetchedAt) } })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     try {
@@ -156,6 +165,17 @@ export default function IngresoPasivosPage() {
 
   // ─── Catalog content ────────────────────────────────────────────────────────
   const catalogContent = useMemo(() => {
+    const lv = (key: string | undefined, fallback: number) => {
+      const live = key ? (liveRates[key] ?? null) : null
+      const val = live ?? fallback
+      return (
+        <span style={{ color: C.green }}>
+          {fmtApy(val)}
+          {live !== null && <span style={{ fontSize: 8, color: C.gold, marginLeft: 4, letterSpacing: '0.05em' }}>● LIVE</span>}
+        </span>
+      )
+    }
+
     if (activeTab === 'Depósito') return (
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
@@ -194,7 +214,7 @@ export default function IngresoPasivosPage() {
             <CatalogRow key={s.activo} cols={[
               <span key="a" style={{ color: C.gold }}>{s.activo}</span>,
               fmtApy(s.apyMin),
-              <span key="mx" style={{ color: C.green }}>{fmtApy(s.apyMax)}</span>,
+              <span key="mx">{lv(s.liveKey, s.apyMax)}</span>,
               s.lockup,
               s.plataforma,
               <RiskBadge key="r" risk={s.risk} />,
@@ -218,7 +238,7 @@ export default function IngresoPasivosPage() {
             <CatalogRow key={d.protocolo + d.activo} cols={[
               d.protocolo,
               <span key="a" style={{ color: C.gold }}>{d.activo}</span>,
-              <span key="apy" style={{ color: C.green }}>{fmtApy(d.apySupply)}</span>,
+              <span key="apy">{lv(d.liveKey, d.apySupply)}</span>,
               '$' + d.tvlM + 'M',
               d.audited ? <span key="ok" style={{ color: C.green }}>✓</span> : <span key="no" style={{ color: C.red }}>✗</span>,
               d.chain,
@@ -249,7 +269,7 @@ export default function IngresoPasivosPage() {
                 lp.dex,
                 fmtApy(lp.feeApr),
                 lp.farmApr > 0 ? <span key="fa" style={{ color: C.purple }}>{fmtApy(lp.farmApr)}</span> : <span key="fd" style={{ color: C.dimText }}>—</span>,
-                <span key="t" style={{ color: C.green }}>{fmtApy(totalApr)}</span>,
+                <span key="t">{lv(lp.liveKey, totalApr)}</span>,
                 <span key="il" style={{ color: C.yellow }}>{il.toFixed(1)}%@2x</span>,
                 <RiskBadge key="r" risk={lp.risk} />,
                 <a key="u" href={lp.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>↗</a>,
@@ -277,7 +297,7 @@ export default function IngresoPasivosPage() {
                 d.protocolo,
                 d.tipo,
                 fmtApy(d.yieldMin),
-                <span key="mx" style={{ color: C.green }}>{fmtApy(d.yieldMax)}</span>,
+                <span key="mx">{lv(d.liveKey, d.yieldMax)}</span>,
                 d.freq,
                 <RiskBadge key="r" risk={d.risk} />,
                 <a key="u" href={d.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>↗</a>,
@@ -301,7 +321,7 @@ export default function IngresoPasivosPage() {
                 d.protocolo,
                 d.tipo,
                 fmtApy(d.yieldMin),
-                <span key="mx" style={{ color: C.green }}>{fmtApy(d.yieldMax)}</span>,
+                <span key="mx">{lv(d.liveKey, d.yieldMax)}</span>,
                 d.freq,
                 <RiskBadge key="r" risk={d.risk} />,
                 <a key="u" href={d.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>↗</a>,
@@ -336,7 +356,7 @@ export default function IngresoPasivosPage() {
         ))}
       </div>
     )
-  }, [activeTab])
+  }, [activeTab, liveRates])
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
@@ -530,7 +550,18 @@ export default function IngresoPasivosPage() {
 
         {/* ── Catalog tabs ── */}
         <div style={{ marginBottom: 40 }}>
-          <SectionTitle>CATÁLOGO DE OPORTUNIDADES</SectionTitle>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 16 }}>
+            <SectionTitle>CATÁLOGO DE OPORTUNIDADES</SectionTitle>
+            {liveAt ? (
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#34d399', letterSpacing: '0.18em' }}>
+                ● DATOS EN VIVO · {new Date(liveAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            ) : (
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#6b7280', letterSpacing: '0.18em' }}>
+                ○ CARGANDO DATOS...
+              </span>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 1, background: C.border, marginBottom: 1 }}>
             {TABS.map(tab => (
               <button
