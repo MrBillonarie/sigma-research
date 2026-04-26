@@ -106,61 +106,66 @@ export default function DiagnosticadorPage() {
   // ── Load data from Supabase ────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { setLoading(false); return }
 
-      const TRADING_PLATFORMS = ['ibkr', 'binance_spot', 'binance_futures']
+        const TRADING_PLATFORMS = ['ibkr', 'binance_spot', 'binance_futures']
 
-      const [portResult, tradesResult] = await Promise.all([
-        supabase.from('portfolio').select('*').eq('user_id', user.id).single(),
-        supabase.from('trades').select('pnl_usd, resultado, sl, tp, entry_price, lado'),
-      ])
+        const [portResult, tradesResult] = await Promise.all([
+          supabase.from('portfolio').select('*').eq('user_id', user.id).single(),
+          supabase.from('trades').select('pnl_usd, resultado, sl, tp, entry_price, lado'),
+        ])
 
-      let totalTrading = 0
-      if (portResult.data) {
-        TRADING_PLATFORMS.forEach(k => { totalTrading += (portResult.data[k] ?? 0) })
-      }
-
-      interface Trade { resultado: string; pnl_usd: number; sl: number | null; tp: number | null; entry_price: number | null }
-      let winRate = 0, avgRR = 0, totalCount = 0
-      if (tradesResult.data && tradesResult.data.length > 0) {
-        const trades = tradesResult.data as Trade[]
-        totalCount   = trades.length
-        const wins   = trades.filter((t) => t.resultado === 'WIN')
-        const losses = trades.filter((t) => t.resultado === 'LOSS')
-        winRate      = Math.round((wins.length / totalCount) * 100)
-
-        const rrFromSetup = trades
-          .filter((t) => t.sl && t.tp && t.entry_price)
-          .map((t) => {
-            const ep = t.entry_price!
-            const risk   = Math.abs(ep - t.sl!)
-            const reward = Math.abs(t.tp! - ep)
-            return risk > 0 ? reward / risk : 0
-          })
-          .filter((v) => v > 0)
-
-        if (rrFromSetup.length > 0) {
-          avgRR = rrFromSetup.reduce((a, b) => a + b, 0) / rrFromSetup.length
-        } else if (wins.length > 0 && losses.length > 0) {
-          const avgWin  = wins.reduce((a, t)   => a + Math.abs(t.pnl_usd), 0) / wins.length
-          const avgLoss = losses.reduce((a, t) => a + Math.abs(t.pnl_usd), 0) / losses.length
-          avgRR = avgLoss > 0 ? avgWin / avgLoss : 0
+        let totalTrading = 0
+        if (portResult.data) {
+          TRADING_PLATFORMS.forEach(k => { totalTrading += (portResult.data[k] ?? 0) })
         }
-      }
 
-      const hasData = totalTrading > 0 || totalCount > 0
-      setHasRealData(hasData)
-      setDbPatrimonio(totalTrading)
-      setDbWinRate(winRate)
-      setDbRR(parseFloat(avgRR.toFixed(2)))
-      setDbTotalOps(totalCount)
+        interface Trade { resultado: string; pnl_usd: number; sl: number | null; tp: number | null; entry_price: number | null }
+        let winRate = 0, avgRR = 0, totalCount = 0
+        if (tradesResult.data && tradesResult.data.length > 0) {
+          const trades = tradesResult.data as Trade[]
+          totalCount   = trades.length
+          const wins   = trades.filter((t) => t.resultado === 'WIN')
+          const losses = trades.filter((t) => t.resultado === 'LOSS')
+          winRate      = Math.round((wins.length / totalCount) * 100)
 
-      if (hasData) {
-        if (totalTrading > 0)  setPatrimonio(totalTrading)
-        if (avgRR > 0)         setRr(parseFloat(avgRR.toFixed(2)))
+          const rrFromSetup = trades
+            .filter((t) => t.sl && t.tp && t.entry_price)
+            .map((t) => {
+              const ep = t.entry_price!
+              const risk   = Math.abs(ep - t.sl!)
+              const reward = Math.abs(t.tp! - ep)
+              return risk > 0 ? reward / risk : 0
+            })
+            .filter((v) => v > 0)
+
+          if (rrFromSetup.length > 0) {
+            avgRR = rrFromSetup.reduce((a, b) => a + b, 0) / rrFromSetup.length
+          } else if (wins.length > 0 && losses.length > 0) {
+            const avgWin  = wins.reduce((a, t)   => a + Math.abs(t.pnl_usd), 0) / wins.length
+            const avgLoss = losses.reduce((a, t) => a + Math.abs(t.pnl_usd), 0) / losses.length
+            avgRR = avgLoss > 0 ? avgWin / avgLoss : 0
+          }
+        }
+
+        const hasData = totalTrading > 0 || totalCount > 0
+        setHasRealData(hasData)
+        setDbPatrimonio(totalTrading)
+        setDbWinRate(winRate)
+        setDbRR(parseFloat(avgRR.toFixed(2)))
+        setDbTotalOps(totalCount)
+
+        if (hasData) {
+          if (totalTrading > 0)  setPatrimonio(totalTrading)
+          if (avgRR > 0)         setRr(parseFloat(avgRR.toFixed(2)))
+        }
+      } catch {
+        // Supabase unavailable or auth error — page works in manual mode
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     load()
   }, [])

@@ -81,7 +81,7 @@ const products = [
     id: 'hud',
     tag: '04 / DASHBOARD',
     name: 'SIGMA\nHUD',
-    tagline: 'Portfolio HUD con risk analytics',
+    tagline: 'Portafolio HUD con risk analytics',
     description:
       'Panel de control unificado para gestión de portafolio. Risk attribution, correlation matrix en vivo, VaR/CVaR y rebalanceo automático.',
     features: [

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/app/lib/supabase'
 import { C } from '@/app/lib/constants'
+import { usePortfolio } from '@/app/lib/usePortfolio'
 import type { SimResult } from './types'
 
 // Load Chart.js only on the client — prevents SSR crash (window/document undefined)
@@ -173,6 +174,7 @@ function parseBinanceCsv(text: string): CsvStats | null {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MonteCarloPage() {
+  const { totalUSD: portfolioTotal, ready: portfolioReady } = usePortfolio()
   const [capital,  setCapital]  = useState(50_000)
   const [μPct,     setMu]       = useState(0.70)
   const [σPct,     setSigma]    = useState(4.50)
@@ -232,6 +234,12 @@ export default function MonteCarloPage() {
 
   useEffect(() => { runSim() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync capital from Portfolio page — only if user hasn't uploaded a CSV
+  useEffect(() => {
+    if (portfolioReady && portfolioTotal > 0 && !csvStats)
+      setCapital(Math.round(portfolioTotal / 1000) * 1000)
+  }, [portfolioReady, portfolioTotal, csvStats])
+
   const stats = useMemo(() => {
     if (!result) return null
     const steps = years * 12
@@ -252,8 +260,9 @@ export default function MonteCarloPage() {
   async function saveRun() {
     if (!stats || !result) return
     setSaving(true); setSavedMsg('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setSavedMsg('Inicia sesión para guardar.'); setSaving(false); return }
       await supabase.from('montecarlo_runs').insert({
         user_id:       user.id,
         modo:          mode,
@@ -268,6 +277,8 @@ export default function MonteCarloPage() {
         prob_objetivo: stats.prob,
       })
       setSavedMsg('Simulación guardada.')
+    } catch {
+      setSavedMsg('Error al guardar. Intenta nuevamente.')
     }
     setSaving(false)
   }

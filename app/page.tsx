@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 }
 
 const tools = [
-  { tag: 'T-01', name: 'SIGMA TERMINAL',   desc: 'Dashboard de trading en vivo. Portfolio multi-broker, balances Binance Spot & Futures, P&L consolidado y posiciones abiertas en tiempo real.' },
+  { tag: 'T-01', name: 'SIGMA TERMINAL',   desc: 'Dashboard de trading en vivo. Portafolio multi-broker, balances Binance Spot & Futures, P&L consolidado y posiciones abiertas en tiempo real.' },
   { tag: 'T-02', name: 'MODELOS ML',        desc: 'Señales cuantitativas de régimen de mercado, volatilidad, momentum y análisis macro. Validadas con walk-forward out-of-sample.' },
   { tag: 'T-03', name: 'MONTE CARLO',       desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
   { tag: 'T-04', name: 'REPORTE MENSUAL',   desc: 'Análisis de rendimiento, Sharpe, Sortino, max drawdown y comparación contra benchmarks. Exportable en PDF incluido en plan PRO.' },

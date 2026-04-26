@@ -463,7 +463,7 @@ export default function PortfolioPage() {
             {/* ── 1. KPI CARDS ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
               {[
-                { label: 'Total Patrimonio', value: fmtUSD(totalCurrent), sub: 'USD equiv.',       color: C.gold },
+                { label: 'Total Patrimonio', value: fmtUSD(D.totalUSD),  sub: 'USD equiv.',       color: C.gold },
                 { label: 'Rentabilidad YTD', value: `${ytdReturn > 0 ? '+' : ''}${ytdReturn.toFixed(2)}%`, sub: 'vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red },
                 { label: 'Sharpe Ratio',     value: sharpe.toFixed(2),    sub: '12M rolling',      color: sharpe >= 1.5 ? C.green : C.gold },
                 { label: 'Max Drawdown',     value: `${(maxDD * 100).toFixed(2)}%`, sub: '24M window', color: C.red },

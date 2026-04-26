@@ -50,7 +50,7 @@ const TYPE_LABELS: Record<string, string> = {
   all:       'Todas',
   señal:     'Señales',
   mercado:   'Mercado',
-  portfolio: 'Portfolio',
+  portfolio: 'Portafolio',
   reporte:   'Reportes',
   sistema:   'Sistema',
 }

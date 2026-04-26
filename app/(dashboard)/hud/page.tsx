@@ -29,10 +29,13 @@ interface Price {
   prev:   number
 }
 
-// ─── Seed data ────────────────────────────────────────────────────────────────
-const BASE_PRICES: Record<string, number> = {
-  'BTC/USDT': 84_200, 'ETH/USDT': 3_180, 'BNB/USDT': 590,
-  'SOL/USDT': 148,    'AVAX/USDT': 36,   'ARB/USDT': 1.12,
+// ─── Binance WebSocket stream ─────────────────────────────────────────────────
+const WS_TICKERS = ['btcusdt', 'ethusdt', 'bnbusdt', 'solusdt', 'avaxusdt', 'arbusdt']
+const WS_URL = `wss://stream.binance.com:9443/stream?streams=${WS_TICKERS.map(t => `${t}@miniTicker`).join('/')}`
+
+const SYM_LABEL: Record<string, string> = {
+  BTCUSDT: 'BTC/USDT', ETHUSDT: 'ETH/USDT', BNBUSDT: 'BNB/USDT',
+  SOLUSDT: 'SOL/USDT', AVAXUSDT: 'AVAX/USDT', ARBUSDT: 'ARB/USDT',
 }
 
 const SIGNAL_POOL: Omit<Signal, 'id' | 'ts'>[] = [
@@ -68,44 +71,57 @@ function timeAgo(ts: number) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function HudPage() {
-  const [signals, setSignals] = useState<Signal[]>([])
-  const [prices,  setPrices]  = useState<Price[]>([])
-  const [regime,  setRegime]  = useState<{ label: string; color: string; adx: number }>({
+  const [signals,   setSignals]   = useState<Signal[]>([])
+  const [prices,    setPrices]    = useState<Price[]>([])
+  const [connected, setConnected] = useState(false)
+  const [regime,    setRegime]    = useState<{ label: string; color: string; adx: number }>({
     label: 'LATERAL NORMAL', color: C.yellow, adx: 18,
   })
 
-  // ── Init signals & prices ─────────────────────────────────────────────────
+  // ── Init demo signals ────────────────────────────────────────────────────
   useEffect(() => {
-    const initial = SIGNAL_POOL.slice(0, 5).map((s, i) => ({
+    setSignals(SIGNAL_POOL.slice(0, 5).map((s, i) => ({
       ...s, id: i + 1, ts: Date.now() - (i * 7 * 60_000),
-    }))
-    setSignals(initial)
-
-    setPrices(Object.entries(BASE_PRICES).map(([ticker, price]) => ({
-      ticker, price, prev: price, change: (Math.random() - 0.48) * 2,
     })))
   }, [])
 
-  // ── Live price simulation ─────────────────────────────────────────────────
+  // ── Real prices via Binance WebSocket ────────────────────────────────────
   useEffect(() => {
-    const id = setInterval(() => {
-      setPrices(prev => prev.map(p => {
-        const delta = p.price * (Math.random() - 0.498) * 0.003
-        const next  = p.price + delta
-        const change = ((next - p.prev) / p.prev) * 100
-        return { ...p, price: next, change }
-      }))
-    }, 2000)
-    return () => clearInterval(id)
+    let ws: WebSocket
+    function connect() {
+      ws = new WebSocket(WS_URL)
+      ws.onopen  = () => setConnected(true)
+      ws.onclose = () => { setConnected(false); setTimeout(connect, 5000) }
+      ws.onerror = () => ws.close()
+      ws.onmessage = (e: MessageEvent) => {
+        try {
+          const msg = JSON.parse(e.data as string) as { data: { s: string; c: string; o: string } }
+          const { s: sym, c: closeStr, o: openStr } = msg.data
+          const label  = SYM_LABEL[sym]
+          if (!label) return
+          const price  = parseFloat(closeStr)
+          const open24 = parseFloat(openStr)
+          const change = open24 > 0 ? ((price - open24) / open24) * 100 : 0
+          setPrices(prev => {
+            const idx = prev.findIndex(p => p.ticker === label)
+            const next: Price = { ticker: label, price, prev: open24, change }
+            if (idx === -1) return [...prev, next]
+            const updated = [...prev]
+            updated[idx] = next
+            return updated
+          })
+        } catch {}
+      }
+    }
+    connect()
+    return () => ws?.close()
   }, [])
 
-  // ── New signal every ~30s ─────────────────────────────────────────────────
+  // ── New signal every ~30s (demo — replace with real ML endpoint) ──────────
   useEffect(() => {
     const id = setInterval(() => {
       const template = SIGNAL_POOL[Math.floor(Math.random() * SIGNAL_POOL.length)]
-      const newSig: Signal = { ...template, id: Date.now(), ts: Date.now() }
-      setSignals(prev => [newSig, ...prev].slice(0, 20))
-
+      setSignals(prev => [{ ...template, id: Date.now(), ts: Date.now() }, ...prev].slice(0, 20))
       const adx = Math.floor(Math.random() * 40) + 5
       setRegime(
         adx < 15  ? { label: 'LATERAL TIGHT',  color: C.green,  adx } :
@@ -202,8 +218,10 @@ export default function HudPage() {
                 FEED DE SEÑALES
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.green, animation: 'pulse 2s infinite' }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.green }}>EN VIVO</span>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? C.green : C.red, animation: connected ? 'pulse 2s infinite' : undefined }} />
+                <span style={{ fontFamily: 'monospace', fontSize: 10, color: connected ? C.green : C.red }}>
+                  {connected ? 'BINANCE LIVE' : 'CONECTANDO…'}
+                </span>
               </span>
             </div>
 

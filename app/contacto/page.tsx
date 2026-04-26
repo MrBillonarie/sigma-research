@@ -19,24 +19,44 @@ export default function ContactoPage() {
   const [mensaje,   setMensaje]   = useState('')
   const [errors,    setErrors]    = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  const [loading,   setLoading]   = useState(false)
+  const [apiError,  setApiError]  = useState('')
 
   function validate() {
     const e: Record<string, string> = {}
-    if (!nombre.trim())                                  e.nombre  = 'Campo obligatorio.'
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))     e.email   = 'Email no válido.'
-    if (mensaje.trim().length < 20)                      e.mensaje = 'Mínimo 20 caracteres.'
+    if (!nombre.trim())                                e.nombre  = 'Campo obligatorio.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))   e.email   = 'Email no válido.'
+    if (mensaje.trim().length < 10)                   e.mensaje = 'Mínimo 10 caracteres.'
+    if (mensaje.trim().length > 2000)                 e.mensaje = 'Máximo 2000 caracteres.'
     return e
   }
 
-  function handleSubmit(ev: React.FormEvent) {
+  async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
     const e = validate()
     setErrors(e)
+    setApiError('')
     if (Object.keys(e).length) return
 
-    // TODO: conectar a API / CRM
-    console.log({ nombre, empresa, email, motivo, mensaje })
-    setSubmitted(true)
+    setLoading(true)
+    try {
+      const res = await fetch('/api/contacto', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ nombre: nombre.trim(), empresa: empresa.trim(), email: email.trim(), motivo, mensaje: mensaje.trim() }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok) {
+        setApiError(data.error ?? 'Error al enviar. Intenta nuevamente.')
+        return
+      }
+      setSubmitted(true)
+      setNombre(''); setEmpresa(''); setEmail(''); setMensaje('')
+    } catch {
+      setApiError('Sin conexión. Verifica tu internet e intenta nuevamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -71,15 +91,15 @@ export default function ContactoPage() {
                   <span className="gold-text">DE REVISIÓN</span>
                 </h2>
                 <p className="terminal-text text-text-dim leading-relaxed max-w-sm">
-                  Hemos recibido tu solicitud. Te contactaremos en{' '}
-                  <span className="text-gold">menos de 24 horas</span> en el email indicado.
+                  ✓ Mensaje enviado. Te responderemos pronto en{' '}
+                  <span className="text-gold">{email || 'tu email'}</span>.
                 </p>
-                <Link
-                  href="/"
+                <button
+                  onClick={() => setSubmitted(false)}
                   className="self-start section-label text-text-dim hover:text-gold transition-colors"
                 >
-                  ← Volver al inicio
-                </Link>
+                  ← Enviar otro mensaje
+                </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
@@ -89,9 +109,7 @@ export default function ContactoPage() {
                   <div className="flex flex-col gap-1.5">
                     <label className="section-label text-text-dim">Nombre *</label>
                     <input
-                      type="text"
-                      required
-                      value={nombre}
+                      type="text" required value={nombre}
                       onChange={e => setNombre(e.target.value)}
                       placeholder="Tu nombre"
                       className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors"
@@ -103,8 +121,7 @@ export default function ContactoPage() {
                   <div className="flex flex-col gap-1.5">
                     <label className="section-label text-text-dim">Empresa <span className="text-muted normal-case">(opcional)</span></label>
                     <input
-                      type="text"
-                      value={empresa}
+                      type="text" value={empresa}
                       onChange={e => setEmpresa(e.target.value)}
                       placeholder="Tu empresa o fondo"
                       className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors"
@@ -116,9 +133,7 @@ export default function ContactoPage() {
                 <div className="flex flex-col gap-1.5">
                   <label className="section-label text-text-dim">Email *</label>
                   <input
-                    type="email"
-                    required
-                    value={email}
+                    type="email" required value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="tu@empresa.com"
                     className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors"
@@ -130,13 +145,10 @@ export default function ContactoPage() {
                 <div className="flex flex-col gap-1.5">
                   <label className="section-label text-text-dim">Motivo de contacto</label>
                   <select
-                    value={motivo}
-                    onChange={e => setMotivo(e.target.value)}
+                    value={motivo} onChange={e => setMotivo(e.target.value)}
                     className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text transition-colors appearance-none cursor-pointer"
                   >
-                    {motivos.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
+                    {motivos.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
 
@@ -144,9 +156,7 @@ export default function ContactoPage() {
                 <div className="flex flex-col gap-1.5">
                   <label className="section-label text-text-dim">Mensaje *</label>
                   <textarea
-                    required
-                    rows={5}
-                    value={mensaje}
+                    required rows={5} value={mensaje}
                     onChange={e => setMensaje(e.target.value)}
                     placeholder="Describe tu solicitud con el mayor detalle posible..."
                     className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors resize-none"
@@ -154,17 +164,26 @@ export default function ContactoPage() {
                   <div className="flex justify-between">
                     {errors.mensaje
                       ? <span className="terminal-text text-red-400 text-xs">{errors.mensaje}</span>
-                      : <span />
-                    }
-                    <span className="terminal-text text-xs text-muted">{mensaje.length} car.</span>
+                      : <span />}
+                    <span className={`terminal-text text-xs ${mensaje.length > 1800 ? 'text-gold' : 'text-muted'}`}>
+                      {mensaje.length}/2000
+                    </span>
                   </div>
                 </div>
 
+                {/* API error */}
+                {apiError && (
+                  <div className="terminal-text text-red-400 text-sm border border-red-400/20 bg-red-400/5 px-4 py-3">
+                    ✗ {apiError}
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  className="bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors duration-200 mt-2"
+                  disabled={loading}
+                  className="bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors duration-200 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ENVIAR SOLICITUD
+                  {loading ? 'ENVIANDO...' : 'ENVIAR SOLICITUD'}
                 </button>
               </form>
             )}
@@ -172,13 +191,11 @@ export default function ContactoPage() {
 
           {/* Info lateral */}
           <div className="bg-bg p-8 lg:p-12 flex flex-col gap-10">
-
             <div>
               <div className="section-label text-gold mb-3">TIEMPO DE RESPUESTA</div>
               <p className="display-heading text-5xl text-text">{'< 24H'}</p>
               <p className="terminal-text text-text-dim text-sm mt-2">días laborables</p>
             </div>
-
             <div className="flex flex-col gap-4">
               <div className="section-label text-gold">IDEAL PARA</div>
               {[
@@ -194,13 +211,9 @@ export default function ContactoPage() {
                 </div>
               ))}
             </div>
-
             <div className="border-t border-border pt-8 flex flex-col gap-3">
               <div className="section-label text-gold mb-1">SOPORTE GENERAL</div>
-              <a
-                href="mailto:soporte@sigma-research.io"
-                className="terminal-text text-sm text-text-dim hover:text-gold transition-colors"
-              >
+              <a href="mailto:soporte@sigma-research.io" className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
                 soporte@sigma-research.io
               </a>
               <Link href="/faq" className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">

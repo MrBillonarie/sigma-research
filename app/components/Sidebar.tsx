@@ -42,7 +42,7 @@ const MONO   = 'var(--font-dm-mono)'
 const navItems = [
   { label: 'Home',           href: '/home',             icon: Home            },
   { label: 'HUD',            href: '/hud',              icon: Activity        },
-  { label: 'Portafolio',     href: '/portfolio',        icon: PieChart        },
+  { label: 'Portafolio',     href: '/portafolio',        icon: PieChart        },
   { label: 'Journal',        href: '/journal',          icon: BookOpen        },
   { label: 'Diagnosticador', href: '/diagnosticador',   icon: Stethoscope     },
   { label: 'Monte Carlo',    href: '/montecarlo',       icon: TrendingUp      },
@@ -71,7 +71,7 @@ const ALL_ITEMS: SearchItem[] = [
   // Pages
   { id: '/home',             label: 'Home',           href: '/home',             category: 'Página', icon: Home            },
   { id: '/hud',              label: 'HUD',            href: '/hud',              category: 'Página', icon: Activity        },
-  { id: '/portfolio',        label: 'Portafolio',     href: '/portfolio',        category: 'Página', icon: PieChart        },
+  { id: '/portafolio',        label: 'Portafolio',     href: '/portafolio',        category: 'Página', icon: PieChart        },
   { id: '/journal',          label: 'Journal',        href: '/journal',          category: 'Página', icon: BookOpen        },
   { id: '/diagnosticador',   label: 'Diagnosticador', href: '/diagnosticador',   category: 'Página', icon: Stethoscope     },
   { id: '/montecarlo',       label: 'Monte Carlo',    href: '/montecarlo',       category: 'Página', icon: TrendingUp      },

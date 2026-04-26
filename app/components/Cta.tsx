@@ -44,7 +44,7 @@ const tiers = [
       'Todo de PRO',
       'API acceso completo',
       'Todos los modelos ML',
-      'HUD Portfolio Risk',
+      'HUD Portafolio Risk',
       'Backtesting personalizado',
       'Soporte dedicado',
     ],

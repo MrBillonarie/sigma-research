@@ -552,7 +552,7 @@ export default function DashboardHome() {
 
             {/* Portfolio snapshot */}
             <div style={{ background:C.surface, padding:'20px 20px', display:'flex', flexDirection:'column', gap:14 }}>
-              <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText }}>PORTFOLIO SNAPSHOT</div>
+              <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText }}>PORTAFOLIO SNAPSHOT</div>
               {D.segments.length === 0 ? (
                 <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin datos — carga en Terminal</div>
               ) : (
@@ -588,7 +588,7 @@ export default function DashboardHome() {
                   FIRE {pct(D.firePct)} · meta {fmtUSD(D.FIRE_TARGET)}
                 </div>
               </div>
-              <Link href="/portfolio" style={{ fontFamily:'monospace', fontSize:10, color:C.gold, letterSpacing:'0.15em', textDecoration:'none', textTransform:'uppercase' }}>
+              <Link href="/portafolio" style={{ fontFamily:'monospace', fontSize:10, color:C.gold, letterSpacing:'0.15em', textDecoration:'none', textTransform:'uppercase' }}>
                 Ver portfolio completo →
               </Link>
             </div>

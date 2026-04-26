@@ -10,7 +10,7 @@ const tools = [
   {
     tag: 'T-01',
     name: 'SIGMA TERMINAL',
-    desc: 'Dashboard de trading en vivo. Portfolio multi-broker, balances Binance Spot & Futures, P&L consolidado y posiciones abiertas en tiempo real.',
+    desc: 'Dashboard de trading en vivo. Portafolio multi-broker, balances Binance Spot & Futures, P&L consolidado y posiciones abiertas en tiempo real.',
     detail: 'Conecta tus cuentas de Binance Spot y Futures vía API de solo lectura. Visualiza tu P&L consolidado, posiciones abiertas, historial de operaciones y distribución de capital en un solo panel.',
     href: '/login',
     cta: 'ACCEDER AL TERMINAL',

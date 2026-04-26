@@ -1,8 +1,9 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { fmt, fmtK } from '@/app/lib/format'
 import FireChallenges from './FireChallenges'
+import { usePortfolio } from '@/app/lib/usePortfolio'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
@@ -86,8 +87,14 @@ function Label({ text }: { text: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function FirePage() {
+  const { totalUSD: portfolioTotal, ready: portfolioReady } = usePortfolio()
   const [mode,    setMode]    = useState(1)   // 0=Lean 1=Barista 2=Fat
   const [capital, setCapital] = useState(80_000)
+
+  // Sync capital from Portfolio page when it loads
+  useEffect(() => {
+    if (portfolioReady && portfolioTotal > 0) setCapital(Math.round(portfolioTotal))
+  }, [portfolioReady, portfolioTotal])
   const [ahorro,  setAhorro]  = useState(1_500)
   const [retorno, setRetorno] = useState(8)
   const [edad,    setEdad]    = useState(29)

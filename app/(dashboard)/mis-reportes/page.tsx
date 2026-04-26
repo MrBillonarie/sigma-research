@@ -108,7 +108,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   setFont(18, 'bold', WHITE)
   doc.text('REPORTE DE ANÁLISIS', 20, 100)
   setFont(18, 'bold', GOLD)
-  doc.text('PERSONAL DE PORTFOLIO', 20, 112)
+  doc.text('PERSONAL DE PORTAFOLIO', 20, 112)
 
   setFont(10, 'normal', GRAY)
   doc.text(`Generado el: ${dateStr}`, 20, 126)
@@ -146,7 +146,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   doc.text('SIGMA RESEARCH · sigma-research.io · Uso exclusivo del titular de la cuenta', 20, 287)
   doc.text('1', W - 20, 287, { align: 'right' })
 
-  // ── PAGE 2: PORTFOLIO ──────────────────────────────────────────────────────
+  // ── PAGE 2: PORTAFOLIO ────────────────────────────────────────────────────
   doc.addPage()
   fillRect(0, 0, W, 297, DARK)
   fillRect(0, 0, W, 1.5, GOLD)
@@ -162,9 +162,9 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   setFont(8, 'normal', GRAY)
   doc.text('SECCIÓN 00', 20, 44)
   setFont(22, 'bold', WHITE)
-  doc.text('PORTFOLIO', 20, 55)
+  doc.text('PORTAFOLIO', 20, 55)
   setFont(22, 'bold', GOLD)
-  doc.text('PERSONAL', 70, 55)
+  doc.text('PERSONAL', 78, 55)
   line(20, 60, W - 20, 60, GOLD, 0.4)
 
   let y = 72
@@ -409,7 +409,7 @@ export default function MisReportesPage() {
                 y las 6 secciones de análisis de Sigma Research. Se descarga directamente en tu dispositivo.
               </div>
               <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
-                {['Portfolio multi-plataforma', 'Distribución de capital', '6 secciones de análisis', 'Descarga instantánea'].map(tag => (
+                {['Portafolio multi-plataforma', 'Distribución de capital', '6 secciones de análisis', 'Descarga instantánea'].map(tag => (
                   <span key={tag} style={{ fontFamily: 'monospace', fontSize: 10, color: GREEN, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', padding: '3px 10px' }}>
                     ✓ {tag}
                   </span>
