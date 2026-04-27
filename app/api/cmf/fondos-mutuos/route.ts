@@ -1,11 +1,10 @@
-export const revalidate = 3600 // ISR: cache 1 hora por combinación de query params
+export const revalidate = 3600
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const PER_PAGE = 50
 
-// ─── Supabase server client (service role) ────────────────────────────────────
 function sb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,10 +13,8 @@ function sb() {
   )
 }
 
-// ─── Inferir nivel de riesgo desde categoría ─────────────────────────────────
 function riesgoFromCategoria(cat: string | null): number {
-  if (!cat) return 3
-  switch (cat.toLowerCase()) {
+  switch ((cat ?? '').toLowerCase()) {
     case 'renta fija':  return 1
     case 'conservador': return 2
     case 'moderado':    return 3
@@ -26,50 +23,85 @@ function riesgoFromCategoria(cat: string | null): number {
   }
 }
 
-// ─── GET /api/cmf/fondos-mutuos ───────────────────────────────────────────────
-// Query params: search, agf, tipo, page
+const SORT_MAP: Record<string, string> = {
+  nombre: 'nombre',
+  r1m:    'rent_1m',
+  r3m:    'rent_3m',
+  r12m:   'rent_12m',
+  r3a:    'rent_3a',
+  tac:    'tac',
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const search = (searchParams.get('search') ?? '').trim()
-  const agf    = (searchParams.get('agf')    ?? '').trim()
-  const tipo   = (searchParams.get('tipo')   ?? '').trim()
-  const page   = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
+  const search   = (searchParams.get('search') ?? '').trim()
+  const agf      = (searchParams.get('agf')    ?? '').trim()
+  const tipo     = (searchParams.get('tipo')   ?? '').trim()
+  const page     = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
+  const sortKey  = searchParams.get('sort') ?? 'r12m'
+  const sortDir  = searchParams.get('dir')  === 'asc'
+  const exportAll = searchParams.get('export') === 'csv'
 
-  const db = sb()
+  const db     = sb()
+  const col    = SORT_MAP[sortKey] ?? 'rent_12m'
+  const nullsFirst = sortDir ? true : false   // ASC → nulls first; DESC → nulls last
 
-  // ── Resolver agf_id si hay filtro por AGF ────────────────────────────────
+  // Resolver agf_id
   let agfId: string | null = null
   if (agf) {
     const { data: agfRow } = await db.from('agf').select('id').eq('nombre', agf).maybeSingle()
     agfId = agfRow?.id ?? null
-    // Si el AGF no existe en la BD, retornar vacío en vez de ignorar el filtro
-    if (!agfId) {
-      return NextResponse.json({ ok: true, data: [], total: 0, page, pages: 0, liveCount: 0, agfs: [], ultima_actualizacion: null })
-    }
+    if (!agfId) return NextResponse.json({ ok: true, data: [], total: 0, page, pages: 0, liveCount: 0, agfs: [], ultima_actualizacion: null })
   }
 
-  // ── Query principal ───────────────────────────────────────────────────────
+  // Query principal
   let q = db
     .from('fondos_mutuos')
     .select('*, agf(nombre)', { count: 'exact' })
     .eq('activo', true)
-    .order('rent_12m', { ascending: false, nullsFirst: false })
-    .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+    .order(col, { ascending: sortDir, nullsFirst })
 
-  if (search)  q = q.ilike('nombre', `%${search}%`)
-  if (agfId)   q = q.eq('agf_id', agfId)
+  if (!exportAll) q = q.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+
+  if (search) q = q.ilike('nombre', `%${search}%`)
+  if (agfId)  q = q.eq('agf_id', agfId)
   if (tipo && tipo !== 'todos') q = q.eq('categoria', tipo)
 
   const { data, count, error } = await q
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  // ── CSV export ────────────────────────────────────────────────────────────
+  if (exportAll) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data ?? []).map((f: any) => ({
+      nombre:  f.nombre,
+      adm:     (f.agf as { nombre: string } | null)?.nombre ?? '',
+      tipo:    f.categoria ?? '',
+      riesgo:  riesgoFromCategoria(f.categoria),
+      r1m:     f.rent_1m  ?? '',
+      r3m:     f.rent_3m  ?? '',
+      r12m:    f.rent_12m ?? '',
+      r3a:     f.rent_3a  ?? '',
+      tac:     f.tac      ?? '',
+    }))
+    const header = 'Fondo,Administradora,Tipo,Riesgo,1M%,3M%,12M%,3A%,TAC%'
+    const csv = [header, ...rows.map(r =>
+      [r.nombre, r.adm, r.tipo, r.riesgo, r.r1m, r.r3m, r.r12m, r.r3a, r.tac]
+        .map(v => `"${String(v).replace(/"/g, '""')}"`)
+        .join(',')
+    )].join('\n')
+    return new NextResponse(csv, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="fondos-mutuos-${new Date().toISOString().split('T')[0]}.csv"`,
+      },
+    })
   }
 
-  // ── Lista de AGFs para el dropdown ───────────────────────────────────────
+  // Lista AGFs
   const { data: agfList } = await db.from('agf').select('nombre').order('nombre')
 
-  // ── Fecha de última sincronización ────────────────────────────────────────
+  // Última sync
   const { data: lastRow } = await db
     .from('fondos_mutuos')
     .select('updated_at')
@@ -78,7 +110,31 @@ export async function GET(req: NextRequest) {
     .limit(1)
     .maybeSingle()
 
-  // ── Mapear al formato que consume la página ───────────────────────────────
+  // Top por categoría (1 fondo por tipo, siempre ordenado por rent_12m desc)
+  const CATEGORIAS = ['renta fija', 'conservador', 'moderado', 'agresivo']
+  const topResults = await Promise.all(
+    CATEGORIAS.map(cat =>
+      db.from('fondos_mutuos')
+        .select('nombre, rent_12m, agf(nombre)')
+        .eq('activo', true)
+        .eq('categoria', cat)
+        .not('rent_12m', 'is', null)
+        .order('rent_12m', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    )
+  )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const topPorCategoria = CATEGORIAS.map((cat, i) => {
+    const row = topResults[i].data as any
+    return {
+      categoria: cat,
+      nombre:    row?.nombre ?? null,
+      adm:       (row?.agf as { nombre: string } | null)?.nombre ?? null,
+      r12m:      row?.rent_12m ?? null,
+    }
+  })
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fondos = (data ?? []).map((f: any) => ({
     nombre: f.nombre,
@@ -95,16 +151,13 @@ export async function GET(req: NextRequest) {
   }))
 
   const total = count ?? 0
-
   return NextResponse.json({
-    ok:    true,
-    data:  fondos,
-    total,
-    page,
+    ok: true, data: fondos, total, page,
     pages: Math.ceil(total / PER_PAGE),
     liveCount: fondos.length,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    agfs:  (agfList ?? []).map((a: any) => a.nombre),
+    agfs: (agfList ?? []).map((a: any) => a.nombre),
     ultima_actualizacion: lastRow?.updated_at ?? null,
+    topPorCategoria,
   })
 }
