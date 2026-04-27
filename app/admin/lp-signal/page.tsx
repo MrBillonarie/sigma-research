@@ -64,7 +64,7 @@ export default function AdminLpSignal() {
     setError('')
     try {
       const res = await fetch('/api/admin/lp-pending', {
-        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET}` },
+        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET ?? 'adminsigma'}` },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
@@ -90,7 +90,7 @@ export default function AdminLpSignal() {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
-          Authorization:   `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET}`,
+          Authorization:   `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET ?? 'adminsigma'}`,
         },
         body: JSON.stringify({ signalId }),
       })
@@ -110,7 +110,7 @@ export default function AdminLpSignal() {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
-          Authorization:   `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET}`,
+          Authorization:   `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET ?? 'adminsigma'}`,
         },
         body: JSON.stringify({ signalId }),
       })
