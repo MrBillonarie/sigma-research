@@ -283,10 +283,165 @@ async function runUpdate() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MODO DISCOVER — recorre providers para encontrar fondos nuevos
+// MODO DISCOVER — recorre providers, reintenta los saltados hasta que todos pasen
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// Esperas entre reintentos de providers saltados: 5 min, 10 min, 20 min
+const RETRY_WAITS_MS = [300_000, 600_000, 1_200_000]
+const MAX_RETRIES    = RETRY_WAITS_MS.length
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function processProvider(p: any, total: number, label: string, from: string, to: string, counters: { synced: number; sin_datos: number; errors: number }): Promise<boolean> {
+  process.stdout.write(label)
+
+  let conceptuals: { id: string; nombre: string; attrs: unknown }[] = []
+  try {
+    const cData = await fetchJson(`${FINTUAL_BASE}/asset_providers/${p.id}/conceptual_assets`, true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    conceptuals = (cData.data ?? []).map((c: any) => ({
+      id: String(c.id), nombre: c.attributes?.name ?? '', attrs: c.attributes,
+    }))
+  } catch (e) {
+    console.log(`ERROR — ${e}`)
+    counters.errors++
+    await sleep(PROVIDER_DELAY_MS)
+    return false
+  }
+
+  if (conceptuals.length === 0) {
+    process.stdout.write('VACÍO\n')
+    await sleep(PROVIDER_DELAY_MS)
+    return true
+  }
+
+  let fondosSynced = 0, fondosSinDatos = 0, fondosErr = 0
+  providerCooldowns = 0
+  const fondoUpserts: Record<string, unknown>[] = []
+  let providerSkipped = false
+
+  for (let i = 0; i < conceptuals.length; i += CONCURRENT_FUNDS) {
+    if (providerSkipped) break
+    const batch = conceptuals.slice(i, i + CONCURRENT_FUNDS)
+
+    const results = await Promise.allSettled(batch.map(async c => {
+      let realAssetId: string | null  = null
+      let ultimoPrecio: number | null = null
+      let ultimaFecha:  string | null = null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let realAttrs: any              = null
+
+      try {
+        const rData = await fetchJson(`${FINTUAL_BASE}/conceptual_assets/${c.id}/real_assets`)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const series: any[] = rData.data ?? []
+        if (series.length > 0) {
+          const serieA = series.find(s => String(s.attributes?.serie ?? '').toUpperCase() === 'A')
+          const byDate = [...series].sort((a, b) =>
+            (b.attributes?.last_day?.date ?? '').localeCompare(a.attributes?.last_day?.date ?? ''))
+          const best   = serieA ?? byDate[0]
+          realAssetId  = String(best.id)
+          ultimoPrecio = best.attributes?.last_day?.price ?? null
+          ultimaFecha  = best.attributes?.last_day?.date  ?? null
+          realAttrs    = best.attributes
+        }
+        await sleep(FUND_DELAY_MS)
+      } catch (e) {
+        if (String(e).includes('PROVIDER_SKIP')) throw e
+        await sleep(FUND_DELAY_MS)
+      }
+
+      let rent_1m: number | null = null, rent_3m: number | null = null
+      let rent_12m: number | null = null, rent_3a: number | null = null
+      let synced = false, sinDatos = false, err = false
+
+      if (realAssetId) {
+        try {
+          const dData = await fetchJson(
+            `${FINTUAL_BASE}/real_assets/${realAssetId}/days?from_date=${from}&to_date=${to}`
+          )
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const days: { date: string; price: number }[] = (dData.data ?? []).map((d: any) => {
+            const a   = d.attributes ?? {}
+            const raw = a.price ?? a.nav ?? a.net_asset_value ?? a.value ?? null
+            return { date: String(a.date ?? ''), price: raw != null ? parseFloat(String(raw)) : 0 }
+          }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
+            .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
+
+          if (days.length >= 5) {
+            const nowP = days[days.length - 1].price
+            ultimoPrecio = ultimoPrecio ?? nowP
+            ultimaFecha  = ultimaFecha  ?? days[days.length - 1].date
+            rent_1m  = pct(nowP, priceAt(days, daysAgo(30))      ?? 0)
+            rent_3m  = pct(nowP, priceAt(days, daysAgo(90))      ?? 0)
+            rent_12m = pct(nowP, priceAt(days, daysAgo(365))     ?? 0)
+            rent_3a  = pct(nowP, priceAt(days, daysAgo(365 * 3)) ?? 0)
+            synced = true
+          } else { sinDatos = true }
+          await sleep(FUND_DELAY_MS)
+        } catch (e) {
+          if (String(e).includes('PROVIDER_SKIP')) throw e
+          err = true
+          await sleep(FUND_DELAY_MS)
+        }
+      } else { sinDatos = true }
+
+      return {
+        upsert: {
+          id: c.id, agf_id: String(p.id), nombre: c.nombre,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          symbol:        (c.attrs as any)?.symbol ?? null,
+          real_asset_id: realAssetId,
+          categoria:     inferCategoria(c.nombre, c.attrs),
+          tac:           extractTac(realAttrs) ?? extractTac(c.attrs),
+          moneda:        'CLP',
+          rent_1m, rent_3m, rent_12m, rent_3a,
+          ultimo_precio: ultimoPrecio,
+          ultima_fecha:  ultimaFecha,
+          activo:        true,
+          updated_at:    new Date().toISOString(),
+        },
+        synced, sinDatos, err,
+      }
+    }))
+
+    for (const r of results) {
+      if (r.status === 'rejected' && String(r.reason).includes('PROVIDER_SKIP')) {
+        process.stdout.write(`\n  ⏭ Provider saltado — se reintentará\n`)
+        providerSkipped = true
+        break
+      }
+      if (r.status === 'fulfilled') {
+        fondoUpserts.push(r.value.upsert)
+        if (r.value.synced)        { fondosSynced++;   counters.synced++    }
+        else if (r.value.sinDatos) { fondosSinDatos++; counters.sin_datos++ }
+        else if (r.value.err)      { fondosErr++;      counters.errors++    }
+      } else {
+        fondosErr++; counters.errors++
+      }
+    }
+  }
+
+  if (fondoUpserts.length > 0) {
+    const { error: upErr } = await db.from('fondos_mutuos').upsert(fondoUpserts, { onConflict: 'id' })
+    if (upErr) {
+      process.stdout.write(`ERROR Supabase: ${upErr.message}\n`)
+    } else {
+      const parts = [`${conceptuals.length} fondos`]
+      if (fondosSynced > 0)   parts.push(`${fondosSynced} con rent.`)
+      if (fondosSinDatos > 0) parts.push(`${fondosSinDatos} sin datos`)
+      if (fondosErr > 0)      parts.push(`${fondosErr} err`)
+      process.stdout.write(`OK (${parts.join(', ')})\n`)
+    }
+  } else if (!providerSkipped) {
+    process.stdout.write('VACÍO\n')
+  }
+
+  await sleep(PROVIDER_DELAY_MS)
+  return !providerSkipped
+}
+
 async function runDiscover() {
-  console.log('🔍 Modo DISCOVER — recorriendo providers de Fintual...')
+  console.log('🔍 Modo DISCOVER — recorriendo todos los providers hasta completar')
 
   // Traer providers
   let providersData
@@ -306,7 +461,6 @@ async function runDiscover() {
   const providers: any[] = providersData.data ?? []
   console.log(`Providers: ${providers.length}`)
 
-  // Upsert AGFs
   const agfUpserts = providers.map(p => ({ id: String(p.id), nombre: p.attributes?.name ?? 'Desconocido' }))
   await db.from('agf').upsert(agfUpserts, { onConflict: 'id' })
   console.log(`✓ ${agfUpserts.length} AGFs guardadas\n`)
@@ -315,155 +469,40 @@ async function runDiscover() {
   const to       = dateStr(new Date())
   const counters = { synced: 0, sin_datos: 0, errors: 0 }
 
+  // ── Pasada inicial ───────────────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let pendientes: any[] = []
   for (let pi = 0; pi < providers.length; pi++) {
     const p     = providers[pi]
-    const label = (p.attributes?.name ?? '?').slice(0, 32).padEnd(34)
-    process.stdout.write(`[${String(pi + 1).padStart(3)}/${providers.length}] ${label}`)
+    const label = `[${String(pi + 1).padStart(3)}/${providers.length}] ${(p.attributes?.name ?? '?').slice(0, 32).padEnd(34)}`
+    const ok    = await processProvider(p, providers.length, label, from, to, counters)
+    if (!ok) pendientes.push(p)
+  }
 
-    let conceptuals: { id: string; nombre: string; attrs: unknown }[] = []
-    try {
-      const cData = await fetchJson(`${FINTUAL_BASE}/asset_providers/${p.id}/conceptual_assets`, true)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      conceptuals = (cData.data ?? []).map((c: any) => ({
-        id: String(c.id), nombre: c.attributes?.name ?? '', attrs: c.attributes,
-      }))
-    } catch (e) {
-      console.log(`ERROR — ${e}`)
-      counters.errors++
-      await sleep(PROVIDER_DELAY_MS)
-      continue
+  // ── Reintentos de providers saltados ────────────────────────────────────────
+  for (let retry = 0; retry < MAX_RETRIES && pendientes.length > 0; retry++) {
+    const waitMs = RETRY_WAITS_MS[retry]
+    console.log(`\n♻ ${pendientes.length} provider(s) pendiente(s) — esperando ${waitMs / 60_000} min antes de reintentar... (${now()})`)
+    await sleep(waitMs)
+    console.log(`♻ Reintento ${retry + 1}/${MAX_RETRIES} — ${pendientes.length} providers (${now()})\n`)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const aún: any[] = []
+    for (let pi = 0; pi < pendientes.length; pi++) {
+      const p     = pendientes[pi]
+      const label = `  [retry ${retry + 1} · ${pi + 1}/${pendientes.length}] ${(p.attributes?.name ?? '?').slice(0, 28).padEnd(30)}`
+      providerCooldowns = 0
+      const ok = await processProvider(p, pendientes.length, label, from, to, counters)
+      if (!ok) aún.push(p)
     }
+    pendientes = aún
+  }
 
-    if (conceptuals.length === 0) {
-      process.stdout.write('VACÍO\n')
-      await sleep(PROVIDER_DELAY_MS)
-      continue
-    }
-
-    let fondosSynced = 0, fondosSinDatos = 0, fondosErr = 0
-    providerCooldowns = 0
-    const fondoUpserts: Record<string, unknown>[] = []
-    let providerSkipped = false
-
-    for (let i = 0; i < conceptuals.length; i += CONCURRENT_FUNDS) {
-      if (providerSkipped) break
-      const batch = conceptuals.slice(i, i + CONCURRENT_FUNDS)
-
-      const results = await Promise.allSettled(batch.map(async c => {
-        let realAssetId: string | null  = null
-        let ultimoPrecio: number | null = null
-        let ultimaFecha:  string | null = null
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let realAttrs: any              = null
-
-        try {
-          const rData = await fetchJson(`${FINTUAL_BASE}/conceptual_assets/${c.id}/real_assets`)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const series: any[] = rData.data ?? []
-          if (series.length > 0) {
-            const serieA = series.find(s => String(s.attributes?.serie ?? '').toUpperCase() === 'A')
-            const byDate = [...series].sort((a, b) =>
-              (b.attributes?.last_day?.date ?? '').localeCompare(a.attributes?.last_day?.date ?? ''))
-            const best   = serieA ?? byDate[0]
-            realAssetId  = String(best.id)
-            ultimoPrecio = best.attributes?.last_day?.price ?? null
-            ultimaFecha  = best.attributes?.last_day?.date  ?? null
-            realAttrs    = best.attributes
-          }
-          await sleep(FUND_DELAY_MS)
-        } catch (e) {
-          if (String(e).includes('PROVIDER_SKIP')) throw e
-          await sleep(FUND_DELAY_MS)
-        }
-
-        let rent_1m: number | null = null, rent_3m: number | null = null
-        let rent_12m: number | null = null, rent_3a: number | null = null
-        let synced = false, sinDatos = false, err = false
-
-        if (realAssetId) {
-          try {
-            const dData = await fetchJson(
-              `${FINTUAL_BASE}/real_assets/${realAssetId}/days?from_date=${from}&to_date=${to}`
-            )
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const days: { date: string; price: number }[] = (dData.data ?? []).map((d: any) => {
-              const a   = d.attributes ?? {}
-              const raw = a.price ?? a.nav ?? a.net_asset_value ?? a.value ?? null
-              return { date: String(a.date ?? ''), price: raw != null ? parseFloat(String(raw)) : 0 }
-            }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
-              .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
-
-            if (days.length >= 5) {
-              const nowP = days[days.length - 1].price
-              ultimoPrecio = ultimoPrecio ?? nowP
-              ultimaFecha  = ultimaFecha  ?? days[days.length - 1].date
-              rent_1m  = pct(nowP, priceAt(days, daysAgo(30))      ?? 0)
-              rent_3m  = pct(nowP, priceAt(days, daysAgo(90))      ?? 0)
-              rent_12m = pct(nowP, priceAt(days, daysAgo(365))     ?? 0)
-              rent_3a  = pct(nowP, priceAt(days, daysAgo(365 * 3)) ?? 0)
-              synced = true
-            } else { sinDatos = true }
-            await sleep(FUND_DELAY_MS)
-          } catch (e) {
-            if (String(e).includes('PROVIDER_SKIP')) throw e
-            err = true
-            await sleep(FUND_DELAY_MS)
-          }
-        } else { sinDatos = true }
-
-        return {
-          upsert: {
-            id: c.id, agf_id: String(p.id), nombre: c.nombre,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            symbol:        (c.attrs as any)?.symbol ?? null,
-            real_asset_id: realAssetId,
-            categoria:     inferCategoria(c.nombre, c.attrs),
-            tac:           extractTac(realAttrs) ?? extractTac(c.attrs),
-            moneda:        'CLP',
-            rent_1m, rent_3m, rent_12m, rent_3a,
-            ultimo_precio: ultimoPrecio,
-            ultima_fecha:  ultimaFecha,
-            activo:        true,
-            updated_at:    new Date().toISOString(),
-          },
-          synced, sinDatos, err,
-        }
-      }))
-
-      for (const r of results) {
-        if (r.status === 'rejected' && String(r.reason).includes('PROVIDER_SKIP')) {
-          process.stdout.write(`\n  ⏭ Provider saltado\n`)
-          providerSkipped = true
-          counters.errors++
-          break
-        }
-        if (r.status === 'fulfilled') {
-          fondoUpserts.push(r.value.upsert)
-          if (r.value.synced)        { fondosSynced++;    counters.synced++    }
-          else if (r.value.sinDatos) { fondosSinDatos++;  counters.sin_datos++ }
-          else if (r.value.err)      { fondosErr++;        counters.errors++    }
-        } else {
-          fondosErr++; counters.errors++
-        }
-      }
-    }
-
-    if (fondoUpserts.length > 0) {
-      const { error: upErr } = await db.from('fondos_mutuos').upsert(fondoUpserts, { onConflict: 'id' })
-      if (upErr) {
-        process.stdout.write(`ERROR Supabase: ${upErr.message}\n`)
-      } else {
-        const parts = [`${conceptuals.length} fondos`]
-        if (fondosSynced > 0)   parts.push(`${fondosSynced} con rent.`)
-        if (fondosSinDatos > 0) parts.push(`${fondosSinDatos} sin datos`)
-        if (fondosErr > 0)      parts.push(`${fondosErr} err`)
-        process.stdout.write(`OK (${parts.join(', ')})\n`)
-      }
-    } else {
-      process.stdout.write('VACÍO\n')
-    }
-
-    await sleep(PROVIDER_DELAY_MS)
+  if (pendientes.length > 0) {
+    console.log(`\n⚠ ${pendientes.length} provider(s) no pudieron completarse tras ${MAX_RETRIES} reintentos:`)
+    pendientes.forEach(p => console.log(`   • ${p.attributes?.name ?? p.id}`))
+  } else {
+    console.log('\n✓ Todos los providers completados')
   }
 
   return counters
