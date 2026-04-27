@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/sync-fondos",
-      "schedule": "0 2 * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
