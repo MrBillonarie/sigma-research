@@ -80,20 +80,38 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
   const showMonto = capital > 0 && !!allocation
   const numCols   = showMonto ? 9 : 8
 
-  // Precompute total comprar score per class for proportional distribution
+  // Máximo de picks con capital asignado por clase (no 40 ETFs con $5 cada uno)
+  const MAX_PICKS: Record<AssetClass, number> = {
+    fondos: 5, etfs: 5, renta_fija: 2, crypto: 2,
+  }
+
+  // Set de IDs que reciben capital: top N comprar por score dentro de cada clase
+  const capitalRecipients = useMemo(() => {
+    const ids = new Set<string>()
+    for (const cls of CLASS_ORDER) {
+      assets
+        .filter(a => a.assetClass === cls && a.signal === 'comprar')
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_PICKS[cls])
+        .forEach(a => ids.add(a.id))
+    }
+    return ids
+  }, [assets])
+
+  // Score total solo entre los picks seleccionados
   const classBuyScores = useMemo(() => {
     const map = new Map<AssetClass, number>()
     for (const cls of CLASS_ORDER) {
       const total = assets
-        .filter(a => a.assetClass === cls && a.signal === 'comprar')
+        .filter(a => a.assetClass === cls && capitalRecipients.has(a.id))
         .reduce((s, a) => s + a.score, 0)
       map.set(cls, total)
     }
     return map
-  }, [assets])
+  }, [assets, capitalRecipients])
 
   function suggestedAmount(a: Asset): number {
-    if (!showMonto || a.signal !== 'comprar' || !allocation) return 0
+    if (!showMonto || !allocation || !capitalRecipients.has(a.id)) return 0
     const classAmount = capital * (allocation[a.assetClass] / 100)
     const totalScore  = classBuyScores.get(a.assetClass) || 1
     return classAmount * (a.score / totalScore)
@@ -191,9 +209,14 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
         {showMonto && (
           <td style={{ padding: '8px 12px', textAlign: 'right' }}>
             {monto > 0 ? (
-              <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>
-                {fmt(monto, currency)}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>
+                  {fmt(monto, currency)}
+                </span>
+                <span style={{ fontSize: 9, color: '#1D9E75', fontFamily: 'monospace', opacity: 0.6 }}>★ pick</span>
+              </div>
+            ) : a.signal === 'comprar' ? (
+              <span style={{ color: '#3a3f55', fontSize: 10, fontFamily: 'monospace' }}>watchlist</span>
             ) : (
               <span style={{ color: '#3a3f55', fontSize: 11, fontFamily: 'monospace' }}>—</span>
             )}
@@ -271,7 +294,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
               <TH label="Ret. 1A"   k="return1y"  />
               <TH label="RSI"       k="rsi"       />
               <TH label="Flujo"     k="netFlow"   />
-              {showMonto && <TH label="Monto sugerido" />}
+              {showMonto && <TH label="Monto (top picks)" />}
             </tr>
           </thead>
           <tbody>
