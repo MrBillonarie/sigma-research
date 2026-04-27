@@ -191,7 +191,7 @@ export default function IngresoPasivosPage() {
               d.plataforma,
               <span key="m" style={{ color: C.gold }}>{d.moneda}</span>,
               d.plazo,
-              <span key="a" style={{ color: C.green }}>{fmtApy(d.apy)}</span>,
+              <span key="a">{lv(d.liveKey, d.apy)}</span>,
               '$' + fmt(d.minUSD),
               <RiskBadge key="r" risk={d.risk} />,
               <a key="u" href={d.url} target="_blank" rel="noreferrer" style={{ color: C.dimText, fontFamily: 'monospace', fontSize: 11 }}>↗</a>,

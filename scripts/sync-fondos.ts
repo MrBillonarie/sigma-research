@@ -325,11 +325,17 @@ async function main() {
     await sleep(PROVIDER_DELAY_MS)
   }
 
-  // ── Marcar inactivos (solo si sync fue exitoso) ───────────────────────────────
-  if (processedIds.size >= 10) {
+  // ── Marcar inactivos SOLO si el sync fue limpio (>=80% fondos resueltos) ────
+  const { count: totalActivos } = await db
+    .from('fondos_mutuos').select('*', { count: 'exact', head: true }).eq('activo', true)
+  const threshold = Math.max(500, Math.floor((totalActivos ?? 0) * 0.8))
+  if (processedIds.size >= threshold) {
     await db.from('fondos_mutuos')
       .update({ activo: false, updated_at: new Date().toISOString() })
       .not('id', 'in', `(${Array.from(processedIds).join(',')})`)
+    console.log(`✓ Marcados inactivos (${processedIds.size} >= threshold ${threshold})`)
+  } else {
+    console.log(`⚠ Inactivos omitidos: ${processedIds.size} resueltos < threshold ${threshold} — datos protegidos`)
   }
 
   // ── Contar total en Supabase ───────────────────────────────────────────────

@@ -19,18 +19,28 @@ const YAHOO_HEADERS = {
 
 // Mapea cada liveKey a sus selectores en DeFi Llama
 const POOL_SELECTORS: Record<string, { project: string; tokens: string[]; chain?: string }> = {
+  // ── Depósitos CEX (DeFi Llama trackea tasas de CeFi) ─────────────────────
+  'deposit:binance:usdt': { project: 'binance-earn', tokens: ['USDT'] },
+  'deposit:binance:usdc': { project: 'binance-earn', tokens: ['USDC'] },
+  'deposit:okx:usdc':     { project: 'okx-earn',     tokens: ['USDC'] },
+  'deposit:bybit:usdt':   { project: 'bybit-earn',   tokens: ['USDT'] },
+  'deposit:bybit:btc':    { project: 'bybit-earn',   tokens: ['BTC']  },
+  // ── Staking ───────────────────────────────────────────────────────────────
   'staking:eth':        { project: 'lido',               tokens: ['STETH'],         chain: 'Ethereum' },
   'staking:sol':        { project: 'marinade-finance',   tokens: ['SOL']                               },
   'staking:cake':       { project: 'pancakeswap',        tokens: ['CAKE'],          chain: 'BSC'       },
+  // ── DeFi ─────────────────────────────────────────────────────────────────
   'defi:aave:usdc':     { project: 'aave-v3',            tokens: ['USDC']                              },
   'defi:venus:bnb':     { project: 'venus',              tokens: ['BNB'],           chain: 'BSC'       },
   'defi:compound:usdt': { project: 'compound-v3',        tokens: ['USDT']                              },
   'defi:beefy:bnb':     { project: 'beefy',              tokens: ['BNB'],           chain: 'BSC'       },
   'defi:yearn:usdc':    { project: 'yearn-finance',      tokens: ['USDC']                              },
+  // ── LP ───────────────────────────────────────────────────────────────────
   'lp:bnb-usdt:pcake':  { project: 'pancakeswap-amm-v3', tokens: ['BNB', 'USDT'],  chain: 'BSC'       },
   'lp:eth-usdc:uni':    { project: 'uniswap-v3',         tokens: ['ETH', 'USDC'],  chain: 'Ethereum'  },
   'lp:usdt-usdc:pcake': { project: 'pancakeswap-amm-v3', tokens: ['USDT', 'USDC'], chain: 'BSC'       },
   'lp:wbtc-eth:uni':    { project: 'uniswap-v3',         tokens: ['WBTC', 'ETH'],  chain: 'Ethereum'  },
+  // ── Dividendos ───────────────────────────────────────────────────────────
   'div:gmx':            { project: 'gmx',                tokens: ['GMX']                               },
   'div:velo':           { project: 'velodrome-v2',       tokens: ['VELO']                              },
 }

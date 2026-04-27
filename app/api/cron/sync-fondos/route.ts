@@ -312,14 +312,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // FIX: marcar inactivos — solo si el sync fue exitoso (mínimo 10 fondos procesados)
-    // Evita desactivar todo si hubo un fallo total de la API de Fintual
-    if (allResolvedIds.size >= 10) {
+    // Marcar inactivos SOLO si el sync fue limpio (>=80% de los fondos esperados resueltos)
+    // Con rate limits masivos, allResolvedIds puede ser muy pequeño y desactivaría fondos válidos
+    const { count: totalActivos } = await db
+      .from('fondos_mutuos').select('*', { count: 'exact', head: true }).eq('activo', true)
+    const threshold = Math.max(500, Math.floor((totalActivos ?? 0) * 0.8))
+    if (allResolvedIds.size >= threshold) {
       const ids = Array.from(allResolvedIds)
       await db
         .from('fondos_mutuos')
         .update({ activo: false, updated_at: new Date().toISOString() })
         .not('id', 'in', `(${ids.join(',')})`)
+    } else {
+      diag.inactive_skipped = `allResolvedIds=${allResolvedIds.size} < threshold=${threshold} — no se marcaron inactivos`
     }
 
     return NextResponse.json({

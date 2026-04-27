@@ -11,14 +11,15 @@ export const RISK_COLOR: Record<RiskLevel, string> = {
 export interface DepositOption {
   plataforma: string; moneda: string; plazo: string
   apy: number; minUSD: number; risk: RiskLevel; url: string
+  liveKey?: string
 }
 export const DEPOSITOS: DepositOption[] = [
-  { plataforma: 'Binance Earn', moneda: 'USDT',  plazo: '30 días',   apy: 5.2, minUSD: 10,    risk: 'Bajo',     url: 'https://www.binance.com/es/earn' },
-  { plataforma: 'OKX Earn',     moneda: 'USDC',  plazo: '60 días',   apy: 6.1, minUSD: 10,    risk: 'Bajo',     url: 'https://www.okx.com/earn' },
-  { plataforma: 'Bybit Savings',moneda: 'BTC',   plazo: 'Flexible',  apy: 3.8, minUSD: 1,     risk: 'Bajo',     url: 'https://www.bybit.com/earn' },
-  { plataforma: 'Binance Earn', moneda: 'USDC',  plazo: '90 días',   apy: 7.4, minUSD: 10,    risk: 'Bajo',     url: 'https://www.binance.com/es/earn' },
-  { plataforma: 'Banco local',  moneda: 'USD',   plazo: '90 días',   apy: 4.5, minUSD: 1_000, risk: 'Muy bajo', url: '#' },
-  { plataforma: 'Bybit Savings',moneda: 'USDT',  plazo: 'Flexible',  apy: 4.2, minUSD: 1,     risk: 'Bajo',     url: 'https://www.bybit.com/earn' },
+  { plataforma: 'Binance Earn', moneda: 'USDT',  plazo: '30 días',  apy: 5.2, minUSD: 10,    risk: 'Bajo',     url: 'https://www.binance.com/es/earn', liveKey: 'deposit:binance:usdt' },
+  { plataforma: 'OKX Earn',     moneda: 'USDC',  plazo: '60 días',  apy: 6.1, minUSD: 10,    risk: 'Bajo',     url: 'https://www.okx.com/earn',         liveKey: 'deposit:okx:usdc'     },
+  { plataforma: 'Bybit Savings',moneda: 'BTC',   plazo: 'Flexible', apy: 3.8, minUSD: 1,     risk: 'Bajo',     url: 'https://www.bybit.com/earn',       liveKey: 'deposit:bybit:btc'    },
+  { plataforma: 'Binance Earn', moneda: 'USDC',  plazo: '90 días',  apy: 7.4, minUSD: 10,    risk: 'Bajo',     url: 'https://www.binance.com/es/earn', liveKey: 'deposit:binance:usdc' },
+  { plataforma: 'Banco local',  moneda: 'USD',   plazo: '90 días',  apy: 4.5, minUSD: 1_000, risk: 'Muy bajo', url: '#' },
+  { plataforma: 'Bybit Savings',moneda: 'USDT',  plazo: 'Flexible', apy: 4.2, minUSD: 1,     risk: 'Bajo',     url: 'https://www.bybit.com/earn',       liveKey: 'deposit:bybit:usdt'   },
 ]
 
 export interface StakingOption {
