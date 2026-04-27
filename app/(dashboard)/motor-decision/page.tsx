@@ -159,6 +159,43 @@ export default function MotorDecisionPage() {
         />
       </section>
 
+      {/* ── Capital disponible ───────────────────────────────────────────── */}
+      <section style={{ marginBottom: 24 }}>
+        <SectionLabel>CAPITAL DISPONIBLE</SectionLabel>
+        <div style={{
+          background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10,
+          padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
+        }}>
+          <div>
+            <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, marginBottom: 4 }}>
+              PORTAFOLIO TOTAL
+            </div>
+            <div style={{ fontSize: 28, fontFamily: BEBAS, letterSpacing: 1, color: portfolioUSD > 0 ? '#1D9E75' : '#3a3f55' }}>
+              {portfolioUSD > 0
+                ? `$${portfolioUSD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} USD`
+                : '— Sin datos de portafolio'}
+            </div>
+          </div>
+          {portfolioUSD > 0 && (
+            <>
+              <div style={{ width: 1, height: 40, background: '#1a1d2e', flexShrink: 0 }} />
+              <div style={{ fontSize: 11, color: '#7a7f9a', fontFamily: MONO }}>
+                El motor distribuye este capital según la asignación óptima<br />
+                y muestra cuánto poner en cada activo con señal{' '}
+                <span style={{ color: '#1D9E75', fontWeight: 700 }}>COMPRAR</span>.
+              </div>
+            </>
+          )}
+          {portfolioUSD <= 0 && (
+            <div style={{ fontSize: 11, color: '#7a7f9a', fontFamily: MONO }}>
+              Ingresa tu capital en la página{' '}
+              <a href="/portafolio" style={{ color: '#378ADD', textDecoration: 'none' }}>Portafolio</a>
+              {' '}para ver los montos sugeridos.
+            </div>
+          )}
+        </div>
+      </section>
+
       {error && (
         <div style={{
           background: 'rgba(248,113,113,0.1)',
