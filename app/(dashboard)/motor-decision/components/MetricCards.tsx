@@ -160,17 +160,19 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
             </g>
           ))}
 
-          {/* Bandas: P5-P95, P10-P90, P25-P75 */}
+          {/* Bandas rellenas */}
           <path d={band('p5',  'p95')} fill="#378ADD" opacity={0.06} />
           <path d={band('p10', 'p90')} fill="#378ADD" opacity={0.10} />
           <path d={band('p25', 'p75')} fill="#378ADD" opacity={0.18} />
 
-          {/* P10 y P90 punteados */}
-          <path d={linePath('p90')} fill="none" stroke="#1D9E75" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.7} />
-          <path d={linePath('p10')} fill="none" stroke="#f87171" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.7} />
-
-          {/* Mediana P50 */}
+          {/* Líneas de percentiles — de afuera hacia adentro */}
+          <path d={linePath('p95')} fill="none" stroke="#1D9E75" strokeWidth={1}   strokeDasharray="3 4" opacity={0.35} />
+          <path d={linePath('p90')} fill="none" stroke="#1D9E75" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
+          <path d={linePath('p75')} fill="none" stroke="#1D9E75" strokeWidth={1.5} opacity={0.55} />
           <path d={linePath('p50')} fill="none" stroke="#d4af37" strokeWidth={2.5} />
+          <path d={linePath('p25')} fill="none" stroke="#f87171" strokeWidth={1.5} opacity={0.55} />
+          <path d={linePath('p10')} fill="none" stroke="#f87171" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
+          <path d={linePath('p5')}  fill="none" stroke="#f87171" strokeWidth={1}   strokeDasharray="3 4" opacity={0.35} />
 
           {/* Punto inicial */}
           <circle cx={xS(0)} cy={yS(capital)} r={4} fill="#7a7f9a" />
@@ -186,11 +188,13 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
           {/* Leyenda */}
           <g transform={`translate(${PAD.l + 8}, ${PAD.t + 8})`}>
             <line x1={0} y1={6} x2={18} y2={6} stroke="#d4af37" strokeWidth={2.5} />
-            <text x={22} y={10} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>Mediana (P50)</text>
-            <line x1={0} y1={20} x2={18} y2={20} stroke="#1D9E75" strokeWidth={1.2} strokeDasharray="5 3" />
-            <text x={22} y={24} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P90 / P10</text>
-            <rect x={0} y={32} width={18} height={8} fill="#378ADD" opacity={0.28} />
-            <text x={22} y={39} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>Banda P25-P75</text>
+            <text x={22} y={10} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P50 mediana</text>
+            <line x1={0} y1={20} x2={18} y2={20} stroke="#1D9E75" strokeWidth={1.5} />
+            <text x={22} y={24} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P75 / P25</text>
+            <line x1={0} y1={34} x2={18} y2={34} stroke="#1D9E75" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
+            <text x={22} y={38} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P90 / P10</text>
+            <line x1={0} y1={48} x2={18} y2={48} stroke="#1D9E75" strokeWidth={1} strokeDasharray="3 4" opacity={0.35} />
+            <text x={22} y={52} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P95 / P5</text>
           </g>
         </svg>
       </div>
