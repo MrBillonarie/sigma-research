@@ -20,6 +20,21 @@ const FINTUAL_BASE    = 'https://fintual.com/api'
 const FINTUAL_HEADERS = { Accept: 'application/json' }
 const DISCOVER_MODE   = process.argv.includes('--discover')
 
+// Providers que no son AGF reales: bancos, AFPs, corredoras, repos
+// Identificados por patrones en el nombre — no tienen fondos mutuos con historial de precios
+const PROVIDER_BLACKLIST = [
+  'a.f.p.', 'afp ', 'corredora', 'corredores', 'seguros',
+  'banco btg', 'banco security', 'banco itaú', 'banco estado',
+  'banco scotiabank', 'scotiabank', 'bancoestado',
+  'compañía de seguros', 'cia. de seguros', 'cia de seguros',
+  'vida s.a', 'vida s.a.', 'pension', 'pensiones',
+]
+
+function isBlacklisted(nombre: string): boolean {
+  const n = nombre.toLowerCase()
+  return PROVIDER_BLACKLIST.some(b => n.includes(b))
+}
+
 // ─── Delays ───────────────────────────────────────────────────────────────────
 const FUND_DELAY_MS     = 600
 const PROVIDER_DELAY_MS = 2_000
@@ -473,9 +488,16 @@ async function runDiscover() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let pendientes: any[] = []
   for (let pi = 0; pi < providers.length; pi++) {
-    const p     = providers[pi]
-    const label = `[${String(pi + 1).padStart(3)}/${providers.length}] ${(p.attributes?.name ?? '?').slice(0, 32).padEnd(34)}`
-    const ok    = await processProvider(p, providers.length, label, from, to, counters)
+    const p      = providers[pi]
+    const nombre = p.attributes?.name ?? '?'
+    const label  = `[${String(pi + 1).padStart(3)}/${providers.length}] ${nombre.slice(0, 32).padEnd(34)}`
+
+    if (isBlacklisted(nombre)) {
+      process.stdout.write(`${label}SKIP (no es AGF)\n`)
+      continue
+    }
+
+    const ok = await processProvider(p, providers.length, label, from, to, counters)
     if (!ok) pendientes.push(p)
   }
 
