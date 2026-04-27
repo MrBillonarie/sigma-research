@@ -239,6 +239,37 @@ const ETF_LIST = [
   { ticker: 'AOM',  nombre: 'iShares Core Moderate Allocation ETF',     indice: null,                                exposicion: 'Global',        sector: null,              expense_ratio: 0.15,  aum: 1.5e9,   dividend_yield: 2.80 },
   { ticker: 'AOA',  nombre: 'iShares Core Aggressive Allocation ETF',   indice: null,                                exposicion: 'Global',        sector: null,              expense_ratio: 0.15,  aum: 1e9,     dividend_yield: 2.00 },
   { ticker: 'AOK',  nombre: 'iShares Core Conservative Allocation ETF', indice: null,                                exposicion: 'Global',        sector: null,              expense_ratio: 0.15,  aum: 0.8e9,   dividend_yield: 3.00 },
+  // ── Schwab lineup completo (alternativas de bajo costo) ─────────────────────
+  { ticker: 'SCHG', nombre: 'Schwab US Large-Cap Growth ETF',           indice: 'Dow Jones US Large-Cap Growth',     exposicion: 'USA',           sector: null,              expense_ratio: 0.04,  aum: 30e9,    dividend_yield: 0.40 },
+  { ticker: 'SCHV', nombre: 'Schwab US Large-Cap Value ETF',            indice: 'Dow Jones US Large-Cap Value',      exposicion: 'USA',           sector: null,              expense_ratio: 0.04,  aum: 12e9,    dividend_yield: 2.40 },
+  { ticker: 'SCHA', nombre: 'Schwab US Small-Cap ETF',                  indice: 'Dow Jones US Small-Cap',            exposicion: 'USA',           sector: null,              expense_ratio: 0.04,  aum: 16e9,    dividend_yield: 1.40 },
+  { ticker: 'SCHM', nombre: 'Schwab US Mid-Cap ETF',                    indice: 'Dow Jones US Mid-Cap',              exposicion: 'USA',           sector: null,              expense_ratio: 0.04,  aum: 10e9,    dividend_yield: 1.40 },
+  { ticker: 'SCHF', nombre: 'Schwab International Equity ETF',          indice: 'FTSE Developed ex US',              exposicion: 'Global ex USA', sector: null,              expense_ratio: 0.06,  aum: 28e9,    dividend_yield: 3.20 },
+  { ticker: 'SCHE', nombre: 'Schwab Emerging Markets Equity ETF',       indice: 'FTSE Emerging Markets',             exposicion: 'Emergentes',    sector: null,              expense_ratio: 0.11,  aum: 9e9,     dividend_yield: 3.00 },
+  { ticker: 'SCHH', nombre: 'Schwab US REIT ETF',                       indice: 'Dow Jones US Select REIT',          exposicion: 'USA',           sector: 'Real Estate',     expense_ratio: 0.07,  aum: 7e9,     dividend_yield: 3.80 },
+  { ticker: 'SCHX', nombre: 'Schwab US Large-Cap ETF',                  indice: 'Dow Jones US Large-Cap',            exposicion: 'USA',           sector: null,              expense_ratio: 0.03,  aum: 40e9,    dividend_yield: 1.30 },
+  // ── Alternativas low-cost a SPY/QQQ ─────────────────────────────────────────
+  { ticker: 'QQQM', nombre: 'Invesco Nasdaq 100 ETF (bajo costo)',       indice: 'NASDAQ-100',                        exposicion: 'USA',           sector: 'Tecnología',      expense_ratio: 0.15,  aum: 25e9,    dividend_yield: 0.60 },
+  { ticker: 'SPLG', nombre: 'SPDR Portfolio S&P 500 ETF',                indice: 'S&P 500',                           exposicion: 'USA',           sector: null,              expense_ratio: 0.02,  aum: 45e9,    dividend_yield: 1.30 },
+  { ticker: 'CSPX', nombre: 'iShares Core S&P 500 ETF (USD)',           indice: 'S&P 500',                           exposicion: 'USA',           sector: null,              expense_ratio: 0.07,  aum: 80e9,    dividend_yield: 1.25 },
+  // ── Asia-Pacífico adicional ──────────────────────────────────────────────────
+  { ticker: 'EWS',  nombre: 'iShares MSCI Singapore ETF',               indice: 'MSCI Singapore',                    exposicion: 'Global ex USA', sector: null,              expense_ratio: 0.50,  aum: 0.5e9,   dividend_yield: 4.50 },
+  { ticker: 'EWM',  nombre: 'iShares MSCI Malaysia ETF',                indice: 'MSCI Malaysia',                     exposicion: 'Emergentes',    sector: null,              expense_ratio: 0.50,  aum: 0.3e9,   dividend_yield: 3.00 },
+  { ticker: 'EIDO', nombre: 'iShares MSCI Indonesia ETF',               indice: 'MSCI Indonesia',                    exposicion: 'Emergentes',    sector: null,              expense_ratio: 0.59,  aum: 0.3e9,   dividend_yield: 3.00 },
+  { ticker: 'EPHE', nombre: 'iShares MSCI Philippines ETF',             indice: 'MSCI Philippines IMI',              exposicion: 'Emergentes',    sector: null,              expense_ratio: 0.59,  aum: 0.1e9,   dividend_yield: 2.00 },
+  { ticker: 'CQQQ', nombre: 'Invesco China Technology ETF',             indice: 'FTSE China Incl A 25% Tech',        exposicion: 'China',         sector: 'Tecnología',      expense_ratio: 0.70,  aum: 0.6e9,   dividend_yield: 0.50 },
+  // ── Latinoamérica adicional ──────────────────────────────────────────────────
+  { ticker: 'ARGT', nombre: 'Global X MSCI Argentina ETF',              indice: 'MSCI All Argentina 25/50',          exposicion: 'Latam',         sector: null,              expense_ratio: 0.59,  aum: 0.5e9,   dividend_yield: 2.00 },
+  // ── Minería y materias primas especializadas ─────────────────────────────────
+  { ticker: 'COPX', nombre: 'Global X Copper Miners ETF',               indice: 'Solactive Global Copper Miners',    exposicion: 'Global',        sector: 'Commodities',     expense_ratio: 0.65,  aum: 1.5e9,   dividend_yield: 1.00 },
+  { ticker: 'SIL',  nombre: 'Global X Silver Miners ETF',               indice: 'Solactive Global Silver Miners',    exposicion: 'Global',        sector: 'Commodities',     expense_ratio: 0.65,  aum: 0.8e9,   dividend_yield: 1.50 },
+  { ticker: 'REMX', nombre: 'VanEck Rare Earth/Strategic Metals ETF',   indice: 'MVIS Global Rare Earth/Strat. Met.',exposicion: 'Global',        sector: 'Commodities',     expense_ratio: 0.57,  aum: 0.5e9,   dividend_yield: 1.00 },
+  { ticker: 'PICK', nombre: 'iShares MSCI Global Metals & Mining',      indice: 'MSCI ACWI Select Metals & Mining',  exposicion: 'Global',        sector: 'Commodities',     expense_ratio: 0.39,  aum: 0.5e9,   dividend_yield: 3.50 },
+  { ticker: 'WOOD', nombre: 'iShares Global Timber & Forestry ETF',     indice: 'S&P Global Timber & Forestry',      exposicion: 'Global',        sector: 'Commodities',     expense_ratio: 0.43,  aum: 0.3e9,   dividend_yield: 2.50 },
+  // ── Renta fija adicional ─────────────────────────────────────────────────────
+  { ticker: 'MBB',  nombre: 'iShares MBS ETF',                          indice: 'Bloomberg US MBS',                  exposicion: 'USA',           sector: 'Renta Fija',      expense_ratio: 0.04,  aum: 25e9,    dividend_yield: 3.50 },
+  { ticker: 'EMLC', nombre: 'VanEck EM Local Currency Bond ETF',        indice: 'J.P. Morgan GBI-EM Core',           exposicion: 'Emergentes',    sector: 'Renta Fija',      expense_ratio: 0.30,  aum: 3e9,     dividend_yield: 6.00 },
+  { ticker: 'IGIB', nombre: 'iShares Intermediate-Term Corp Bond',      indice: 'ICE BofA 5-10Y US Corp',            exposicion: 'USA',           sector: 'Renta Fija',      expense_ratio: 0.06,  aum: 10e9,    dividend_yield: 4.50 },
 ]
 
 // ─── Yahoo Finance v8/chart — único endpoint que funciona sin auth ─────────────
