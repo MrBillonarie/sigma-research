@@ -220,6 +220,7 @@ export default function MotorDecisionPage() {
               buyCount={data.buyCount}
               sellCount={data.sellCount}
               holdCount={data.holdCount}
+              capital={portfolioUSD}
             />
           </section>
 

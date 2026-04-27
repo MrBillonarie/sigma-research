@@ -8,6 +8,15 @@ interface Props {
   buyCount:  number
   sellCount: number
   holdCount: number
+  capital?:  number
+}
+
+function fmtUSD(n: number): string {
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : '+'
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`
+  if (abs >= 1_000)     return `${sign}$${(abs / 1_000).toFixed(1)}K`
+  return `${sign}$${abs.toFixed(0)}`
 }
 
 // ─── F: Animated counter ──────────────────────────────────────────────────────
@@ -134,8 +143,8 @@ function ScoreGauge({ score }: { score: number }) {
 
 // ─── Metric card ──────────────────────────────────────────────────────────────
 function Card({
-  label, value, sub, color, icon, gauge,
-}: { label: string; value: string; sub?: string; color: string; icon: string; gauge?: React.ReactNode }) {
+  label, value, sub, color, icon, gauge, subColor,
+}: { label: string; value: string; sub?: string; color: string; icon: string; gauge?: React.ReactNode; subColor?: string }) {
   return (
     <div style={{
       flex: 1, minWidth: 160,
@@ -160,57 +169,101 @@ function Card({
           <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 28, letterSpacing: 1, color }}>
             {value}
           </div>
-          {sub && <div style={{ fontSize: 11, color: '#7a7f9a', marginTop: 4, fontFamily: 'monospace' }}>{sub}</div>}
+          {sub && <div style={{ fontSize: 11, color: subColor ?? '#7a7f9a', marginTop: 4, fontFamily: 'monospace' }}>{sub}</div>}
         </>
       )}
     </div>
   )
 }
 
-export default function MetricCards({ metrics, flowScore, buyCount, sellCount, holdCount }: Props) {
+export default function MetricCards({ metrics, flowScore, buyCount, sellCount, holdCount, capital = 0 }: Props) {
   const ret    = metrics.expectedReturn
   const vol    = metrics.annualVolatility
   const sharpe = metrics.sharpeRatio
 
-  const retColor    = ret    > 8  ? '#1D9E75' : ret    > 4  ? '#d4af37' : '#f87171'
-  const sharpeColor = sharpe > 1  ? '#1D9E75' : sharpe > 0.5 ? '#d4af37' : '#f87171'
+  const retColor    = ret    > 8   ? '#1D9E75' : ret    > 4   ? '#d4af37' : '#f87171'
+  const sharpeColor = sharpe > 1   ? '#1D9E75' : sharpe > 0.5 ? '#d4af37' : '#f87171'
   const flowColor   = flowScore > 60 ? '#1D9E75' : flowScore > 40 ? '#d4af37' : '#f87171'
 
-  // F: animated number values
-  const animRet    = useCountUp(Math.abs(ret),    900)
-  const animVol    = useCountUp(vol,              900)
-  const animSharpe = useCountUp(sharpe * 100,     900) // ×100 para el contador, luego ÷100
+  const animRet    = useCountUp(Math.abs(ret), 900)
+  const animVol    = useCountUp(vol,           900)
+  const animSharpe = useCountUp(sharpe * 100,  900)
+
+  // Montos USD derivados del capital
+  const gainUSD     = capital > 0 ? capital * ret  / 100 : 0
+  const ddUSD       = capital > 0 ? capital * metrics.maxDrawdown / 100 : 0
+  const volUSD      = capital > 0 ? capital * vol  / 100 : 0
+
+  // Proyecciones con interés compuesto
+  const rate = ret / 100
+  const proj1 = capital > 0 ? capital * Math.pow(1 + rate, 1) - capital : 0
+  const proj3 = capital > 0 ? capital * Math.pow(1 + rate, 3) - capital : 0
+  const proj5 = capital > 0 ? capital * Math.pow(1 + rate, 5) - capital : 0
+
+  const MONO = 'monospace'
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-      <Card
-        icon="📈" label="Retorno Esperado"
-        value={`${ret > 0 ? '+' : '-'}${animRet.toFixed(1)}%`}
-        sub="Retorno anual proyectado"
-        color={retColor}
-      />
-      <Card
-        icon="〰️" label="Volatilidad Anual"
-        value={`${animVol.toFixed(1)}%`}
-        sub={`DD máx: ${metrics.maxDrawdown.toFixed(1)}%`}
-        color="#378ADD"
-      />
-      <Card
-        icon="⚖️" label="Sharpe Ratio"
-        value={(animSharpe / 100).toFixed(2)}
-        sub="Mayor = mejor riesgo/retorno"
-        color={sharpeColor}
-      />
-      {/* D: Gauge radial para flow score */}
-      <Card
-        icon="🌊" label="Score Flujo"
-        value=""
-        color={flowColor}
-        gauge={
-          <ScoreGauge score={flowScore} />
-        }
-        sub={`▲ ${buyCount}  →  ${holdCount}  ▼ ${sellCount}`}
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <Card
+          icon="📈" label="Retorno Esperado"
+          value={`${ret > 0 ? '+' : '-'}${animRet.toFixed(1)}%`}
+          sub={capital > 0 ? fmtUSD(gainUSD) + ' USD / año' : 'Retorno anual proyectado'}
+          subColor={capital > 0 ? retColor : undefined}
+          color={retColor}
+        />
+        <Card
+          icon="〰️" label="Volatilidad Anual"
+          value={`${animVol.toFixed(1)}%`}
+          sub={capital > 0
+            ? `±${fmtUSD(volUSD).replace('+','')} · DD: ${fmtUSD(ddUSD)} USD`
+            : `DD máx: ${metrics.maxDrawdown.toFixed(1)}%`}
+          color="#378ADD"
+        />
+        <Card
+          icon="⚖️" label="Sharpe Ratio"
+          value={(animSharpe / 100).toFixed(2)}
+          sub="Mayor = mejor riesgo/retorno"
+          color={sharpeColor}
+        />
+        <Card
+          icon="🌊" label="Score Flujo"
+          value=""
+          color={flowColor}
+          gauge={<ScoreGauge score={flowScore} />}
+          sub={`▲ ${buyCount}  →  ${holdCount}  ▼ ${sellCount}`}
+        />
+      </div>
+
+      {/* ── Proyecciones compuestas ────────────────────────────────────── */}
+      {capital > 0 && (
+        <div style={{
+          background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10,
+          padding: '14px 20px', display: 'grid',
+          gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: '0 24px', alignItems: 'center',
+        }}>
+          <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, textTransform: 'uppercase', paddingRight: 24, borderRight: '1px solid #1a1d2e' }}>
+            Proyección<br />compuesta
+          </div>
+          {[
+            { label: '1 año',  gain: proj1, total: capital + proj1 },
+            { label: '3 años', gain: proj3, total: capital + proj3 },
+            { label: '5 años', gain: proj5, total: capital + proj5 },
+          ].map(({ label, gain, total }) => (
+            <div key={label} style={{ paddingLeft: 8 }}>
+              <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, marginBottom: 4 }}>
+                {label.toUpperCase()}
+              </div>
+              <div style={{ fontSize: 20, fontFamily: "'Bebas Neue', Impact, sans-serif", color: gain >= 0 ? '#1D9E75' : '#f87171', letterSpacing: 1 }}>
+                {fmtUSD(gain)} USD
+              </div>
+              <div style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO }}>
+                total: ${Math.round(total).toLocaleString('en-US')}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
