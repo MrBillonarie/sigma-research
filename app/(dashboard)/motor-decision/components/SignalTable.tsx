@@ -75,6 +75,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
   const [sortDesc,     setSortDesc]     = useState(true)
   const [page,         setPage]         = useState(1)
   const [grouped,      setGrouped]      = useState(false)
+  const [showAll,      setShowAll]      = useState(false)  // por defecto: solo top picks
   const PER_PAGE = 15
 
   const showMonto = capital > 0 && !!allocation
@@ -133,6 +134,8 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
 
   const filtered = useMemo(() => {
     let r = assets
+    // vista compacta por defecto: solo top picks con capital + señales reducir
+    if (!showAll) r = r.filter(a => capitalRecipients.has(a.id) || a.signal === 'reducir')
     if (classFilter  !== 'all') r = r.filter(a => a.assetClass === classFilter)
     if (signalFilter !== 'all') r = r.filter(a => a.signal     === signalFilter)
     if (search) {
@@ -275,6 +278,16 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
             ✕ Limpiar
           </button>
         )}
+
+        <button onClick={() => { setShowAll(v => !v); setPage(1) }} style={{
+          background: showAll ? 'transparent' : 'rgba(29,158,117,0.1)',
+          border: `1px solid ${showAll ? '#1a1d2e' : '#1D9E75'}`,
+          borderRadius: 6, padding: '5px 10px',
+          color: showAll ? '#7a7f9a' : '#1D9E75',
+          fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+        }}>
+          {showAll ? `★ Solo picks (${capitalRecipients.size})` : `☰ Ver todos (${assets.length})`}
+        </button>
 
         <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 11, color: '#3a3f55' }}>
           {filtered.length} activos
