@@ -41,6 +41,13 @@ function fmtCLP(n: number) {
   return '$' + Math.round(n).toLocaleString('es-CL')
 }
 
+const TOP_PLAZOS = [
+  { label: '30 días',  key: 'd30'  as const, color: C.green  },
+  { label: '90 días',  key: 'd90'  as const, color: '#3b82f6' },
+  { label: '180 días', key: 'd180' as const, color: C.gold   },
+  { label: '360 días', key: 'd360' as const, color: C.purple },
+]
+
 export default function RentaFijaPage() {
   const [monto,  setMonto]  = useState(5_000_000)
   const [plazo,  setPlazo]  = useState(30)
@@ -70,13 +77,6 @@ export default function RentaFijaPage() {
 
   const maxTasa = Math.max(...bancos.map(b => b.d30))
   const ranked  = useMemo(() => [...bancos].sort((a, b) => b.d30 - a.d30), [bancos])
-
-  const TOP_PLAZOS = [
-    { label: '30 días',  key: 'd30'  as const, color: C.green  },
-    { label: '90 días',  key: 'd90'  as const, color: '#3b82f6' },
-    { label: '180 días', key: 'd180' as const, color: C.gold   },
-    { label: '360 días', key: 'd360' as const, color: C.purple },
-  ]
   const topBancos = useMemo(() =>
     TOP_PLAZOS.map(p => {
       const best = [...bancos].sort((a, b) => (b[p.key] ?? 0) - (a[p.key] ?? 0))[0]

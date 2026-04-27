@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
   const CATEGORIAS = ['renta fija', 'conservador', 'moderado', 'agresivo']
   const topResults = await Promise.all(
     CATEGORIAS.map(cat => {
-      let tq = db.from('fondos_mutuos')
+      const tq = db.from('fondos_mutuos')
         .select('nombre, rent_12m, agf(nombre)')
         .eq('activo', true)
         .eq('categoria', cat)
