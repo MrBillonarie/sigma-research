@@ -22,7 +22,7 @@ type ApiResponse = {
   topPorCategoria?: TopCategoria[]
 }
 
-type Tipo = 'todos' | 'renta fija' | 'conservador' | 'moderado' | 'agresivo'
+type Tipo = 'todos' | 'renta fija' | 'conservador' | 'moderado' | 'agresivo' | 'etf'
 
 const FILTROS: { label: string; value: Tipo }[] = [
   { label: 'Todos',       value: 'todos'       },
@@ -30,6 +30,7 @@ const FILTROS: { label: string; value: Tipo }[] = [
   { label: 'Conservador', value: 'conservador' },
   { label: 'Moderado',    value: 'moderado'    },
   { label: 'Agresivo',    value: 'agresivo'    },
+  { label: 'ETF Singular', value: 'etf'         },
 ]
 
 const RISK_COLOR: Record<number, string> = { 1: C.green, 2: '#3b82f6', 3: C.gold, 4: C.purple, 5: C.red }
@@ -201,7 +202,7 @@ export default function FondosMutuosPage() {
       </div>
 
       {/* ── TOP POR CATEGORÍA ──────────────────────────────────────────────────── */}
-      {topCat.length > 0 && (
+      {topCat.length > 0 && filtro !== 'etf' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
           {topCat.map(t => {
             const color = CAT_COLOR[t.categoria] ?? C.gold

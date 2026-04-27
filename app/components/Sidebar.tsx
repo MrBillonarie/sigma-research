@@ -59,6 +59,7 @@ const navItems = [
 const comparadorItems = [
   { label: 'Renta Fija',    href: '/comparador/renta-fija',    icon: Landmark   },
   { label: 'Fondos Mutuos', href: '/comparador/fondos-mutuos', icon: TrendingUp },
+  { label: 'ETFs',          href: '/comparador/etfs',          icon: TrendingUp },
 ]
 
 // ─── Search data ──────────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
   { id: '/comparador/renta-fija',     label: 'Renta Fija',     href: '/comparador/renta-fija',    category: 'Comparador',  icon: Landmark        },
   { id: '/comparador/fondos-mutuos',  label: 'Fondos Mutuos',  href: '/comparador/fondos-mutuos', category: 'Comparador',  icon: TrendingUp      },
+  { id: '/comparador/etfs',           label: 'ETFs',           href: '/comparador/etfs',          category: 'Comparador',  icon: TrendingUp      },
   // Tickers
   ...TICKER_LIST.map(t => ({
     id: `ticker-${t}`, label: `Ver ${t} en Terminal`, href: `/terminal?symbol=${t}`,
@@ -423,8 +425,8 @@ export default function Sidebar() {
           )
         })}
 
-        {/* COMPARADOR section */}
-        <div style={{ borderTop: `1px solid ${BORDER}`, margin: '8px 0' }} />
+        {/* COMPARADOR section — pegado al fondo del nav */}
+        <div style={{ borderTop: `1px solid ${BORDER}`, margin: '8px 0', marginTop: 'auto' }} />
         {!collapsed && (
           <div style={{
             padding: '0 4px 4px', fontFamily: MONO, fontSize: 9,

@@ -45,13 +45,13 @@ const SORT_MAP: Record<string, string> = {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const search   = (searchParams.get('search') ?? '').trim()
-  const agf      = (searchParams.get('agf')    ?? '').trim()
-  const tipo     = (searchParams.get('tipo')   ?? '').trim()
-  const page     = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
-  const sortKey  = searchParams.get('sort') ?? 'r12m'
-  const sortDir  = searchParams.get('dir')  === 'asc'
-  const exportAll = searchParams.get('export') === 'csv'
+  const search = (searchParams.get('search') ?? '').trim()
+  const agf    = (searchParams.get('agf')    ?? '').trim()
+  const tipo   = (searchParams.get('tipo')   ?? '').trim()
+  const page   = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
+  const sortKey     = searchParams.get('sort') ?? 'r12m'
+  const sortDir     = searchParams.get('dir')  === 'asc'
+  const exportAll   = searchParams.get('export') === 'csv'
 
   const db     = sb()
   const col    = SORT_MAP[sortKey] ?? 'rent_12m'
@@ -76,7 +76,10 @@ export async function GET(req: NextRequest) {
 
   if (search) q = q.ilike('nombre', `%${search}%`)
   if (agfId)  q = q.eq('agf_id', agfId)
-  if (tipo && tipo !== 'todos') q = q.eq('categoria', tipo)
+  if (tipo && tipo !== 'todos') {
+    if (tipo === 'etf') q = q.ilike('nombre', '%ETF%')
+    else                q = q.eq('categoria', tipo).not('nombre', 'ilike', '%ETF%')
+  }
 
   const { data, count, error } = await q
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
@@ -123,16 +126,17 @@ export async function GET(req: NextRequest) {
   // Top por categoría (1 fondo por tipo, siempre ordenado por rent_12m desc)
   const CATEGORIAS = ['renta fija', 'conservador', 'moderado', 'agresivo']
   const topResults = await Promise.all(
-    CATEGORIAS.map(cat =>
-      db.from('fondos_mutuos')
+    CATEGORIAS.map(cat => {
+      let tq = db.from('fondos_mutuos')
         .select('nombre, rent_12m, agf(nombre)')
         .eq('activo', true)
         .eq('categoria', cat)
         .not('rent_12m', 'is', null)
+        .not('nombre', 'ilike', '%ETF%')
         .order('rent_12m', { ascending: false })
         .limit(1)
-        .maybeSingle()
-    )
+      return tq.maybeSingle()
+    })
   )
   const topPorCategoria = CATEGORIAS.map((cat, i) => {
     const row = topResults[i].data as FondoRow | null

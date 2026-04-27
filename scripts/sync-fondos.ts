@@ -21,10 +21,12 @@ const PROVIDER_DELAY_MS = 2000
 const RETRY_DELAYS      = [5_000, 15_000, 30_000]
 const COOLDOWN_MS       = 180_000
 const MAX_CONSEC_FAILS  = 3
-const CONCURRENT_FUNDS  = 3  // fondos en paralelo por provider
+const MAX_COOLDOWNS_PER_PROVIDER = 2  // máximo cooldowns antes de saltar el provider
+const CONCURRENT_FUNDS  = 3
 
 let consecFails = 0
 let coolingDown = false
+let providerCooldowns = 0
 
 // ─── Checkpoint ───────────────────────────────────────────────────────────────
 const CHECKPOINT_FILE = join(process.cwd(), 'scripts', '.sync-checkpoint.json')
@@ -98,11 +100,15 @@ async function fetchJson(url: string, treat404AsEmpty = false): Promise<any> {
       consecFails++
       if (consecFails >= MAX_CONSEC_FAILS && !coolingDown) {
         coolingDown = true
-        process.stdout.write(`\n  ⏸ ${consecFails} fallos seguidos → enfriando ${COOLDOWN_MS / 1000}s...`)
+        providerCooldowns++
+        process.stdout.write(`\n  ⏸ cooldown ${providerCooldowns}/${MAX_COOLDOWNS_PER_PROVIDER} → enfriando ${COOLDOWN_MS / 1000}s...`)
         await sleep(COOLDOWN_MS)
         consecFails = 0
         coolingDown = false
         process.stdout.write(' reanudando\n')
+        if (providerCooldowns >= MAX_COOLDOWNS_PER_PROVIDER) {
+          throw new Error('PROVIDER_SKIP: demasiados rate-limits, saltando provider')
+        }
       }
       throw new Error('HTTP 429 (rate-limit agotado)')
     }
@@ -364,10 +370,14 @@ async function main() {
     }
 
     let fondosSynced = 0, fondosSinDatos = 0, fondosErr = 0
+    providerCooldowns = 0  // reset por provider
     const fondoUpserts: Record<string, unknown>[] = []
 
     // Procesar fondos en batches paralelos de CONCURRENT_FUNDS
+    let providerSkipped = false
     for (let i = 0; i < conceptuals.length; i += CONCURRENT_FUNDS) {
+      if (providerSkipped) break
+
       const batch = conceptuals.slice(i, i + CONCURRENT_FUNDS)
       batch.forEach(c => processedIds.add(c.id))
 
@@ -376,6 +386,12 @@ async function main() {
       )
 
       for (const r of results) {
+        if (r.status === 'rejected' && String(r.reason).includes('PROVIDER_SKIP')) {
+          process.stdout.write(`\n  ⏭ Provider saltado por exceso de rate-limits\n`)
+          providerSkipped = true
+          counters.errors++
+          break
+        }
         if (r.status === 'fulfilled') {
           fondoUpserts.push(r.value.upsert)
           if (r.value.synced)   { fondosSynced++;    counters.synced++    }

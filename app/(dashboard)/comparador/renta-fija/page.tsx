@@ -69,8 +69,19 @@ export default function RentaFijaPage() {
   }, [])
 
   const maxTasa = Math.max(...bancos.map(b => b.d30))
+  const ranked  = useMemo(() => [...bancos].sort((a, b) => b.d30 - a.d30), [bancos])
 
-  const ranked = useMemo(() => [...bancos].sort((a, b) => b.d30 - a.d30), [bancos])
+  const TOP_PLAZOS = [
+    { label: '30 días',  key: 'd30'  as const, color: C.green  },
+    { label: '90 días',  key: 'd90'  as const, color: '#3b82f6' },
+    { label: '180 días', key: 'd180' as const, color: C.gold   },
+    { label: '360 días', key: 'd360' as const, color: C.purple },
+  ]
+  const topBancos = useMemo(() =>
+    TOP_PLAZOS.map(p => {
+      const best = [...bancos].sort((a, b) => (b[p.key] ?? 0) - (a[p.key] ?? 0))[0]
+      return { ...p, banco: best?.nombre ?? null, tasa: best?.[p.key] ?? null }
+    }), [bancos])
 
   function getTasa(banco: BancoRow) {
     const map: Record<number, number | null> = {
@@ -143,6 +154,31 @@ export default function RentaFijaPage() {
               Período {tip.periodo}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Top por plazo */}
+      {bancos.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
+          {topBancos.map(t => (
+            <div key={t.label} style={{
+              background: C.surface, border: `1px solid ${C.border}`,
+              borderTop: `2px solid ${t.color}`, padding: '14px 16px',
+            }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: t.color, marginBottom: 8 }}>
+                {t.label}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.text, marginBottom: 4 }}>
+                {t.banco ?? '—'}
+              </div>
+              {t.tasa !== null && (
+                <div style={{ fontFamily: BEBAS, fontSize: 22, color: t.color, letterSpacing: '0.04em' }}>
+                  {t.tasa.toFixed(2)}%
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.dimText, marginLeft: 6 }}>mensual</span>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
