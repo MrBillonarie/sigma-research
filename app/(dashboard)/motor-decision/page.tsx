@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { ProfileType, SignalsResponse } from '@/types/decision-engine'
+import { usePortfolio } from '@/app/lib/usePortfolio'
 import ProfileSelector from './components/ProfileSelector'
 import MetricCards     from './components/MetricCards'
 import AllocationDonut from './components/AllocationDonut'
@@ -12,13 +13,31 @@ const STORAGE_KEY     = 'sigma_motor_profile'
 const CAPITAL_KEY     = 'sigma_capital'
 const AUTO_INTERVAL   = 30 * 60 * 1000
 
-function CapitalInput({ capital, currency, onChange }: {
-  capital:  number
-  currency: 'CLP' | 'USD'
-  onChange: (amount: number, cur: 'CLP' | 'USD') => void
+function fmt(n: number, cur: 'CLP' | 'USD'): string {
+  if (cur === 'CLP') {
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000)     return `$${Math.round(n / 1_000)}K`
+    return `$${Math.round(n).toLocaleString('es-CL')}`
+  }
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(1)}K`
+  return `$${n.toFixed(0)}`
+}
+
+function CapitalInput({ capital, currency, portfolioUSD, synced, onChange, onSync }: {
+  capital:      number
+  currency:     'CLP' | 'USD'
+  portfolioUSD: number
+  synced:       boolean
+  onChange:     (amount: number, cur: 'CLP' | 'USD') => void
+  onSync:       () => void
 }) {
   const MONO = 'var(--font-dm-mono, monospace)'
   const [raw, setRaw] = useState(capital > 0 ? capital.toString() : '')
+
+  useEffect(() => {
+    setRaw(capital > 0 ? capital.toFixed(currency === 'USD' ? 0 : 0) : '')
+  }, [capital, currency])
 
   function handleAmount(val: string) {
     setRaw(val)
@@ -27,14 +46,23 @@ function CapitalInput({ capital, currency, onChange }: {
     else if (val === '' || val === '0') onChange(0, currency)
   }
 
+  const hasPortfolio    = portfolioUSD > 0
+  const portfolioLabel  = fmt(portfolioUSD, 'USD')
+
   return (
     <div style={{
       background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10,
-      padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+      padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
     }}>
+      {/* Input */}
       <div>
-        <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, marginBottom: 4 }}>
-          CAPITAL DISPONIBLE
+        <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          CAPITAL A INVERTIR
+          {synced && (
+            <span style={{ color: '#1D9E75', fontSize: 9, background: 'rgba(29,158,117,0.1)', border: '1px solid #1D9E7540', borderRadius: 3, padding: '1px 6px' }}>
+              ⟳ DESDE TU PORTAFOLIO
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select
@@ -46,28 +74,53 @@ function CapitalInput({ capital, currency, onChange }: {
               cursor: 'pointer', outline: 'none',
             }}
           >
-            <option value="CLP">CLP $</option>
             <option value="USD">USD $</option>
+            <option value="CLP">CLP $</option>
           </select>
           <input
             type="text"
             inputMode="numeric"
             value={raw}
-            placeholder="ej: 5000000"
+            placeholder="0"
             onChange={e => handleAmount(e.target.value)}
             style={{
-              background: '#04050a', border: '1px solid #1a1d2e', borderRadius: 6,
+              background: '#04050a', border: `1px solid ${synced ? '#1D9E7550' : '#1a1d2e'}`, borderRadius: 6,
               padding: '6px 12px', color: '#1D9E75', fontSize: 14, fontFamily: MONO,
               width: 160, outline: 'none',
             }}
           />
         </div>
       </div>
+
+      {/* Botón sincronizar con portafolio */}
+      {hasPortfolio && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1 }}>
+            PORTAFOLIO TOTAL
+          </div>
+          <button onClick={onSync} style={{
+            background: synced ? 'rgba(29,158,117,0.08)' : 'transparent',
+            border: `1px solid ${synced ? '#1D9E75' : '#1a1d2e'}`,
+            borderRadius: 6, padding: '6px 14px', cursor: 'pointer',
+            fontFamily: MONO, fontSize: 12,
+            color: synced ? '#1D9E75' : '#e8e9f0',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <span style={{ fontSize: 14 }}>{synced ? '✓' : '⟳'}</span>
+            {portfolioLabel} USD
+          </button>
+          {!synced && (
+            <div style={{ fontSize: 9, color: '#3a3f55', fontFamily: MONO }}>
+              clic para usar este valor
+            </div>
+          )}
+        </div>
+      )}
+
       {capital > 0 && (
-        <div style={{ fontSize: 11, color: '#7a7f9a', fontFamily: MONO }}>
-          El motor distribuirá tu capital según la asignación óptima y repartirá
-          el monto de cada clase entre los activos con señal <span style={{ color: '#1D9E75' }}>COMPRAR</span>,
-          ponderado por score de convicción.
+        <div style={{ fontSize: 11, color: '#7a7f9a', fontFamily: MONO, maxWidth: 280 }}>
+          El motor distribuye tu capital según la asignación óptima y lo reparte
+          entre activos <span style={{ color: '#1D9E75' }}>COMPRAR</span> ponderado por score.
         </div>
       )}
     </div>
@@ -88,6 +141,8 @@ function LoadingSkeleton() {
 }
 
 export default function MotorDecisionPage() {
+  const { totalUSD: portfolioUSD, ready: portfolioReady } = usePortfolio()
+
   const [profile,     setProfile]     = useState<ProfileType>('retail')
   const [data,        setData]        = useState<SignalsResponse | null>(null)
   const [loading,     setLoading]     = useState(true)
@@ -95,7 +150,8 @@ export default function MotorDecisionPage() {
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [nextRefresh, setNextRefresh] = useState<number>(0)
   const [capital,     setCapital]     = useState(0)
-  const [currency,    setCurrency]    = useState<'CLP' | 'USD'>('CLP')
+  const [currency,    setCurrency]    = useState<'CLP' | 'USD'>('USD')
+  const [synced,      setSynced]      = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countRef    = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -105,12 +161,24 @@ export default function MotorDecisionPage() {
       if (saved && ['retail', 'trader', 'institucional'].includes(saved)) setProfile(saved)
       const cap = localStorage.getItem(CAPITAL_KEY)
       if (cap) {
-        const { amount, cur } = JSON.parse(cap)
-        if (amount > 0) setCapital(amount)
-        if (cur) setCurrency(cur)
+        const { amount, cur, fromPortfolio } = JSON.parse(cap)
+        if (amount > 0) { setCapital(amount); setCurrency(cur); setSynced(!!fromPortfolio) }
       }
     } catch {}
   }, [])
+
+  // Auto-sync con portafolio si no hay capital manual guardado
+  useEffect(() => {
+    if (!portfolioReady || portfolioUSD <= 0) return
+    try {
+      const cap = localStorage.getItem(CAPITAL_KEY)
+      if (!cap) {
+        setCapital(portfolioUSD)
+        setCurrency('USD')
+        setSynced(true)
+      }
+    } catch {}
+  }, [portfolioReady, portfolioUSD])
 
   const fetchSignals = useCallback(async (p: ProfileType) => {
     setLoading(true)
@@ -151,7 +219,16 @@ export default function MotorDecisionPage() {
   function handleCapitalChange(amount: number, cur: 'CLP' | 'USD') {
     setCapital(amount)
     setCurrency(cur)
-    try { localStorage.setItem(CAPITAL_KEY, JSON.stringify({ amount, cur })) } catch {}
+    setSynced(false)
+    try { localStorage.setItem(CAPITAL_KEY, JSON.stringify({ amount, cur, fromPortfolio: false })) } catch {}
+  }
+
+  function handleSyncPortfolio() {
+    if (portfolioUSD <= 0) return
+    setCapital(portfolioUSD)
+    setCurrency('USD')
+    setSynced(true)
+    try { localStorage.setItem(CAPITAL_KEY, JSON.stringify({ amount: portfolioUSD, cur: 'USD', fromPortfolio: true })) } catch {}
   }
 
   const MONO  = 'var(--font-dm-mono, monospace)'
@@ -236,7 +313,14 @@ export default function MotorDecisionPage() {
       {/* ── Capital disponible ───────────────────────────────────────────── */}
       <section style={{ marginBottom: 24 }}>
         <SectionLabel>CAPITAL A INVERTIR</SectionLabel>
-        <CapitalInput capital={capital} currency={currency} onChange={handleCapitalChange} />
+        <CapitalInput
+          capital={capital}
+          currency={currency}
+          portfolioUSD={portfolioUSD}
+          synced={synced}
+          onChange={handleCapitalChange}
+          onSync={handleSyncPortfolio}
+        />
       </section>
 
       {error && (
