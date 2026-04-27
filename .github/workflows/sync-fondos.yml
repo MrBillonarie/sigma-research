@@ -2,15 +2,25 @@ name: Sync Fondos Mutuos
 
 on:
   schedule:
-    # Todos los días a las 6:00 AM UTC (3:00 AM Chile invierno / 2:00 AM verano)
-    # Fintual actualiza sus datos cerca de la medianoche, así que a las 3 AM ya están listos
-    - cron: '0 6 * * *'
+    # UPDATE diario: lunes a sábado 6:00 AM UTC (3 AM Chile) — solo actualiza precios
+    - cron: '0 6 * * 1-6'
+    # DISCOVER semanal: domingos 5:00 AM UTC — descubre fondos nuevos
+    - cron: '0 5 * * 0'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Modo de sync'
+        required: true
+        default: 'update'
+        type: choice
+        options:
+          - update
+          - discover
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 90  # el sync completo toma ~40-60 min
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
@@ -22,8 +32,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Sync Fondos Mutuos → Supabase
+      - name: Sync Fondos Mutuos (update diario)
+        if: github.event_name == 'schedule' && github.event.schedule == '0 6 * * 1-6'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_ADMIN_TO: ${{ secrets.EMAIL_ADMIN_TO }}
         run: npx tsx scripts/sync-fondos.ts
+
+      - name: Sync Fondos Mutuos (discover semanal)
+        if: github.event_name == 'schedule' && github.event.schedule == '0 5 * * 0'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_ADMIN_TO: ${{ secrets.EMAIL_ADMIN_TO }}
+        run: npx tsx scripts/sync-fondos.ts --discover
+
+      - name: Sync Fondos Mutuos (manual)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_ADMIN_TO: ${{ secrets.EMAIL_ADMIN_TO }}
+        run: npx tsx scripts/sync-fondos.ts ${{ inputs.mode == 'discover' && '--discover' || '' }}

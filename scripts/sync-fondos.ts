@@ -1,57 +1,37 @@
 /**
- * Sincronización Fintual → Supabase (script standalone)
- * Uso: npx tsx scripts/sync-fondos.ts
- * Al terminar envía email de notificación a EMAIL_ADMIN_TO
+ * Sincronización Fintual → Supabase
+ *
+ * Modos:
+ *   UPDATE   (default, diario):    fetcha days directo por real_asset_id conocido — 1 request/fondo
+ *   DISCOVER (semanal, --discover): recorre providers para encontrar fondos nuevos — 3 requests/fondo
+ *
+ * Uso:
+ *   npx tsx scripts/sync-fondos.ts             → update mode
+ *   npx tsx scripts/sync-fondos.ts --discover  → discovery mode
  */
 
 import { loadEnvConfig } from '@next/env'
 import { createClient }  from '@supabase/supabase-js'
 import { Resend }        from 'resend'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
 
 loadEnvConfig(process.cwd())
 
 const FINTUAL_BASE    = 'https://fintual.com/api'
 const FINTUAL_HEADERS = { Accept: 'application/json' }
+const DISCOVER_MODE   = process.argv.includes('--discover')
 
 // ─── Delays ───────────────────────────────────────────────────────────────────
-const FUND_DELAY_MS     = 500
-const PROVIDER_DELAY_MS = 2000
-const RETRY_DELAYS      = [5_000, 15_000, 30_000]
-const COOLDOWN_MS       = 180_000
+const FUND_DELAY_MS     = 600
+const PROVIDER_DELAY_MS = 2_000
+const RETRY_DELAYS      = [8_000, 20_000, 45_000]
+const COOLDOWN_MS       = 240_000
 const MAX_CONSEC_FAILS  = 3
-const MAX_COOLDOWNS_PER_PROVIDER = 2  // máximo cooldowns antes de saltar el provider
+const MAX_COOLDOWNS_PER_PROVIDER = 2
 const CONCURRENT_FUNDS  = 3
 
-let consecFails = 0
-let coolingDown = false
+let consecFails      = 0
+let coolingDown      = false
 let providerCooldowns = 0
-
-// ─── Checkpoint ───────────────────────────────────────────────────────────────
-const CHECKPOINT_FILE = join(process.cwd(), 'scripts', '.sync-checkpoint.json')
-
-function loadCheckpoint(): number {
-  try {
-    if (!existsSync(CHECKPOINT_FILE)) return 0
-    const { date, lastProvider } = JSON.parse(readFileSync(CHECKPOINT_FILE, 'utf8'))
-    if (date === new Date().toISOString().split('T')[0]) return lastProvider as number
-  } catch {}
-  return 0
-}
-
-function saveCheckpoint(providerIndex: number) {
-  try {
-    writeFileSync(CHECKPOINT_FILE, JSON.stringify({
-      date: new Date().toISOString().split('T')[0],
-      lastProvider: providerIndex,
-    }))
-  } catch {}
-}
-
-function clearCheckpoint() {
-  try { if (existsSync(CHECKPOINT_FILE)) writeFileSync(CHECKPOINT_FILE, '{}') } catch {}
-}
 
 // ─── Clientes ─────────────────────────────────────────────────────────────────
 const db = createClient(
@@ -62,10 +42,10 @@ const db = createClient(
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const sleep    = (ms: number) => new Promise(r => setTimeout(r, ms))
-const dateStr  = (d: Date)    => d.toISOString().split('T')[0]
-const daysAgo  = (n: number)  => { const d = new Date(); d.setDate(d.getDate() - n); return d }
-const now      = ()           => new Date().toLocaleTimeString('es-CL')
+const sleep   = (ms: number) => new Promise(r => setTimeout(r, ms))
+const dateStr = (d: Date)    => d.toISOString().split('T')[0]
+const daysAgo = (n: number)  => { const d = new Date(); d.setDate(d.getDate() - n); return d }
+const now     = ()           => new Date().toLocaleTimeString('es-CL')
 
 function pct(current: number, past: number): number | null {
   if (!past || past <= 0) return null
@@ -93,7 +73,7 @@ async function fetchJson(url: string, treat404AsEmpty = false): Promise<any> {
     if (res.status === 429) {
       if (attempt < RETRY_DELAYS.length) {
         const wait = RETRY_DELAYS[attempt]
-        process.stdout.write(` [429 → ${wait / 1000}s]`)
+        process.stdout.write(` [429→${wait / 1000}s]`)
         await sleep(wait)
         continue
       }
@@ -101,16 +81,16 @@ async function fetchJson(url: string, treat404AsEmpty = false): Promise<any> {
       if (consecFails >= MAX_CONSEC_FAILS && !coolingDown) {
         coolingDown = true
         providerCooldowns++
-        process.stdout.write(`\n  ⏸ cooldown ${providerCooldowns}/${MAX_COOLDOWNS_PER_PROVIDER} → enfriando ${COOLDOWN_MS / 1000}s...`)
+        process.stdout.write(`\n  ⏸ cooldown ${providerCooldowns}/${MAX_COOLDOWNS_PER_PROVIDER} → ${COOLDOWN_MS / 1000}s...`)
         await sleep(COOLDOWN_MS)
         consecFails = 0
         coolingDown = false
         process.stdout.write(' reanudando\n')
         if (providerCooldowns >= MAX_COOLDOWNS_PER_PROVIDER) {
-          throw new Error('PROVIDER_SKIP: demasiados rate-limits, saltando provider')
+          throw new Error('PROVIDER_SKIP')
         }
       }
-      throw new Error('HTTP 429 (rate-limit agotado)')
+      throw new Error('HTTP 429')
     }
 
     if (!res.ok) {
@@ -118,19 +98,19 @@ async function fetchJson(url: string, treat404AsEmpty = false): Promise<any> {
       throw new Error(`HTTP ${res.status}`)
     }
 
-    consecFails = 0 // éxito → reset contador
+    consecFails = 0
     return res.json()
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function inferCategoria(nombre: string, attrs: any): string {
-  const n = nombre.toLowerCase()
+  const n      = nombre.toLowerCase()
   const apiCat = (attrs?.category ?? attrs?.fund_type ?? attrs?.type_of_fund ?? '').toLowerCase()
   if (apiCat) {
-    if (apiCat.includes('renta fija') || apiCat.includes('fixed') || apiCat.includes('deuda'))     return 'renta fija'
-    if (apiCat.includes('conservador') || apiCat.includes('conservative'))                          return 'conservador'
-    if (apiCat.includes('balanceado')  || apiCat.includes('mixto') || apiCat.includes('moderate')) return 'moderado'
+    if (apiCat.includes('renta fija') || apiCat.includes('fixed') || apiCat.includes('deuda'))      return 'renta fija'
+    if (apiCat.includes('conservador') || apiCat.includes('conservative'))                           return 'conservador'
+    if (apiCat.includes('balanceado')  || apiCat.includes('mixto') || apiCat.includes('moderate'))  return 'moderado'
     if (apiCat.includes('acciones')    || apiCat.includes('equity') || apiCat.includes('agresivo')) return 'agresivo'
   }
   if (n.includes('very conservative') || n.includes('muy conservador'))            return 'conservador'
@@ -152,8 +132,8 @@ function extractTac(attrs: any): number | null {
   return n < 1 ? +(n * 100).toFixed(4) : +n.toFixed(4)
 }
 
-// ─── Notificación email al terminar ──────────────────────────────────────────
-async function sendNotification(counters: Record<string, number>, durationS: string, totalFondos: number) {
+// ─── Notificación email ───────────────────────────────────────────────────────
+async function sendNotification(counters: Record<string, number>, durationS: string, totalFondos: number, mode: string) {
   const to   = process.env.EMAIL_ADMIN_TO ?? 'squantdesk@gmail.com'
   const from = process.env.EMAIL_FROM     ?? 'onboarding@resend.dev'
   const url  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.vercel.app'
@@ -166,18 +146,19 @@ async function sendNotification(counters: Record<string, number>, durationS: str
       <span style="margin-left:10px;font-size:13px;letter-spacing:0.3em;color:#e5e5e5;vertical-align:middle">SIGMA RESEARCH</span>
     </td></tr>
     <tr><td style="padding:32px 32px 8px">
-      <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.3em;color:#d4af37">// SYNC COMPLETADO</p>
+      <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.3em;color:#d4af37">// SYNC COMPLETADO · ${mode.toUpperCase()}</p>
       <h1 style="margin:0 0 20px;font-size:28px;font-weight:bold;color:#22c55e">✓ FONDOS MUTUOS ACTUALIZADOS</h1>
       <p style="font-size:12px;color:#777">${fecha}</p>
     </td></tr>
     <tr><td style="padding:8px 32px 32px">
       <table style="width:100%;border-collapse:collapse">
         ${[
-          ['Total fondos en Supabase', totalFondos.toString(), '#d4af37'],
-          ['Con rentabilidades',       counters.synced.toString(),    '#22c55e'],
-          ['Sin datos históricos',     counters.sin_datos.toString(), '#777'],
-          ['Errores API',              counters.errors.toString(),    counters.errors > 10 ? '#ef4444' : '#777'],
-          ['Duración',                 durationS + 's',               '#e5e5e5'],
+          ['Modo',                     mode,                         '#d4af37'],
+          ['Total fondos en Supabase', totalFondos.toString(),       '#d4af37'],
+          ['Con rentabilidades',       counters.synced.toString(),   '#22c55e'],
+          ['Sin datos históricos',     counters.sin_datos.toString(),'#777'],
+          ['Errores API',              counters.errors.toString(),   counters.errors > 10 ? '#ef4444' : '#777'],
+          ['Duración',                 durationS + 's',              '#e5e5e5'],
         ].map(([k, v, c]) => `
           <tr style="border-bottom:1px solid #1a1a1a">
             <td style="padding:10px 0;font-size:12px;color:#777">${k}</td>
@@ -191,164 +172,154 @@ async function sendNotification(counters: Record<string, number>, durationS: str
       </div>
     </td></tr>
     <tr><td style="padding:20px 32px;border-top:1px solid #222">
-      <p style="margin:0;font-size:11px;color:#555">Sync automático diario 2am UTC · Sigma Research</p>
+      <p style="margin:0;font-size:11px;color:#555">Sync automático · Sigma Research</p>
     </td></tr>
   </table>
 </body></html>`
 
   try {
-    await resend.emails.send({
-      from,
-      to,
-      subject: `✓ Sync Fondos Mutuos — ${counters.synced} fondos con rentabilidad · ${fecha}`,
-      html,
-    })
+    await resend.emails.send({ from, to, subject: `✓ Sync Fondos [${mode}] — ${counters.synced} con rent. · ${fecha}`, html })
     console.log(`\n📧 Email enviado a ${to}`)
   } catch (e) {
     console.error('\n⚠ Email no enviado:', e)
   }
 }
 
-// ─── Procesar un fondo individual ─────────────────────────────────────────────
-interface FundResult {
-  upsert: Record<string, unknown>
-  synced: boolean; sinDatos: boolean; err: boolean
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODO UPDATE — 1 request por fondo usando real_asset_id conocido
+// ═══════════════════════════════════════════════════════════════════════════════
+async function runUpdate() {
+  console.log('📡 Modo UPDATE — cargando fondos desde Supabase...')
 
-async function processFund(
-  c: { id: string; nombre: string; attrs: unknown },
-  agfId: string, from: string, to: string
-): Promise<FundResult> {
-  let realAssetId: string | null  = null
-  let ultimoPrecio: number | null = null
-  let ultimaFecha: string | null  = null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let realAttrs: any              = null
+  // Traer todos los fondos activos con real_asset_id conocido
+  const { data: fondos, error } = await db
+    .from('fondos_mutuos')
+    .select('id, nombre, agf_id, real_asset_id, categoria, tac, symbol')
+    .eq('activo', true)
+    .not('real_asset_id', 'is', null)
 
-  try {
-    const rData = await fetchJson(`${FINTUAL_BASE}/conceptual_assets/${c.id}/real_assets`)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const series: any[] = rData.data ?? []
-    if (series.length > 0) {
-      const serieA = series.find(s => String(s.attributes?.serie ?? '').toUpperCase() === 'A')
-      const byDate = [...series].sort((a, b) =>
-        (b.attributes?.last_day?.date ?? '').localeCompare(a.attributes?.last_day?.date ?? '')
-      )
-      const best   = serieA ?? byDate[0]
-      realAssetId  = String(best.id)
-      ultimoPrecio = best.attributes?.last_day?.price ?? null
-      ultimaFecha  = best.attributes?.last_day?.date  ?? null
-      realAttrs    = best.attributes
-    }
-    await sleep(FUND_DELAY_MS)
-  } catch (e) { if (String(e).includes('PROVIDER_SKIP')) throw e; await sleep(FUND_DELAY_MS) }
-
-  let rent_1m: number | null = null, rent_3m: number | null = null
-  let rent_12m: number | null = null, rent_3a: number | null = null
-  let synced = false, sinDatos = false, err = false
-
-  if (realAssetId) {
-    try {
-      const dData = await fetchJson(
-        `${FINTUAL_BASE}/real_assets/${realAssetId}/days?from_date=${from}&to_date=${to}`
-      )
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const days: { date: string; price: number }[] = (dData.data ?? []).map((d: any) => {
-        const a = d.attributes ?? {}
-        const raw = a.price ?? a.nav ?? a.value ?? a.close ?? null
-        return { date: String(a.date ?? ''), price: raw != null ? parseFloat(String(raw)) : 0 }
-      }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
-        .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
-
-      if (days.length >= 5) {
-        const nowP = days[days.length - 1].price
-        ultimoPrecio = ultimoPrecio ?? nowP
-        ultimaFecha  = ultimaFecha  ?? days[days.length - 1].date
-        rent_1m  = pct(nowP, priceAt(days, daysAgo(30))      ?? 0)
-        rent_3m  = pct(nowP, priceAt(days, daysAgo(90))      ?? 0)
-        rent_12m = pct(nowP, priceAt(days, daysAgo(365))     ?? 0)
-        rent_3a  = pct(nowP, priceAt(days, daysAgo(365 * 3)) ?? 0)
-        synced = true
-      } else { sinDatos = true }
-      await sleep(FUND_DELAY_MS)
-    } catch (e) { if (String(e).includes('PROVIDER_SKIP')) throw e; err = true; await sleep(FUND_DELAY_MS) }
-  } else { sinDatos = true }
-
-  return {
-    upsert: {
-      id: c.id, agf_id: agfId, nombre: c.nombre,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      symbol:        (c.attrs as any)?.symbol ?? null,
-      real_asset_id: realAssetId,
-      categoria:     inferCategoria(c.nombre, c.attrs),
-      tac:           extractTac(realAttrs) ?? extractTac(c.attrs),
-      moneda:        'CLP',
-      rent_1m, rent_3m, rent_12m, rent_3a,
-      ultimo_precio: ultimoPrecio,
-      ultima_fecha:  ultimaFecha,
-      activo:        true,
-      updated_at:    new Date().toISOString(),
-    },
-    synced, sinDatos, err,
+  if (error) throw new Error(`Supabase: ${error.message}`)
+  if (!fondos || fondos.length === 0) {
+    console.log('⚠ No hay fondos con real_asset_id — ejecuta con --discover primero')
+    return { synced: 0, sin_datos: 0, errors: 0 }
   }
-}
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  const startedAt = Date.now()
-  const counters  = { synced: 0, sin_datos: 0, errors: 0 }
-  const processedIds = new Set<string>()
-
-  console.log('━━━ Sync Fondos Mutuos → Supabase ━━━')
-  console.log(`Inicio: ${now()}`)
-  console.log(`URL:    ${process.env.NEXT_PUBLIC_SUPABASE_URL}`)
+  console.log(`Fondos a actualizar: ${fondos.length}`)
   console.log()
 
-  // ── PASO 1: Providers (con reintentos ilimitados hasta que Fintual responda) ──
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let providersData: any
+  const from = dateStr(daysAgo(365 * 3 + 60))
+  const to   = dateStr(new Date())
+  const counters = { synced: 0, sin_datos: 0, errors: 0 }
+
+  // Procesar en batches
+  for (let i = 0; i < fondos.length; i += CONCURRENT_FUNDS) {
+    const batch = fondos.slice(i, i + CONCURRENT_FUNDS)
+
+    const results = await Promise.allSettled(batch.map(async fondo => {
+      try {
+        const dData = await fetchJson(
+          `${FINTUAL_BASE}/real_assets/${fondo.real_asset_id}/days?from_date=${from}&to_date=${to}`
+        )
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const days: { date: string; price: number }[] = (dData.data ?? []).map((d: any) => {
+          const a   = d.attributes ?? {}
+          const raw = a.price ?? a.nav ?? a.net_asset_value ?? a.value ?? null
+          return { date: String(a.date ?? ''), price: raw != null ? parseFloat(String(raw)) : 0 }
+        }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
+          .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
+
+        if (days.length < 5) return { ...fondo, sinDatos: true }
+
+        const nowP     = days[days.length - 1].price
+        const rent_1m  = pct(nowP, priceAt(days, daysAgo(30))      ?? 0)
+        const rent_3m  = pct(nowP, priceAt(days, daysAgo(90))      ?? 0)
+        const rent_12m = pct(nowP, priceAt(days, daysAgo(365))     ?? 0)
+        const rent_3a  = pct(nowP, priceAt(days, daysAgo(365 * 3)) ?? 0)
+
+        return {
+          id: fondo.id, agf_id: fondo.agf_id, nombre: fondo.nombre,
+          symbol: fondo.symbol, real_asset_id: fondo.real_asset_id,
+          categoria: fondo.categoria, tac: fondo.tac, moneda: 'CLP',
+          rent_1m, rent_3m, rent_12m, rent_3a,
+          ultimo_precio: nowP,
+          ultima_fecha:  days[days.length - 1].date,
+          activo: true,
+          updated_at: new Date().toISOString(),
+          synced: true,
+        }
+      } catch (e) {
+        if (String(e).includes('PROVIDER_SKIP')) throw e
+        return { ...fondo, err: true }
+      }
+    }))
+
+    const upserts: Record<string, unknown>[] = []
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        const v = r.value as Record<string, unknown>
+        if (v.synced)    { upserts.push(v); counters.synced++ }
+        else if (v.sinDatos) counters.sin_datos++
+        else if (v.err)      counters.errors++
+      } else {
+        counters.errors++
+      }
+    }
+
+    if (upserts.length > 0) {
+      const { error: upErr } = await db.from('fondos_mutuos').upsert(upserts, { onConflict: 'id' })
+      if (upErr) console.error(`  ⚠ Supabase: ${upErr.message}`)
+    }
+
+    // Log progreso cada 50 fondos
+    const done = Math.min(i + CONCURRENT_FUNDS, fondos.length)
+    if (done % 50 === 0 || done === fondos.length) {
+      process.stdout.write(`  [${done}/${fondos.length}] ✓${counters.synced} ✗${counters.errors} sin_datos:${counters.sin_datos}\n`)
+    }
+
+    await sleep(FUND_DELAY_MS)
+  }
+
+  return counters
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODO DISCOVER — recorre providers para encontrar fondos nuevos
+// ═══════════════════════════════════════════════════════════════════════════════
+async function runDiscover() {
+  console.log('🔍 Modo DISCOVER — recorriendo providers de Fintual...')
+
+  // Traer providers
+  let providersData
   while (true) {
     try {
       providersData = await fetchJson(`${FINTUAL_BASE}/asset_providers`)
       break
     } catch (e) {
       if (String(e).includes('429')) {
-        process.stdout.write(`\n⏸ Fintual bloqueado → reintentando en 2 min... (${now()})\n`)
+        process.stdout.write(`\n⏸ Bloqueado → reintentando en ${COOLDOWN_MS / 1000}s... (${now()})\n`)
         await sleep(COOLDOWN_MS)
       } else throw e
     }
   }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const providers: any[] = providersData.data ?? []
-  console.log(`Providers encontrados: ${providers.length}`)
+  console.log(`Providers: ${providers.length}`)
 
+  // Upsert AGFs
   const agfUpserts = providers.map(p => ({ id: String(p.id), nombre: p.attributes?.name ?? 'Desconocido' }))
-  const { error: agfErr } = await db.from('agf').upsert(agfUpserts, { onConflict: 'id' })
-  if (agfErr) console.error('  ⚠ Error guardando AGFs:', agfErr.message)
-  else console.log(`  ✓ ${agfUpserts.length} AGFs guardadas`)
-  console.log()
+  await db.from('agf').upsert(agfUpserts, { onConflict: 'id' })
+  console.log(`✓ ${agfUpserts.length} AGFs guardadas\n`)
 
-  // ── PASO 2–4: Por cada provider ──────────────────────────────────────────────
-  const from       = dateStr(daysAgo(365 * 3 + 60))
-  const to         = dateStr(new Date())
-  const startFrom  = loadCheckpoint()
-
-  if (startFrom > 0) {
-    console.log(`♻ Checkpoint encontrado — retomando desde provider ${startFrom + 1}/${providers.length}`)
-  }
+  const from     = dateStr(daysAgo(365 * 3 + 60))
+  const to       = dateStr(new Date())
+  const counters = { synced: 0, sin_datos: 0, errors: 0 }
 
   for (let pi = 0; pi < providers.length; pi++) {
-    if (pi < startFrom) {
-      process.stdout.write(`[${String(pi + 1).padStart(3)}/${providers.length}] SKIP (checkpoint)\n`)
-      continue
-    }
+    const p     = providers[pi]
+    const label = (p.attributes?.name ?? '?').slice(0, 32).padEnd(34)
+    process.stdout.write(`[${String(pi + 1).padStart(3)}/${providers.length}] ${label}`)
 
-    const p      = providers[pi]
-    const label  = (p.attributes?.name ?? '?').slice(0, 32).padEnd(34)
-    const prefix = `[${String(pi + 1).padStart(3)}/${providers.length}] ${label}`
-    process.stdout.write(prefix)
-
-    // Conceptual assets
     let conceptuals: { id: string; nombre: string; attrs: unknown }[] = []
     try {
       const cData = await fetchJson(`${FINTUAL_BASE}/asset_providers/${p.id}/conceptual_assets`, true)
@@ -370,36 +341,109 @@ async function main() {
     }
 
     let fondosSynced = 0, fondosSinDatos = 0, fondosErr = 0
-    providerCooldowns = 0  // reset por provider
+    providerCooldowns = 0
     const fondoUpserts: Record<string, unknown>[] = []
-
-    // Procesar fondos en batches paralelos de CONCURRENT_FUNDS
     let providerSkipped = false
+
     for (let i = 0; i < conceptuals.length; i += CONCURRENT_FUNDS) {
       if (providerSkipped) break
-
       const batch = conceptuals.slice(i, i + CONCURRENT_FUNDS)
-      batch.forEach(c => processedIds.add(c.id))
 
-      const results = await Promise.allSettled(
-        batch.map(c => processFund(c, String(p.id), from, to))
-      )
+      const results = await Promise.allSettled(batch.map(async c => {
+        let realAssetId: string | null  = null
+        let ultimoPrecio: number | null = null
+        let ultimaFecha:  string | null = null
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let realAttrs: any              = null
+
+        try {
+          const rData = await fetchJson(`${FINTUAL_BASE}/conceptual_assets/${c.id}/real_assets`)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const series: any[] = rData.data ?? []
+          if (series.length > 0) {
+            const serieA = series.find(s => String(s.attributes?.serie ?? '').toUpperCase() === 'A')
+            const byDate = [...series].sort((a, b) =>
+              (b.attributes?.last_day?.date ?? '').localeCompare(a.attributes?.last_day?.date ?? ''))
+            const best   = serieA ?? byDate[0]
+            realAssetId  = String(best.id)
+            ultimoPrecio = best.attributes?.last_day?.price ?? null
+            ultimaFecha  = best.attributes?.last_day?.date  ?? null
+            realAttrs    = best.attributes
+          }
+          await sleep(FUND_DELAY_MS)
+        } catch (e) {
+          if (String(e).includes('PROVIDER_SKIP')) throw e
+          await sleep(FUND_DELAY_MS)
+        }
+
+        let rent_1m: number | null = null, rent_3m: number | null = null
+        let rent_12m: number | null = null, rent_3a: number | null = null
+        let synced = false, sinDatos = false, err = false
+
+        if (realAssetId) {
+          try {
+            const dData = await fetchJson(
+              `${FINTUAL_BASE}/real_assets/${realAssetId}/days?from_date=${from}&to_date=${to}`
+            )
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const days: { date: string; price: number }[] = (dData.data ?? []).map((d: any) => {
+              const a   = d.attributes ?? {}
+              const raw = a.price ?? a.nav ?? a.net_asset_value ?? a.value ?? null
+              return { date: String(a.date ?? ''), price: raw != null ? parseFloat(String(raw)) : 0 }
+            }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
+              .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
+
+            if (days.length >= 5) {
+              const nowP = days[days.length - 1].price
+              ultimoPrecio = ultimoPrecio ?? nowP
+              ultimaFecha  = ultimaFecha  ?? days[days.length - 1].date
+              rent_1m  = pct(nowP, priceAt(days, daysAgo(30))      ?? 0)
+              rent_3m  = pct(nowP, priceAt(days, daysAgo(90))      ?? 0)
+              rent_12m = pct(nowP, priceAt(days, daysAgo(365))     ?? 0)
+              rent_3a  = pct(nowP, priceAt(days, daysAgo(365 * 3)) ?? 0)
+              synced = true
+            } else { sinDatos = true }
+            await sleep(FUND_DELAY_MS)
+          } catch (e) {
+            if (String(e).includes('PROVIDER_SKIP')) throw e
+            err = true
+            await sleep(FUND_DELAY_MS)
+          }
+        } else { sinDatos = true }
+
+        return {
+          upsert: {
+            id: c.id, agf_id: String(p.id), nombre: c.nombre,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            symbol:        (c.attrs as any)?.symbol ?? null,
+            real_asset_id: realAssetId,
+            categoria:     inferCategoria(c.nombre, c.attrs),
+            tac:           extractTac(realAttrs) ?? extractTac(c.attrs),
+            moneda:        'CLP',
+            rent_1m, rent_3m, rent_12m, rent_3a,
+            ultimo_precio: ultimoPrecio,
+            ultima_fecha:  ultimaFecha,
+            activo:        true,
+            updated_at:    new Date().toISOString(),
+          },
+          synced, sinDatos, err,
+        }
+      }))
 
       for (const r of results) {
         if (r.status === 'rejected' && String(r.reason).includes('PROVIDER_SKIP')) {
-          process.stdout.write(`\n  ⏭ Provider saltado por exceso de rate-limits\n`)
+          process.stdout.write(`\n  ⏭ Provider saltado\n`)
           providerSkipped = true
           counters.errors++
           break
         }
         if (r.status === 'fulfilled') {
           fondoUpserts.push(r.value.upsert)
-          if (r.value.synced)   { fondosSynced++;    counters.synced++    }
-          else if (r.value.sinDatos) { fondosSinDatos++; counters.sin_datos++ }
-          else if (r.value.err)      { fondosErr++;      counters.errors++    }
+          if (r.value.synced)        { fondosSynced++;    counters.synced++    }
+          else if (r.value.sinDatos) { fondosSinDatos++;  counters.sin_datos++ }
+          else if (r.value.err)      { fondosErr++;        counters.errors++    }
         } else {
-          fondosErr++
-          counters.errors++
+          fondosErr++; counters.errors++
         }
       }
     }
@@ -419,44 +463,42 @@ async function main() {
       process.stdout.write('VACÍO\n')
     }
 
-    saveCheckpoint(pi + 1)
     await sleep(PROVIDER_DELAY_MS)
   }
 
-  clearCheckpoint()
+  return counters
+}
 
-  // ── Marcar inactivos SOLO si el sync fue limpio (>=80% fondos resueltos) ────
-  const { count: totalActivos } = await db
-    .from('fondos_mutuos').select('*', { count: 'exact', head: true }).eq('activo', true)
-  const threshold = Math.max(500, Math.floor((totalActivos ?? 0) * 0.8))
-  if (processedIds.size >= threshold) {
-    await db.from('fondos_mutuos')
-      .update({ activo: false, updated_at: new Date().toISOString() })
-      .not('id', 'in', `(${Array.from(processedIds).join(',')})`)
-    console.log(`✓ Marcados inactivos (${processedIds.size} >= threshold ${threshold})`)
-  } else {
-    console.log(`⚠ Inactivos omitidos: ${processedIds.size} resueltos < threshold ${threshold} — datos protegidos`)
-  }
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════════════════════════════════════
+async function main() {
+  const startedAt = Date.now()
+  const mode      = DISCOVER_MODE ? 'discover' : 'update'
 
-  // ── Contar total en Supabase ───────────────────────────────────────────────
+  console.log('━━━ Sync Fondos Mutuos → Supabase ━━━')
+  console.log(`Modo:   ${mode.toUpperCase()}`)
+  console.log(`Inicio: ${now()}`)
+  console.log()
+
+  const counters = DISCOVER_MODE ? await runDiscover() : await runUpdate()
+
+  // Contar total activos en Supabase
   const { count: totalFondos } = await db
     .from('fondos_mutuos').select('*', { count: 'exact', head: true }).eq('activo', true)
 
-  // ── Resumen ────────────────────────────────────────────────────────────────
   const durationS = ((Date.now() - startedAt) / 1000).toFixed(1)
   console.log()
   console.log('━━━ Resumen ━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log(`Fin:           ${now()}`)
-  console.log(`Duración:      ${durationS}s`)
-  console.log(`Providers:     ${providers.length}`)
-  console.log(`En Supabase:   ${totalFondos ?? '?'} fondos activos`)
-  console.log(`Con rent.:     ${counters.synced}`)
-  console.log(`Sin datos:     ${counters.sin_datos}`)
-  console.log(`Errores:       ${counters.errors}`)
+  console.log(`Fin:         ${now()}`)
+  console.log(`Duración:    ${durationS}s`)
+  console.log(`En Supabase: ${totalFondos ?? '?'} fondos activos`)
+  console.log(`Con rent.:   ${counters.synced}`)
+  console.log(`Sin datos:   ${counters.sin_datos}`)
+  console.log(`Errores:     ${counters.errors}`)
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
-  // ── Email de notificación ──────────────────────────────────────────────────
-  await sendNotification(counters, durationS, totalFondos ?? 0)
+  await sendNotification(counters, durationS, totalFondos ?? 0, mode)
 }
 
 main().catch(e => { console.error('Fatal:', e); process.exit(1) })
