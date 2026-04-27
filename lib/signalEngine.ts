@@ -1,4 +1,4 @@
-import type { Asset, AssetClass, SignalType, FlowSignal } from '@/types/decision-engine'
+import type { Asset, AssetClass, SignalType, FlowSignal, MarketRegime, TradeStatus } from '@/types/decision-engine'
 
 // ─── RSI real de Wilder (14 períodos) ────────────────────────────────────────
 // Requiere al menos 15 cierres. Con 28 cierres: 14 para SMA inicial + 13 de
@@ -95,37 +95,143 @@ function calcScore(
   return Math.round(Math.min(100, Math.max(0, raw + bonus)))
 }
 
-// ─── Interface de entrada ─────────────────────────────────────────────────────
-export interface RawAsset {
-  id:         string
-  name:       string
-  ticker?:    string
-  assetClass: AssetClass
-  category?:  string
-  r1m:        number
-  r3m:        number
-  r1y:        number
-  closes28?:  number[]   // últimos 28 cierres diarios para RSI real de Wilder
+// ─── Detección de régimen de mercado ─────────────────────────────────────────
+// SPY 1m vs TLT 1m + volatilidad implícita → risk-on / risk-off / neutral.
+// risk-on  : renta variable sube, bonos bajan → apetito por riesgo.
+// risk-off : renta variable cae, bonos suben o vol elevada → vuelo a calidad.
+export function detectMarketRegime(
+  spyCloses: number[],
+  spyR1m:    number,
+  tltR1m:    number,
+): MarketRegime {
+  const spyVol      = spyCloses.length >= 10 ? realVolatility(spyCloses) : 15
+  const equitiesUp  = spyR1m >  2
+  const equitiesDown= spyR1m < -2
+  const bondsUp     = tltR1m >  1
+  const bondsDown   = tltR1m < -1
+  const highVol     = spyVol > 22
+  if (equitiesDown && (bondsUp  || highVol)) return 'risk-off'
+  if (equitiesUp   &&  bondsDown)            return 'risk-on'
+  if (highVol)                               return 'risk-off'
+  return 'neutral'
 }
 
-// ─── Procesar un activo raw → Asset con señal y score ────────────────────────
-export function processAsset(raw: RawAsset): Asset {
-  const rsiReal  = raw.closes28 && raw.closes28.length >= 15 ? realRSI(raw.closes28) : -1
-  const rsi      = rsiReal >= 0 ? rsiReal : simRSI(raw.r1m)
-  const netFlow  = simNetFlow(raw.r1m, raw.r3m)
-  const mom      = simMomentum(raw.r1m, raw.r3m, raw.r1y)
-  // Volatilidad real si hay cierres históricos, si no proxy por clase
-  const volReal  = raw.closes28 && raw.closes28.length >= 10 ? realVolatility(raw.closes28) : -1
-  const vol      = volReal >= 0 ? volReal : simVolatility(raw.r1m, raw.r3m, raw.r1y, raw.assetClass)
-  const consist  = timeframeConsistency(raw.r1m, raw.r3m, raw.r1y)
-  const signal   = getSignal(rsi, netFlow, raw.r1m, mom, consist)
-  const score    = calcScore(rsi, netFlow, mom, raw.r1m, raw.r1y, vol, consist)
+// ─── Confianza de señal: % de indicadores que coinciden con la señal ─────────
+// 4 votos: RSI, netFlow, momentum, consistency. Cada uno vale 0 / 0.5 / 1.
+function calcConfidence(
+  rsi: number, netFlow: number, mom: number,
+  consistency: number, signal: SignalType,
+): number {
+  if (signal === 'neutral') return 50
+  const buy = signal === 'comprar'
+  const votes = [
+    buy ? (rsi < 50 ? 1 : rsi < 60 ? 0.5 : 0)       : (rsi > 60 ? 1 : rsi > 50 ? 0.5 : 0),
+    buy ? (netFlow > 10 ? 1 : netFlow > 0 ? 0.5 : 0) : (netFlow < -10 ? 1 : netFlow < 0 ? 0.5 : 0),
+    buy ? (mom > 1 ? 1 : mom > 0 ? 0.5 : 0)          : (mom < -1 ? 1 : mom < 0 ? 0.5 : 0),
+    buy ? (consistency > 0.33 ? 1 : consistency > 0 ? 0.5 : 0)
+        : (consistency < -0.33 ? 1 : consistency < 0 ? 0.5 : 0),
+  ]
+  return Math.round(votes.reduce((a, b) => a + b, 0) / 4 * 100)
+}
+
+// ─── Contador de condiciones cumplidas (estilo HUD X/8) ───────────────────────
+// 8 condiciones binarias que reflejan calidad de la tesis según la dirección.
+function calcConditions(
+  rsi: number, netFlow: number, mom: number, consistency: number,
+  r1m: number, r1y: number, confidence: number, score: number,
+  signal: SignalType,
+): { met: number; total: number } {
+  const total = 8
+  if (signal === 'comprar') {
+    return { total, met: [
+      rsi < 55,          // no sobrecomprado
+      netFlow > 0,       // flujo positivo
+      mom > 0.5,         // momentum significativo
+      consistency > 0,   // todos los plazos alineados
+      r1m > 0,           // retorno reciente positivo
+      r1y > 4.5,         // supera tasa libre de riesgo
+      confidence > 50,   // mayoría de indicadores coinciden
+      score > 55,        // puntuación robusta post-pipeline
+    ].filter(Boolean).length }
+  }
+  if (signal === 'reducir') {
+    return { total, met: [
+      rsi > 55,
+      netFlow < 0,
+      mom < -0.5,
+      consistency < 0,
+      r1m < 0,
+      r1y < 4.5,
+      confidence > 50,
+      score > 55,
+    ].filter(Boolean).length }
+  }
+  return { met: 0, total }
+}
+
+// ─── EV neto mensual estimado ──────────────────────────────────────────────────
+// EV = p × E[ganancia_mensual] - (1-p) × E[pérdida_mensual]
+// p = confidence/100; ganancia proxy = r1y/12; pérdida proxy = vol/√12
+// Positivo = edge existe; negativo = EV desfavorable (WATCH, no ENTRY)
+function calcEV(confidence: number, r1y: number, vol: number): number {
+  const p           = confidence / 100
+  const monthlyWin  = Math.max(0, r1y / 12)
+  const monthlyLoss = vol / Math.sqrt(12)
+  return Math.round((p * monthlyWin - (1 - p) * monthlyLoss) * 10) / 10
+}
+
+// ─── Ajuste de score según régimen de mercado ─────────────────────────────────
+// risk-on favorece equity/crypto; risk-off favorece renta fija.
+const REGIME_ADJ: Record<MarketRegime, Record<AssetClass, number>> = {
+  'risk-on':  { etfs:  5, fondos:  3, crypto:   4, renta_fija:  -8 },
+  'risk-off': { etfs: -8, fondos: -5, crypto: -15, renta_fija:  10 },
+  'neutral':  { etfs:  0, fondos:  0, crypto:   0, renta_fija:   0 },
+}
+
+// ─── Interface de entrada ─────────────────────────────────────────────────────
+export interface RawAsset {
+  id:            string
+  name:          string
+  ticker?:       string
+  assetClass:    AssetClass
+  category?:     string
+  r1m:           number
+  r3m:           number
+  r1y:           number
+  closes28?:      number[]   // últimos 28 cierres diarios para RSI real de Wilder
+  dividendYield?: number    // yield anual en % (ej. 1.8 = 1.8%), de Yahoo Finance
+  priceAtSignal?: number    // precio spot actual (para fondos/crypto donde no hay closes28)
+}
+
+// ─── Procesar un activo raw → Asset completo ─────────────────────────────────
+// kellyPct / volScalar / edgeVerified / status se calculan después en
+// applyProfileSizing() (allocator.ts) porque dependen del perfil del inversor.
+export function processAsset(raw: RawAsset, regime: MarketRegime = 'neutral'): Asset {
+  const rsiReal    = raw.closes28 && raw.closes28.length >= 15 ? realRSI(raw.closes28) : -1
+  const rsi        = rsiReal >= 0 ? rsiReal : simRSI(raw.r1m)
+  const netFlow    = simNetFlow(raw.r1m, raw.r3m)
+  const mom        = simMomentum(raw.r1m, raw.r3m, raw.r1y)
+  const volReal    = raw.closes28 && raw.closes28.length >= 10 ? realVolatility(raw.closes28) : -1
+  const vol        = volReal >= 0 ? volReal : simVolatility(raw.r1m, raw.r3m, raw.r1y, raw.assetClass)
+  const consist    = timeframeConsistency(raw.r1m, raw.r3m, raw.r1y)
+  const signal     = getSignal(rsi, netFlow, raw.r1m, mom, consist)
+  const base       = calcScore(rsi, netFlow, mom, raw.r1m, raw.r1y, vol, consist)
+  const score      = Math.round(Math.min(100, Math.max(0, base + REGIME_ADJ[regime][raw.assetClass])))
+  const confidence = calcConfidence(rsi, netFlow, mom, consist, signal)
+  const { met, total } = calcConditions(rsi, netFlow, mom, consist, raw.r1m, raw.r1y, confidence, score, signal)
+  const evNeto     = calcEV(confidence, raw.r1y, vol)
 
   return {
     id: raw.id, name: raw.name, ticker: raw.ticker,
     assetClass: raw.assetClass, category: raw.category,
     return30d: raw.r1m, return90d: raw.r3m, return1y: raw.r1y,
     netFlow, rsi, momentum: mom, volatility: vol, signal, score,
+    confidence, conditionsMet: met, conditionsTotal: total, evNeto,
+    dividendYield:  raw.dividendYield,
+    // Precio al momento de la señal: último cierre real o valor pasado explícitamente
+    priceAtSignal:  raw.priceAtSignal ?? raw.closes28?.[raw.closes28.length - 1],
+    // applyProfileSizing() los sobreescribe con valores reales
+    kellyPct: 0, volScalar: 100, edgeVerified: false, status: 'no-setup' as TradeStatus,
   }
 }
 

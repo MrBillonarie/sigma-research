@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
-import type { Asset, AssetClass, SignalType, Allocation } from '@/types/decision-engine'
+import type { Asset, AssetClass, SignalType, Allocation, TradeStatus } from '@/types/decision-engine'
 
 const SIGNAL_CFG: Record<SignalType, { label: string; color: string; bg: string }> = {
   comprar:  { label: 'COMPRAR',  color: '#1D9E75', bg: 'rgba(29,158,117,0.12)'  },
@@ -59,6 +59,39 @@ function ScoreBar({ score }: { score: number }) {
   )
 }
 
+const STATUS_CFG: Record<TradeStatus, { label: string; color: string }> = {
+  'entry':    { label: 'ENTRY',    color: '#1D9E75' },
+  'watch':    { label: 'WATCH',    color: '#d4af37' },
+  'no-setup': { label: 'NO SETUP', color: '#3a3f55' },
+}
+
+function StatusChip({ status }: { status: TradeStatus }) {
+  const c = STATUS_CFG[status]
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, fontFamily: 'monospace',
+      color: c.color, background: `${c.color}18`,
+      border: `1px solid ${c.color}40`,
+      borderRadius: 3, padding: '1px 5px', whiteSpace: 'nowrap',
+    }}>{c.label}</span>
+  )
+}
+
+function CondsEV({ met, total, ev }: { met: number; total: number; ev: number }) {
+  const condColor = met >= Math.ceil(total * 0.75) ? '#1D9E75' : met >= Math.ceil(total * 0.5) ? '#d4af37' : '#f87171'
+  const evColor   = ev > 0 ? '#1D9E75' : ev < 0 ? '#f87171' : '#7a7f9a'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ fontSize: 11, color: condColor, fontFamily: 'monospace', fontWeight: 700 }}>
+        {met}/{total} conds
+      </span>
+      <span style={{ fontSize: 10, color: evColor, fontFamily: 'monospace' }}>
+        EV {ev > 0 ? '+' : ''}{ev.toFixed(1)}%
+      </span>
+    </div>
+  )
+}
+
 interface Props {
   assets:     Asset[]
   capital?:   number
@@ -79,7 +112,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
   const PER_PAGE = 15
 
   const showMonto = capital > 0 && !!allocation
-  const numCols   = showMonto ? 9 : 8
+  const numCols   = showMonto ? 10 : 9
 
   // Máximo de picks con capital asignado por clase (no 40 ETFs con $5 cada uno)
   const MAX_PICKS: Record<AssetClass, number> = {
@@ -201,30 +234,107 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
             {CLASS_ICON[a.assetClass]} {CLASS_LABEL[a.assetClass]}
           </span>
         </td>
-        <td style={{ padding: '8px 12px' }}><SignalBadge signal={a.signal} /></td>
+        <td style={{ padding: '8px 12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <SignalBadge signal={a.signal} />
+              {a.signalChanged && a.prevSignal && (
+                <span title={`Cambió de ${SIGNAL_CFG[a.prevSignal].label}`} style={{
+                  fontSize: 9, fontFamily: 'monospace', color: '#d4af37',
+                  background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)',
+                  borderRadius: 3, padding: '1px 5px', whiteSpace: 'nowrap',
+                }}>
+                  {SIGNAL_CFG[a.prevSignal].label[0]}→{SIGNAL_CFG[a.signal].label[0]}
+                </span>
+              )}
+            </div>
+            <StatusChip status={a.status ?? 'no-setup'} />
+          </div>
+        </td>
         <td style={{ padding: '8px 12px' }}><ScoreBar score={a.score} /></td>
+        <td style={{ padding: '8px 12px' }}>
+          <CondsEV
+            met={a.conditionsMet ?? 0}
+            total={a.conditionsTotal ?? 8}
+            ev={a.evNeto ?? 0}
+          />
+        </td>
         <td style={{ padding: '8px 12px' }}><Pct v={a.return30d} /></td>
-        <td style={{ padding: '8px 12px' }}><Pct v={a.return1y}  /></td>
+        <td style={{ padding: '8px 12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Pct v={a.return1y} />
+            {(a.dividendYield ?? 0) > 0 && (
+              <span style={{ fontSize: 9, color: '#d4af37', fontFamily: 'monospace' }}>
+                div {a.dividendYield!.toFixed(1)}%
+              </span>
+            )}
+          </div>
+        </td>
         <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12, color: a.rsi > 70 ? '#f87171' : a.rsi < 30 ? '#1D9E75' : '#7a7f9a' }}>
           {a.rsi.toFixed(0)}
         </td>
         <td style={{ padding: '8px 12px' }}><Pct v={a.netFlow} /></td>
-        {showMonto && (
-          <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-            {monto > 0 ? (
+        {showMonto && (() => {
+          // Kelly efectivo = kellyPct × (volScalar/100) → % real del capital
+          const kellyEff = (a.kellyPct ?? 0) * (a.volScalar ?? 100) / 100
+          const kellyAmt = capital * kellyEff / 100
+          const isComprar = a.signal === 'comprar'
+          const isReducir = a.signal === 'reducir'
+          const hasKelly  = kellyEff > 0 && isComprar
+          const entryColor = (a.status ?? 'watch') === 'entry' ? '#1D9E75' : '#d4af37'
+
+          return (
+            <td style={{ padding: '8px 12px', textAlign: 'right' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>
-                  {fmt(monto, currency)}
-                </span>
-                <span style={{ fontSize: 9, color: '#1D9E75', fontFamily: 'monospace', opacity: 0.6 }}>★ pick</span>
+
+                {/* ── Monto de cartera (score-weighted, solo top picks) ──── */}
+                {monto > 0 && (
+                  <>
+                    <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>
+                      {fmt(monto, currency)}
+                    </span>
+                    <span style={{ fontSize: 9, color: '#1D9E75', fontFamily: 'monospace', opacity: 0.6 }}>
+                      ★ cartera
+                    </span>
+                  </>
+                )}
+
+                {/* ── Separador si hay ambos valores ───────────────────────── */}
+                {monto > 0 && hasKelly && (
+                  <div style={{ width: 64, height: 1, background: '#1a1d2e', margin: '3px 0' }} />
+                )}
+
+                {/* ── Sizing Kelly (todos los COMPRAR con edge) ─────────────── */}
+                {hasKelly ? (
+                  <>
+                    <span style={{ fontFamily: 'monospace', fontSize: 12, color: entryColor, fontWeight: 700 }}>
+                      {fmt(kellyAmt, currency)}
+                    </span>
+                    <span style={{ fontSize: 9, color: entryColor, fontFamily: 'monospace', opacity: 0.8 }}>
+                      K: {kellyEff.toFixed(1)}% del capital
+                    </span>
+                    {(a.volScalar ?? 100) < 100 && (
+                      <span style={{ fontSize: 9, color: '#7a7f9a', fontFamily: 'monospace' }}>
+                        vol ↓ ×{((a.volScalar ?? 100) / 100).toFixed(2)}
+                      </span>
+                    )}
+                  </>
+                ) : isComprar ? (
+                  <span style={{ color: '#3a3f55', fontSize: 10, fontFamily: 'monospace' }}>
+                    sin edge
+                  </span>
+                ) : isReducir ? (
+                  <span style={{ color: '#f87171', fontSize: 10, fontFamily: 'monospace' }}>
+                    reducir exp.
+                  </span>
+                ) : (
+                  <span style={{ color: '#3a3f55', fontSize: 11, fontFamily: 'monospace' }}>—</span>
+                )}
+
               </div>
-            ) : a.signal === 'comprar' ? (
-              <span style={{ color: '#3a3f55', fontSize: 10, fontFamily: 'monospace' }}>watchlist</span>
-            ) : (
-              <span style={{ color: '#3a3f55', fontSize: 11, fontFamily: 'monospace' }}>—</span>
-            )}
-          </td>
-        )}
+            </td>
+          )
+        })()}
       </tr>
     )
   }
@@ -303,11 +413,12 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
               <TH label="Clase"                   />
               <TH label="Señal"                   />
               <TH label="Score"     k="score"     />
+              <TH label="Conds · EV"              />
               <TH label="Ret. 30d"  k="return30d" />
               <TH label="Ret. 1A"   k="return1y"  />
               <TH label="RSI"       k="rsi"       />
               <TH label="Flujo"     k="netFlow"   />
-              {showMonto && <TH label="Monto (top picks)" />}
+              {showMonto && <TH label="Sizing (cartera · kelly)" />}
             </tr>
           </thead>
           <tbody>

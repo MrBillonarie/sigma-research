@@ -3,12 +3,12 @@ import { useEffect, useState, useMemo } from 'react'
 import type { PortfolioMetrics } from '@/types/decision-engine'
 
 interface Props {
-  metrics:   PortfolioMetrics
-  flowScore: number
-  buyCount:  number
-  sellCount: number
-  holdCount: number
-  capital?:  number
+  metrics:    PortfolioMetrics
+  flowScore:  number
+  buyCount:   number
+  sellCount:  number
+  holdCount:  number
+  capital?:   number
 }
 
 function fmtUSD(n: number): string {
@@ -357,43 +357,87 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
   const ret    = metrics.expectedReturn
   const vol    = metrics.annualVolatility
   const sharpe = metrics.sharpeRatio
+  const yield_ = metrics.portfolioYield ?? 0
 
   const retColor    = ret    > 8   ? '#1D9E75' : ret    > 4   ? '#d4af37' : '#f87171'
   const sharpeColor = sharpe > 1   ? '#1D9E75' : sharpe > 0.5 ? '#d4af37' : '#f87171'
   const flowColor   = flowScore > 60 ? '#1D9E75' : flowScore > 40 ? '#d4af37' : '#f87171'
+  const yieldColor  = yield_ > 3 ? '#1D9E75' : yield_ > 1 ? '#d4af37' : '#7a7f9a'
 
   const animRet    = useCountUp(Math.abs(ret), 900)
   const animVol    = useCountUp(vol,           900)
   const animSharpe = useCountUp(sharpe * 100,  900)
+  const animYield  = useCountUp(yield_,        900)
 
-  const gainUSD = capital > 0 ? capital * ret  / 100 : 0
-  const ddUSD   = capital > 0 ? capital * metrics.maxDrawdown / 100 : 0
-  const volUSD  = capital > 0 ? capital * vol  / 100 : 0
+  const gainUSD   = capital > 0 ? capital * ret    / 100 : 0
+  const ddUSD     = capital > 0 ? capital * Math.abs(metrics.maxDrawdown) / 100 : 0
+  const volUSD    = capital > 0 ? capital * vol    / 100 : 0
+  const incomeUSD = capital > 0 ? capital * yield_ / 100 : 0
+
+  const MONO = 'monospace'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+      {/* ── 5 cards: las 4 originales + Ingreso Pasivo ───────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+
         <Card
-          icon="📈" label="Retorno Esperado"
+          icon="📈" label="Retorno Proyectado"
           value={`${ret > 0 ? '+' : '-'}${animRet.toFixed(1)}%`}
-          sub={capital > 0 ? fmtUSD(gainUSD) + ' USD / año' : 'Retorno anual proyectado'}
+          sub={capital > 0 ? `${fmtUSD(gainUSD)} USD / año` : 'yield-based, no histórico'}
           subColor={capital > 0 ? retColor : undefined}
           color={retColor}
         />
+
         <Card
-          icon="〰️" label="Volatilidad Anual"
+          icon="〰️" label="Volatilidad (correlac.)"
           value={`${animVol.toFixed(1)}%`}
           sub={capital > 0
-            ? `±${fmtUSD(volUSD).replace('+', '')} · DD: ${fmtUSD(ddUSD)} USD`
-            : `DD máx: ${metrics.maxDrawdown.toFixed(1)}%`}
+            ? `±${fmtUSD(volUSD).replace('+', '')} · DD: -${fmtUSD(ddUSD).replace(/[+-]/g, '')} USD`
+            : `DD estimado: ${metrics.maxDrawdown.toFixed(1)}%`}
           color="#378ADD"
         />
+
         <Card
           icon="⚖️" label="Sharpe Ratio"
           value={(animSharpe / 100).toFixed(2)}
           sub="Mayor = mejor riesgo/retorno"
           color={sharpeColor}
         />
+
+        {/* ── Ingreso Pasivo (dividendos) ──────────────────────────────── */}
+        <div style={{
+          background: '#0b0d14', border: '1px solid #1a1d2e',
+          borderTop: `2px solid ${yieldColor}30`,
+          borderRadius: 10, padding: '16px 20px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 16 }}>💰</span>
+            <span style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Ingreso Pasivo
+            </span>
+          </div>
+          <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 28, letterSpacing: 1, color: yieldColor }}>
+            {animYield.toFixed(1)}% yield
+          </div>
+          {yield_ > 0 ? (
+            <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {capital > 0 && (
+                <div style={{ fontSize: 13, color: yieldColor, fontFamily: MONO, fontWeight: 700 }}>
+                  {fmtUSD(incomeUSD).replace('+', '')} USD / año
+                </div>
+              )}
+              <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO }}>
+                {capital > 0 ? `≈ ${fmtUSD(incomeUSD / 12).replace('+', '')} / mes` : 'dividendos ponderados'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: '#3a3f55', fontFamily: MONO, marginTop: 4 }}>
+              Sin datos de yield
+            </div>
+          )}
+        </div>
+
         <Card
           icon="🌊" label="Score Flujo"
           value=""

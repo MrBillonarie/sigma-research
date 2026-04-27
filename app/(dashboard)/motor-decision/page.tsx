@@ -91,7 +91,7 @@ export default function MotorDecisionPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
         {/* Eyebrow */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
           <div style={{
             width: 8, height: 8, borderRadius: '50%',
             background: '#1D9E75', boxShadow: '0 0 8px #1D9E75',
@@ -99,6 +99,20 @@ export default function MotorDecisionPage() {
           <span style={{ fontSize: 10, color: '#1D9E75', fontFamily: MONO, letterSpacing: 1 }}>
             LIVE — MOTOR DE DECISIÓN
           </span>
+          {data && (() => {
+            const rColor = data.regime === 'risk-on' ? '#1D9E75' : data.regime === 'risk-off' ? '#f87171' : '#7a7f9a'
+            return (
+              <span style={{
+                fontSize: 10, fontFamily: MONO, letterSpacing: 1,
+                padding: '2px 10px', borderRadius: 4,
+                background: `${rColor}18`,
+                color: rColor,
+                border: `1px solid ${rColor}40`,
+              }}>
+                {data.regime === 'risk-on' ? '▲' : data.regime === 'risk-off' ? '▼' : '◆'} {data.regimeLabel}
+              </span>
+            )
+          })()}
         </div>
 
         {/* Title */}
@@ -139,6 +153,12 @@ export default function MotorDecisionPage() {
               📄 Ver Reporte
             </Link>
           )}
+          <Link href="/motor-decision/accuracy" style={{
+            background: 'transparent', border: '1px solid #378ADD40', textDecoration: 'none',
+            borderRadius: 7, padding: '8px 14px', fontSize: 11, fontFamily: MONO, color: '#378ADD',
+          }}>
+            📈 Accuracy
+          </Link>
 
           {data && !loading && (
             <span style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO, marginLeft: 8 }}>

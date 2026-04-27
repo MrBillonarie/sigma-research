@@ -4,10 +4,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
 import {
   processAsset, applyCrossSection, applyCorrelationPenalty,
-  computeFlowSignals, computeFlowScore,
+  computeFlowSignals, computeFlowScore, detectMarketRegime,
 } from '@/lib/signalEngine'
-import { computeAllocation, computeMetrics } from '@/lib/allocator'
-import type { ProfileType, Profile, SignalsResponse, Asset } from '@/types/decision-engine'
+import { computeAllocation, computeMetrics, applyProfileSizing } from '@/lib/allocator'
+import type { ProfileType, Profile, SignalsResponse, Asset, SignalType, MarketRegime } from '@/types/decision-engine'
 
 // ─── Perfiles ─────────────────────────────────────────────────────────────────
 const PROFILES: Record<ProfileType, Profile> = {
@@ -42,27 +42,29 @@ const CRYPTO_TICKERS = [
   { id: 'bnb', name: 'BNB',      ticker: 'BNB', symbol: 'BNBUSDT' },
 ]
 
-async function fetchBinanceReturns(symbol: string): Promise<{ r1m: number; r3m: number; r1y: number }> {
+async function fetchBinanceReturns(symbol: string): Promise<{ r1m: number; r3m: number; r1y: number; price: number }> {
+  const EMPTY = { r1m: 0, r3m: 0, r1y: 0, price: 0 }
   try {
     const res = await fetch(
       `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=365`,
       { next: { revalidate: 300 } }
     )
-    if (!res.ok) return { r1m: 0, r3m: 0, r1y: 0 }
+    if (!res.ok) return EMPTY
     const data: [number, string, string, string, string, ...unknown[]][] = await res.json()
-    if (data.length < 30) return { r1m: 0, r3m: 0, r1y: 0 }
+    if (data.length < 30) return EMPTY
     const closes = data.map(k => parseFloat(k[4]))
     const cur    = closes[closes.length - 1]
     const p30    = closes[Math.max(0, closes.length - 30)]
     const p90    = closes[Math.max(0, closes.length - 90)]
     const p365   = closes[0]
     return {
-      r1m: p30  > 0 ? ((cur - p30)  / p30)  * 100 : 0,
-      r3m: p90  > 0 ? ((cur - p90)  / p90)  * 100 : 0,
-      r1y: p365 > 0 ? ((cur - p365) / p365) * 100 : 0,
+      r1m:   p30  > 0 ? ((cur - p30)  / p30)  * 100 : 0,
+      r3m:   p90  > 0 ? ((cur - p90)  / p90)  * 100 : 0,
+      r1y:   p365 > 0 ? ((cur - p365) / p365) * 100 : 0,
+      price: cur,
     }
   } catch {
-    return { r1m: 0, r3m: 0, r1y: 0 }
+    return EMPTY
   }
 }
 
@@ -75,6 +77,27 @@ const YAHOO_HEADERS = {
 interface YahooData {
   r1m: number; r3m: number; r1y: number
   closes28: number[]   // últimos 28 cierres diarios → RSI Wilder real
+}
+
+// ─── Dividend yields en batch (una sola llamada para todos los tickers) ────────
+// Yahoo Finance v7 quote acepta múltiples símbolos → muy eficiente.
+// Retorna Map<TICKER_UPPER, yield%> p.ej. 'SPY' → 1.3 (= 1.3% anual)
+async function fetchDividendYields(tickers: string[]): Promise<Map<string, number>> {
+  try {
+    const symbols = tickers.slice(0, 120).join(',')
+    const url     = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`
+    const res     = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 } })
+    if (!res.ok) return new Map()
+    const json   = await res.json()
+    const result = new Map<string, number>()
+    for (const q of json?.quoteResponse?.result ?? []) {
+      const y = q.trailingAnnualDividendYield as number | undefined
+      if (y && y > 0) result.set((q.symbol as string).toUpperCase(), Math.round(y * 1000) / 10)
+    }
+    return result
+  } catch {
+    return new Map()
+  }
 }
 
 async function fetchYahooData(ticker: string): Promise<YahooData> {
@@ -165,22 +188,32 @@ function sb() {
   )
 }
 
-// ─── Guardar historial de señales (fire-and-forget, no bloquea response) ──────
-// Permite medir accuracy futura: ¿subió lo que dijimos COMPRAR?
-async function saveSignalHistory(assets: Asset[], profileType: ProfileType, db: ReturnType<typeof sb>) {
+// ─── Guardar historial de señales con contexto completo ───────────────────────
+// Incluye price_at_signal, conditions_met y regime para el ciclo de retroalimentación:
+// 22+ días después /api/motor/accuracy mide si la señal acertó.
+async function saveSignalHistory(
+  assets:      Asset[],
+  profileType: ProfileType,
+  regime:      string,
+  db:          ReturnType<typeof sb>,
+) {
   try {
     const rows = assets
       .filter(a => a.signal === 'comprar' || a.signal === 'reducir')
       .map(a => ({
-        ticker:     a.ticker ?? a.id,
-        name:       a.name,
-        asset_class: a.assetClass,
-        signal:     a.signal,
-        score:      a.score,
-        r1m:        a.return30d,
-        r1y:        a.return1y,
-        profile:    profileType,
-        generated_at: new Date().toISOString(),
+        ticker:           a.ticker ?? a.id,
+        name:             a.name,
+        asset_class:      a.assetClass,
+        signal:           a.signal,
+        score:            a.score,
+        r1m:              a.return30d,
+        r1y:              a.return1y,
+        profile:          profileType,
+        generated_at:     new Date().toISOString(),
+        price_at_signal:  a.priceAtSignal ?? null,
+        conditions_met:   a.conditionsMet,
+        conditions_total: a.conditionsTotal,
+        regime,
       }))
     if (rows.length) await db.from('signal_history').insert(rows)
   } catch {
@@ -209,11 +242,40 @@ export async function GET(req: NextRequest) {
     ...CRYPTO_TICKERS.map(c => fetchBinanceReturns(c.symbol)),
   ])
 
-  // Yahoo: RF + todos los ETFs extra (retornos + closes28 para RSI real)
-  const [rfData, allExtraData] = await Promise.all([
+  // Yahoo: RF + ETFs extra (retornos + closes28) + dividend yields en batch
+  const allYahooTickers = [
+    ...EXTRA_ETFS.map(e => e.ticker),
+    ...RF_BASE.filter(r => r.yahooTicker).map(r => r.yahooTicker!),
+  ]
+  const [rfData, allExtraData, dividendYields] = await Promise.all([
     Promise.all(RF_BASE.map(r => r.yahooTicker ? fetchYahooData(r.yahooTicker) : Promise.resolve(null))),
     Promise.all(EXTRA_ETFS.map(e => fetchYahooData(e.ticker))),
+    fetchDividendYields(allYahooTickers),
   ])
+
+  // ─── Régimen de mercado ───────────────────────────────────────────────────
+  // SPY = índice 0 en EXTRA_ETFS; TLT = índice 0 en RF_BASE (yahooTicker: 'TLT')
+  const spyData = allExtraData[0]
+  const tltData = rfData[0]
+  const regime: MarketRegime = detectMarketRegime(
+    spyData?.closes28 ?? [],
+    spyData?.r1m ?? 0,
+    tltData?.r1m ?? 0,
+  )
+
+  // ─── Señales previas (últimos 7 días) para detectar cambios ──────────────
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: prevRows } = await db
+    .from('signal_history')
+    .select('ticker, signal')
+    .gte('generated_at', sevenDaysAgo)
+    .order('generated_at', { ascending: false })
+  const prevSignalMap = new Map<string, SignalType>()
+  for (const row of (prevRows ?? [])) {
+    if (!prevSignalMap.has(row.ticker)) {
+      prevSignalMap.set(row.ticker, row.signal as SignalType)
+    }
+  }
 
   // Mapa ticker → YahooData (solo si hay datos reales)
   const yahooMap = new Map<string, YahooData>()
@@ -235,22 +297,25 @@ export async function GET(req: NextRequest) {
   // ETFs Supabase con retornos frescos de Yahoo y closes28 para RSI real
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawEtfs = (etfsRes.data ?? []).map((e: any) => {
-    const live = yahooMap.get((e.ticker ?? '').toUpperCase())
+    const tk   = (e.ticker ?? '').toUpperCase()
+    const live = yahooMap.get(tk)
     return {
       id: e.ticker, name: e.nombre, ticker: e.ticker, assetClass: 'etfs' as const,
       category: e.exposicion ?? e.sector ?? 'Global',
-      r1m:      live ? live.r1m     : Number(e.rent_1m  ?? 0),
-      r3m:      live ? live.r3m     : Number(e.rent_3m  ?? 0),
-      r1y:      live ? live.r1y     : Number(e.rent_12m ?? 0),
-      closes28: live ? live.closes28 : undefined,
+      r1m:           live ? live.r1m      : Number(e.rent_1m  ?? 0),
+      r3m:           live ? live.r3m      : Number(e.rent_3m  ?? 0),
+      r1y:           live ? live.r1y      : Number(e.rent_12m ?? 0),
+      closes28:      live ? live.closes28 : undefined,
+      dividendYield: dividendYields.get(tk),
     }
   })
 
   const rawCrypto = CRYPTO_TICKERS.map((c, i) => {
-    const live = cryptoResults[i] as { r1m: number; r3m: number; r1y: number }
+    const live = cryptoResults[i] as { r1m: number; r3m: number; r1y: number; price: number }
     return {
       id: c.id, name: c.name, ticker: c.ticker, assetClass: 'crypto' as const,
       r1m: live.r1m, r3m: live.r3m, r1y: live.r1y,
+      priceAtSignal: live.price > 0 ? live.price : undefined,
     }
   })
 
@@ -259,10 +324,11 @@ export async function GET(req: NextRequest) {
     const has  = live && (live.r1m !== 0 || live.r3m !== 0 || live.r1y !== 0)
     return {
       id: r.id, name: r.name, ticker: r.ticker, assetClass: 'renta_fija' as const,
-      r1m:      has ? live!.r1m      : r.r1m,
-      r3m:      has ? live!.r3m      : r.r3m,
-      r1y:      has ? live!.r1y      : r.r1y,
-      closes28: has ? live!.closes28 : undefined,
+      r1m:           has ? live!.r1m      : r.r1m,
+      r3m:           has ? live!.r3m      : r.r3m,
+      r1y:           has ? live!.r1y      : r.r1y,
+      closes28:      has ? live!.closes28 : undefined,
+      dividendYield: r.ticker ? dividendYields.get(r.ticker.toUpperCase()) : undefined,
     }
   })
 
@@ -278,24 +344,42 @@ export async function GET(req: NextRequest) {
       return {
         id: e.id, name: e.name, ticker: e.ticker, assetClass: 'etfs' as const,
         category: e.category, r1m: d.r1m, r3m: d.r3m, r1y: d.r1y, closes28: d.closes28,
+        dividendYield: dividendYields.get(e.ticker.toUpperCase()),
       }
     })
     .filter((e): e is NonNullable<typeof e> => e !== null)
 
-  // Pipeline: procesar → cross-section → penalización correlación
-  const allAssets = applyCorrelationPenalty(
+  // Pipeline: procesar (con régimen) → cross-section → penalización correlación
+  const pipeline = applyCorrelationPenalty(
     applyCrossSection(
-      [...rawFondos, ...rawEtfs, ...rawExtraEtfs, ...rawCrypto, ...rawRF].map(processAsset)
+      [...rawFondos, ...rawEtfs, ...rawExtraEtfs, ...rawCrypto, ...rawRF]
+        .map(raw => processAsset(raw, regime))
     )
   )
+
+  // Marcar activos cuya señal cambió + aplicar sizing ajustado por perfil
+  const allAssets: Asset[] = pipeline.map(a => {
+    const tk      = a.ticker ?? a.id
+    const prev    = prevSignalMap.get(tk)
+    const changed = prev && prev !== a.signal
+      ? { signalChanged: true as const, prevSignal: prev }
+      : {}
+    return applyProfileSizing({ ...a, ...changed }, profile)
+  })
 
   const allocation  = computeAllocation(allAssets, profile)
   const metrics     = computeMetrics(allocation, allAssets)
   const flowSignals = computeFlowSignals(allAssets)
   const flowScore   = computeFlowScore(allAssets)
 
-  // Guardar señales BUY/SELL en historial (async, no bloquea)
-  saveSignalHistory(allAssets, profileType, db)
+  // Guardar señales BUY/SELL en historial con contexto completo (async, no bloquea)
+  saveSignalHistory(allAssets, profileType, regime, db)
+
+  const REGIME_LABELS: Record<MarketRegime, string> = {
+    'risk-on':  'Risk-On',
+    'risk-off': 'Risk-Off',
+    'neutral':  'Neutral',
+  }
 
   const body: SignalsResponse = {
     ok: true, profile, signals: allAssets,
@@ -305,6 +389,8 @@ export async function GET(req: NextRequest) {
     sellCount:   allAssets.filter(a => a.signal === 'reducir').length,
     holdCount:   allAssets.filter(a => a.signal === 'mantener' || a.signal === 'neutral').length,
     generatedAt: new Date().toISOString(),
+    regime,
+    regimeLabel: REGIME_LABELS[regime],
   }
 
   return NextResponse.json(body)
