@@ -8,6 +8,7 @@ const DASHBOARD_ROUTES = [
   '/montecarlo', '/fire', '/modelos', '/mis-reportes',
   '/lp-defi', '/lp-signal', '/perfil', '/diagnosticador',
   '/ingresos-pasivos', '/portfolio', '/tax', '/notificaciones',
+  '/comparador',
 ]
 
 export default function ConditionalShell({ children }: { children: React.ReactNode }) {
