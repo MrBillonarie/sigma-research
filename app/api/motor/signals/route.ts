@@ -2,7 +2,7 @@ export const revalidate = 300  // C: cache 5 min — antes era 0 (sin cache)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
-import { processAsset, computeFlowSignals, computeFlowScore } from '@/lib/signalEngine'
+import { processAsset, applyCrossSection, computeFlowSignals, computeFlowScore } from '@/lib/signalEngine'
 import { computeAllocation, computeMetrics }                  from '@/lib/allocator'
 import type { ProfileType, Profile, SignalsResponse }          from '@/types/decision-engine'
 
@@ -179,7 +179,9 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const allAssets = [...rawFondos, ...rawEtfs, ...rawCrypto, ...rawRF].map(processAsset)
+  const allAssets = applyCrossSection(
+    [...rawFondos, ...rawEtfs, ...rawCrypto, ...rawRF].map(processAsset)
+  )
 
   const allocation  = computeAllocation(allAssets, profile)
   const metrics     = computeMetrics(allocation, allAssets)
