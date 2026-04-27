@@ -97,10 +97,10 @@ export async function GET() {
     const cryptoRows = pending.filter(r => r.asset_class === 'crypto')
 
     // Fetch precios actuales en paralelo
-    const etfTickers   = [...new Set(etfRows.map(r => r.ticker.toUpperCase()))]
+    const etfTickers   = Array.from(new Set(etfRows.map(r => r.ticker.toUpperCase())))
     const priceMap     = await fetchCurrentPrices(etfTickers)
 
-    const cryptoUniq   = [...new Set(cryptoRows.map(r => r.ticker.toUpperCase()))]
+    const cryptoUniq   = Array.from(new Set(cryptoRows.map(r => r.ticker.toUpperCase())))
     await Promise.all(cryptoUniq.map(async tk => {
       const p = await fetchCryptoPrice(tk)
       if (p > 0) priceMap.set(tk, p)

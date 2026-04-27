@@ -130,7 +130,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
         .forEach(a => ids.add(a.id))
     }
     return ids
-  }, [assets, showAll])
+  }, [assets])
 
   // Score total solo entre los picks seleccionados
   const classBuyScores = useMemo(() => {
