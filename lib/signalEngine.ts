@@ -23,6 +23,17 @@ function realRSI(closes: number[]): number {
   return Math.round(100 - 100 / (1 + avgGain / avgLoss))
 }
 
+// ─── Volatilidad real anualizada desde cierres diarios ───────────────────────
+// std(daily_returns) * sqrt(252) * 100 → porcentaje anualizado
+// Con closes28 tenemos 27 retornos → estimación razonable
+export function realVolatility(closes: number[]): number {
+  if (closes.length < 10) return -1
+  const rets = closes.slice(1).map((c, i) => (c - closes[i]) / closes[i])
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length
+  const variance = rets.reduce((s, r) => s + (r - mean) ** 2, 0) / (rets.length - 1)
+  return Math.round(Math.sqrt(variance * 252) * 100 * 100) / 100
+}
+
 // ─── RSI aproximado con tanh (fallback cuando no hay precio histórico) ────────
 function simRSI(r1m: number): number {
   return Math.round(50 + 45 * Math.tanh(r1m / 8))
@@ -103,7 +114,9 @@ export function processAsset(raw: RawAsset): Asset {
   const rsi      = rsiReal >= 0 ? rsiReal : simRSI(raw.r1m)
   const netFlow  = simNetFlow(raw.r1m, raw.r3m)
   const mom      = simMomentum(raw.r1m, raw.r3m, raw.r1y)
-  const vol      = simVolatility(raw.r1m, raw.r3m, raw.r1y, raw.assetClass)
+  // Volatilidad real si hay cierres históricos, si no proxy por clase
+  const volReal  = raw.closes28 && raw.closes28.length >= 10 ? realVolatility(raw.closes28) : -1
+  const vol      = volReal >= 0 ? volReal : simVolatility(raw.r1m, raw.r3m, raw.r1y, raw.assetClass)
   const consist  = timeframeConsistency(raw.r1m, raw.r3m, raw.r1y)
   const signal   = getSignal(rsi, netFlow, raw.r1m, mom, consist)
   const score    = calcScore(rsi, netFlow, mom, raw.r1m, raw.r1y, vol, consist)

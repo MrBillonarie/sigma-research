@@ -194,13 +194,24 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
   const ddUSD       = capital > 0 ? capital * metrics.maxDrawdown / 100 : 0
   const volUSD      = capital > 0 ? capital * vol  / 100 : 0
 
-  // Proyecciones con interés compuesto
-  const rate = ret / 100
-  const proj1 = capital > 0 ? capital * Math.pow(1 + rate, 1) - capital : 0
-  const proj3 = capital > 0 ? capital * Math.pow(1 + rate, 3) - capital : 0
-  const proj5 = capital > 0 ? capital * Math.pow(1 + rate, 5) - capital : 0
+  // Tres escenarios: base=ret, optimista=ret+vol, pesimista=ret-vol
+  const MONO     = 'monospace'
+  const BEBAS    = "'Bebas Neue', Impact, sans-serif"
 
-  const MONO = 'monospace'
+  function compound(r: number, years: number) {
+    return capital > 0 ? capital * Math.pow(1 + r / 100, years) - capital : 0
+  }
+
+  const scenarios = [
+    { key: 'opt', label: 'Optimista', icon: '⬆', rate: ret + vol,  color: '#1D9E75' },
+    { key: 'base',label: 'Base',      icon: '→', rate: ret,         color: '#d4af37' },
+    { key: 'pes', label: 'Pesimista', icon: '⬇', rate: ret - vol,  color: '#f87171' },
+  ]
+  const horizons = [
+    { label: '1 año',  years: 1 },
+    { label: '3 años', years: 3 },
+    { label: '5 años', years: 5 },
+  ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -235,33 +246,70 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
         />
       </div>
 
-      {/* ── Proyecciones compuestas ────────────────────────────────────── */}
+      {/* ── Proyecciones con tres escenarios ──────────────────────────── */}
       {capital > 0 && (
         <div style={{
           background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10,
-          padding: '14px 20px', display: 'grid',
-          gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: '0 24px', alignItems: 'center',
+          overflow: 'hidden',
         }}>
-          <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, textTransform: 'uppercase', paddingRight: 24, borderRight: '1px solid #1a1d2e' }}>
-            Proyección<br />compuesta
+          {/* Header de columnas */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '140px 1fr 1fr 1fr',
+            background: '#04050a', borderBottom: '1px solid #1a1d2e',
+            padding: '8px 20px',
+          }}>
+            <div style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO, letterSpacing: 1, textTransform: 'uppercase' }}>
+              Escenario · Retorno
+            </div>
+            {horizons.map(h => (
+              <div key={h.label} style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'right' }}>
+                {h.label.toUpperCase()}
+              </div>
+            ))}
           </div>
-          {[
-            { label: '1 año',  gain: proj1, total: capital + proj1 },
-            { label: '3 años', gain: proj3, total: capital + proj3 },
-            { label: '5 años', gain: proj5, total: capital + proj5 },
-          ].map(({ label, gain, total }) => (
-            <div key={label} style={{ paddingLeft: 8 }}>
-              <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, marginBottom: 4 }}>
-                {label.toUpperCase()}
+
+          {/* Filas de escenarios */}
+          {scenarios.map((sc, si) => (
+            <div key={sc.key} style={{
+              display: 'grid', gridTemplateColumns: '140px 1fr 1fr 1fr',
+              padding: '12px 20px',
+              borderBottom: si < scenarios.length - 1 ? '1px solid #0d0f1a' : 'none',
+              background: sc.key === 'base' ? 'rgba(212,175,55,0.04)' : 'transparent',
+            }}>
+              {/* Etiqueta de escenario */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <div style={{ fontSize: 11, color: sc.color, fontFamily: MONO, fontWeight: 700 }}>
+                  {sc.icon} {sc.label}
+                </div>
+                <div style={{ fontSize: 9, color: '#3a3f55', fontFamily: MONO, marginTop: 2 }}>
+                  {sc.rate > 0 ? '+' : ''}{sc.rate.toFixed(1)}% anual
+                </div>
               </div>
-              <div style={{ fontSize: 20, fontFamily: "'Bebas Neue', Impact, sans-serif", color: gain >= 0 ? '#1D9E75' : '#f87171', letterSpacing: 1 }}>
-                {fmtUSD(gain)} USD
-              </div>
-              <div style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO }}>
-                total: ${Math.round(total).toLocaleString('en-US')}
-              </div>
+
+              {/* Celdas de ganancia por horizonte */}
+              {horizons.map(h => {
+                const gain  = compound(sc.rate, h.years)
+                const total = capital + gain
+                return (
+                  <div key={h.label} style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 18, fontFamily: BEBAS, letterSpacing: 1, color: gain >= 0 ? sc.color : '#f87171' }}>
+                      {fmtUSD(gain)} USD
+                    </div>
+                    <div style={{ fontSize: 9, color: '#3a3f55', fontFamily: MONO, marginTop: 1 }}>
+                      total ${Math.round(total).toLocaleString('en-US')}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           ))}
+
+          {/* Nota al pie */}
+          <div style={{ padding: '8px 20px', borderTop: '1px solid #0d0f1a' }}>
+            <span style={{ fontSize: 9, color: '#3a3f55', fontFamily: MONO }}>
+              Base = retorno esperado · Optimista = base + volatilidad · Pesimista = base − volatilidad · Interés compuesto anual
+            </span>
+          </div>
         </div>
       )}
     </div>
