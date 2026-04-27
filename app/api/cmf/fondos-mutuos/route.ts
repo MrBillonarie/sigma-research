@@ -5,6 +5,17 @@ import { createClient } from '@supabase/supabase-js'
 
 const PER_PAGE = 50
 
+interface FondoRow {
+  nombre: string
+  categoria: string | null
+  rent_1m:  number | null
+  rent_3m:  number | null
+  rent_12m: number | null
+  rent_3a:  number | null
+  tac:      number | null
+  agf:      { nombre: string } | null
+}
+
 function sb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,8 +83,7 @@ export async function GET(req: NextRequest) {
 
   // ── CSV export ────────────────────────────────────────────────────────────
   if (exportAll) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows = (data ?? []).map((f: any) => ({
+    const rows = (data ?? []).map((f: FondoRow) => ({
       nombre:  f.nombre,
       adm:     (f.agf as { nombre: string } | null)?.nombre ?? '',
       tipo:    f.categoria ?? '',
@@ -124,9 +134,8 @@ export async function GET(req: NextRequest) {
         .maybeSingle()
     )
   )
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const topPorCategoria = CATEGORIAS.map((cat, i) => {
-    const row = topResults[i].data as any
+    const row = topResults[i].data as FondoRow | null
     return {
       categoria: cat,
       nombre:    row?.nombre ?? null,
@@ -135,8 +144,7 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fondos = (data ?? []).map((f: any) => ({
+  const fondos = (data ?? []).map((f: FondoRow) => ({
     nombre: f.nombre,
     adm:    (f.agf as { nombre: string } | null)?.nombre ?? '',
     tipo:   f.categoria ?? 'moderado',
@@ -155,8 +163,7 @@ export async function GET(req: NextRequest) {
     ok: true, data: fondos, total, page,
     pages: Math.ceil(total / PER_PAGE),
     liveCount: fondos.length,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    agfs: (agfList ?? []).map((a: any) => a.nombre),
+    agfs: (agfList ?? []).map((a: { nombre: string }) => a.nombre),
     ultima_actualizacion: lastRow?.updated_at ?? null,
     topPorCategoria,
   })
