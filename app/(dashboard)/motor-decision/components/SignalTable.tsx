@@ -142,7 +142,7 @@ export default function SignalTable({ assets }: Props) {
         {/* Filtro clase */}
         <select
           value={classFilter}
-          onChange={e => { setClassFilter(e.target.value as any); setPage(1) }}
+          onChange={e => { setClassFilter(e.target.value as AssetClass | 'all'); setPage(1) }}
           style={{
             background: '#04050a', border: '1px solid #1a1d2e',
             borderRadius: 6, padding: '5px 10px', color: '#e8e9f0',
@@ -159,7 +159,7 @@ export default function SignalTable({ assets }: Props) {
         {/* Filtro señal */}
         <select
           value={signalFilter}
-          onChange={e => { setSignalFilter(e.target.value as any); setPage(1) }}
+          onChange={e => { setSignalFilter(e.target.value as SignalType | 'all'); setPage(1) }}
           style={{
             background: '#04050a', border: '1px solid #1a1d2e',
             borderRadius: 6, padding: '5px 10px', color: '#e8e9f0',

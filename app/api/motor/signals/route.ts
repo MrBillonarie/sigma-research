@@ -7,7 +7,7 @@ import { computeAllocation, computeMetrics }                  from '@/lib/alloca
 import type { ProfileType, Profile, SignalsResponse }          from '@/types/decision-engine'
 
 // ─── Perfiles ─────────────────────────────────────────────────────────────────
-export const PROFILES: Record<ProfileType, Profile> = {
+const PROFILES: Record<ProfileType, Profile> = {
   retail: {
     type: 'retail', label: 'Retail',
     maxCrypto: 5, maxEquity: 70, minFixedIncome: 20,
@@ -76,6 +76,7 @@ export async function GET(req: NextRequest) {
       .limit(40),
   ])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawFondos = (fondosRes.data ?? []).map((f: any) => ({
     id: f.id, name: f.nombre, assetClass: 'fondos' as const,
     category: f.categoria ?? 'General',
@@ -84,6 +85,7 @@ export async function GET(req: NextRequest) {
     r1y: Number(f.rent_12m ?? 0),
   }))
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawEtfs = (etfsRes.data ?? []).map((e: any) => ({
     id: e.ticker, name: e.nombre, ticker: e.ticker, assetClass: 'etfs' as const,
     category: e.exposicion ?? e.sector ?? 'Global',

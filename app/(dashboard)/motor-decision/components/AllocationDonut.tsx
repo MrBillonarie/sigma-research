@@ -49,6 +49,7 @@ export default function AllocationDonut({ allocation, metrics }: Props) {
       legend: { display: false },
       tooltip: {
         callbacks: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           label: (ctx: any) => ` ${ctx.label}: ${ctx.parsed}%`,
         },
         backgroundColor: '#0b0d14',
@@ -75,6 +76,7 @@ export default function AllocationDonut({ allocation, metrics }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
         {/* Donut */}
         <div style={{ width: 180, height: 180, position: 'relative', flexShrink: 0 }}>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <Doughnut data={data} options={options as any} />
           <div style={{
             position: 'absolute', top: '50%', left: '50%',

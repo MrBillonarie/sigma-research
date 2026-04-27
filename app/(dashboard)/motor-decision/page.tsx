@@ -30,8 +30,6 @@ export default function MotorDecisionPage() {
   const [data,     setData]     = useState<SignalsResponse | null>(null)
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
-  const [showReport, setShowReport] = useState(false)
-
   // Cargar perfil guardado
   useEffect(() => {
     try {
@@ -50,8 +48,8 @@ export default function MotorDecisionPage() {
       if (!res.ok) throw new Error('Error del servidor')
       const json = await res.json() as SignalsResponse
       setData(json)
-    } catch (e: any) {
-      setError(e.message ?? 'Error desconocido')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error desconocido')
     } finally {
       setLoading(false)
     }

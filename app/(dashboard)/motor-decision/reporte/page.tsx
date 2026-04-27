@@ -36,8 +36,8 @@ export default function ReportePage() {
           data.flowScore,
         )
         setReport(rep)
-      } catch (e: any) {
-        setError(e.message ?? 'Error desconocido')
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error desconocido')
       } finally {
         setLoading(false)
       }

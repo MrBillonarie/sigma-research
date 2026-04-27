@@ -3,16 +3,6 @@ import type {
   PortfolioMetrics, FlowSignal, TopMove, SignalType,
 } from '@/types/decision-engine'
 
-const SIGNAL_ES: Record<SignalType, string> = {
-  comprar:  'COMPRAR',
-  mantener: 'MANTENER',
-  reducir:  'REDUCIR',
-  neutral:  'NEUTRAL',
-}
-
-const CLASS_ES: Record<string, string> = {
-  fondos: 'Fondo Mutuo', etfs: 'ETF', renta_fija: 'Renta Fija', crypto: 'Crypto',
-}
 
 function buildReason(a: Asset): string {
   if (a.signal === 'comprar') {

@@ -279,7 +279,6 @@ export default function AdminDashboard() {
     setModelos(prev => prev.map(m => m.tag === tag ? { ...m, activo: !m.activo } : m))
   }
 
-  const confirmedCount  = users.filter(u => u.confirmed).length
   const proCount        = users.filter(u => u.plan === 'pro').length
   const pendingTickets  = tickets.filter(t => t.status === 'pendiente').length
 
