@@ -92,6 +92,26 @@ async function fetchYahooReturns(ticker: string): Promise<{ r1m: number; r3m: nu
   }
 }
 
+// ─── C: ETFs globales adicionales vía Yahoo Finance ──────────────────────────
+// Se deduplicarán contra los ETFs que ya estén en Supabase por ticker
+const EXTRA_ETFS = [
+  { id: 'spy',  name: 'S&P 500 ETF',           ticker: 'SPY',  category: 'Renta Variable USA' },
+  { id: 'qqq',  name: 'Nasdaq 100 ETF',         ticker: 'QQQ',  category: 'Tecnología USA'     },
+  { id: 'vti',  name: 'Mercado Total USA',       ticker: 'VTI',  category: 'Renta Variable USA' },
+  { id: 'vea',  name: 'Mercados Desarrollados',  ticker: 'VEA',  category: 'Internacional'      },
+  { id: 'vwo',  name: 'Mercados Emergentes',     ticker: 'VWO',  category: 'Emergentes'         },
+  { id: 'gld',  name: 'Oro SPDR ETF',            ticker: 'GLD',  category: 'Commodities'        },
+  { id: 'xlk',  name: 'Tecnología S&P ETF',      ticker: 'XLK',  category: 'Sector Tecnología'  },
+  { id: 'xle',  name: 'Energía S&P ETF',         ticker: 'XLE',  category: 'Sector Energía'     },
+  { id: 'xlv',  name: 'Salud S&P ETF',           ticker: 'XLV',  category: 'Sector Salud'       },
+  { id: 'xlf',  name: 'Finanzas S&P ETF',        ticker: 'XLF',  category: 'Sector Finanzas'    },
+  { id: 'soxx', name: 'Semiconductores ETF',      ticker: 'SOXX', category: 'Semicond.'          },
+  { id: 'vnq',  name: 'Real Estate USA ETF',      ticker: 'VNQ',  category: 'Real Estate'        },
+  { id: 'ewz',  name: 'Brasil ETF iShares',       ticker: 'EWZ',  category: 'Latinoamérica'      },
+  { id: 'iwm',  name: 'Russell 2000 ETF',         ticker: 'IWM',  category: 'Small Cap USA'      },
+  { id: 'arkk', name: 'ARK Innovation ETF',       ticker: 'ARKK', category: 'Innovación'         },
+]
+
 // Instrumentos de renta fija: TLT + LQD vía Yahoo; BTP y PDBC con fallback estático
 const RF_BASE = [
   { id: 'tbond-10y', name: 'T-Bond USA 10 años',   ticker: 'TLT',  yahooTicker: 'TLT',  r1m: 0.8,  r3m: -1.4, r1y: 4.4 },
@@ -132,10 +152,16 @@ export async function GET(req: NextRequest) {
     ...CRYPTO_TICKERS.map(c => fetchBinanceReturns(c.symbol)),
   ])
 
-  // B: fetch RF returns live from Yahoo (only for those with yahooTicker)
-  const rfReturns = await Promise.all(
-    RF_BASE.map(r => r.yahooTicker ? fetchYahooReturns(r.yahooTicker) : Promise.resolve(null))
+  // B: fetch RF + extra ETFs live from Yahoo in parallel
+  const supabaseTickers = new Set(
+    (etfsRes.data ?? []).map((e: { ticker: string }) => e.ticker?.toUpperCase()).filter(Boolean)
   )
+  const etfsToFetch = EXTRA_ETFS.filter(e => !supabaseTickers.has(e.ticker.toUpperCase()))
+
+  const [rfReturns, extraEtfReturns] = await Promise.all([
+    Promise.all(RF_BASE.map(r => r.yahooTicker ? fetchYahooReturns(r.yahooTicker) : Promise.resolve(null))),
+    Promise.all(etfsToFetch.map(e => fetchYahooReturns(e.ticker))),
+  ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawFondos = (fondosRes.data ?? []).map((f: any) => ({
@@ -179,8 +205,18 @@ export async function GET(req: NextRequest) {
     }
   })
 
+  const rawExtraEtfs = etfsToFetch
+    .map((e, i) => ({
+      id: e.id, name: e.name, ticker: e.ticker, assetClass: 'etfs' as const,
+      category: e.category,
+      r1m: extraEtfReturns[i].r1m,
+      r3m: extraEtfReturns[i].r3m,
+      r1y: extraEtfReturns[i].r1y,
+    }))
+    .filter(e => e.r1m !== 0 || e.r3m !== 0 || e.r1y !== 0)
+
   const allAssets = applyCrossSection(
-    [...rawFondos, ...rawEtfs, ...rawCrypto, ...rawRF].map(processAsset)
+    [...rawFondos, ...rawEtfs, ...rawExtraEtfs, ...rawCrypto, ...rawRF].map(processAsset)
   )
 
   const allocation  = computeAllocation(allAssets, profile)

@@ -21,12 +21,25 @@ const LABELS = {
   crypto:     'Crypto',
 }
 
+function fmt(n: number, cur: 'CLP' | 'USD'): string {
+  if (cur === 'CLP') {
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000)     return `$${Math.round(n / 1_000)}K`
+    return `$${Math.round(n).toLocaleString('es-CL')}`
+  }
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(1)}K`
+  return `$${n.toFixed(0)}`
+}
+
 interface Props {
   allocation: Allocation
   metrics:    PortfolioMetrics
+  capital?:   number
+  currency?:  'CLP' | 'USD'
 }
 
-export default function AllocationDonut({ allocation, metrics }: Props) {
+export default function AllocationDonut({ allocation, metrics, capital = 0, currency = 'CLP' }: Props) {
   const keys   = Object.keys(allocation) as (keyof Allocation)[]
   const values = keys.map(k => allocation[k])
   const colors = keys.map(k => COLORS[k])
@@ -50,7 +63,14 @@ export default function AllocationDonut({ allocation, metrics }: Props) {
       tooltip: {
         callbacks: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          label: (ctx: any) => ` ${ctx.label}: ${ctx.parsed}%`,
+          label: (ctx: any) => {
+            const pct = `${ctx.label}: ${ctx.parsed}%`
+            if (capital > 0) {
+              const amount = fmt(capital * ctx.parsed / 100, currency)
+              return ` ${pct} = ${amount}`
+            }
+            return ` ${pct}`
+          },
         },
         backgroundColor: '#0b0d14',
         borderColor:     '#1a1d2e',
@@ -71,6 +91,11 @@ export default function AllocationDonut({ allocation, metrics }: Props) {
         fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase',
       }}>
         ASIGNACIÓN ÓPTIMA
+        {capital > 0 && (
+          <span style={{ marginLeft: 8, color: '#1D9E75' }}>
+            · {fmt(capital, currency)} total
+          </span>
+        )}
       </h3>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
@@ -94,26 +119,31 @@ export default function AllocationDonut({ allocation, metrics }: Props) {
 
         {/* Leyenda */}
         <div style={{ flex: 1, minWidth: 160 }}>
-          {keys.map(k => (
-            <div key={k} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              marginBottom: 10,
-            }}>
-              <div style={{
-                width: 10, height: 10, borderRadius: 2,
-                background: COLORS[k], flexShrink: 0,
-              }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, color: '#e8e9f0' }}>{LABELS[k]}</div>
+          {keys.map(k => {
+            const amount = capital > 0 ? capital * allocation[k] / 100 : 0
+            return (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <div style={{
+                  width: 10, height: 10, borderRadius: 2,
+                  background: COLORS[k], flexShrink: 0,
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: '#e8e9f0' }}>{LABELS[k]}</div>
+                  {capital > 0 && (
+                    <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: 'monospace' }}>
+                      {fmt(amount, currency)}
+                    </div>
+                  )}
+                </div>
+                <div style={{
+                  fontSize: 18, fontFamily: "'Bebas Neue', Impact, sans-serif",
+                  color: COLORS[k], minWidth: 42, textAlign: 'right',
+                }}>
+                  {allocation[k]}%
+                </div>
               </div>
-              <div style={{
-                fontSize: 18, fontFamily: "'Bebas Neue', Impact, sans-serif",
-                color: COLORS[k], minWidth: 42, textAlign: 'right',
-              }}>
-                {allocation[k]}%
-              </div>
-            </div>
-          ))}
+            )
+          })}
           <div style={{
             marginTop: 12, paddingTop: 12,
             borderTop: '1px solid #1a1d2e',

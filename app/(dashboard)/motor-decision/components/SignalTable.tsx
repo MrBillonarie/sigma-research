@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
-import type { Asset, AssetClass, SignalType } from '@/types/decision-engine'
+import type { Asset, AssetClass, SignalType, Allocation } from '@/types/decision-engine'
 
 const SIGNAL_CFG: Record<SignalType, { label: string; color: string; bg: string }> = {
   comprar:  { label: 'COMPRAR',  color: '#1D9E75', bg: 'rgba(29,158,117,0.12)'  },
@@ -19,6 +19,17 @@ const CLASS_ICON: Record<AssetClass, string> = {
   fondos: '🏦', etfs: '📊', renta_fija: '🏛️', crypto: '₿',
 }
 const CLASS_ORDER: AssetClass[] = ['fondos', 'etfs', 'renta_fija', 'crypto']
+
+function fmt(n: number, cur: 'CLP' | 'USD'): string {
+  if (cur === 'CLP') {
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000)     return `$${Math.round(n / 1_000)}K`
+    return `$${Math.round(n).toLocaleString('es-CL')}`
+  }
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(1)}K`
+  return `$${n.toFixed(0)}`
+}
 
 function SignalBadge({ signal }: { signal: SignalType }) {
   const c = SIGNAL_CFG[signal]
@@ -48,10 +59,15 @@ function ScoreBar({ score }: { score: number }) {
   )
 }
 
-interface Props { assets: Asset[] }
+interface Props {
+  assets:     Asset[]
+  capital?:   number
+  currency?:  'CLP' | 'USD'
+  allocation?: Allocation
+}
 type SortKey = 'name' | 'score' | 'return30d' | 'return1y' | 'rsi' | 'netFlow'
 
-export default function SignalTable({ assets }: Props) {
+export default function SignalTable({ assets, capital = 0, currency = 'CLP', allocation }: Props) {
   const [classFilter,  setClassFilter]  = useState<AssetClass | 'all'>('all')
   const [signalFilter, setSignalFilter] = useState<SignalType | 'all'>('all')
   const [search,       setSearch]       = useState('')
@@ -61,9 +77,30 @@ export default function SignalTable({ assets }: Props) {
   const [grouped,      setGrouped]      = useState(false)
   const PER_PAGE = 15
 
+  const showMonto = capital > 0 && !!allocation
+  const numCols   = showMonto ? 9 : 8
+
+  // Precompute total comprar score per class for proportional distribution
+  const classBuyScores = useMemo(() => {
+    const map = new Map<AssetClass, number>()
+    for (const cls of CLASS_ORDER) {
+      const total = assets
+        .filter(a => a.assetClass === cls && a.signal === 'comprar')
+        .reduce((s, a) => s + a.score, 0)
+      map.set(cls, total)
+    }
+    return map
+  }, [assets])
+
+  function suggestedAmount(a: Asset): number {
+    if (!showMonto || a.signal !== 'comprar' || !allocation) return 0
+    const classAmount = capital * (allocation[a.assetClass] / 100)
+    const totalScore  = classBuyScores.get(a.assetClass) || 1
+    return classAmount * (a.score / totalScore)
+  }
+
   const hasFilters = classFilter !== 'all' || signalFilter !== 'all' || search !== ''
 
-  // K: signal counts from full filtered set
   const signalCounts = useMemo(() => {
     let r = assets
     if (classFilter !== 'all')  r = r.filter(a => a.assetClass === classFilter)
@@ -93,7 +130,6 @@ export default function SignalTable({ assets }: Props) {
     return r
   }, [assets, classFilter, signalFilter, search, sortKey, sortDesc])
 
-  // G: grouped by asset class
   const groupedData = useMemo(() => {
     if (!grouped) return null
     return CLASS_ORDER.map(cls => ({
@@ -111,7 +147,6 @@ export default function SignalTable({ assets }: Props) {
     setPage(1)
   }
 
-  // H: clear all filters
   function clearFilters() {
     setClassFilter('all'); setSignalFilter('all'); setSearch(''); setPage(1)
   }
@@ -129,6 +164,7 @@ export default function SignalTable({ assets }: Props) {
   )
 
   function RowEl({ a, i }: { a: Asset; i: number }) {
+    const monto = suggestedAmount(a)
     return (
       <tr
         style={{ borderBottom: '1px solid #0d0f1a', background: i % 2 === 0 ? 'transparent' : '#04050a22', transition: 'background 0.15s' }}
@@ -152,6 +188,17 @@ export default function SignalTable({ assets }: Props) {
           {a.rsi.toFixed(0)}
         </td>
         <td style={{ padding: '8px 12px' }}><Pct v={a.netFlow} /></td>
+        {showMonto && (
+          <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+            {monto > 0 ? (
+              <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>
+                {fmt(monto, currency)}
+              </span>
+            ) : (
+              <span style={{ color: '#3a3f55', fontSize: 11, fontFamily: 'monospace' }}>—</span>
+            )}
+          </td>
+        )}
       </tr>
     )
   }
@@ -162,7 +209,6 @@ export default function SignalTable({ assets }: Props) {
       {/* ── Filtros ────────────────────────────────────────────────────────── */}
       <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a1d2e', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
 
-        {/* K: Signal count badges */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginRight: 4 }}>
           <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7a7f9a', letterSpacing: '0.1em' }}>SEÑALES</span>
           {[
@@ -181,18 +227,15 @@ export default function SignalTable({ assets }: Props) {
           ))}
         </div>
 
-        {/* Search */}
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Buscar activo…"
           style={{ background: '#04050a', border: '1px solid #1a1d2e', borderRadius: 6, padding: '5px 10px', color: '#e8e9f0', fontSize: 12, fontFamily: 'monospace', width: 150, outline: 'none' }} />
 
-        {/* Class filter */}
         <select value={classFilter} onChange={e => { setClassFilter(e.target.value as AssetClass | 'all'); setPage(1) }}
           style={{ background: '#04050a', border: '1px solid #1a1d2e', borderRadius: 6, padding: '5px 10px', color: classFilter !== 'all' ? CLASS_COLOR[classFilter as AssetClass] : '#e8e9f0', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', outline: 'none' }}>
           <option value="all">Todos los activos</option>
           {CLASS_ORDER.map(c => <option key={c} value={c}>{CLASS_LABEL[c]}</option>)}
         </select>
 
-        {/* G: Toggle agrupado */}
         <button onClick={() => setGrouped(g => !g)} style={{
           background: grouped ? '#1a1d2e' : 'transparent', border: '1px solid #1a1d2e',
           borderRadius: 6, padding: '5px 10px', color: grouped ? '#e8e9f0' : '#7a7f9a',
@@ -201,7 +244,6 @@ export default function SignalTable({ assets }: Props) {
           {grouped ? '≡ Agrupado' : '≡ Agrupar'}
         </button>
 
-        {/* H: Clear filters */}
         {hasFilters && (
           <button onClick={clearFilters} style={{
             background: 'transparent', border: '1px solid #f87171', borderRadius: 6,
@@ -229,15 +271,15 @@ export default function SignalTable({ assets }: Props) {
               <TH label="Ret. 1A"   k="return1y"  />
               <TH label="RSI"       k="rsi"       />
               <TH label="Flujo"     k="netFlow"   />
+              {showMonto && <TH label="Monto sugerido" />}
             </tr>
           </thead>
           <tbody>
-            {/* G: Grouped view */}
             {grouped && groupedData ? (
               groupedData.map(({ cls, items }) => (
                 <>
                   <tr key={`hdr-${cls}`}>
-                    <td colSpan={8} style={{
+                    <td colSpan={numCols} style={{
                       padding: '8px 12px 6px', background: '#04050a',
                       borderBottom: `1px solid ${CLASS_COLOR[cls]}40`,
                       borderTop: '1px solid #1a1d2e',
@@ -251,12 +293,11 @@ export default function SignalTable({ assets }: Props) {
                 </>
               ))
             ) : (
-              /* Paginated flat view */
               visible.map((a, i) => <RowEl key={a.id} a={a} i={i} />)
             )}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: '30px', textAlign: 'center', color: '#3a3f55', fontFamily: 'monospace', fontSize: 13 }}>
+                <td colSpan={numCols} style={{ padding: '30px', textAlign: 'center', color: '#3a3f55', fontFamily: 'monospace', fontSize: 13 }}>
                   Sin activos con esos filtros
                 </td>
               </tr>
@@ -265,7 +306,7 @@ export default function SignalTable({ assets }: Props) {
         </table>
       </div>
 
-      {/* ── Paginación (solo en vista plana) ──────────────────────────────── */}
+      {/* ── Paginación ────────────────────────────────────────────────────── */}
       {!grouped && pages > 1 && (
         <div style={{ padding: '10px 16px', borderTop: '1px solid #1a1d2e', display: 'flex', alignItems: 'center', gap: 6 }}>
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={btnStyle(page !== 1)}>‹ Ant</button>
