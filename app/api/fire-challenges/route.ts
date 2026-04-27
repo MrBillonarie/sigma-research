@@ -25,7 +25,7 @@ function getISOWeek(date: Date): { week: number; year: number } {
   }
 }
 
-async function getAuthUser(req: NextRequest) {
+async function getAuthUser(req: NextRequest, sb: ReturnType<typeof makeSb>) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return null
   const { data: { user }, error } = await sb.auth.getUser(token)
@@ -37,7 +37,7 @@ async function getAuthUser(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const sb = makeSb()
   try {
-    const user = await getAuthUser(req)
+    const user = await getAuthUser(req, sb)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const today = new Date().toISOString().split('T')[0]
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const sb = makeSb()
   try {
-    const user = await getAuthUser(req)
+    const user = await getAuthUser(req, sb)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     let challenge_id: string
