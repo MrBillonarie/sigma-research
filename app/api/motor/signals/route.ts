@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
       .select('ticker, nombre, exposicion, sector, rent_1m, rent_3m, rent_12m')
       .not('rent_12m', 'is', null)
       .order('rent_12m', { ascending: false })
-      .limit(40),
+      .limit(200),
     // A: fetch crypto returns live from Binance
     ...CRYPTO_TICKERS.map(c => fetchBinanceReturns(c.symbol)),
   ])
