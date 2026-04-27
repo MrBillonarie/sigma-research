@@ -241,7 +241,7 @@ async function processFund(
       realAttrs    = best.attributes
     }
     await sleep(FUND_DELAY_MS)
-  } catch { await sleep(FUND_DELAY_MS) }
+  } catch (e) { if (String(e).includes('PROVIDER_SKIP')) throw e; await sleep(FUND_DELAY_MS) }
 
   let rent_1m: number | null = null, rent_3m: number | null = null
   let rent_12m: number | null = null, rent_3a: number | null = null
@@ -271,7 +271,7 @@ async function processFund(
         synced = true
       } else { sinDatos = true }
       await sleep(FUND_DELAY_MS)
-    } catch { err = true; await sleep(FUND_DELAY_MS) }
+    } catch (e) { if (String(e).includes('PROVIDER_SKIP')) throw e; err = true; await sleep(FUND_DELAY_MS) }
   } else { sinDatos = true }
 
   return {
