@@ -92,24 +92,60 @@ async function fetchYahooReturns(ticker: string): Promise<{ r1m: number; r3m: nu
   }
 }
 
-// ─── C: ETFs globales adicionales vía Yahoo Finance ──────────────────────────
-// Se deduplicarán contra los ETFs que ya estén en Supabase por ticker
+// ─── C: ETFs globales — 45 tickers cubiertos por Yahoo Finance ───────────────
+// Doble función: (1) refrescar retornos de ETFs ya en Supabase con datos live,
+// (2) agregar como nuevos activos los que Supabase no tenga.
 const EXTRA_ETFS = [
-  { id: 'spy',  name: 'S&P 500 ETF',           ticker: 'SPY',  category: 'Renta Variable USA' },
-  { id: 'qqq',  name: 'Nasdaq 100 ETF',         ticker: 'QQQ',  category: 'Tecnología USA'     },
-  { id: 'vti',  name: 'Mercado Total USA',       ticker: 'VTI',  category: 'Renta Variable USA' },
-  { id: 'vea',  name: 'Mercados Desarrollados',  ticker: 'VEA',  category: 'Internacional'      },
-  { id: 'vwo',  name: 'Mercados Emergentes',     ticker: 'VWO',  category: 'Emergentes'         },
-  { id: 'gld',  name: 'Oro SPDR ETF',            ticker: 'GLD',  category: 'Commodities'        },
-  { id: 'xlk',  name: 'Tecnología S&P ETF',      ticker: 'XLK',  category: 'Sector Tecnología'  },
-  { id: 'xle',  name: 'Energía S&P ETF',         ticker: 'XLE',  category: 'Sector Energía'     },
-  { id: 'xlv',  name: 'Salud S&P ETF',           ticker: 'XLV',  category: 'Sector Salud'       },
-  { id: 'xlf',  name: 'Finanzas S&P ETF',        ticker: 'XLF',  category: 'Sector Finanzas'    },
-  { id: 'soxx', name: 'Semiconductores ETF',      ticker: 'SOXX', category: 'Semicond.'          },
-  { id: 'vnq',  name: 'Real Estate USA ETF',      ticker: 'VNQ',  category: 'Real Estate'        },
-  { id: 'ewz',  name: 'Brasil ETF iShares',       ticker: 'EWZ',  category: 'Latinoamérica'      },
-  { id: 'iwm',  name: 'Russell 2000 ETF',         ticker: 'IWM',  category: 'Small Cap USA'      },
-  { id: 'arkk', name: 'ARK Innovation ETF',       ticker: 'ARKK', category: 'Innovación'         },
+  // Core USA
+  { id: 'spy',  name: 'S&P 500 ETF',              ticker: 'SPY',  category: 'Renta Variable USA'   },
+  { id: 'qqq',  name: 'Nasdaq 100 ETF',            ticker: 'QQQ',  category: 'Tecnología USA'        },
+  { id: 'vti',  name: 'Mercado Total USA',          ticker: 'VTI',  category: 'Renta Variable USA'   },
+  { id: 'dia',  name: 'Dow Jones ETF',              ticker: 'DIA',  category: 'Renta Variable USA'   },
+  { id: 'iwm',  name: 'Russell 2000 ETF',           ticker: 'IWM',  category: 'Small Cap USA'         },
+  // Internacional
+  { id: 'vea',  name: 'Mercados Desarrollados',     ticker: 'VEA',  category: 'Internacional'         },
+  { id: 'vwo',  name: 'Mercados Emergentes VWO',    ticker: 'VWO',  category: 'Emergentes'            },
+  { id: 'vgk',  name: 'Europa ETF Vanguard',        ticker: 'VGK',  category: 'Europa'                },
+  { id: 'ewj',  name: 'Japón ETF iShares',          ticker: 'EWJ',  category: 'Asia Desarrollada'     },
+  { id: 'ewz',  name: 'Brasil ETF iShares',         ticker: 'EWZ',  category: 'Latinoamérica'         },
+  { id: 'fxi',  name: 'China Large Cap ETF',        ticker: 'FXI',  category: 'China'                 },
+  { id: 'inda', name: 'India ETF iShares',          ticker: 'INDA', category: 'India'                 },
+  { id: 'ewt',  name: 'Taiwán ETF iShares',         ticker: 'EWT',  category: 'Asia'                  },
+  { id: 'ewy',  name: 'Corea ETF iShares',          ticker: 'EWY',  category: 'Asia'                  },
+  { id: 'ewg',  name: 'Alemania ETF iShares',       ticker: 'EWG',  category: 'Europa'                },
+  { id: 'ewa',  name: 'Australia ETF iShares',      ticker: 'EWA',  category: 'Asia Pac'              },
+  { id: 'ilt',  name: 'Latinoamérica ETF',          ticker: 'ILF',  category: 'Latinoamérica'         },
+  // Sectores USA
+  { id: 'xlk',  name: 'Tecnología S&P ETF',        ticker: 'XLK',  category: 'Sector Tecnología'     },
+  { id: 'xle',  name: 'Energía S&P ETF',            ticker: 'XLE',  category: 'Sector Energía'        },
+  { id: 'xlv',  name: 'Salud S&P ETF',              ticker: 'XLV',  category: 'Sector Salud'          },
+  { id: 'xlf',  name: 'Finanzas S&P ETF',           ticker: 'XLF',  category: 'Sector Finanzas'       },
+  { id: 'xli',  name: 'Industriales S&P ETF',       ticker: 'XLI',  category: 'Sector Industrial'     },
+  { id: 'xlb',  name: 'Materiales S&P ETF',         ticker: 'XLB',  category: 'Sector Materiales'     },
+  { id: 'xlp',  name: 'Consumo Básico S&P ETF',     ticker: 'XLP',  category: 'Sector Consumo Básico' },
+  { id: 'xly',  name: 'Consumo Disc. S&P ETF',      ticker: 'XLY',  category: 'Sector Consumo'        },
+  { id: 'xlc',  name: 'Comunicaciones S&P ETF',     ticker: 'XLC',  category: 'Sector Comm.'          },
+  { id: 'xlre', name: 'Real Estate S&P ETF',        ticker: 'XLRE', category: 'Real Estate'           },
+  { id: 'xlu',  name: 'Utilities S&P ETF',          ticker: 'XLU',  category: 'Sector Utilities'      },
+  { id: 'soxx', name: 'Semiconductores ETF',         ticker: 'SOXX', category: 'Semicond.'             },
+  { id: 'vnq',  name: 'Real Estate USA ETF',        ticker: 'VNQ',  category: 'Real Estate'           },
+  // Temáticos
+  { id: 'arkk', name: 'ARK Innovation ETF',         ticker: 'ARKK', category: 'Innovación'            },
+  { id: 'botz', name: 'Robótica e IA ETF',          ticker: 'BOTZ', category: 'Robótica / IA'         },
+  { id: 'lit',  name: 'Litio y Baterías ETF',       ticker: 'LIT',  category: 'Energía Limpia'        },
+  { id: 'icln', name: 'Energía Limpia ETF',         ticker: 'ICLN', category: 'Energía Limpia'        },
+  { id: 'cibr', name: 'Ciberseguridad ETF',         ticker: 'CIBR', category: 'Ciberseguridad'        },
+  { id: 'driv', name: 'Vehículos Eléctricos ETF',   ticker: 'DRIV', category: 'EVs'                   },
+  { id: 'clou', name: 'Cloud Computing ETF',        ticker: 'CLOU', category: 'Cloud'                 },
+  // Factor
+  { id: 'qual', name: 'Calidad MSCI USA ETF',       ticker: 'QUAL', category: 'Factor Calidad'        },
+  { id: 'mtum', name: 'Momentum MSCI USA ETF',      ticker: 'MTUM', category: 'Factor Momentum'       },
+  { id: 'usmv', name: 'Min Volatilidad USA ETF',    ticker: 'USMV', category: 'Factor Baja Vol'       },
+  { id: 'vtv',  name: 'Valor Vanguard ETF',         ticker: 'VTV',  category: 'Factor Valor'          },
+  { id: 'vug',  name: 'Crecimiento Vanguard ETF',   ticker: 'VUG',  category: 'Factor Crecimiento'    },
+  // Commodities
+  { id: 'gld',  name: 'Oro SPDR ETF',               ticker: 'GLD',  category: 'Commodities'           },
+  { id: 'slv',  name: 'Plata iShares ETF',          ticker: 'SLV',  category: 'Commodities'           },
 ]
 
 // Instrumentos de renta fija: TLT + LQD vía Yahoo; BTP y PDBC con fallback estático
@@ -152,16 +188,19 @@ export async function GET(req: NextRequest) {
     ...CRYPTO_TICKERS.map(c => fetchBinanceReturns(c.symbol)),
   ])
 
-  // B: fetch RF + extra ETFs live from Yahoo in parallel
-  const supabaseTickers = new Set(
-    (etfsRes.data ?? []).map((e: { ticker: string }) => e.ticker?.toUpperCase()).filter(Boolean)
-  )
-  const etfsToFetch = EXTRA_ETFS.filter(e => !supabaseTickers.has(e.ticker.toUpperCase()))
-
-  const [rfReturns, extraEtfReturns] = await Promise.all([
+  // B: fetch RF + TODOS los EXTRA_ETFS desde Yahoo en paralelo
+  // Se usan para: (1) refrescar retornos de ETFs ya en Supabase, (2) agregar los nuevos
+  const [rfReturns, allExtraReturns] = await Promise.all([
     Promise.all(RF_BASE.map(r => r.yahooTicker ? fetchYahooReturns(r.yahooTicker) : Promise.resolve(null))),
-    Promise.all(etfsToFetch.map(e => fetchYahooReturns(e.ticker))),
+    Promise.all(EXTRA_ETFS.map(e => fetchYahooReturns(e.ticker))),
   ])
+
+  // Mapa ticker → retornos Yahoo (solo si el fetch devolvió datos reales)
+  const yahooMap = new Map<string, { r1m: number; r3m: number; r1y: number }>()
+  EXTRA_ETFS.forEach((e, i) => {
+    const ret = allExtraReturns[i]
+    if (ret.r1m !== 0 || ret.r3m !== 0 || ret.r1y !== 0) yahooMap.set(e.ticker.toUpperCase(), ret)
+  })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawFondos = (fondosRes.data ?? []).map((f: any) => ({
@@ -172,14 +211,18 @@ export async function GET(req: NextRequest) {
     r1y: Number(f.rent_12m ?? 0),
   }))
 
+  // ETFs de Supabase, con retornos refreshados desde Yahoo si están disponibles
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawEtfs = (etfsRes.data ?? []).map((e: any) => ({
-    id: e.ticker, name: e.nombre, ticker: e.ticker, assetClass: 'etfs' as const,
-    category: e.exposicion ?? e.sector ?? 'Global',
-    r1m: Number(e.rent_1m  ?? 0),
-    r3m: Number(e.rent_3m  ?? 0),
-    r1y: Number(e.rent_12m ?? 0),
-  }))
+  const rawEtfs = (etfsRes.data ?? []).map((e: any) => {
+    const live = yahooMap.get((e.ticker ?? '').toUpperCase())
+    return {
+      id: e.ticker, name: e.nombre, ticker: e.ticker, assetClass: 'etfs' as const,
+      category: e.exposicion ?? e.sector ?? 'Global',
+      r1m: live ? live.r1m : Number(e.rent_1m  ?? 0),
+      r3m: live ? live.r3m : Number(e.rent_3m  ?? 0),
+      r1y: live ? live.r1y : Number(e.rent_12m ?? 0),
+    }
+  })
 
   // Merge Binance live data into crypto (fallback to 0 if fetch failed)
   const rawCrypto = CRYPTO_TICKERS.map((c, i) => {
@@ -205,15 +248,19 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const rawExtraEtfs = etfsToFetch
-    .map((e, i) => ({
-      id: e.id, name: e.name, ticker: e.ticker, assetClass: 'etfs' as const,
-      category: e.category,
-      r1m: extraEtfReturns[i].r1m,
-      r3m: extraEtfReturns[i].r3m,
-      r1y: extraEtfReturns[i].r1y,
-    }))
-    .filter(e => e.r1m !== 0 || e.r3m !== 0 || e.r1y !== 0)
+  // ETFs extra: solo los que NO están en Supabase, con datos Yahoo
+  const supabaseTickers = new Set(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (etfsRes.data ?? []).map((e: any) => (e.ticker ?? '').toUpperCase()).filter(Boolean)
+  )
+  const rawExtraEtfs = EXTRA_ETFS
+    .filter(e => !supabaseTickers.has(e.ticker.toUpperCase()))
+    .map(e => {
+      const ret = yahooMap.get(e.ticker.toUpperCase())
+      if (!ret) return null
+      return { id: e.id, name: e.name, ticker: e.ticker, assetClass: 'etfs' as const, category: e.category, ...ret }
+    })
+    .filter((e): e is NonNullable<typeof e> => e !== null)
 
   const allAssets = applyCrossSection(
     [...rawFondos, ...rawEtfs, ...rawExtraEtfs, ...rawCrypto, ...rawRF].map(processAsset)
