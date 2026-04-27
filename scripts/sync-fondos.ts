@@ -20,19 +20,32 @@ const FINTUAL_BASE    = 'https://fintual.com/api'
 const FINTUAL_HEADERS = { Accept: 'application/json' }
 const DISCOVER_MODE   = process.argv.includes('--discover')
 
-// Providers que no son AGF reales: bancos, AFPs, corredoras, repos
-// Identificados por patrones en el nombre — no tienen fondos mutuos con historial de precios
-const PROVIDER_BLACKLIST = [
-  'a.f.p.', 'afp ', 'corredora', 'corredores', 'seguros',
-  'banco btg', 'banco security', 'banco itaú', 'banco estado',
-  'banco scotiabank', 'scotiabank', 'bancoestado',
-  'compañía de seguros', 'cia. de seguros', 'cia de seguros',
-  'vida s.a', 'vida s.a.', 'pension', 'pensiones',
+// Providers que no son AGF reales: bancos puros, AFPs, corredoras, aseguradoras
+// REGLA: si tiene "administradora" en el nombre → siempre es AGF real → nunca saltarlo
+// Solo saltar si NO tiene "administradora" Y tiene alguno de estos patrones
+const PROVIDER_BLACKLIST_PATTERNS = [
+  'a.f.p.', 'afp ', ' afp', 'corredora', 'corredores',
+  'compañía de seguros', 'cia. de seguros', 'seguros de vida',
+  'pension', 'pensiones', 'prevision',
+]
+
+// Bancos que aparecen como entidad bancaria pura (sin AGF) — tienen repos, no fondos mutuos
+const BANK_NAMES_EXACT = [
+  'banco del estado de chile', 'banco btg pactual chile',
+  'banco de chile', 'banco de crédito e inversiones',
+  'banco itaú chile', 'banco security', 'banco consorcio',
+  'banco santander', 'banco central de chile',
 ]
 
 function isBlacklisted(nombre: string): boolean {
   const n = nombre.toLowerCase()
-  return PROVIDER_BLACKLIST.some(b => n.includes(b))
+  // Si tiene "administradora" es una AGF real — nunca saltar
+  if (n.includes('administradora')) return false
+  // Saltar si coincide con patrón de no-AGF
+  if (PROVIDER_BLACKLIST_PATTERNS.some(b => n.includes(b))) return true
+  // Saltar bancos puros (sin AGF)
+  if (BANK_NAMES_EXACT.some(b => n.includes(b))) return true
+  return false
 }
 
 // ─── Delays ───────────────────────────────────────────────────────────────────
