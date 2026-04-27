@@ -95,7 +95,7 @@ export default function ReportePage() {
   return (
     <div style={{
       minHeight: '100vh', background: '#04050a',
-      padding: '24px 20px', maxWidth: 900, margin: '0 auto',
+      padding: '88px 24px 64px', maxWidth: 900, margin: '0 auto',
     }}>
       {/* Breadcrumb */}
       <div style={{

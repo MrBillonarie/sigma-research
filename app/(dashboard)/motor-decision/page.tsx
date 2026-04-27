@@ -69,7 +69,7 @@ export default function MotorDecisionPage() {
   return (
     <div style={{
       minHeight: '100vh', background: '#04050a',
-      padding: '24px 20px', maxWidth: 1280, margin: '0 auto',
+      padding: '88px 24px 64px', maxWidth: 1280, margin: '0 auto',
     }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
