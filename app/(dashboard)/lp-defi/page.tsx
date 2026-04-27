@@ -127,7 +127,7 @@ function runMonteCarlo(
     p50: finalPnLs[Math.floor(simulations * 0.50)],
     p95: finalPnLs[Math.floor(simulations * 0.95)],
     pctInRange: (inRangeCount / simulations) * 100,
-    paths: allPaths.filter((_, i) => i % 10 === 0),
+    paths: allPaths.filter((_, i) => i % 50 === 0),  // 10 paths visibles
   }
 }
 
