@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendContactoNotif, sendContactReply } from '@/lib/email'
 
-const sb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function makeSb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  )
+}
 
 // ─── Simple in-memory rate limiter: max 3 requests per IP per hour ────────────
 const ratemap = new Map<string, { count: number; reset: number }>()
@@ -19,6 +22,7 @@ function checkRate(ip: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  const sb = makeSb()
   try {
     // Rate limiting
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'

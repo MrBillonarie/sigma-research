@@ -6,10 +6,13 @@ import {
   getLevelFromPoints,
 } from '@/app/(dashboard)/fire/challenges'
 
-const sb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function makeSb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  )
+}
 
 function getISOWeek(date: Date): { week: number; year: number } {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
@@ -32,6 +35,7 @@ async function getAuthUser(req: NextRequest) {
 
 // ─── GET: load user challenge state ──────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  const sb = makeSb()
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -103,6 +107,7 @@ export async function GET(req: NextRequest) {
 
 // ─── POST: complete a challenge ───────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const sb = makeSb()
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

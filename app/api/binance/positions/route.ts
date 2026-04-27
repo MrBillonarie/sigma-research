@@ -3,16 +3,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function makeSb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  )
+}
 
 function sign(secret: string, query: string) {
   return crypto.createHmac('sha256', secret).update(query).digest('hex')
 }
 
 export async function GET(req: NextRequest) {
+  const supabase = makeSb()
   try {
     // Obtener usuario autenticado
     const authHeader = req.headers.get('authorization')
