@@ -100,6 +100,11 @@ interface Props {
 }
 type SortKey = 'name' | 'score' | 'return30d' | 'return1y' | 'rsi' | 'netFlow'
 
+// Fuera del componente para que useMemo no tenga dependencia inestable
+const MAX_PICKS: Record<AssetClass, number> = {
+  fondos: 5, etfs: 5, renta_fija: 2, crypto: 2,
+}
+
 export default function SignalTable({ assets, capital = 0, currency = 'CLP', allocation }: Props) {
   const [classFilter,  setClassFilter]  = useState<AssetClass | 'all'>('all')
   const [signalFilter, setSignalFilter] = useState<SignalType | 'all'>('all')
@@ -114,11 +119,6 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
   const showMonto = capital > 0 && !!allocation
   const numCols   = showMonto ? 10 : 9
 
-  // Máximo de picks con capital asignado por clase (no 40 ETFs con $5 cada uno)
-  const MAX_PICKS: Record<AssetClass, number> = {
-    fondos: 5, etfs: 5, renta_fija: 2, crypto: 2,
-  }
-
   // Set de IDs que reciben capital: top N comprar por score dentro de cada clase
   const capitalRecipients = useMemo(() => {
     const ids = new Set<string>()
@@ -130,7 +130,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
         .forEach(a => ids.add(a.id))
     }
     return ids
-  }, [assets])
+  }, [assets, showAll])
 
   // Score total solo entre los picks seleccionados
   const classBuyScores = useMemo(() => {
@@ -182,7 +182,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
       return sortDesc ? (bv as number) - (av as number) : (av as number) - (bv as number)
     })
     return r
-  }, [assets, classFilter, signalFilter, search, sortKey, sortDesc])
+  }, [assets, classFilter, signalFilter, search, sortKey, sortDesc, showAll, capitalRecipients])
 
   const groupedData = useMemo(() => {
     if (!grouped) return null

@@ -26,7 +26,7 @@ function LoadingSkeleton() {
 }
 
 export default function MotorDecisionPage() {
-  const { totalUSD: portfolioUSD, ready: portfolioReady } = usePortfolio()
+  const { totalUSD: portfolioUSD } = usePortfolio()
 
   const [profile,     setProfile]     = useState<ProfileType>('retail')
   const [data,        setData]        = useState<SignalsResponse | null>(null)
