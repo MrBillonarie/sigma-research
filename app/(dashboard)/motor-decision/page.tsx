@@ -14,13 +14,12 @@ function LoadingSkeleton() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {[1,2,3].map(i => (
-        <div key={i} style={{
+        <div key={i} className="animate-pulse" style={{
           height: i === 1 ? 80 : i === 2 ? 120 : 300,
-          background: 'linear-gradient(90deg, #0b0d14 25%, #1a1d2e 50%, #0b0d14 75%)',
-          borderRadius: 10, animation: 'pulse 1.5s ease-in-out infinite',
+          background: '#0b0d14', border: '1px solid #1a1d2e',
+          borderRadius: 10,
         }} />
       ))}
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
     </div>
   )
 }
@@ -74,65 +73,55 @@ export default function MotorDecisionPage() {
     }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: '#1D9E75',
-                boxShadow: '0 0 8px #1D9E75',
-                animation: 'blink 2s ease-in-out infinite',
-              }} />
-              <span style={{ fontSize: 10, color: '#1D9E75', fontFamily: MONO, letterSpacing: 1 }}>
-                LIVE — MOTOR DE DECISIÓN
-              </span>
-            </div>
-            <h1 style={{
-              margin: 0, fontSize: 32,
-              fontFamily: BEBAS, letterSpacing: 2, color: '#e8e9f0',
-            }}>
-              SIGMA MOTOR FINANCIERO
-            </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#7a7f9a', fontFamily: MONO }}>
-              Rotación cross-market · Flujo de capital · Señales de decisión
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={() => fetchSignals(profile)}
-              disabled={loading}
-              style={{
-                background: 'transparent',
-                border: '1px solid #1a1d2e', borderRadius: 7,
-                padding: '8px 14px', color: '#7a7f9a',
-                fontSize: 11, fontFamily: MONO, cursor: loading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {loading ? '⏳ Calculando...' : '↻ Actualizar'}
-            </button>
-            {data && (
-              <Link href="/motor-decision/reporte"
-                style={{
-                  background: '#1D9E75', color: '#000', textDecoration: 'none',
-                  borderRadius: 7, padding: '8px 16px',
-                  fontSize: 11, fontWeight: 700, fontFamily: MONO,
-                }}
-              >
-                📄 Ver Reporte
-              </Link>
-            )}
-          </div>
+        {/* Eyebrow */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <div style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: '#1D9E75', boxShadow: '0 0 8px #1D9E75',
+          }} className="sigma-blink" />
+          <span style={{ fontSize: 10, color: '#1D9E75', fontFamily: MONO, letterSpacing: 1 }}>
+            LIVE — MOTOR DE DECISIÓN
+          </span>
         </div>
 
-        {data && !loading && (
-          <div style={{
-            marginTop: 10, fontSize: 10, color: '#3a3f55',
-            fontFamily: MONO,
-          }}>
-            Actualizado: {new Date(data.generatedAt).toLocaleString('es-CL')} ·{' '}
-            {data.totalAssets} activos analizados
-          </div>
-        )}
+        {/* Title */}
+        <h1 style={{ margin: '0 0 4px', fontSize: 32, fontFamily: BEBAS, letterSpacing: 2, color: '#e8e9f0' }}>
+          SIGMA MOTOR FINANCIERO
+        </h1>
+        <p style={{ margin: '0 0 16px', fontSize: 12, color: '#7a7f9a', fontFamily: MONO }}>
+          Rotación cross-market · Flujo de capital · Señales de decisión
+        </p>
+
+        {/* Buttons — row below title */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => fetchSignals(profile)}
+            disabled={loading}
+            style={{
+              background: 'transparent', border: '1px solid #1a1d2e', borderRadius: 7,
+              padding: '8px 14px', color: '#7a7f9a',
+              fontSize: 11, fontFamily: MONO, cursor: loading ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {loading ? '⏳ Calculando...' : '↻ Actualizar'}
+          </button>
+          {data && (
+            <Link href="/motor-decision/reporte"
+              style={{
+                background: '#1D9E75', color: '#000', textDecoration: 'none',
+                borderRadius: 7, padding: '8px 16px',
+                fontSize: 11, fontWeight: 700, fontFamily: MONO,
+              }}
+            >
+              📄 Ver Reporte
+            </Link>
+          )}
+          {data && !loading && (
+            <span style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO, marginLeft: 8 }}>
+              Actualizado: {new Date(data.generatedAt).toLocaleString('es-CL')} · {data.totalAssets} activos
+            </span>
+          )}
+        </div>
       </div>
 
       {/* ── Selector de perfil ──────────────────────────────────────────── */}
@@ -218,14 +207,6 @@ export default function MotorDecisionPage() {
         </>
       ) : null}
 
-      <style>{`
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-        @media (max-width: 768px) {
-          div[style*="grid-template-columns: 1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </div>
   )
 }
