@@ -65,18 +65,7 @@ function CapitalInput({ capital, currency, portfolioUSD, synced, onChange, onSyn
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select
-            value={currency}
-            onChange={e => onChange(capital, e.target.value as 'CLP' | 'USD')}
-            style={{
-              background: '#04050a', border: '1px solid #1a1d2e', borderRadius: 6,
-              padding: '6px 10px', color: '#e8e9f0', fontSize: 13, fontFamily: MONO,
-              cursor: 'pointer', outline: 'none',
-            }}
-          >
-            <option value="USD">USD $</option>
-            <option value="CLP">CLP $</option>
-          </select>
+          <span style={{ fontSize: 12, color: '#7a7f9a', fontFamily: MONO }}>USD $</span>
           <input
             type="text"
             inputMode="numeric"
