@@ -207,7 +207,7 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
         value=""
         color={flowColor}
         gauge={
-          <ScoreGauge score={flowScore} color={flowColor} />
+          <ScoreGauge score={flowScore} />
         }
         sub={`▲ ${buyCount}  →  ${holdCount}  ▼ ${sellCount}`}
       />
