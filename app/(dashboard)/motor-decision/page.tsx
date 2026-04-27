@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { ProfileType, SignalsResponse } from '@/types/decision-engine'
 import ProfileSelector from './components/ProfileSelector'
@@ -8,7 +8,8 @@ import AllocationDonut from './components/AllocationDonut'
 import FlowIndicator   from './components/FlowIndicator'
 import SignalTable     from './components/SignalTable'
 
-const STORAGE_KEY = 'sigma_motor_profile'
+const STORAGE_KEY   = 'sigma_motor_profile'
+const AUTO_INTERVAL = 30 * 60 * 1000  // I: 30 minutos
 
 function LoadingSkeleton() {
   return (
@@ -16,8 +17,7 @@ function LoadingSkeleton() {
       {[1,2,3].map(i => (
         <div key={i} className="animate-pulse" style={{
           height: i === 1 ? 80 : i === 2 ? 120 : 300,
-          background: '#0b0d14', border: '1px solid #1a1d2e',
-          borderRadius: 10,
+          background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10,
         }} />
       ))}
     </div>
@@ -25,17 +25,19 @@ function LoadingSkeleton() {
 }
 
 export default function MotorDecisionPage() {
-  const [profile,  setProfile]  = useState<ProfileType>('retail')
-  const [data,     setData]     = useState<SignalsResponse | null>(null)
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState<string | null>(null)
-  // Cargar perfil guardado
+  const [profile,     setProfile]     = useState<ProfileType>('retail')
+  const [data,        setData]        = useState<SignalsResponse | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState<string | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState(false)   // I: auto-refresh toggle
+  const [nextRefresh, setNextRefresh] = useState<number>(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const countRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as ProfileType | null
-      if (saved && ['retail', 'trader', 'institucional'].includes(saved)) {
-        setProfile(saved)
-      }
+      if (saved && ['retail', 'trader', 'institucional'].includes(saved)) setProfile(saved)
     } catch {}
   }, [])
 
@@ -54,9 +56,21 @@ export default function MotorDecisionPage() {
     }
   }, [])
 
+  useEffect(() => { fetchSignals(profile) }, [profile, fetchSignals])
+
+  // I: auto-refresh every 30 min
   useEffect(() => {
-    fetchSignals(profile)
-  }, [profile, fetchSignals])
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (countRef.current)    clearInterval(countRef.current)
+    if (!autoRefresh) return
+    setNextRefresh(AUTO_INTERVAL)
+    intervalRef.current = setInterval(() => { fetchSignals(profile); setNextRefresh(AUTO_INTERVAL) }, AUTO_INTERVAL)
+    countRef.current    = setInterval(() => setNextRefresh(n => Math.max(0, n - 1000)), 1000)
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (countRef.current)    clearInterval(countRef.current)
+    }
+  }, [autoRefresh, profile, fetchSignals])
 
   function handleProfileChange(p: ProfileType) {
     setProfile(p)
@@ -94,31 +108,38 @@ export default function MotorDecisionPage() {
 
         {/* Buttons — row below title */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => fetchSignals(profile)}
-            disabled={loading}
-            style={{
-              background: 'transparent', border: '1px solid #1a1d2e', borderRadius: 7,
-              padding: '8px 14px', color: '#7a7f9a',
-              fontSize: 11, fontFamily: MONO, cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-          >
+          <button onClick={() => fetchSignals(profile)} disabled={loading} style={{
+            background: 'transparent', border: '1px solid #1a1d2e', borderRadius: 7,
+            padding: '8px 14px', color: '#7a7f9a', fontSize: 11, fontFamily: MONO,
+            cursor: loading ? 'not-allowed' : 'pointer',
+          }}>
             {loading ? '⏳ Calculando...' : '↻ Actualizar'}
           </button>
+
+          {/* I: Auto-refresh toggle */}
+          <button onClick={() => setAutoRefresh(v => !v)} style={{
+            background: autoRefresh ? 'rgba(29,158,117,0.12)' : 'transparent',
+            border: `1px solid ${autoRefresh ? '#1D9E75' : '#1a1d2e'}`, borderRadius: 7,
+            padding: '8px 14px', color: autoRefresh ? '#1D9E75' : '#7a7f9a',
+            fontSize: 11, fontFamily: MONO, cursor: 'pointer',
+          }}>
+            {autoRefresh
+              ? `⏱ Auto: ${Math.ceil(nextRefresh / 60000)}m`
+              : '⏱ Auto-refresh'}
+          </button>
+
           {data && (
-            <Link href="/motor-decision/reporte"
-              style={{
-                background: '#1D9E75', color: '#000', textDecoration: 'none',
-                borderRadius: 7, padding: '8px 16px',
-                fontSize: 11, fontWeight: 700, fontFamily: MONO,
-              }}
-            >
+            <Link href="/motor-decision/reporte" style={{
+              background: '#1D9E75', color: '#000', textDecoration: 'none',
+              borderRadius: 7, padding: '8px 16px', fontSize: 11, fontWeight: 700, fontFamily: MONO,
+            }}>
               📄 Ver Reporte
             </Link>
           )}
+
           {data && !loading && (
             <span style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO, marginLeft: 8 }}>
-              Actualizado: {new Date(data.generatedAt).toLocaleString('es-CL')} · {data.totalAssets} activos
+              {new Date(data.generatedAt).toLocaleString('es-CL')} · {data.totalAssets} activos
             </span>
           )}
         </div>

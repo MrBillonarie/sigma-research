@@ -10,54 +10,45 @@ const SIGNAL_CFG: Record<SignalType, { label: string; color: string; bg: string 
 }
 
 const CLASS_LABEL: Record<AssetClass, string> = {
-  fondos: 'Fondo Mutuo', etfs: 'ETF', renta_fija: 'Renta Fija', crypto: 'Crypto',
+  fondos: 'Fondos Mutuos', etfs: 'ETFs Globales', renta_fija: 'Renta Fija', crypto: 'Crypto',
 }
-
 const CLASS_COLOR: Record<AssetClass, string> = {
   fondos: '#1D9E75', etfs: '#378ADD', renta_fija: '#d4af37', crypto: '#a78bfa',
 }
+const CLASS_ICON: Record<AssetClass, string> = {
+  fondos: '🏦', etfs: '📊', renta_fija: '🏛️', crypto: '₿',
+}
+const CLASS_ORDER: AssetClass[] = ['fondos', 'etfs', 'renta_fija', 'crypto']
 
 function SignalBadge({ signal }: { signal: SignalType }) {
   const c = SIGNAL_CFG[signal]
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, fontFamily: 'monospace',
-      color: c.color, background: c.bg,
+      color: c.color, background: c.bg, border: `1px solid ${c.color}30`,
       borderRadius: 4, padding: '3px 8px', whiteSpace: 'nowrap',
-    }}>
-      {c.label}
-    </span>
+    }}>{c.label}</span>
   )
 }
 
 function Pct({ v }: { v: number }) {
   const color = v > 0 ? '#1D9E75' : v < 0 ? '#f87171' : '#7a7f9a'
-  return (
-    <span style={{ color, fontFamily: 'monospace', fontSize: 12 }}>
-      {v > 0 ? '+' : ''}{v.toFixed(1)}%
-    </span>
-  )
+  return <span style={{ color, fontFamily: 'monospace', fontSize: 12 }}>{v > 0 ? '+' : ''}{v.toFixed(1)}%</span>
 }
 
 function ScoreBar({ score }: { score: number }) {
   const color = score > 65 ? '#1D9E75' : score > 45 ? '#d4af37' : '#f87171'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{
-        width: 60, height: 4, background: '#1a1d2e',
-        borderRadius: 2, overflow: 'hidden',
-      }}>
+      <div style={{ width: 56, height: 4, background: '#1a1d2e', borderRadius: 2, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 2 }} />
       </div>
-      <span style={{ fontSize: 11, color, fontFamily: 'monospace', minWidth: 24 }}>{score}</span>
+      <span style={{ fontSize: 11, color, fontFamily: 'monospace', minWidth: 22 }}>{score}</span>
     </div>
   )
 }
 
-interface Props {
-  assets: Asset[]
-}
-
+interface Props { assets: Asset[] }
 type SortKey = 'name' | 'score' | 'return30d' | 'return1y' | 'rsi' | 'netFlow'
 
 export default function SignalTable({ assets }: Props) {
@@ -67,7 +58,23 @@ export default function SignalTable({ assets }: Props) {
   const [sortKey,      setSortKey]      = useState<SortKey>('score')
   const [sortDesc,     setSortDesc]     = useState(true)
   const [page,         setPage]         = useState(1)
+  const [grouped,      setGrouped]      = useState(false)
   const PER_PAGE = 15
+
+  const hasFilters = classFilter !== 'all' || signalFilter !== 'all' || search !== ''
+
+  // K: signal counts from full filtered set
+  const signalCounts = useMemo(() => {
+    let r = assets
+    if (classFilter !== 'all')  r = r.filter(a => a.assetClass === classFilter)
+    if (search) { const q = search.toLowerCase(); r = r.filter(a => a.name.toLowerCase().includes(q) || (a.ticker ?? '').toLowerCase().includes(q)) }
+    return {
+      comprar:  r.filter(a => a.signal === 'comprar').length,
+      mantener: r.filter(a => a.signal === 'mantener' || a.signal === 'neutral').length,
+      reducir:  r.filter(a => a.signal === 'reducir').length,
+      total:    r.length,
+    }
+  }, [assets, classFilter, search])
 
   const filtered = useMemo(() => {
     let r = assets
@@ -86,8 +93,17 @@ export default function SignalTable({ assets }: Props) {
     return r
   }, [assets, classFilter, signalFilter, search, sortKey, sortDesc])
 
+  // G: grouped by asset class
+  const groupedData = useMemo(() => {
+    if (!grouped) return null
+    return CLASS_ORDER.map(cls => ({
+      cls,
+      items: filtered.filter(a => a.assetClass === cls),
+    })).filter(g => g.items.length > 0)
+  }, [filtered, grouped])
+
   const pages   = Math.ceil(filtered.length / PER_PAGE)
-  const visible = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const visible = grouped ? filtered : filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   function toggleSort(k: SortKey) {
     if (sortKey === k) setSortDesc(d => !d)
@@ -95,152 +111,152 @@ export default function SignalTable({ assets }: Props) {
     setPage(1)
   }
 
+  // H: clear all filters
+  function clearFilters() {
+    setClassFilter('all'); setSignalFilter('all'); setSearch(''); setPage(1)
+  }
+
   const TH = ({ label, k }: { label: string; k?: SortKey }) => (
-    <th
-      onClick={k ? () => toggleSort(k) : undefined}
-      style={{
-        padding: '8px 12px', textAlign: 'left', fontSize: 10,
-        color: k && sortKey === k ? '#e8e9f0' : '#7a7f9a',
-        fontFamily: 'monospace', letterSpacing: 0.5, textTransform: 'uppercase',
-        cursor: k ? 'pointer' : 'default', whiteSpace: 'nowrap',
-        userSelect: 'none',
-        borderBottom: '1px solid #1a1d2e',
-      }}
-    >
+    <th onClick={k ? () => toggleSort(k) : undefined} style={{
+      padding: '8px 12px', textAlign: 'left', fontSize: 10,
+      color: k && sortKey === k ? '#e8e9f0' : '#7a7f9a',
+      fontFamily: 'monospace', letterSpacing: '0.1em', textTransform: 'uppercase',
+      cursor: k ? 'pointer' : 'default', whiteSpace: 'nowrap', userSelect: 'none',
+      borderBottom: '1px solid #1a1d2e',
+    }}>
       {label}{k && sortKey === k ? (sortDesc ? ' ↓' : ' ↑') : ''}
     </th>
   )
 
+  function RowEl({ a, i }: { a: Asset; i: number }) {
+    return (
+      <tr
+        style={{ borderBottom: '1px solid #0d0f1a', background: i % 2 === 0 ? 'transparent' : '#04050a22', transition: 'background 0.15s' }}
+        onMouseEnter={e => (e.currentTarget.style.background = '#1a1d2e44')}
+        onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : '#04050a22')}
+      >
+        <td style={{ padding: '8px 12px', maxWidth: 240 }}>
+          <div style={{ fontSize: 12, color: '#e8e9f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
+          {a.ticker && <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: 'monospace' }}>{a.ticker}</div>}
+        </td>
+        <td style={{ padding: '8px 12px' }}>
+          <span style={{ fontSize: 10, color: CLASS_COLOR[a.assetClass], fontFamily: 'monospace' }}>
+            {CLASS_ICON[a.assetClass]} {CLASS_LABEL[a.assetClass]}
+          </span>
+        </td>
+        <td style={{ padding: '8px 12px' }}><SignalBadge signal={a.signal} /></td>
+        <td style={{ padding: '8px 12px' }}><ScoreBar score={a.score} /></td>
+        <td style={{ padding: '8px 12px' }}><Pct v={a.return30d} /></td>
+        <td style={{ padding: '8px 12px' }}><Pct v={a.return1y}  /></td>
+        <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12, color: a.rsi > 70 ? '#f87171' : a.rsi < 30 ? '#1D9E75' : '#7a7f9a' }}>
+          {a.rsi.toFixed(0)}
+        </td>
+        <td style={{ padding: '8px 12px' }}><Pct v={a.netFlow} /></td>
+      </tr>
+    )
+  }
+
   return (
     <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, overflow: 'hidden' }}>
-      {/* Filtros */}
-      <div style={{
-        padding: '14px 16px',
-        borderBottom: '1px solid #1a1d2e',
-        display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-      }}>
-        <h3 style={{
-          margin: 0, fontSize: 12, color: '#7a7f9a',
-          fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase',
-          marginRight: 4,
-        }}>
-          SEÑALES ({filtered.length})
-        </h3>
 
-        {/* Búsqueda */}
-        <input
-          value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1) }}
-          placeholder="Buscar activo..."
-          style={{
-            background: '#04050a', border: '1px solid #1a1d2e',
-            borderRadius: 6, padding: '5px 10px', color: '#e8e9f0',
-            fontSize: 12, fontFamily: 'monospace', width: 160, outline: 'none',
-          }}
-        />
+      {/* ── Filtros ────────────────────────────────────────────────────────── */}
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a1d2e', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
 
-        {/* Filtro clase */}
-        <select
-          value={classFilter}
-          onChange={e => { setClassFilter(e.target.value as AssetClass | 'all'); setPage(1) }}
-          style={{
-            background: '#04050a', border: '1px solid #1a1d2e',
-            borderRadius: 6, padding: '5px 10px', color: '#e8e9f0',
-            fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', outline: 'none',
-          }}
-        >
+        {/* K: Signal count badges */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginRight: 4 }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7a7f9a', letterSpacing: '0.1em' }}>SEÑALES</span>
+          {[
+            { sig: 'comprar' as SignalType,  count: signalCounts.comprar,  color: '#1D9E75' },
+            { sig: 'mantener' as SignalType, count: signalCounts.mantener, color: '#d4af37' },
+            { sig: 'reducir' as SignalType,  count: signalCounts.reducir,  color: '#f87171' },
+          ].map(({ sig, count, color }) => (
+            <button key={sig} onClick={() => { setSignalFilter(signalFilter === sig ? 'all' : sig); setPage(1) }} style={{
+              background: signalFilter === sig ? color + '20' : 'transparent',
+              border: `1px solid ${signalFilter === sig ? color : '#1a1d2e'}`,
+              borderRadius: 4, padding: '2px 8px', cursor: 'pointer',
+              fontFamily: 'monospace', fontSize: 10, color,
+            }}>
+              {SIGNAL_CFG[sig].label[0]} {count}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Buscar activo…"
+          style={{ background: '#04050a', border: '1px solid #1a1d2e', borderRadius: 6, padding: '5px 10px', color: '#e8e9f0', fontSize: 12, fontFamily: 'monospace', width: 150, outline: 'none' }} />
+
+        {/* Class filter */}
+        <select value={classFilter} onChange={e => { setClassFilter(e.target.value as AssetClass | 'all'); setPage(1) }}
+          style={{ background: '#04050a', border: '1px solid #1a1d2e', borderRadius: 6, padding: '5px 10px', color: classFilter !== 'all' ? CLASS_COLOR[classFilter as AssetClass] : '#e8e9f0', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', outline: 'none' }}>
           <option value="all">Todos los activos</option>
-          <option value="fondos">Fondos Mutuos</option>
-          <option value="etfs">ETFs</option>
-          <option value="renta_fija">Renta Fija</option>
-          <option value="crypto">Crypto</option>
+          {CLASS_ORDER.map(c => <option key={c} value={c}>{CLASS_LABEL[c]}</option>)}
         </select>
 
-        {/* Filtro señal */}
-        <select
-          value={signalFilter}
-          onChange={e => { setSignalFilter(e.target.value as SignalType | 'all'); setPage(1) }}
-          style={{
-            background: '#04050a', border: '1px solid #1a1d2e',
-            borderRadius: 6, padding: '5px 10px', color: '#e8e9f0',
-            fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', outline: 'none',
-          }}
-        >
-          <option value="all">Todas las señales</option>
-          <option value="comprar">COMPRAR</option>
-          <option value="mantener">MANTENER</option>
-          <option value="reducir">REDUCIR</option>
-          <option value="neutral">NEUTRAL</option>
-        </select>
+        {/* G: Toggle agrupado */}
+        <button onClick={() => setGrouped(g => !g)} style={{
+          background: grouped ? '#1a1d2e' : 'transparent', border: '1px solid #1a1d2e',
+          borderRadius: 6, padding: '5px 10px', color: grouped ? '#e8e9f0' : '#7a7f9a',
+          fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+        }}>
+          {grouped ? '≡ Agrupado' : '≡ Agrupar'}
+        </button>
+
+        {/* H: Clear filters */}
+        {hasFilters && (
+          <button onClick={clearFilters} style={{
+            background: 'transparent', border: '1px solid #f87171', borderRadius: 6,
+            padding: '5px 10px', color: '#f87171', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+          }}>
+            ✕ Limpiar
+          </button>
+        )}
+
+        <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 11, color: '#3a3f55' }}>
+          {filtered.length} activos
+        </span>
       </div>
 
-      {/* Tabla */}
+      {/* ── Tabla ──────────────────────────────────────────────────────────── */}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#04050a' }}>
-              <TH label="Activo"    k="name"     />
-              <TH label="Clase"                  />
-              <TH label="Señal"                  />
-              <TH label="Score"     k="score"    />
-              <TH label="Ret. 30d"  k="return30d"/>
-              <TH label="Ret. 1A"   k="return1y" />
-              <TH label="RSI"       k="rsi"      />
-              <TH label="Flujo"     k="netFlow"  />
+              <TH label="Activo"    k="name"      />
+              <TH label="Clase"                   />
+              <TH label="Señal"                   />
+              <TH label="Score"     k="score"     />
+              <TH label="Ret. 30d"  k="return30d" />
+              <TH label="Ret. 1A"   k="return1y"  />
+              <TH label="RSI"       k="rsi"       />
+              <TH label="Flujo"     k="netFlow"   />
             </tr>
           </thead>
           <tbody>
-            {visible.map((a, i) => (
-              <tr
-                key={a.id}
-                style={{
-                  borderBottom: '1px solid #0d0f1a',
-                  background: i % 2 === 0 ? 'transparent' : '#04050a22',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#1a1d2e33')}
-                onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : '#04050a22')}
-              >
-                <td style={{ padding: '8px 12px', maxWidth: 240 }}>
-                  <div style={{
-                    fontSize: 12, color: '#e8e9f0', overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {a.name}
-                  </div>
-                  {a.ticker && (
-                    <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: 'monospace' }}>
-                      {a.ticker}
-                    </div>
-                  )}
-                </td>
-                <td style={{ padding: '8px 12px' }}>
-                  <span style={{
-                    fontSize: 10, color: CLASS_COLOR[a.assetClass], fontFamily: 'monospace',
-                  }}>
-                    {CLASS_LABEL[a.assetClass]}
-                  </span>
-                </td>
-                <td style={{ padding: '8px 12px' }}>
-                  <SignalBadge signal={a.signal} />
-                </td>
-                <td style={{ padding: '8px 12px' }}>
-                  <ScoreBar score={a.score} />
-                </td>
-                <td style={{ padding: '8px 12px' }}><Pct v={a.return30d} /></td>
-                <td style={{ padding: '8px 12px' }}><Pct v={a.return1y}  /></td>
-                <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 12, color: '#7a7f9a' }}>
-                  {a.rsi.toFixed(0)}
-                </td>
-                <td style={{ padding: '8px 12px' }}><Pct v={a.netFlow} /></td>
-              </tr>
-            ))}
-            {visible.length === 0 && (
+            {/* G: Grouped view */}
+            {grouped && groupedData ? (
+              groupedData.map(({ cls, items }) => (
+                <>
+                  <tr key={`hdr-${cls}`}>
+                    <td colSpan={8} style={{
+                      padding: '8px 12px 6px', background: '#04050a',
+                      borderBottom: `1px solid ${CLASS_COLOR[cls]}40`,
+                      borderTop: '1px solid #1a1d2e',
+                    }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: CLASS_COLOR[cls], letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                        {CLASS_ICON[cls]}  {CLASS_LABEL[cls].toUpperCase()} · {items.length} activos
+                      </span>
+                    </td>
+                  </tr>
+                  {items.map((a, i) => <RowEl key={a.id} a={a} i={i} />)}
+                </>
+              ))
+            ) : (
+              /* Paginated flat view */
+              visible.map((a, i) => <RowEl key={a.id} a={a} i={i} />)
+            )}
+            {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} style={{
-                  padding: '30px', textAlign: 'center',
-                  color: '#3a3f55', fontFamily: 'monospace', fontSize: 13,
-                }}>
+                <td colSpan={8} style={{ padding: '30px', textAlign: 'center', color: '#3a3f55', fontFamily: 'monospace', fontSize: 13 }}>
                   Sin activos con esos filtros
                 </td>
               </tr>
@@ -249,41 +265,24 @@ export default function SignalTable({ assets }: Props) {
         </table>
       </div>
 
-      {/* Paginación */}
-      {pages > 1 && (
-        <div style={{
-          padding: '10px 16px', borderTop: '1px solid #1a1d2e',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}>
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            style={btnStyle(page !== 1)}
-          >
-            ‹ Ant
-          </button>
+      {/* ── Paginación (solo en vista plana) ──────────────────────────────── */}
+      {!grouped && pages > 1 && (
+        <div style={{ padding: '10px 16px', borderTop: '1px solid #1a1d2e', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={btnStyle(page !== 1)}>‹ Ant</button>
           <span style={{ fontSize: 11, color: '#7a7f9a', fontFamily: 'monospace', flex: 1, textAlign: 'center' }}>
-            {page} / {pages} — {filtered.length} activos
+            {page} / {pages}
           </span>
-          <button
-            onClick={() => setPage(p => Math.min(pages, p + 1))}
-            disabled={page === pages}
-            style={btnStyle(page !== pages)}
-          >
-            Sig ›
-          </button>
+          <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages} style={btnStyle(page !== pages)}>Sig ›</button>
         </div>
       )}
     </div>
   )
 }
 
-function btnStyle(enabled: boolean) {
+function btnStyle(enabled: boolean): React.CSSProperties {
   return {
-    background: 'transparent',
-    border: `1px solid ${enabled ? '#1a1d2e' : '#0d0f1a'}`,
-    borderRadius: 6, padding: '4px 12px',
-    color: enabled ? '#e8e9f0' : '#3a3f55',
+    background: 'transparent', border: `1px solid ${enabled ? '#1a1d2e' : '#0d0f1a'}`, borderRadius: 6,
+    padding: '4px 12px', color: enabled ? '#e8e9f0' : '#3a3f55',
     fontSize: 11, fontFamily: 'monospace', cursor: enabled ? 'pointer' : 'not-allowed',
   }
 }
