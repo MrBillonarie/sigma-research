@@ -47,18 +47,11 @@ export default function RentaFijaPage() {
   const [view,   setView]   = useState<'tabla' | 'ranking'>('tabla')
   const [tip,    setTip]    = useState<{ tasa: string; periodo: string } | null>(null)
   const [bancos, setBancos] = useState<BancoRow[]>(BANCOS_FALLBACK)
-  const [liveAt, setLiveAt] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/tasas-dap')
       .then(r => r.json())
-      .then(j => {
-        if (j.ok && j.data?.length) {
-          setBancos(j.data)
-          const last = j.data.reduce((a: BancoRow, b: BancoRow) => a.updated_at > b.updated_at ? a : b)
-          setLiveAt(last.updated_at)
-        }
-      })
+      .then(j => { if (j.ok && j.data?.length) setBancos(j.data) })
       .catch(() => {})
   }, [])
 
