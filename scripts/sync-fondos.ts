@@ -7,16 +7,49 @@
 import { loadEnvConfig } from '@next/env'
 import { createClient }  from '@supabase/supabase-js'
 import { Resend }        from 'resend'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
 
 loadEnvConfig(process.cwd())
 
 const FINTUAL_BASE    = 'https://fintual.com/api'
 const FINTUAL_HEADERS = { Accept: 'application/json' }
 
-// ─── Delays mejorados para no saturar la API ──────────────────────────────────
-const FUND_DELAY_MS     = 800   // entre cada fondo de un provider
-const PROVIDER_DELAY_MS = 2000  // entre providers
-const RETRY_DELAYS      = [5_000, 15_000, 30_000] // backoff exponencial para 429
+// ─── Delays ───────────────────────────────────────────────────────────────────
+const FUND_DELAY_MS     = 500
+const PROVIDER_DELAY_MS = 2000
+const RETRY_DELAYS      = [5_000, 15_000, 30_000]
+const COOLDOWN_MS       = 180_000
+const MAX_CONSEC_FAILS  = 3
+const CONCURRENT_FUNDS  = 3  // fondos en paralelo por provider
+
+let consecFails = 0
+let coolingDown = false
+
+// ─── Checkpoint ───────────────────────────────────────────────────────────────
+const CHECKPOINT_FILE = join(process.cwd(), 'scripts', '.sync-checkpoint.json')
+
+function loadCheckpoint(): number {
+  try {
+    if (!existsSync(CHECKPOINT_FILE)) return 0
+    const { date, lastProvider } = JSON.parse(readFileSync(CHECKPOINT_FILE, 'utf8'))
+    if (date === new Date().toISOString().split('T')[0]) return lastProvider as number
+  } catch {}
+  return 0
+}
+
+function saveCheckpoint(providerIndex: number) {
+  try {
+    writeFileSync(CHECKPOINT_FILE, JSON.stringify({
+      date: new Date().toISOString().split('T')[0],
+      lastProvider: providerIndex,
+    }))
+  } catch {}
+}
+
+function clearCheckpoint() {
+  try { if (existsSync(CHECKPOINT_FILE)) writeFileSync(CHECKPOINT_FILE, '{}') } catch {}
+}
 
 // ─── Clientes ─────────────────────────────────────────────────────────────────
 const db = createClient(
@@ -62,6 +95,15 @@ async function fetchJson(url: string, treat404AsEmpty = false): Promise<any> {
         await sleep(wait)
         continue
       }
+      consecFails++
+      if (consecFails >= MAX_CONSEC_FAILS && !coolingDown) {
+        coolingDown = true
+        process.stdout.write(`\n  ⏸ ${consecFails} fallos seguidos → enfriando ${COOLDOWN_MS / 1000}s...`)
+        await sleep(COOLDOWN_MS)
+        consecFails = 0
+        coolingDown = false
+        process.stdout.write(' reanudando\n')
+      }
       throw new Error('HTTP 429 (rate-limit agotado)')
     }
 
@@ -70,6 +112,7 @@ async function fetchJson(url: string, treat404AsEmpty = false): Promise<any> {
       throw new Error(`HTTP ${res.status}`)
     }
 
+    consecFails = 0 // éxito → reset contador
     return res.json()
   }
 }
@@ -160,6 +203,90 @@ async function sendNotification(counters: Record<string, number>, durationS: str
   }
 }
 
+// ─── Procesar un fondo individual ─────────────────────────────────────────────
+interface FundResult {
+  upsert: Record<string, unknown>
+  synced: boolean; sinDatos: boolean; err: boolean
+}
+
+async function processFund(
+  c: { id: string; nombre: string; attrs: unknown },
+  agfId: string, from: string, to: string
+): Promise<FundResult> {
+  let realAssetId: string | null  = null
+  let ultimoPrecio: number | null = null
+  let ultimaFecha: string | null  = null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let realAttrs: any              = null
+
+  try {
+    const rData = await fetchJson(`${FINTUAL_BASE}/conceptual_assets/${c.id}/real_assets`)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const series: any[] = rData.data ?? []
+    if (series.length > 0) {
+      const serieA = series.find(s => String(s.attributes?.serie ?? '').toUpperCase() === 'A')
+      const byDate = [...series].sort((a, b) =>
+        (b.attributes?.last_day?.date ?? '').localeCompare(a.attributes?.last_day?.date ?? '')
+      )
+      const best   = serieA ?? byDate[0]
+      realAssetId  = String(best.id)
+      ultimoPrecio = best.attributes?.last_day?.price ?? null
+      ultimaFecha  = best.attributes?.last_day?.date  ?? null
+      realAttrs    = best.attributes
+    }
+    await sleep(FUND_DELAY_MS)
+  } catch { await sleep(FUND_DELAY_MS) }
+
+  let rent_1m: number | null = null, rent_3m: number | null = null
+  let rent_12m: number | null = null, rent_3a: number | null = null
+  let synced = false, sinDatos = false, err = false
+
+  if (realAssetId) {
+    try {
+      const dData = await fetchJson(
+        `${FINTUAL_BASE}/real_assets/${realAssetId}/days?from_date=${from}&to_date=${to}`
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const days: { date: string; price: number }[] = (dData.data ?? []).map((d: any) => {
+        const a = d.attributes ?? {}
+        const raw = a.price ?? a.nav ?? a.value ?? a.close ?? null
+        return { date: String(a.date ?? ''), price: raw != null ? parseFloat(String(raw)) : 0 }
+      }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
+        .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
+
+      if (days.length >= 5) {
+        const nowP = days[days.length - 1].price
+        ultimoPrecio = ultimoPrecio ?? nowP
+        ultimaFecha  = ultimaFecha  ?? days[days.length - 1].date
+        rent_1m  = pct(nowP, priceAt(days, daysAgo(30))      ?? 0)
+        rent_3m  = pct(nowP, priceAt(days, daysAgo(90))      ?? 0)
+        rent_12m = pct(nowP, priceAt(days, daysAgo(365))     ?? 0)
+        rent_3a  = pct(nowP, priceAt(days, daysAgo(365 * 3)) ?? 0)
+        synced = true
+      } else { sinDatos = true }
+      await sleep(FUND_DELAY_MS)
+    } catch { err = true; await sleep(FUND_DELAY_MS) }
+  } else { sinDatos = true }
+
+  return {
+    upsert: {
+      id: c.id, agf_id: agfId, nombre: c.nombre,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      symbol:        (c.attrs as any)?.symbol ?? null,
+      real_asset_id: realAssetId,
+      categoria:     inferCategoria(c.nombre, c.attrs),
+      tac:           extractTac(realAttrs) ?? extractTac(c.attrs),
+      moneda:        'CLP',
+      rent_1m, rent_3m, rent_12m, rent_3a,
+      ultimo_precio: ultimoPrecio,
+      ultima_fecha:  ultimaFecha,
+      activo:        true,
+      updated_at:    new Date().toISOString(),
+    },
+    synced, sinDatos, err,
+  }
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
   const startedAt = Date.now()
@@ -171,8 +298,20 @@ async function main() {
   console.log(`URL:    ${process.env.NEXT_PUBLIC_SUPABASE_URL}`)
   console.log()
 
-  // ── PASO 1: Providers ────────────────────────────────────────────────────────
-  const providersData = await fetchJson(`${FINTUAL_BASE}/asset_providers`)
+  // ── PASO 1: Providers (con reintentos ilimitados hasta que Fintual responda) ──
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let providersData: any
+  while (true) {
+    try {
+      providersData = await fetchJson(`${FINTUAL_BASE}/asset_providers`)
+      break
+    } catch (e) {
+      if (String(e).includes('429')) {
+        process.stdout.write(`\n⏸ Fintual bloqueado → reintentando en 2 min... (${now()})\n`)
+        await sleep(COOLDOWN_MS)
+      } else throw e
+    }
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const providers: any[] = providersData.data ?? []
   console.log(`Providers encontrados: ${providers.length}`)
@@ -184,10 +323,20 @@ async function main() {
   console.log()
 
   // ── PASO 2–4: Por cada provider ──────────────────────────────────────────────
-  const from = dateStr(daysAgo(365 * 3 + 60))
-  const to   = dateStr(new Date())
+  const from       = dateStr(daysAgo(365 * 3 + 60))
+  const to         = dateStr(new Date())
+  const startFrom  = loadCheckpoint()
+
+  if (startFrom > 0) {
+    console.log(`♻ Checkpoint encontrado — retomando desde provider ${startFrom + 1}/${providers.length}`)
+  }
 
   for (let pi = 0; pi < providers.length; pi++) {
+    if (pi < startFrom) {
+      process.stdout.write(`[${String(pi + 1).padStart(3)}/${providers.length}] SKIP (checkpoint)\n`)
+      continue
+    }
+
     const p      = providers[pi]
     const label  = (p.attributes?.name ?? '?').slice(0, 32).padEnd(34)
     const prefix = `[${String(pi + 1).padStart(3)}/${providers.length}] ${label}`
@@ -217,94 +366,26 @@ async function main() {
     let fondosSynced = 0, fondosSinDatos = 0, fondosErr = 0
     const fondoUpserts: Record<string, unknown>[] = []
 
-    for (const c of conceptuals) {
-      processedIds.add(c.id)
+    // Procesar fondos en batches paralelos de CONCURRENT_FUNDS
+    for (let i = 0; i < conceptuals.length; i += CONCURRENT_FUNDS) {
+      const batch = conceptuals.slice(i, i + CONCURRENT_FUNDS)
+      batch.forEach(c => processedIds.add(c.id))
 
-      // Real assets (series)
-      let realAssetId: string | null  = null
-      let ultimoPrecio: number | null = null
-      let ultimaFecha: string | null  = null
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let realAttrs: any              = null
+      const results = await Promise.allSettled(
+        batch.map(c => processFund(c, String(p.id), from, to))
+      )
 
-      try {
-        const rData = await fetchJson(`${FINTUAL_BASE}/conceptual_assets/${c.id}/real_assets`)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const series: any[] = rData.data ?? []
-        if (series.length > 0) {
-          const serieA = series.find(s => String(s.attributes?.serie ?? '').toUpperCase() === 'A')
-          const byDate = [...series].sort((a, b) =>
-            (b.attributes?.last_day?.date ?? '').localeCompare(a.attributes?.last_day?.date ?? '')
-          )
-          const best   = serieA ?? byDate[0]
-          realAssetId  = String(best.id)
-          ultimoPrecio = best.attributes?.last_day?.price ?? null
-          ultimaFecha  = best.attributes?.last_day?.date  ?? null
-          realAttrs    = best.attributes
-        }
-        await sleep(FUND_DELAY_MS)
-      } catch {
-        await sleep(FUND_DELAY_MS)
-      }
-
-      // Price history → rentabilidades
-      let rent_1m: number | null = null, rent_3m: number | null = null
-      let rent_12m: number | null = null, rent_3a: number | null = null
-
-      if (realAssetId) {
-        try {
-          const dData = await fetchJson(
-            `${FINTUAL_BASE}/real_assets/${realAssetId}/days?from_date=${from}&to_date=${to}`
-          )
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const days: { date: string; price: number }[] = (dData.data ?? []).map((d: any) => {
-            const a = d.attributes ?? {}
-            const raw = a.price ?? a.nav ?? a.value ?? a.close ?? null
-            return { date: String(a.date ?? ''), price: raw != null ? parseFloat(String(raw)) : 0 }
-          }).filter((d: { date: string; price: number }) => d.date && d.price > 0)
-            .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
-
-          if (days.length >= 5) {
-            const nowP = days[days.length - 1].price
-            ultimoPrecio = ultimoPrecio ?? nowP
-            ultimaFecha  = ultimaFecha  ?? days[days.length - 1].date
-            rent_1m  = pct(nowP, priceAt(days, daysAgo(30))      ?? 0)
-            rent_3m  = pct(nowP, priceAt(days, daysAgo(90))      ?? 0)
-            rent_12m = pct(nowP, priceAt(days, daysAgo(365))     ?? 0)
-            rent_3a  = pct(nowP, priceAt(days, daysAgo(365 * 3)) ?? 0)
-            fondosSynced++
-            counters.synced++
-          } else {
-            fondosSinDatos++
-            counters.sin_datos++
-          }
-          await sleep(FUND_DELAY_MS)
-        } catch {
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          fondoUpserts.push(r.value.upsert)
+          if (r.value.synced)   { fondosSynced++;    counters.synced++    }
+          else if (r.value.sinDatos) { fondosSinDatos++; counters.sin_datos++ }
+          else if (r.value.err)      { fondosErr++;      counters.errors++    }
+        } else {
           fondosErr++
           counters.errors++
-          await sleep(FUND_DELAY_MS)
         }
-      } else {
-        fondosSinDatos++
-        counters.sin_datos++
       }
-
-      fondoUpserts.push({
-        id:            c.id,
-        agf_id:        String(p.id),
-        nombre:        c.nombre,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        symbol:        (c.attrs as any)?.symbol ?? null,
-        real_asset_id: realAssetId,
-        categoria:     inferCategoria(c.nombre, c.attrs),
-        tac:           extractTac(realAttrs) ?? extractTac(c.attrs),
-        moneda:        'CLP',
-        rent_1m, rent_3m, rent_12m, rent_3a,
-        ultimo_precio: ultimoPrecio,
-        ultima_fecha:  ultimaFecha,
-        activo:        true,
-        updated_at:    new Date().toISOString(),
-      })
     }
 
     if (fondoUpserts.length > 0) {
@@ -322,8 +403,11 @@ async function main() {
       process.stdout.write('VACÍO\n')
     }
 
+    saveCheckpoint(pi + 1)
     await sleep(PROVIDER_DELAY_MS)
   }
+
+  clearCheckpoint()
 
   // ── Marcar inactivos SOLO si el sync fue limpio (>=80% fondos resueltos) ────
   const { count: totalActivos } = await db

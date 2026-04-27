@@ -48,7 +48,7 @@ const kpis = [
   { label: 'Modelos activos',       value: mockModelos.filter(m => m.activo).length.toString(),            color: 'text-gold' },
 ]
 
-type Tab = 'resumen' | 'usuarios' | 'solicitudes' | 'modelos' | 'reportes'
+type Tab = 'resumen' | 'usuarios' | 'solicitudes' | 'modelos' | 'reportes' | 'tasas'
 
 const planColor: Record<string, string> = {
   TERMINAL:      'text-text-dim border-border',
@@ -198,6 +198,7 @@ export default function AdminDashboard() {
             { id: 'solicitudes', label: 'SOLICITUDES' },
             { id: 'modelos',     label: 'MODELOS' },
             { id: 'reportes',    label: 'REPORTES' },
+            { id: 'tasas',       label: 'TASAS DAP' },
           ] as { id: Tab; label: string }[]).map(item => (
             <button
               key={item.id}
@@ -215,7 +216,7 @@ export default function AdminDashboard() {
 
         {/* Mobile tabs */}
         <div className="md:hidden w-full border-b border-border bg-surface px-4 flex gap-1 overflow-x-auto">
-          {(['resumen','usuarios','solicitudes','modelos','reportes'] as Tab[]).map(t => (
+          {(['resumen','usuarios','solicitudes','modelos','reportes','tasas'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -535,7 +536,122 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ── TASAS DAP ── */}
+          {tab === 'tasas' && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <div className="section-label text-gold mb-1">{'// TASAS DAP'}</div>
+                <h2 className="display-heading text-4xl text-text">DEPÓSITOS A PLAZO</h2>
+                <p className="text-text-dim text-sm mt-2">Actualiza las tasas de los bancos. Se reflejan en el comparador en menos de 1 hora.</p>
+              </div>
+              <TasasDapEditor adminSecret={ADMIN_SECRET} />
+            </div>
+          )}
+
         </main>
+      </div>
+    </div>
+  )
+}
+
+// ── Componente editor de tasas ────────────────────────────────────────────────
+interface TasaRow { id: string; nombre: string; d7: number; d14: number; d30: number; d60: number; d90: number; d180: number; d360: number; updated_at: string }
+const PLAZOS_DAP = ['d7','d14','d30','d60','d90','d180','d360'] as const
+const LABELS_DAP: Record<string, string> = { d7:'7d', d14:'14d', d30:'30d', d60:'60d', d90:'90d', d180:'180d', d360:'360d' }
+
+function TasasDapEditor({ adminSecret }: { adminSecret: string }) {
+  const [tasas,   setTasas]   = useState<TasaRow[]>([])
+  const [editing, setEditing] = useState<Record<string, Partial<TasaRow>>>({})
+  const [saving,  setSaving]  = useState<string | null>(null)
+  const [msg,     setMsg]     = useState<{ text: string; ok: boolean } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/tasas-dap').then(r => r.json()).then(j => { if (j.ok) setTasas(j.data) }).catch(() => {})
+  }, [])
+
+  function handleChange(id: string, field: string, value: string) {
+    setEditing(prev => ({ ...prev, [id]: { ...prev[id], [field]: parseFloat(value) || 0 } }))
+  }
+
+  async function handleSave(banco: TasaRow) {
+    setSaving(banco.id)
+    const updated = { ...banco, ...editing[banco.id] }
+    const r = await fetch('/api/admin/tasas-dap', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminSecret}` },
+      body: JSON.stringify(updated),
+    })
+    const j = await r.json()
+    if (j.ok) {
+      setMsg({ text: `✓ ${banco.nombre} guardado`, ok: true })
+      setEditing(prev => { const n = { ...prev }; delete n[banco.id]; return n })
+      fetch('/api/tasas-dap').then(r => r.json()).then(j => { if (j.ok) setTasas(j.data) }).catch(() => {})
+    } else {
+      setMsg({ text: `Error: ${j.error}`, ok: false })
+    }
+    setSaving(null)
+    setTimeout(() => setMsg(null), 3000)
+  }
+
+  return (
+    <div className="bg-surface border border-border">
+      {msg && (
+        <div className={`px-4 py-3 text-sm font-mono ${msg.ok ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
+          {msg.text}
+        </div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left px-4 py-3 text-xs font-mono tracking-widest text-text-dim uppercase">Banco</th>
+              {PLAZOS_DAP.map(p => <th key={p} className="text-right px-3 py-3 text-xs font-mono tracking-widest text-text-dim uppercase">{LABELS_DAP[p]}</th>)}
+              <th className="px-4 py-3 text-xs font-mono text-text-dim uppercase text-center">Acción</th>
+              <th className="px-4 py-3 text-xs font-mono text-text-dim uppercase">Actualizado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tasas.map(b => {
+              const ed = editing[b.id] ?? {}
+              const isDirty = Object.keys(ed).length > 0
+              return (
+                <tr key={b.id} className={`border-b border-border ${isDirty ? 'bg-gold/5' : ''}`}>
+                  <td className="px-4 py-3 font-mono text-sm text-text">{b.nombre}</td>
+                  {PLAZOS_DAP.map(p => (
+                    <td key={p} className="px-3 py-3 text-right">
+                      <input
+                        type="number" step="0.01" min="0" max="5"
+                        value={(ed[p as keyof TasaRow] ?? b[p as keyof TasaRow] ?? '') as number}
+                        onChange={e => handleChange(b.id, p, e.target.value)}
+                        className="bg-background border border-border text-text font-mono text-sm text-right w-16 px-2 py-1"
+                      />
+                      <span className="text-text-dim text-xs ml-1">%</span>
+                    </td>
+                  ))}
+                  <td className="px-4 py-3 text-center">
+                    {isDirty ? (
+                      <button
+                        onClick={() => handleSave(b)}
+                        disabled={saving === b.id}
+                        className="section-label text-xs bg-gold text-background px-3 py-1.5 hover:bg-gold/80 transition-colors disabled:opacity-50"
+                      >
+                        {saving === b.id ? '...' : 'GUARDAR'}
+                      </button>
+                    ) : (
+                      <span className="text-text-dim text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-text-dim">
+                    {b.updated_at ? new Date(b.updated_at).toLocaleDateString('es-CL') : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-4 py-3 border-t border-border text-xs font-mono text-text-dim">
+        Tasas en % mensual · Fuente: verificar sitios web de cada banco · Actualización mensual recomendada
       </div>
     </div>
   )

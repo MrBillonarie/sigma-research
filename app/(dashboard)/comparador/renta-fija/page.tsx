@@ -5,21 +5,31 @@ import { C } from '@/app/lib/constants'
 const MONO  = 'var(--font-dm-mono)'
 const BEBAS = "'Bebas Neue', Impact, sans-serif"
 
-const BANCOS = [
-  { nombre: 'Banco Internacional', d30: 0.40 },
-  { nombre: 'Banco Consorcio',     d30: 0.40 },
-  { nombre: 'BTG Pactual',         d30: 0.39 },
-  { nombre: 'Banco Ripley',        d30: 0.39 },
-  { nombre: 'Banco Security',      d30: 0.37 },
-  { nombre: 'Banco BICE',          d30: 0.37 },
-  { nombre: 'BancoEstado',         d30: 0.35 },
-  { nombre: 'Banco de Chile',      d30: 0.34 },
-  { nombre: 'Itaú',                d30: 0.34 },
-  { nombre: 'Santander',           d30: 0.30 },
-  { nombre: 'Banco Falabella',     d30: 0.30 },
+interface BancoRow {
+  id: string; nombre: string
+  d7: number; d14: number; d30: number; d60: number; d90: number; d180: number; d360: number
+  updated_at: string
+}
+
+const BANCOS_FALLBACK: BancoRow[] = [
+  { id: 'banco-internacional', nombre: 'Banco Internacional', d7: 0.09, d14: 0.18, d30: 0.40, d60: 0.42, d90: 0.44, d180: 0.46, d360: 0.50, updated_at: '' },
+  { id: 'banco-consorcio',     nombre: 'Banco Consorcio',     d7: 0.09, d14: 0.18, d30: 0.40, d60: 0.42, d90: 0.44, d180: 0.46, d360: 0.50, updated_at: '' },
+  { id: 'btg-pactual',         nombre: 'BTG Pactual',         d7: 0.09, d14: 0.17, d30: 0.39, d60: 0.41, d90: 0.43, d180: 0.45, d360: 0.49, updated_at: '' },
+  { id: 'banco-ripley',        nombre: 'Banco Ripley',        d7: 0.09, d14: 0.17, d30: 0.39, d60: 0.41, d90: 0.43, d180: 0.45, d360: 0.48, updated_at: '' },
+  { id: 'banco-security',      nombre: 'Banco Security',      d7: 0.08, d14: 0.16, d30: 0.37, d60: 0.39, d90: 0.41, d180: 0.43, d360: 0.47, updated_at: '' },
+  { id: 'banco-bice',          nombre: 'Banco BICE',          d7: 0.08, d14: 0.16, d30: 0.37, d60: 0.39, d90: 0.41, d180: 0.43, d360: 0.47, updated_at: '' },
+  { id: 'bancoestado',         nombre: 'BancoEstado',         d7: 0.08, d14: 0.15, d30: 0.35, d60: 0.37, d90: 0.39, d180: 0.41, d360: 0.45, updated_at: '' },
+  { id: 'banco-de-chile',      nombre: 'Banco de Chile',      d7: 0.07, d14: 0.15, d30: 0.34, d60: 0.36, d90: 0.38, d180: 0.40, d360: 0.44, updated_at: '' },
+  { id: 'itau',                nombre: 'Itaú',                d7: 0.07, d14: 0.15, d30: 0.34, d60: 0.36, d90: 0.38, d180: 0.40, d360: 0.44, updated_at: '' },
+  { id: 'scotiabank',          nombre: 'Scotiabank',          d7: 0.07, d14: 0.14, d30: 0.32, d60: 0.34, d90: 0.36, d180: 0.38, d360: 0.42, updated_at: '' },
+  { id: 'bci',                 nombre: 'BCI',                 d7: 0.07, d14: 0.14, d30: 0.32, d60: 0.34, d90: 0.36, d180: 0.38, d360: 0.42, updated_at: '' },
+  { id: 'santander',           nombre: 'Santander',           d7: 0.06, d14: 0.13, d30: 0.30, d60: 0.32, d90: 0.34, d180: 0.36, d360: 0.40, updated_at: '' },
+  { id: 'banco-falabella',     nombre: 'Banco Falabella',     d7: 0.06, d14: 0.13, d30: 0.30, d60: 0.32, d90: 0.34, d180: 0.36, d360: 0.40, updated_at: '' },
 ]
 
 const PLAZOS = [
+  { label: '7d',   days: 7   },
+  { label: '14d',  days: 14  },
   { label: '30d',  days: 30  },
   { label: '60d',  days: 60  },
   { label: '90d',  days: 90  },
@@ -36,6 +46,21 @@ export default function RentaFijaPage() {
   const [plazo,  setPlazo]  = useState(30)
   const [view,   setView]   = useState<'tabla' | 'ranking'>('tabla')
   const [tip,    setTip]    = useState<{ tasa: string; periodo: string } | null>(null)
+  const [bancos, setBancos] = useState<BancoRow[]>(BANCOS_FALLBACK)
+  const [liveAt, setLiveAt] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/tasas-dap')
+      .then(r => r.json())
+      .then(j => {
+        if (j.ok && j.data?.length) {
+          setBancos(j.data)
+          const last = j.data.reduce((a: BancoRow, b: BancoRow) => a.updated_at > b.updated_at ? a : b)
+          setLiveAt(last.updated_at)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch('/api/cmf/tip')
@@ -50,15 +75,19 @@ export default function RentaFijaPage() {
       .catch(() => {})
   }, [])
 
-  const maxTasa = Math.max(...BANCOS.map(b => b.d30))
+  const maxTasa = Math.max(...bancos.map(b => b.d30))
 
-  const ranked = useMemo(() => [...BANCOS].sort((a, b) => b.d30 - a.d30), [])
+  const ranked = useMemo(() => [...bancos].sort((a, b) => b.d30 - a.d30), [bancos])
 
-  function getTasa(banco: typeof BANCOS[number]) {
-    return plazo === 30 ? banco.d30 : null
+  function getTasa(banco: BancoRow) {
+    const map: Record<number, number | null> = {
+      7: banco.d7 ?? null, 14: banco.d14 ?? null, 30: banco.d30 ?? null,
+      60: banco.d60 ?? null, 90: banco.d90 ?? null, 180: banco.d180 ?? null, 360: banco.d360 ?? null,
+    }
+    return map[plazo] ?? null
   }
 
-  function getGanancia(banco: typeof BANCOS[number]) {
+  function getGanancia(banco: BancoRow) {
     const tasa = getTasa(banco)
     if (tasa === null) return null
     return monto * (tasa / 100) * (plazo / 30)
@@ -197,14 +226,14 @@ export default function RentaFijaPage() {
                 </tr>
               </thead>
               <tbody>
-                {BANCOS.map((banco, i) => {
+                {bancos.map((banco, i) => {
                   const ganancia = getGanancia(banco)
                   const isBest   = banco.d30 === maxTasa
                   return (
                     <tr
                       key={banco.nombre}
                       style={{
-                        borderBottom: i < BANCOS.length - 1 ? `1px solid ${C.border}` : 'none',
+                        borderBottom: i < bancos.length - 1 ? `1px solid ${C.border}` : 'none',
                         background:   isBest ? 'rgba(212,175,55,0.04)' : 'transparent',
                       }}
                     >

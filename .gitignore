@@ -56,3 +56,4 @@ Thumbs.db
 .claude/
 
 .vercel
+scripts/.sync-checkpoint.json
