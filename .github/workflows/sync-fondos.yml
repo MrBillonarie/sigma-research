@@ -27,7 +27,19 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+
+      - name: Verificar secrets requeridos
+        run: |
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "❌ NEXT_PUBLIC_SUPABASE_URL no está configurado en GitHub Secrets"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "❌ SUPABASE_SERVICE_ROLE_KEY no está configurado en GitHub Secrets"
+            exit 1
+          fi
+          echo "✅ Secrets verificados"
 
       - name: Install dependencies
         run: npm ci
