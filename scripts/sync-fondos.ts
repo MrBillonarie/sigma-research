@@ -67,7 +67,8 @@ const db = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
 )
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Resend es opcional — si no hay API key el sync funciona igual sin notificación
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const sleep   = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -205,6 +206,10 @@ async function sendNotification(counters: Record<string, number>, durationS: str
   </table>
 </body></html>`
 
+  if (!resend) {
+    console.log('\n⚠ RESEND_API_KEY no configurado — notificación omitida')
+    return
+  }
   try {
     await resend.emails.send({ from, to, subject: `✓ Sync Fondos [${mode}] — ${counters.synced} con rent. · ${fecha}`, html })
     console.log(`\n📧 Email enviado a ${to}`)
