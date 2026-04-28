@@ -107,6 +107,84 @@ const MODELS = [
       ['Período', 'Mar 2023 – Dic 2024'],
     ],
   },
+  {
+    id: 'k1-15m',
+    tag: '15M',
+    name: 'K1-15M',
+    subtitle: 'Scalping Sistemático · OFI · Vol Target Kelly',
+    color: '#1D9E75',
+    trades: 892,
+    winRate: 0.548,
+    sharpe: 1.31,
+    maxDD: -13.6,
+    avgWin: 1.18,
+    avgLoss: 0.97,
+    timeframe: '15M',
+    market: 'BTC / Crypto',
+    status: 'LIVE',
+    statusColor: '#34d399',
+    description: 'Modelo de scalping sistemático en 15 minutos. Combina Order Flow Imbalance (OFI), régimen intradiario y señales de momentum de corto plazo. Position sizing basado en Kelly fraction adaptativo según volatilidad realizada del día. Stop dinámico por ATR.',
+    params: [
+      ['Timeframe', '15 minutos'],
+      ['Entry trigger', 'OFI + Momentum'],
+      ['Vol Target', '15% anualizado'],
+      ['Kelly fraction', 'f* adaptativo'],
+      ['Stop loss', 'ATR(14) × 1.2'],
+      ['Período', 'Ene 2024 – Abr 2026'],
+    ],
+  },
+  {
+    id: 'k1-1h',
+    tag: '1H',
+    name: 'K1-1H',
+    subtitle: 'Momentum Tendencial · MACD · Régimen HMM',
+    color: '#f59e0b',
+    trades: 318,
+    winRate: 0.587,
+    sharpe: 1.74,
+    maxDD: -10.9,
+    avgWin: 1.92,
+    avgLoss: 1.08,
+    timeframe: '1H',
+    market: 'BTC / ETH / Futuros',
+    status: 'LIVE',
+    statusColor: '#34d399',
+    description: 'Sistema de momentum en 1H con confirmación MACD y detección de régimen. Filtra entradas en mercados laterales usando clasificador HMM de 2 estados (tendencia / rango). Gestión de posición con trailing stop basado en swing structure.',
+    params: [
+      ['Timeframe', '1 hora'],
+      ['Filtro régimen', 'HMM 2 estados'],
+      ['MACD', '12 / 26 / 9'],
+      ['Trailing stop', 'Swing low / high'],
+      ['Vol Target', '20% anualizado'],
+      ['Período', 'Jun 2023 – Abr 2026'],
+    ],
+  },
+  {
+    id: 'k1-4h',
+    tag: '4H',
+    name: 'K1-4H',
+    subtitle: 'Swing Trading · Estructura de Mercado · RR Alto',
+    color: '#ec4899',
+    trades: 171,
+    winRate: 0.619,
+    sharpe: 2.08,
+    maxDD: -9.2,
+    avgWin: 2.41,
+    avgLoss: 1.21,
+    timeframe: '4H',
+    market: 'BTC / Macro Futuros',
+    status: 'BETA',
+    statusColor: '#fbbf24',
+    description: 'Modelo de swing trading en 4H orientado a capturas de tendencia con alta relación riesgo/retorno. Entradas en retests de zonas de estructura (BOS/CHoCH) con confluencia de EMA 20/50 y MACD. Sizing por volatilidad objetivo del 15% anual.',
+    params: [
+      ['Timeframe', '4 horas'],
+      ['Estructura', 'BOS / CHoCH'],
+      ['Confirmación', 'EMA20 > EMA50 + MACD'],
+      ['R:R mínimo', '2.0 : 1'],
+      ['Vol Target', '15% anualizado'],
+      ['Período', 'Oct 2023 – Abr 2026'],
+    ],
+  },
 ]
 
 // Pre-generate equity curves
@@ -145,7 +223,7 @@ export default function ModelosPage() {
           </p>
         </div>
 
-        {/* Model selector tabs */}
+        {/* Model selector tabs — 2 filas de 3 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
           {MODELS.map((mod, i) => (
             <button key={mod.id} onClick={() => setActive(i)} style={{
