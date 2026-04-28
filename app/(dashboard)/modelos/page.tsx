@@ -187,6 +187,81 @@ const MODELS = [
   },
 ]
 
+// ─── Universo de trading (35 instrumentos, 6 traders) ────────────────────────
+const TRADERS = [
+  {
+    id: 1, name: 'Trader 1 — Alonso', focus: 'Crypto Core', session: '24/7',
+    color: '#1D9E75',
+    instruments: [
+      { n:  1, ticker: 'BTC/USDT', market: 'Binance Futures', session: '24/7', tf: '15M', status: 'live'    },
+      { n:  2, ticker: 'ETH/USDT', market: 'Binance Futures', session: '24/7', tf: '15M', status: 'pending' },
+      { n:  3, ticker: 'SOL/USDT', market: 'Binance Futures', session: '24/7', tf: '15M', status: 'pending' },
+      { n:  4, ticker: 'BNB/USDT', market: 'Binance Futures', session: '24/7', tf: '15M', status: 'pending' },
+      { n:  5, ticker: 'XAU/USDT', market: 'Binance Spot',    session: '24/7', tf: '1H',  status: 'pending' },
+      { n:  6, ticker: 'XAG/USDT', market: 'Binance Spot',    session: '24/7', tf: '1H',  status: 'pending' },
+    ],
+  },
+  {
+    id: 2, name: 'Trader 2', focus: 'Metales & Commodities', session: 'Londres + NY',
+    color: '#d4af37',
+    instruments: [
+      { n:  7, ticker: 'XAU/USD',    market: 'OANDA / TradingView', session: 'Londres + NY', tf: '15M–4H', status: 'pending' },
+      { n:  8, ticker: 'XAG/USD',    market: 'OANDA / TradingView', session: 'Londres + NY', tf: '15M–4H', status: 'pending' },
+      { n:  9, ticker: 'GC1!',       market: 'CME Futures',         session: 'Londres + NY', tf: '15M–1H', status: 'pending' },
+      { n: 10, ticker: 'WTI / CL1!', market: 'CME Futures',         session: 'NY principal', tf: '15M–1H', status: 'pending' },
+      { n: 11, ticker: 'HG1! (Cobre)',market: 'CME Futures',        session: 'Londres + NY', tf: '1H–4H',  status: 'pending' },
+    ],
+  },
+  {
+    id: 3, name: 'Trader 3', focus: 'US Equities', session: 'NYSE 9:30–16:00 ET',
+    color: '#3b82f6',
+    instruments: [
+      { n: 12, ticker: 'SPX500 / ES1!', market: 'CME Futures',     session: 'NYSE', tf: '15M–1H', status: 'pending' },
+      { n: 13, ticker: 'NQ100 / NQ1!', market: 'CME Futures',      session: 'NYSE', tf: '15M–1H', status: 'pending' },
+      { n: 14, ticker: 'DJI / YM1!',   market: 'CME Futures',      session: 'NYSE', tf: '15M–1H', status: 'pending' },
+      { n: 15, ticker: 'NVDA',          market: 'NASDAQ / IBKR',   session: 'NYSE', tf: '15M–1H', status: 'pending' },
+      { n: 16, ticker: 'AAPL',          market: 'NASDAQ / IBKR',   session: 'NYSE', tf: '15M–1H', status: 'pending' },
+    ],
+  },
+  {
+    id: 4, name: 'Trader 4', focus: 'ETFs', session: 'NYSE 9:30–16:00 ET',
+    color: '#8b5cf6',
+    instruments: [
+      { n: 17, ticker: 'SPY',  market: 'S&P 500',            session: 'NYSE', tf: '15M–1H', status: 'pending' },
+      { n: 18, ticker: 'QQQ',  market: 'Nasdaq 100',         session: 'NYSE', tf: '15M–1H', status: 'pending' },
+      { n: 19, ticker: 'GLD',  market: 'Gold',               session: 'NYSE', tf: '1H–4H',  status: 'pending' },
+      { n: 20, ticker: 'SLV',  market: 'Silver',             session: 'NYSE', tf: '1H–4H',  status: 'pending' },
+      { n: 21, ticker: 'IBIT', market: 'Bitcoin (BlackRock)', session: 'NYSE', tf: '1H–4H',  status: 'pending' },
+    ],
+  },
+  {
+    id: 5, name: 'Trader 5', focus: 'Bonos & Macro', session: 'Sin sesión fija',
+    color: '#ec4899',
+    instruments: [
+      { n: 22, ticker: 'TLT',  market: 'Bono 20Y+ ETF',       session: 'NYSE',   tf: '1H–4H', status: 'pending' },
+      { n: 23, ticker: 'ZN1!', market: 'Treasury Note 10Y',   session: 'CME 24h', tf: '1H–4H', status: 'pending' },
+      { n: 24, ticker: 'ZB1!', market: 'Treasury Bond 30Y',   session: 'CME 24h', tf: '1H–4H', status: 'pending' },
+      { n: 25, ticker: 'HYG',  market: 'High Yield Bonds ETF', session: 'NYSE',   tf: '1H–4H', status: 'pending' },
+      { n: 26, ticker: 'TBT',  market: 'Inverso TLT 2x',      session: 'NYSE',   tf: '1H–4H', status: 'pending' },
+    ],
+  },
+  {
+    id: 6, name: 'Trader 6', focus: 'Índices Internacionales & Forex', session: 'Europa + Asia',
+    color: '#f97316',
+    instruments: [
+      { n: 27, ticker: 'DAX / GER40',  market: 'Xetra / CME',  session: 'Londres',      tf: '15M–1H', status: 'pending' },
+      { n: 28, ticker: 'FTSE100',       market: 'LSE / CME',    session: 'Londres',      tf: '15M–1H', status: 'pending' },
+      { n: 29, ticker: 'Nikkei / JPN225', market: 'OSE / CME', session: 'Asia',          tf: '1H',     status: 'pending' },
+      { n: 30, ticker: 'IBOVESPA',      market: 'B3 Brasil',    session: 'NY paralelo',  tf: '1H',     status: 'pending' },
+      { n: 31, ticker: 'EUR/USD',       market: 'Forex OTC',    session: 'Londres + NY', tf: '15M–1H', status: 'pending' },
+      { n: 32, ticker: 'GBP/USD',       market: 'Forex OTC',    session: 'Londres',      tf: '15M–1H', status: 'pending' },
+      { n: 33, ticker: 'USD/JPY',       market: 'Forex OTC',    session: 'Asia + NY',    tf: '15M–1H', status: 'pending' },
+      { n: 34, ticker: 'DXY',           market: 'ICE / Referencia', session: '24h',      tf: '1H–4H',  status: 'pending' },
+      { n: 35, ticker: 'USD/CHF',       market: 'Forex OTC',    session: 'Londres + NY', tf: '15M–1H', status: 'pending' },
+    ],
+  },
+]
+
 // Pre-generate equity curves
 const MODEL_DATA = MODELS.map(m => genEquity(m.trades, m.winRate, m.avgWin, m.avgLoss, m.name.charCodeAt(0) * 7 + 42))
 
@@ -290,6 +365,88 @@ export default function ModelosPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* ── Universo de Trading ──────────────────────────────────────────── */}
+        <div style={{ marginTop: 48 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 10 }}>
+            {'// UNIVERSO DE TRADING · COBERTURA DE MODELOS'}
+          </div>
+          <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', letterSpacing: '0.03em', margin: '0 0 6px' }}>
+            35 INSTRUMENTOS · 6 TRADERS
+          </h2>
+          <p style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginBottom: 28, maxWidth: 560 }}>
+            Cobertura cross-market planificada. Estado actual del despliegue de modelos por instrumento.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {TRADERS.map(trader => (
+              <div key={trader.id} style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                {/* Trader header */}
+                <div style={{
+                  padding: '12px 20px',
+                  borderBottom: `1px solid ${C.border}`,
+                  borderLeft: `3px solid ${trader.color}`,
+                  display: 'flex', alignItems: 'center', gap: 16,
+                }}>
+                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, color: trader.color, letterSpacing: 1 }}>
+                    {trader.name}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>
+                    {trader.focus}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted, marginLeft: 'auto' }}>
+                    {trader.session}
+                  </span>
+                </div>
+
+                {/* Instruments table */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: C.bg }}>
+                        {['#', 'Ticker', 'Mercado / Subyacente', 'Sesión', 'TF', 'Estado'].map(h => (
+                          <th key={h} style={{
+                            padding: '7px 14px', textAlign: 'left',
+                            fontSize: 9, color: C.muted, fontFamily: 'monospace',
+                            letterSpacing: '0.15em', textTransform: 'uppercase',
+                            borderBottom: `1px solid ${C.border}`,
+                          }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trader.instruments.map((inst, i) => (
+                        <tr key={inst.n} style={{ borderBottom: `1px solid ${C.border}20`, background: i % 2 === 0 ? 'transparent' : `${C.bg}80` }}>
+                          <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 11, color: C.muted }}>{String(inst.n).padStart(2, '0')}</td>
+                          <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 12, color: C.text, fontWeight: 700 }}>{inst.ticker}</td>
+                          <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{inst.market}</td>
+                          <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{inst.session}</td>
+                          <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 11, color: C.gold }}>{inst.tf}</td>
+                          <td style={{ padding: '8px 14px' }}>
+                            {inst.status === 'live' ? (
+                              <span style={{
+                                fontFamily: 'monospace', fontSize: 10, fontWeight: 700,
+                                color: '#34d399', background: 'rgba(52,211,153,0.12)',
+                                border: '1px solid rgba(52,211,153,0.3)',
+                                borderRadius: 3, padding: '2px 8px', whiteSpace: 'nowrap',
+                              }}>MODEL K1 ✓</span>
+                            ) : (
+                              <span style={{
+                                fontFamily: 'monospace', fontSize: 10,
+                                color: C.muted, background: `${C.border}60`,
+                                borderRadius: 3, padding: '2px 8px',
+                              }}>Pendiente</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
