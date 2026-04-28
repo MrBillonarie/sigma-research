@@ -44,9 +44,8 @@ export async function sendConfirmationEmail(to: string, firstName: string, token
 }
 
 // ─── Reset password ───────────────────────────────────────────────────────────
-export async function sendResetPasswordEmail(to: string, firstName: string, token: string): Promise<SendResult> {
+export async function sendResetPasswordEmail(to: string, firstName: string, resetUrl: string): Promise<SendResult> {
   try {
-    const resetUrl = `${APP_URL}/auth/callback?token=${encodeURIComponent(token)}&type=recovery`
     const html = await toHtml(React.createElement(ResetPasswordEmail, { firstName, resetUrl }))
     const { error } = await getResend().emails.send({ from: FROM, to, subject: 'Restablece tu contraseña — Sigma Research', html })
     if (error) { console.error('[email:reset]', error); return { success: false, error: error.message } }

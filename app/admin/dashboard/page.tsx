@@ -1,10 +1,9 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 const SESSION_KEY   = 'sigma_admin_auth'
-// Sin secret en cliente — la cookie httpOnly se envía automáticamente
 const ADMIN_HEADERS = { 'Content-Type': 'application/json' }
 
 interface ReporteRow {
@@ -40,6 +39,26 @@ interface TicketRow {
   created_at: string
 }
 
+interface MarketingForm {
+  segmento: 'todos' | 'pro' | 'free'
+  subject: string
+  title: string
+  subtitle: string
+  body: string
+  ctaText: string
+  ctaUrl: string
+}
+
+const MARKETING_EMPTY: MarketingForm = {
+  segmento: 'pro',
+  subject: '',
+  title: '',
+  subtitle: '',
+  body: '',
+  ctaText: '',
+  ctaUrl: '',
+}
+
 const mockModelos = [
   { tag: 'HMM-01',   name: 'REGIME DETECTOR',  status: 'PRODUCCIÓN', accuracy: '91.2%', metric: 'Accuracy',        activo: true  },
   { tag: 'GARCH-02', name: 'VOL FORECASTER',   status: 'PRODUCCIÓN', accuracy: '0.031', metric: 'MAE 30D',         activo: true  },
@@ -49,23 +68,18 @@ const mockModelos = [
   { tag: 'VAR-06',   name: 'MACRO REGIME',     status: 'PRODUCCIÓN', accuracy: '84.1%', metric: 'Directional Acc', activo: true  },
 ]
 
-const mockSolicitudes = [
-  { id: 1, nombre: 'Pedro Gutiérrez', empresa: 'Fondo Sur Capital', email: 'pgutierrez@fsc.cl',       motivo: 'Plan Institutional — solicitud de acceso', estado: 'PENDIENTE',  fecha: '2025-04-10' },
-  { id: 2, nombre: 'Ana Hernández',   empresa: '',                  email: 'ahernan@gmail.com',        motivo: 'Demo personalizada',                      estado: 'RESPONDIDA', fecha: '2025-04-08' },
-  { id: 3, nombre: 'Luis Mora',       empresa: 'Asesores RM',       email: 'luis.mora@asesorerm.cl',   motivo: 'Integración API',                         estado: 'PENDIENTE',  fecha: '2025-04-12' },
-]
-
-type Tab = 'resumen' | 'usuarios' | 'solicitudes' | 'modelos' | 'reportes' | 'tasas' | 'sync' | 'soporte'
+type Tab = 'resumen' | 'usuarios' | 'solicitudes' | 'modelos' | 'reportes' | 'tasas' | 'sync' | 'soporte' | 'marketing'
 
 const SIDEBAR_TABS: { id: Tab; label: string }[] = [
-  { id: 'resumen',     label: 'RESUMEN'      },
-  { id: 'usuarios',    label: 'USUARIOS'     },
-  { id: 'soporte',     label: 'SOPORTE'      },
-  { id: 'solicitudes', label: 'SOLICITUDES'  },
-  { id: 'modelos',     label: 'MODELOS'      },
-  { id: 'reportes',    label: 'REPORTES'     },
-  { id: 'tasas',       label: 'TASAS DAP'    },
-  { id: 'sync',        label: 'SYNC DATOS'   },
+  { id: 'resumen',     label: 'RESUMEN'    },
+  { id: 'usuarios',    label: 'USUARIOS'   },
+  { id: 'soporte',     label: 'SOPORTE'    },
+  { id: 'solicitudes', label: 'SOLICITUDES'},
+  { id: 'modelos',     label: 'MODELOS'    },
+  { id: 'reportes',    label: 'REPORTES'   },
+  { id: 'tasas',       label: 'TASAS DAP'  },
+  { id: 'sync',        label: 'SYNC DATOS' },
+  { id: 'marketing',   label: 'MARKETING'  },
 ]
 
 const EMPTY_FORM = { numero: '', titulo: '', fecha: '', descripcion: '', url_pdf: '' }
@@ -75,7 +89,7 @@ function fmtDate(iso: string) {
 }
 
 export default function AdminDashboard() {
-  const router = useRouter()
+  const router  = useRouter()
   const [tab,     setTab]     = useState<Tab>('resumen')
   const [modelos, setModelos] = useState(mockModelos)
   const [loading, setLoading] = useState(true)
@@ -102,6 +116,17 @@ export default function AdminDashboard() {
   const fileRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLDivElement>(null)
 
+  // ── Usuario expandido / email directo ────────────────────────────────────────
+  const [expandedUser, setExpandedUser] = useState<string | null>(null)
+  const [emailDirecto, setEmailDirecto] = useState<Record<string, string>>({})
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null)
+  const [emailMsg,     setEmailMsg]     = useState<{ id: string; ok: boolean; text: string } | null>(null)
+
+  // ── Marketing ────────────────────────────────────────────────────────────────
+  const [mktForm,     setMktForm]     = useState<MarketingForm>(MARKETING_EMPTY)
+  const [sendingMkt,  setSendingMkt]  = useState(false)
+  const [mktResult,   setMktResult]   = useState<{ ok: boolean; text: string } | null>(null)
+
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY) !== 'true') {
       router.replace('/admin')
@@ -116,7 +141,7 @@ export default function AdminDashboard() {
   async function fetchUsers() {
     setLoadingUsers(true)
     try {
-      const res = await fetch('/api/admin/usuarios', { headers: ADMIN_HEADERS })
+      const res  = await fetch('/api/admin/usuarios', { headers: ADMIN_HEADERS })
       const json = await res.json()
       if (json.users) setUsers(json.users)
     } catch {}
@@ -127,16 +152,41 @@ export default function AdminDashboard() {
     const newPlan = user.plan === 'pro' ? 'free' : 'pro'
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, plan: newPlan } : u))
     await fetch('/api/admin/usuarios', {
-      method: 'PATCH',
+      method:  'PATCH',
       headers: ADMIN_HEADERS,
-      body: JSON.stringify({ id: user.id, plan: newPlan }),
+      body:    JSON.stringify({ id: user.id, plan: newPlan }),
     })
+  }
+
+  async function sendEmailDirecto(user: UserRow) {
+    const msg = emailDirecto[user.id]?.trim()
+    if (!msg) return
+    setSendingEmail(user.id)
+    try {
+      const res  = await fetch('/api/admin/email-directo', {
+        method:  'POST',
+        headers: ADMIN_HEADERS,
+        body:    JSON.stringify({ email: user.email, nombre: user.nombre || 'Trader', mensaje: msg }),
+      })
+      const json = await res.json()
+      if (json.ok) {
+        setEmailMsg({ id: user.id, ok: true, text: '✓ Email enviado' })
+        setEmailDirecto(prev => { const n = { ...prev }; delete n[user.id]; return n })
+        setExpandedUser(null)
+      } else {
+        setEmailMsg({ id: user.id, ok: false, text: json.error ?? 'Error al enviar' })
+      }
+    } catch {
+      setEmailMsg({ id: user.id, ok: false, text: 'Error de conexión' })
+    }
+    setSendingEmail(null)
+    setTimeout(() => setEmailMsg(null), 4000)
   }
 
   async function fetchSyncStatus() {
     setLoadingSync(true)
     try {
-      const res = await fetch('/api/admin/sync-status', { headers: ADMIN_HEADERS })
+      const res  = await fetch('/api/admin/sync-status', { headers: ADMIN_HEADERS })
       const json = await res.json()
       if (json.fondos) setSyncStatus(json)
     } catch {}
@@ -146,7 +196,7 @@ export default function AdminDashboard() {
   async function fetchTickets() {
     setLoadingTickets(true)
     try {
-      const res = await fetch('/api/admin/soporte', { headers: ADMIN_HEADERS })
+      const res  = await fetch('/api/admin/soporte', { headers: ADMIN_HEADERS })
       const json = await res.json()
       if (json.tickets) setTickets(json.tickets)
     } catch {}
@@ -155,10 +205,10 @@ export default function AdminDashboard() {
 
   async function updateTicket(id: string, status: string, respuesta?: string, enviarEmail?: boolean) {
     setSendingTicket(id)
-    const res = await fetch('/api/admin/soporte', {
-      method: 'PATCH',
+    const res  = await fetch('/api/admin/soporte', {
+      method:  'PATCH',
       headers: ADMIN_HEADERS,
-      body: JSON.stringify({ id, status, respuesta, enviarEmail }),
+      body:    JSON.stringify({ id, status, respuesta, enviarEmail }),
     })
     const json = await res.json()
     if (json.ok) {
@@ -176,7 +226,7 @@ export default function AdminDashboard() {
 
   async function fetchReportes() {
     setLoadingR(true)
-    const res = await fetch('/api/admin/reportes', { headers: ADMIN_HEADERS })
+    const res  = await fetch('/api/admin/reportes', { headers: ADMIN_HEADERS })
     const json = await res.json()
     if (json.reportes) setReportes(json.reportes)
     setLoadingR(false)
@@ -215,30 +265,26 @@ export default function AdminDashboard() {
     if (pdfFile) {
       const fd = new FormData()
       fd.append('file', pdfFile)
-      const res = await fetch('/api/admin/reportes/upload', {
-        method: 'POST',
-        headers: {  },
-        body: fd,
-      })
+      const res  = await fetch('/api/admin/reportes/upload', { method: 'POST', body: fd })
       const json = await res.json()
       if (!res.ok) { setFormError(json.error ?? 'Error al subir el PDF'); setUploading(false); return }
       url_pdf = json.url
     }
 
     if (editingId) {
-      const res = await fetch('/api/admin/reportes', {
-        method: 'PATCH',
+      const res  = await fetch('/api/admin/reportes', {
+        method:  'PATCH',
         headers: ADMIN_HEADERS,
-        body: JSON.stringify({ id: editingId, numero: Number(form.numero), titulo: form.titulo, fecha: form.fecha, descripcion: form.descripcion, url_pdf }),
+        body:    JSON.stringify({ id: editingId, numero: Number(form.numero), titulo: form.titulo, fecha: form.fecha, descripcion: form.descripcion, url_pdf }),
       })
       const json = await res.json()
       if (!res.ok) { setFormError(json.error?.message ?? 'Error al guardar'); setUploading(false); return }
       setEditingId(null)
     } else {
-      const res = await fetch('/api/admin/reportes', {
-        method: 'POST',
+      const res  = await fetch('/api/admin/reportes', {
+        method:  'POST',
         headers: ADMIN_HEADERS,
-        body: JSON.stringify({ ...form, numero: Number(form.numero), url_pdf }),
+        body:    JSON.stringify({ ...form, numero: Number(form.numero), url_pdf }),
       })
       const json = await res.json()
       if (!res.ok) { setFormError(json.error?.message ?? 'Error al guardar'); setUploading(false); return }
@@ -253,9 +299,9 @@ export default function AdminDashboard() {
 
   async function toggleActivo(id: string, activo: boolean) {
     await fetch('/api/admin/reportes', {
-      method: 'PATCH',
+      method:  'PATCH',
       headers: ADMIN_HEADERS,
-      body: JSON.stringify({ id, activo: !activo }),
+      body:    JSON.stringify({ id, activo: !activo }),
     })
     fetchReportes()
   }
@@ -263,11 +309,34 @@ export default function AdminDashboard() {
   async function deleteReporte(id: string) {
     if (!confirm('¿Eliminar este reporte?')) return
     await fetch('/api/admin/reportes', {
-      method: 'DELETE',
+      method:  'DELETE',
       headers: ADMIN_HEADERS,
-      body: JSON.stringify({ id }),
+      body:    JSON.stringify({ id }),
     })
     fetchReportes()
+  }
+
+  async function sendMarketing(e: React.FormEvent) {
+    e.preventDefault()
+    setSendingMkt(true)
+    setMktResult(null)
+    try {
+      const res  = await fetch('/api/admin/marketing', {
+        method:  'POST',
+        headers: ADMIN_HEADERS,
+        body:    JSON.stringify(mktForm),
+      })
+      const json = await res.json()
+      if (json.ok) {
+        setMktResult({ ok: true, text: `✓ Enviado a ${json.sent} destinatarios` })
+        setMktForm(MARKETING_EMPTY)
+      } else {
+        setMktResult({ ok: false, text: json.error ?? 'Error al enviar' })
+      }
+    } catch {
+      setMktResult({ ok: false, text: 'Error de conexión' })
+    }
+    setSendingMkt(false)
   }
 
   function logout() {
@@ -279,15 +348,65 @@ export default function AdminDashboard() {
     setModelos(prev => prev.map(m => m.tag === tag ? { ...m, activo: !m.activo } : m))
   }
 
-  const proCount        = users.filter(u => u.plan === 'pro').length
-  const pendingTickets  = tickets.filter(t => t.status === 'pendiente').length
+  // ── Datos derivados ───────────────────────────────────────────────────────────
+  const proCount       = users.filter(u => u.plan === 'pro').length
+  const pendingTickets = tickets.filter(t => t.status === 'pendiente').length
 
   const kpis = [
-    { label: 'Usuarios registrados', value: loadingUsers ? '…' : users.length.toString(),                               color: 'text-gold' },
-    { label: 'Usuarios PRO',         value: loadingUsers ? '…' : proCount.toString(),                                   color: 'text-gold' },
+    { label: 'Usuarios registrados', value: loadingUsers ? '…' : users.length.toString(),                                    color: 'text-gold'        },
+    { label: 'Usuarios PRO',         value: loadingUsers ? '…' : proCount.toString(),                                        color: 'text-gold'        },
     { label: 'Fondos en DB',         value: loadingSync  ? '…' : (syncStatus?.fondos.total.toLocaleString('es-CL') ?? '—'), color: 'text-emerald-400' },
-    { label: 'ETFs en DB',           value: loadingSync  ? '…' : (syncStatus?.etfs.total?.toString() ?? '—'),            color: 'text-emerald-400' },
+    { label: 'ETFs en DB',           value: loadingSync  ? '…' : (syncStatus?.etfs.total?.toString() ?? '—'),                color: 'text-emerald-400' },
   ]
+
+  // Gráfico de crecimiento — últimas 8 semanas
+  const growthData = useMemo(() => {
+    const MS_WEEK = 7 * 24 * 3600 * 1000
+    const now     = Date.now()
+    return Array.from({ length: 8 }, (_, i) => {
+      const start = now - (8 - i) * MS_WEEK
+      const end   = now - (7 - i) * MS_WEEK
+      const count = users.filter(u => {
+        const t = new Date(u.created_at).getTime()
+        return t >= start && t < end
+      }).length
+      const d = new Date(end)
+      return { label: d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }), count }
+    })
+  }, [users])
+
+  const growthMax = useMemo(() => Math.max(...growthData.map(w => w.count), 1), [growthData])
+
+  // Feed de actividad reciente
+  const activityFeed = useMemo(() => {
+    type ActivityItem = { type: 'signup' | 'ticket' | 'pro'; title: string; sub: string; badge: string; badgeColor: string; date: string }
+    const items: ActivityItem[] = [
+      ...users.slice().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6).map(u => ({
+        type:        (u.plan === 'pro' ? 'pro' : 'signup') as ActivityItem['type'],
+        title:       u.nombre || u.email.split('@')[0],
+        sub:         u.email,
+        badge:       u.plan === 'pro' ? 'PRO' : 'REGISTRO',
+        badgeColor:  u.plan === 'pro' ? 'text-gold border-gold/30' : 'text-emerald-400 border-emerald-400/30',
+        date:        u.created_at,
+      })),
+      ...tickets.slice(0, 6).map(t => ({
+        type:       'ticket' as ActivityItem['type'],
+        title:      t.nombre,
+        sub:        t.motivo || t.mensaje.slice(0, 50),
+        badge:      t.status.toUpperCase(),
+        badgeColor: t.status === 'pendiente' ? 'text-yellow-400 border-yellow-400/30' : t.status === 'resuelto' ? 'text-emerald-400 border-emerald-400/30' : 'text-gold border-gold/30',
+        date:       t.created_at,
+      })),
+    ]
+    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10)
+  }, [users, tickets])
+
+  // Conteo de destinatarios para marketing
+  const mktCount = useMemo(() => {
+    if (mktForm.segmento === 'pro')  return users.filter(u => u.plan === 'pro').length
+    if (mktForm.segmento === 'free') return users.filter(u => u.plan !== 'pro').length
+    return users.length
+  }, [mktForm.segmento, users])
 
   if (loading) return null
 
@@ -312,10 +431,7 @@ export default function AdminDashboard() {
           <Link href="/" className="terminal-text text-xs text-text-dim hover:text-gold transition-colors">
             ← Ver sitio
           </Link>
-          <button
-            onClick={logout}
-            className="section-label text-xs text-red-400 hover:text-red-300 transition-colors"
-          >
+          <button onClick={logout} className="section-label text-xs text-red-400 hover:text-red-300 transition-colors">
             SALIR
           </button>
         </div>
@@ -368,10 +484,7 @@ export default function AdminDashboard() {
               {t.label}
             </button>
           ))}
-          <Link
-            href="/admin/lp-signal"
-            className="section-label text-xs py-3 px-3 whitespace-nowrap border-b-2 border-transparent text-text-dim"
-          >
+          <Link href="/admin/lp-signal" className="section-label text-xs py-3 px-3 whitespace-nowrap border-b-2 border-transparent text-text-dim">
             LP SIGNAL ↗
           </Link>
         </div>
@@ -379,7 +492,7 @@ export default function AdminDashboard() {
         {/* Main content */}
         <main className="flex-1 p-6 overflow-auto">
 
-          {/* ── RESUMEN ── */}
+          {/* ── RESUMEN ─────────────────────────────────────────────────────── */}
           {tab === 'resumen' && (
             <div className="flex flex-col gap-8">
               <div>
@@ -387,6 +500,7 @@ export default function AdminDashboard() {
                 <h2 className="display-heading text-4xl text-text">OVERVIEW</h2>
               </div>
 
+              {/* KPIs */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
                 {kpis.map(k => (
                   <div key={k.label} className="bg-surface p-5">
@@ -397,6 +511,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-px bg-border">
+
                 {/* Estado de usuarios */}
                 <div className="bg-surface p-6">
                   <div className="section-label text-gold mb-4">ESTADO DE USUARIOS</div>
@@ -405,8 +520,8 @@ export default function AdminDashboard() {
                   ) : (
                     <div className="flex flex-col gap-4">
                       {[
-                        { label: 'PRO',            count: proCount,                      total: users.length },
-                        { label: 'FREE',           count: users.length - proCount,        total: users.length },
+                        { label: 'PRO',  count: proCount,              total: users.length },
+                        { label: 'FREE', count: users.length - proCount, total: users.length },
                       ].map(({ label, count, total }) => {
                         const pct = total ? Math.round((count / total) * 100) : 0
                         return (
@@ -459,6 +574,40 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Crecimiento de usuarios — últimas 8 semanas */}
+              <div className="bg-surface p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="section-label text-gold">CRECIMIENTO DE USUARIOS</div>
+                  <span className="terminal-text text-xs text-muted">últimas 8 semanas</span>
+                </div>
+                {loadingUsers ? (
+                  <div className="terminal-text text-xs text-muted">Cargando…</div>
+                ) : (
+                  <div className="flex items-end gap-2 h-28">
+                    {growthData.map((w, i) => {
+                      const pct = Math.round((w.count / growthMax) * 100)
+                      return (
+                        <div key={i} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                          <span className="terminal-text text-[9px] text-gold num tabular-nums leading-none">
+                            {w.count > 0 ? w.count : ''}
+                          </span>
+                          <div className="w-full relative bg-border" style={{ height: '72px' }}>
+                            <div
+                              className="absolute bottom-0 w-full transition-all duration-700"
+                              style={{
+                                height: `${pct}%`,
+                                background: pct > 0 ? 'linear-gradient(to top, #d4af37, #d4af3760)' : 'transparent',
+                              }}
+                            />
+                          </div>
+                          <span className="terminal-text text-[8px] text-muted text-center leading-tight">{w.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* Estado modelos */}
               <div className="bg-surface p-6">
                 <div className="section-label text-gold mb-4">ESTADO DE MODELOS</div>
@@ -476,10 +625,44 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </div>
+
+              {/* Feed de actividad reciente */}
+              <div className="bg-surface p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="section-label text-gold">ACTIVIDAD RECIENTE</div>
+                  <span className="terminal-text text-xs text-muted">últimas acciones</span>
+                </div>
+                {loadingUsers && loadingTickets ? (
+                  <div className="terminal-text text-xs text-muted">Cargando…</div>
+                ) : activityFeed.length === 0 ? (
+                  <div className="terminal-text text-xs text-muted">Sin actividad aún.</div>
+                ) : (
+                  <div className="flex flex-col divide-y divide-border">
+                    {activityFeed.map((item, i) => (
+                      <div key={i} className="flex items-center gap-3 py-2.5">
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          item.type === 'pro'    ? 'bg-gold' :
+                          item.type === 'signup' ? 'bg-emerald-400' : 'bg-yellow-400'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <span className="terminal-text text-xs text-text truncate block">{item.title}</span>
+                          <span className="terminal-text text-[10px] text-muted truncate block">{item.sub}</span>
+                        </div>
+                        <span className={`section-label text-[10px] border px-2 py-0.5 shrink-0 ${item.badgeColor}`}>
+                          {item.badge}
+                        </span>
+                        <span className="terminal-text text-[10px] text-muted num shrink-0">
+                          {new Date(item.date).toLocaleDateString('es-CL')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* ── USUARIOS ── */}
+          {/* ── USUARIOS ────────────────────────────────────────────────────── */}
           {tab === 'usuarios' && (
             <div className="flex flex-col gap-6">
               <div className="flex items-end justify-between">
@@ -487,10 +670,7 @@ export default function AdminDashboard() {
                   <div className="section-label text-gold mb-1">{'// GESTIÓN'}</div>
                   <h2 className="display-heading text-4xl text-text">USUARIOS</h2>
                 </div>
-                <button
-                  onClick={fetchUsers}
-                  className="section-label text-xs text-gold border border-gold/30 px-3 py-1.5 hover:bg-gold/5 transition-colors"
-                >
+                <button onClick={fetchUsers} className="section-label text-xs text-gold border border-gold/30 px-3 py-1.5 hover:bg-gold/5 transition-colors">
                   ACTUALIZAR
                 </button>
               </div>
@@ -502,42 +682,87 @@ export default function AdminDashboard() {
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="bg-surface border-b border-border">
-                        {['Nombre', 'Email', 'Plan', 'Registro', 'Último acceso', 'Estado'].map(h => (
+                        {['Nombre', 'Email', 'Plan', 'Registro', 'Último acceso', 'Estado', ''].map(h => (
                           <th key={h} className="section-label text-text-dim text-xs text-left px-4 py-3">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {users.map(u => (
-                        <tr key={u.id} className="border-b border-border hover:bg-surface/60 transition-colors">
-                          <td className="terminal-text text-sm text-text px-4 py-3">{u.nombre || '—'}</td>
-                          <td className="terminal-text text-xs text-text-dim px-4 py-3">{u.email}</td>
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => togglePlan(u)}
-                              className={`section-label text-xs border px-2.5 py-1 transition-colors ${
-                                u.plan === 'pro'
-                                  ? 'text-gold border-gold/40 hover:bg-gold/10'
-                                  : 'text-text-dim border-border hover:border-gold/40 hover:text-gold'
-                              }`}
-                            >
-                              {u.plan === 'pro' ? 'PRO' : 'FREE'}
-                            </button>
-                          </td>
-                          <td className="terminal-text text-xs text-text-dim px-4 py-3 num">{u.created_at.slice(0, 10)}</td>
-                          <td className="terminal-text text-xs text-text-dim px-4 py-3 num">
-                            {u.last_sign_in ? u.last_sign_in.slice(0, 10) : '—'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`section-label text-xs ${u.confirmed ? 'text-emerald-400' : 'text-yellow-400'}`}>
-                              {u.confirmed ? 'CONFIRMADO' : 'PENDIENTE'}
-                            </span>
-                          </td>
-                        </tr>
+                        <>
+                          <tr
+                            key={u.id}
+                            className={`border-b border-border transition-colors cursor-pointer ${expandedUser === u.id ? 'bg-gold/5' : 'hover:bg-surface/60'}`}
+                            onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}
+                          >
+                            <td className="terminal-text text-sm text-text px-4 py-3">{u.nombre || '—'}</td>
+                            <td className="terminal-text text-xs text-text-dim px-4 py-3">{u.email}</td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={ev => { ev.stopPropagation(); togglePlan(u) }}
+                                className={`section-label text-xs border px-2.5 py-1 transition-colors ${
+                                  u.plan === 'pro'
+                                    ? 'text-gold border-gold/40 hover:bg-gold/10'
+                                    : 'text-text-dim border-border hover:border-gold/40 hover:text-gold'
+                                }`}
+                              >
+                                {u.plan === 'pro' ? 'PRO' : 'FREE'}
+                              </button>
+                            </td>
+                            <td className="terminal-text text-xs text-text-dim px-4 py-3 num">{u.created_at.slice(0, 10)}</td>
+                            <td className="terminal-text text-xs text-text-dim px-4 py-3 num">{u.last_sign_in ? u.last_sign_in.slice(0, 10) : '—'}</td>
+                            <td className="px-4 py-3">
+                              <span className={`section-label text-xs ${u.confirmed ? 'text-emerald-400' : 'text-yellow-400'}`}>
+                                {u.confirmed ? 'CONFIRMADO' : 'PENDIENTE'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="terminal-text text-xs text-muted">{expandedUser === u.id ? '▲' : '▼'}</span>
+                            </td>
+                          </tr>
+
+                          {expandedUser === u.id && (
+                            <tr key={`${u.id}-expand`} className="border-b border-border bg-gold/5">
+                              <td colSpan={7} className="px-6 py-5">
+                                <div className="flex flex-col gap-3 max-w-xl">
+                                  <div className="section-label text-gold text-xs">ENVIAR EMAIL DIRECTO</div>
+                                  <textarea
+                                    rows={3}
+                                    placeholder="Escribe el mensaje para este usuario…"
+                                    value={emailDirecto[u.id] ?? ''}
+                                    onChange={e => setEmailDirecto(prev => ({ ...prev, [u.id]: e.target.value }))}
+                                    onClick={e => e.stopPropagation()}
+                                    className="w-full bg-bg border border-border focus:border-gold/60 outline-none px-4 py-3 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
+                                  />
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      onClick={e => { e.stopPropagation(); sendEmailDirecto(u) }}
+                                      disabled={!emailDirecto[u.id]?.trim() || sendingEmail === u.id}
+                                      className="section-label text-xs bg-gold text-bg px-5 py-2 hover:bg-gold-glow transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                      {sendingEmail === u.id ? 'ENVIANDO…' : 'ENVIAR EMAIL'}
+                                    </button>
+                                    <button
+                                      onClick={e => { e.stopPropagation(); togglePlan(u) }}
+                                      className="section-label text-xs border border-border px-5 py-2 text-text-dim hover:border-gold hover:text-gold transition-colors"
+                                    >
+                                      {u.plan === 'pro' ? 'BAJAR A FREE' : 'SUBIR A PRO'}
+                                    </button>
+                                  </div>
+                                  {emailMsg?.id === u.id && (
+                                    <span className={`terminal-text text-xs ${emailMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                                      {emailMsg.text}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       ))}
                       {users.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="terminal-text text-xs text-muted px-4 py-6 text-center">Sin usuarios.</td>
+                          <td colSpan={7} className="terminal-text text-xs text-muted px-4 py-6 text-center">Sin usuarios.</td>
                         </tr>
                       )}
                     </tbody>
@@ -547,38 +772,83 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ── SOLICITUDES ── */}
+          {/* ── SOLICITUDES ─────────────────────────────────────────────────── */}
           {tab === 'solicitudes' && (
             <div className="flex flex-col gap-6">
-              <div>
-                <div className="section-label text-gold mb-1">{'// CONTACTO'}</div>
-                <h2 className="display-heading text-4xl text-text">SOLICITUDES</h2>
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="section-label text-gold mb-1">{'// CONTACTO'}</div>
+                  <h2 className="display-heading text-4xl text-text">SOLICITUDES</h2>
+                </div>
+                <button onClick={fetchTickets} className="section-label text-xs text-gold border border-gold/30 px-3 py-1.5 hover:bg-gold/5 transition-colors">
+                  ACTUALIZAR
+                </button>
               </div>
 
-              <div className="flex flex-col gap-px bg-border">
-                {mockSolicitudes.map(s => (
-                  <div key={s.id} className="bg-surface p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="terminal-text text-sm text-text">{s.nombre}</span>
-                        {s.empresa && <span className="terminal-text text-xs text-text-dim">· {s.empresa}</span>}
+              {/* Resumen por estado */}
+              {!loadingTickets && tickets.length > 0 && (
+                <div className="grid grid-cols-3 gap-px bg-border">
+                  {(['pendiente', 'visto', 'resuelto'] as const).map(s => {
+                    const count  = tickets.filter(t => t.status === s).length
+                    const colors = { pendiente: 'text-yellow-400', visto: 'text-gold', resuelto: 'text-emerald-400' }
+                    return (
+                      <div key={s} className="bg-surface p-4 text-center">
+                        <div className={`display-heading text-4xl num ${colors[s]}`}>{count}</div>
+                        <div className="section-label text-text-dim text-xs mt-1">{s.toUpperCase()}</div>
                       </div>
-                      <span className="terminal-text text-xs text-text-dim">{s.email}</span>
-                      <span className="terminal-text text-xs text-gold mt-1">{s.motivo}</span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="terminal-text text-xs text-muted num">{s.fecha}</span>
-                      <span className={`section-label text-xs ${s.estado === 'PENDIENTE' ? 'text-yellow-400' : 'text-emerald-400'}`}>
-                        {s.estado}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {loadingTickets ? (
+                <div className="terminal-text text-xs text-muted">Cargando…</div>
+              ) : tickets.length === 0 ? (
+                <div className="bg-surface border border-border p-8 text-center terminal-text text-xs text-muted">
+                  No hay solicitudes todavía.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-px bg-border">
+                  {tickets.map(t => {
+                    const statusColors: Record<string, string> = {
+                      pendiente: 'text-yellow-400 border-yellow-400/30',
+                      visto:     'text-gold border-gold/30',
+                      resuelto:  'text-emerald-400 border-emerald-400/30',
+                    }
+                    return (
+                      <div key={t.id} className="bg-surface p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="terminal-text text-sm text-text">{t.nombre}</span>
+                            {t.empresa && <span className="terminal-text text-xs text-text-dim">· {t.empresa}</span>}
+                          </div>
+                          <span className="terminal-text text-xs text-text-dim">{t.email}</span>
+                          {t.motivo && <span className="terminal-text text-xs text-gold mt-1">{t.motivo}</span>}
+                          <span className="terminal-text text-xs text-muted mt-0.5 line-clamp-1">{t.mensaje}</span>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="terminal-text text-xs text-muted num">
+                            {new Date(t.created_at).toLocaleDateString('es-CL')}
+                          </span>
+                          <span className={`section-label text-[10px] border px-2 py-0.5 ${statusColors[t.status]}`}>
+                            {t.status.toUpperCase()}
+                          </span>
+                          <button
+                            onClick={() => { setTab('soporte'); setExpandedTicket(t.id) }}
+                            className="section-label text-xs text-gold border border-gold/30 px-3 py-1 hover:bg-gold/5 transition-colors"
+                          >
+                            GESTIONAR →
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
-          {/* ── MODELOS ── */}
+          {/* ── MODELOS ─────────────────────────────────────────────────────── */}
           {tab === 'modelos' && (
             <div className="flex flex-col gap-6">
               <div>
@@ -616,7 +886,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ── REPORTES ── */}
+          {/* ── REPORTES ────────────────────────────────────────────────────── */}
           {tab === 'reportes' && (
             <div className="flex flex-col gap-8">
               <div>
@@ -692,18 +962,11 @@ export default function AdminDashboard() {
 
                   {formError && <p className="terminal-text text-red-400 text-xs">{formError}</p>}
 
-                  <div className="flex items-center gap-3">
-                    <button type="submit" disabled={uploading}
-                      className="bg-gold text-bg section-label text-sm px-8 py-3 hover:bg-gold-glow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {uploading ? 'GUARDANDO…' : editingId ? 'GUARDAR CAMBIOS' : 'PUBLICAR REPORTE'}
-                    </button>
-                    {editingId && (
-                      <button type="button" onClick={cancelEdit} className="section-label text-xs text-text-dim hover:text-red-400 transition-colors px-4 py-3">
-                        CANCELAR
-                      </button>
-                    )}
-                  </div>
+                  <button type="submit" disabled={uploading}
+                    className="bg-gold text-bg section-label text-sm px-8 py-3 hover:bg-gold-glow transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-start"
+                  >
+                    {uploading ? 'GUARDANDO…' : editingId ? 'GUARDAR CAMBIOS' : 'PUBLICAR REPORTE'}
+                  </button>
                 </form>
               </div>
 
@@ -734,16 +997,14 @@ export default function AdminDashboard() {
                         r.activo
                           ? 'text-emerald-400 border-emerald-400/30 hover:border-red-400 hover:text-red-400'
                           : 'text-muted border-border hover:border-gold hover:text-gold'
-                      }`}>
-                      {r.activo ? 'ACTIVO' : 'OCULTO'}
+                      }`}>{r.activo ? 'ACTIVO' : 'OCULTO'}
                     </button>
                     <button onClick={() => startEdit(r)}
                       className={`section-label text-xs border px-3 py-1 transition-colors ${
                         editingId === r.id
                           ? 'text-gold border-gold bg-gold/10'
                           : 'text-text-dim border-border hover:border-gold hover:text-gold'
-                      }`}>
-                      EDITAR
+                      }`}>{editingId === r.id ? 'EDITANDO' : 'EDITAR'}
                     </button>
                     <button onClick={() => deleteReporte(r.id)}
                       className="section-label text-xs text-red-400/60 hover:text-red-400 transition-colors">
@@ -755,7 +1016,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ── TASAS DAP ── */}
+          {/* ── TASAS DAP ───────────────────────────────────────────────────── */}
           {tab === 'tasas' && (
             <div className="flex flex-col gap-6">
               <div>
@@ -767,7 +1028,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ── SOPORTE ── */}
+          {/* ── SOPORTE ─────────────────────────────────────────────────────── */}
           {tab === 'soporte' && (
             <div className="flex flex-col gap-6">
               <div className="flex items-end justify-between">
@@ -780,11 +1041,10 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {/* Resumen de estados */}
               {!loadingTickets && tickets.length > 0 && (
                 <div className="grid grid-cols-3 gap-px bg-border">
                   {(['pendiente', 'visto', 'resuelto'] as const).map(s => {
-                    const count = tickets.filter(t => t.status === s).length
+                    const count  = tickets.filter(t => t.status === s).length
                     const colors = { pendiente: 'text-yellow-400', visto: 'text-gold', resuelto: 'text-emerald-400' }
                     return (
                       <div key={s} className="bg-surface p-4 text-center">
@@ -813,7 +1073,6 @@ export default function AdminDashboard() {
                     }
                     return (
                       <div key={t.id} className={`bg-surface ${isExpanded ? 'border-l-2 border-gold' : ''}`}>
-                        {/* Cabecera del ticket */}
                         <div
                           className="p-5 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:bg-gold/5 transition-colors"
                           onClick={() => setExpandedTicket(isExpanded ? null : t.id)}
@@ -838,10 +1097,8 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
-                        {/* Detalle expandido */}
                         {isExpanded && (
                           <div className="px-5 pb-6 flex flex-col gap-4 border-t border-border">
-                            {/* Mensaje completo */}
                             <div className="mt-4">
                               <div className="section-label text-text-dim text-xs mb-2">MENSAJE</div>
                               <div className="bg-bg border border-border p-4 terminal-text text-sm text-text-dim leading-relaxed whitespace-pre-wrap">
@@ -849,7 +1106,6 @@ export default function AdminDashboard() {
                               </div>
                             </div>
 
-                            {/* Respuesta anterior si existe */}
                             {t.respuesta && (
                               <div>
                                 <div className="section-label text-emerald-400 text-xs mb-2">RESPUESTA ENVIADA</div>
@@ -859,7 +1115,6 @@ export default function AdminDashboard() {
                               </div>
                             )}
 
-                            {/* Cambio de estado rápido */}
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="section-label text-text-dim text-xs">ESTADO:</span>
                               {(['pendiente', 'visto', 'resuelto'] as const).map(s => (
@@ -868,9 +1123,7 @@ export default function AdminDashboard() {
                                   onClick={() => updateTicket(t.id, s)}
                                   disabled={t.status === s || sendingTicket === t.id}
                                   className={`section-label text-xs border px-3 py-1 transition-colors disabled:opacity-40 ${
-                                    t.status === s
-                                      ? statusColors[s]
-                                      : 'text-text-dim border-border hover:border-gold hover:text-gold'
+                                    t.status === s ? statusColors[s] : 'text-text-dim border-border hover:border-gold hover:text-gold'
                                   }`}
                                 >
                                   {s.toUpperCase()}
@@ -878,7 +1131,6 @@ export default function AdminDashboard() {
                               ))}
                             </div>
 
-                            {/* Área de respuesta */}
                             <div>
                               <div className="section-label text-gold text-xs mb-2">
                                 {t.respuesta ? 'NUEVA RESPUESTA' : 'RESPONDER'}
@@ -908,7 +1160,6 @@ export default function AdminDashboard() {
                               </div>
                             </div>
 
-                            {/* Feedback */}
                             {ticketMsg?.id === t.id && (
                               <div className={`terminal-text text-xs ${ticketMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {ticketMsg.text}
@@ -924,7 +1175,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ── SYNC DATOS ── */}
+          {/* ── SYNC DATOS ──────────────────────────────────────────────────── */}
           {tab === 'sync' && (
             <div className="flex flex-col gap-8">
               <div className="flex items-end justify-between">
@@ -932,10 +1183,7 @@ export default function AdminDashboard() {
                   <div className="section-label text-gold mb-1">{'// SINCRONIZACIÓN'}</div>
                   <h2 className="display-heading text-4xl text-text">ESTADO DE DATOS</h2>
                 </div>
-                <button
-                  onClick={fetchSyncStatus}
-                  className="section-label text-xs text-gold border border-gold/30 px-3 py-1.5 hover:bg-gold/5 transition-colors"
-                >
+                <button onClick={fetchSyncStatus} className="section-label text-xs text-gold border border-gold/30 px-3 py-1.5 hover:bg-gold/5 transition-colors">
                   ACTUALIZAR
                 </button>
               </div>
@@ -944,11 +1192,8 @@ export default function AdminDashboard() {
                 <div className="terminal-text text-xs text-muted">Cargando…</div>
               ) : syncStatus ? (
                 <div className="grid md:grid-cols-2 gap-px bg-border">
-
-                  {/* Fondos Mutuos */}
                   <div className="bg-surface p-6 flex flex-col gap-5">
                     <div className="section-label text-gold">FONDOS MUTUOS</div>
-
                     <div>
                       <div className="flex justify-between mb-1.5">
                         <span className="terminal-text text-xs text-text-dim">Actualizados hoy</span>
@@ -957,13 +1202,9 @@ export default function AdminDashboard() {
                         </span>
                       </div>
                       <div className="h-2 bg-border">
-                        <div
-                          className="h-full bg-gold-gradient transition-all duration-700"
-                          style={{ width: `${syncStatus.fondos.pctToday}%` }}
-                        />
+                        <div className="h-full bg-gold-gradient transition-all duration-700" style={{ width: `${syncStatus.fondos.pctToday}%` }} />
                       </div>
                     </div>
-
                     <div className="grid grid-cols-2 gap-px bg-border">
                       <div className="bg-bg p-4">
                         <div className="section-label text-text-dim text-xs mb-1">Total fondos</div>
@@ -974,29 +1215,20 @@ export default function AdminDashboard() {
                         <div className="display-heading text-4xl text-text num">{syncStatus.agf.total}</div>
                       </div>
                     </div>
-
                     {syncStatus.fondos.lastUpdate && (
-                      <div className="terminal-text text-xs text-text-dim">
-                        Última sync: {fmtDate(syncStatus.fondos.lastUpdate)}
-                      </div>
+                      <div className="terminal-text text-xs text-text-dim">Última sync: {fmtDate(syncStatus.fondos.lastUpdate)}</div>
                     )}
                   </div>
 
-                  {/* ETFs */}
                   <div className="bg-surface p-6 flex flex-col gap-5">
                     <div className="section-label text-gold">ETFs</div>
-
                     <div className="bg-bg p-4">
                       <div className="section-label text-text-dim text-xs mb-1">Total ETFs</div>
                       <div className="display-heading text-4xl text-gold num">{syncStatus.etfs.total}</div>
                     </div>
-
                     {syncStatus.etfs.lastUpdate && (
-                      <div className="terminal-text text-xs text-text-dim">
-                        Última sync: {fmtDate(syncStatus.etfs.lastUpdate)}
-                      </div>
+                      <div className="terminal-text text-xs text-text-dim">Última sync: {fmtDate(syncStatus.etfs.lastUpdate)}</div>
                     )}
-
                     <div className="flex items-center gap-2 mt-auto">
                       <span className="w-2 h-2 rounded-full bg-emerald-400" />
                       <span className="terminal-text text-xs text-emerald-400">Sync diario 3 AM Chile</span>
@@ -1007,7 +1239,6 @@ export default function AdminDashboard() {
                 <div className="terminal-text text-xs text-red-400">Error cargando estado</div>
               )}
 
-              {/* Schedule */}
               <div className="bg-surface border border-border p-6">
                 <div className="section-label text-gold mb-4">SCHEDULE GITHUB ACTIONS</div>
                 <div className="flex flex-col gap-3">
@@ -1023,6 +1254,152 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── MARKETING ───────────────────────────────────────────────────── */}
+          {tab === 'marketing' && (
+            <div className="flex flex-col gap-8">
+              <div>
+                <div className="section-label text-gold mb-1">{'// COMUNICACIONES'}</div>
+                <h2 className="display-heading text-4xl text-text">MARKETING</h2>
+              </div>
+
+              {/* Stats de audiencia */}
+              <div className="grid grid-cols-3 gap-px bg-border">
+                {[
+                  { label: 'Todos los usuarios', count: users.length,                           seg: 'todos' as const },
+                  { label: 'Usuarios PRO',        count: users.filter(u => u.plan === 'pro').length, seg: 'pro'   as const },
+                  { label: 'Usuarios Free',       count: users.filter(u => u.plan !== 'pro').length, seg: 'free'  as const },
+                ].map(({ label, count, seg }) => (
+                  <button
+                    key={seg}
+                    onClick={() => setMktForm(f => ({ ...f, segmento: seg }))}
+                    className={`p-5 text-left transition-colors ${mktForm.segmento === seg ? 'bg-gold/10 border border-gold/40' : 'bg-surface hover:bg-gold/5'}`}
+                  >
+                    <div className="section-label text-text-dim text-xs mb-1">{label}</div>
+                    <div className={`display-heading text-4xl num ${mktForm.segmento === seg ? 'text-gold' : 'text-text'}`}>{loadingUsers ? '…' : count}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Formulario */}
+              <form onSubmit={sendMarketing} className="bg-surface border border-border p-6 flex flex-col gap-5">
+                <div className="section-label text-gold">NUEVO ENVÍO</div>
+
+                {/* Segmento */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="section-label text-text-dim text-xs">Segmento de destinatarios</label>
+                  <div className="flex gap-2">
+                    {(['todos', 'pro', 'free'] as const).map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setMktForm(f => ({ ...f, segmento: s }))}
+                        className={`section-label text-xs border px-4 py-2 transition-colors ${
+                          mktForm.segmento === s ? 'bg-gold text-bg border-gold' : 'text-text-dim border-border hover:border-gold hover:text-gold'
+                        }`}
+                      >
+                        {s.toUpperCase()} {!loadingUsers && `(${s === 'todos' ? users.length : s === 'pro' ? users.filter(u => u.plan === 'pro').length : users.filter(u => u.plan !== 'pro').length})`}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="terminal-text text-xs text-text-dim mt-0.5">
+                    Se enviará a <span className="text-gold font-bold">{mktCount}</span> destinatarios confirmados.
+                  </span>
+                </div>
+
+                {/* Asunto */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="section-label text-text-dim text-xs">Asunto del email *</label>
+                  <input
+                    required
+                    type="text"
+                    value={mktForm.subject}
+                    onChange={e => setMktForm(f => ({ ...f, subject: e.target.value }))}
+                    placeholder="Sigma Research · Nuevo análisis disponible"
+                    className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                  />
+                </div>
+
+                {/* Título + Subtítulo */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="section-label text-text-dim text-xs">Título del email *</label>
+                    <input
+                      required
+                      type="text"
+                      value={mktForm.title}
+                      onChange={e => setMktForm(f => ({ ...f, title: e.target.value }))}
+                      placeholder="NUEVO ANÁLISIS"
+                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="section-label text-text-dim text-xs">Subtítulo</label>
+                    <input
+                      type="text"
+                      value={mktForm.subtitle}
+                      onChange={e => setMktForm(f => ({ ...f, subtitle: e.target.value }))}
+                      placeholder="Mercado local — Abril 2025"
+                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Cuerpo */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="section-label text-text-dim text-xs">Cuerpo del mensaje *</label>
+                  <textarea
+                    required
+                    rows={5}
+                    value={mktForm.body}
+                    onChange={e => setMktForm(f => ({ ...f, body: e.target.value }))}
+                    placeholder="Hemos publicado un nuevo análisis con señales para las próximas semanas…"
+                    className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
+                  />
+                </div>
+
+                {/* CTA */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="section-label text-text-dim text-xs">Texto del botón CTA *</label>
+                    <input
+                      required
+                      type="text"
+                      value={mktForm.ctaText}
+                      onChange={e => setMktForm(f => ({ ...f, ctaText: e.target.value }))}
+                      placeholder="VER ANÁLISIS →"
+                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="section-label text-text-dim text-xs">URL destino del CTA *</label>
+                    <input
+                      required
+                      type="url"
+                      value={mktForm.ctaUrl}
+                      onChange={e => setMktForm(f => ({ ...f, ctaUrl: e.target.value }))}
+                      placeholder="https://sigma-research.vercel.app/home"
+                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {mktResult && (
+                  <div className={`terminal-text text-sm border px-4 py-3 ${mktResult.ok ? 'text-emerald-400 border-emerald-400/30 bg-emerald-900/10' : 'text-red-400 border-red-400/30 bg-red-900/10'}`}>
+                    {mktResult.text}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={sendingMkt || mktCount === 0}
+                  className="bg-gold text-bg section-label py-3 px-8 hover:bg-gold-glow transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-start"
+                >
+                  {sendingMkt ? 'ENVIANDO…' : `ENVIAR A ${mktCount} DESTINATARIOS`}
+                </button>
+              </form>
             </div>
           )}
 
@@ -1096,7 +1473,7 @@ function TasasDapEditor() {
           </thead>
           <tbody>
             {tasas.map(b => {
-              const ed = editing[b.id] ?? {}
+              const ed      = editing[b.id] ?? {}
               const isDirty = Object.keys(ed).length > 0
               return (
                 <tr key={b.id} className={`border-b border-border ${isDirty ? 'bg-gold/5' : ''}`}>
