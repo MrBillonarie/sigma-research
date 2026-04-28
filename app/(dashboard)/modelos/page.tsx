@@ -288,11 +288,12 @@ export default function ModelosPage() {
             {'// MODELOS CUANTITATIVOS · UNIVERSO DE TRADING'}
           </div>
           <h1 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(44px, 6vw, 80px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: '0 0 6px' }}>
-            <span style={{ color: C.text }}>35 INSTRUMENTOS</span>{' '}
-            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>6 TRADERS</span>
+            <span style={{ color: C.text }}>105 MODELOS</span>{' '}
+            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>6 SECTORES</span>
           </h1>
           <p style={{ fontFamily: 'monospace', fontSize: 13, color: C.dimText, marginTop: 14, marginBottom: 32, maxWidth: 600, lineHeight: 1.7 }}>
-            Cobertura cross-market planificada. Click en cualquier instrumento para ver su equity curve y métricas.
+            35 instrumentos × 3 submodelos (K1-15M · K1-1H · K1-4H) = 105 modelos en despliegue progresivo.
+            Click en cualquier instrumento para ver su equity curve y métricas.
           </p>
 
           {/* ── Panel de detalle del instrumento seleccionado ────────────── */}
