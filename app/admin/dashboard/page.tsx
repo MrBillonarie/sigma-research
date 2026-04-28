@@ -1041,7 +1041,7 @@ interface TasaRow {
 const PLAZOS_DAP = ['d7','d14','d30','d60','d90','d180','d360'] as const
 const LABELS_DAP: Record<string, string> = { d7:'7d', d14:'14d', d30:'30d', d60:'60d', d90:'90d', d180:'180d', d360:'360d' }
 
-function TasasDapEditor({ adminSecret }: { adminSecret: string }) {
+function TasasDapEditor({ adminSecret: _unused }: { adminSecret: string }) {
   const [tasas,   setTasas]   = useState<TasaRow[]>([])
   const [editing, setEditing] = useState<Record<string, Partial<TasaRow>>>({})
   const [saving,  setSaving]  = useState<string | null>(null)
@@ -1060,7 +1060,7 @@ function TasasDapEditor({ adminSecret }: { adminSecret: string }) {
     const updated = { ...banco, ...editing[banco.id] }
     const r = await fetch('/api/admin/tasas-dap', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminSecret}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updated),
     })
     const j = await r.json()
