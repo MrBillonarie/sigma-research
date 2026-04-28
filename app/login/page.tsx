@@ -178,6 +178,17 @@ export default function LoginPage() {
             CREAR CUENTA
           </Link>
         </p>
+
+        {/* Acceso admin — discreto, solo visible para quien lo busca */}
+        <div className="mt-10 flex justify-center">
+          <Link
+            href="/admin"
+            className="terminal-text text-[10px] text-border hover:text-muted transition-colors duration-300 select-none"
+            tabIndex={-1}
+          >
+            ⬡
+          </Link>
+        </div>
       </div>
     </main>
   )

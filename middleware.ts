@@ -32,7 +32,6 @@ const PROTECTED = [
   '/ingresos-pasivos',
   '/tax',
   '/mis-reportes',
-  '/admin',
 ]
 
 export async function middleware(request: NextRequest) {
@@ -94,6 +93,5 @@ export const config = {
     '/ingresos-pasivos/:path*',
     '/tax/:path*',
     '/mis-reportes/:path*',
-    '/admin/:path*',
   ],
 }
