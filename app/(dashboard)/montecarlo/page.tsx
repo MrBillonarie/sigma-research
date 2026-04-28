@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/app/lib/supabase'
 import { C } from '@/app/lib/constants'
@@ -183,8 +182,6 @@ export default function MonteCarloPage() {
   const [targetM,  setTargetM]  = useState(1.0)
   const [result,   setResult]   = useState<SimResult | null>(null)
   const [running,  setRunning]  = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-
   const [mode,      setMode]      = useState<'manual' | 'csv'>('manual')
   const [csvStats,  setCsvStats]  = useState<CsvStats | null>(null)
   const [csvError,  setCsvError]  = useState('')
@@ -193,12 +190,6 @@ export default function MonteCarloPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const target = targetM * 1_000_000
-
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 30)
-    window.addEventListener('scroll', fn)
-    return () => window.removeEventListener('scroll', fn)
-  }, [])
 
   function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -285,39 +276,7 @@ export default function MonteCarloPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
-
-      {/* ── Navbar ── */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-        background: scrolled ? 'rgba(4,5,10,0.96)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
-        borderBottom: `1px solid ${scrolled ? C.border : 'transparent'}`,
-        transition: 'all 0.3s',
-      }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
-            <div style={{ width: 28, height: 28, border: `1px solid ${C.gold}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact", color: C.gold, fontSize: 14, lineHeight: 1 }}>Σ</span>
-            </div>
-            <span style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif", fontSize: 18, letterSpacing: '0.18em', color: C.text }}>
-              SIGMA RESEARCH
-            </span>
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-            {([['Inicio', '/'], ['FIRE', '/#fire'], ['Modelos', '/#modelos']] as [string, string][]).map(([l, h]) => (
-              <Link key={h} href={h} style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.dimText, textDecoration: 'none' }}>
-                {l}
-              </Link>
-            ))}
-            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.gold, borderBottom: `1px solid ${C.gold}`, paddingBottom: 2 }}>
-              Monte Carlo
-            </span>
-          </div>
-        </div>
-      </nav>
-
-      {/* ── Main content ── */}
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '96px 24px 64px' }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}
         <div style={{ marginBottom: 40 }}>
