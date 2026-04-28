@@ -763,7 +763,7 @@ export default function AdminDashboard() {
                 <h2 className="display-heading text-4xl text-text">DEPÓSITOS A PLAZO</h2>
                 <p className="text-text-dim text-sm mt-2">Actualiza las tasas de los bancos. Se reflejan en el comparador en menos de 1 hora.</p>
               </div>
-              <TasasDapEditor adminSecret="" />
+              <TasasDapEditor />
             </div>
           )}
 
@@ -1041,7 +1041,7 @@ interface TasaRow {
 const PLAZOS_DAP = ['d7','d14','d30','d60','d90','d180','d360'] as const
 const LABELS_DAP: Record<string, string> = { d7:'7d', d14:'14d', d30:'30d', d60:'60d', d90:'90d', d180:'180d', d360:'360d' }
 
-function TasasDapEditor({ adminSecret: _unused }: { adminSecret: string }) {
+function TasasDapEditor() {
   const [tasas,   setTasas]   = useState<TasaRow[]>([])
   const [editing, setEditing] = useState<Record<string, Partial<TasaRow>>>({})
   const [saving,  setSaving]  = useState<string | null>(null)
