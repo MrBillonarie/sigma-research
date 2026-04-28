@@ -64,7 +64,7 @@ export default function AdminLpSignal() {
     setError('')
     try {
       const res = await fetch('/api/admin/lp-pending', {
-        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET ?? 'adminsigma'}` },
+        headers: {  },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()

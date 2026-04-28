@@ -23,15 +23,6 @@ export async function GET(request: Request) {
     const json = await res.json()
     const data = json.data?.attributes
 
-    console.log('=== GECKO DEBUG ===')
-    console.log('URL:', `https://api.geckoterminal.com/api/v2/networks/bsc/pools/${addr}`)
-    console.log('Response status:', res.status)
-    console.log('Raw JSON:', JSON.stringify(json).substring(0, 500))
-    console.log('data.attributes keys:', Object.keys(json.data?.attributes || {}))
-    console.log('volume_usd:', json.data?.attributes?.volume_usd)
-    console.log('reserve_in_usd:', json.data?.attributes?.reserve_in_usd)
-    console.log('=== END DEBUG ===')
-
     const volume24h = parseFloat(data?.volume_usd?.h24 || '0')
     const tvl       = parseFloat(data?.reserve_in_usd  || '0')
     const feeTier   = pool === 'usdc' ? 0.0001 : 0.0005

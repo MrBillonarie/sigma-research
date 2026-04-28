@@ -2,9 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-const ADMIN_EMAIL    = 'admin@sigma.cl'
-const ADMIN_PASSWORD = 'adminsigma'
-const SESSION_KEY    = 'sigma_admin_auth'
+const SESSION_KEY = 'sigma_admin_auth'
 
 export default function AdminLogin() {
   const router = useRouter()
@@ -12,6 +10,7 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(true)
+  const [working,  setWorking]  = useState(false)
 
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY) === 'true') {
@@ -21,13 +20,27 @@ export default function AdminLogin() {
     }
   }, [router])
 
-  function handleSubmit(ev: React.FormEvent) {
+  async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    setWorking(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'Credenciales incorrectas.')
+        return
+      }
       sessionStorage.setItem(SESSION_KEY, 'true')
       router.push('/admin/dashboard')
-    } else {
-      setError('Credenciales incorrectas.')
+    } catch {
+      setError('Error de conexión. Intenta nuevamente.')
+    } finally {
+      setWorking(false)
     }
   }
 
@@ -80,9 +93,10 @@ export default function AdminLogin() {
 
             <button
               type="submit"
-              className="mt-1 bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors duration-200"
+              disabled={working}
+              className="mt-1 bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors duration-200 disabled:opacity-60"
             >
-              ACCEDER
+              {working ? 'VERIFICANDO…' : 'ACCEDER'}
             </button>
           </form>
         </div>

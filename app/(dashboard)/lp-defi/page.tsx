@@ -359,7 +359,7 @@ export default function LpSignalPage() {
   useEffect(() => {
     if (!lastUpdate || snapshotBtcPrice === 0) return
     setMcLoading(true)
-    // BUG 1 fix: use demo capital $1000 when capitalUSD=0 so paths are non-zero
+    // Usar $1000 como capital de demo cuando el usuario no ha ingresado capital real
     const vizCapital = capitalUSD > 0 ? capitalUSD : 1000
     const id = setTimeout(() => {
       const newResults = engine.pools.map(pool => {
@@ -677,7 +677,7 @@ const PoolAnalyticsPanel = memo(function PoolAnalyticsPanel({
 })
 
 // ─── SVG Charts ───────────────────────────────────────────────────────────────
-// BUG 1 fix: paths.flat() bounds with floor of ±50 prevent zero-range collapse
+// Floor ±50 en bounds previene colapso de rango cuando todas las trayectorias convergen
 function MCPathsChart({ result, days }: { result: MCResult; days: number }) {
   const { paths, p5, p50, p95 } = result
   if (!paths.length) return null

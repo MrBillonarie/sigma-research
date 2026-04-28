@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 const SESSION_KEY   = 'sigma_admin_auth'
-const ADMIN_SECRET  = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? 'adminsigma'
-const ADMIN_HEADERS = { 'Content-Type': 'application/json', Authorization: `Bearer ${ADMIN_SECRET}` }
+// Sin secret en cliente — la cookie httpOnly se envía automáticamente
+const ADMIN_HEADERS = { 'Content-Type': 'application/json' }
 
 interface ReporteRow {
   id: string; numero: number; titulo: string; fecha: string
@@ -217,7 +217,7 @@ export default function AdminDashboard() {
       fd.append('file', pdfFile)
       const res = await fetch('/api/admin/reportes/upload', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${ADMIN_SECRET}` },
+        headers: {  },
         body: fd,
       })
       const json = await res.json()
@@ -763,7 +763,7 @@ export default function AdminDashboard() {
                 <h2 className="display-heading text-4xl text-text">DEPÓSITOS A PLAZO</h2>
                 <p className="text-text-dim text-sm mt-2">Actualiza las tasas de los bancos. Se reflejan en el comparador en menos de 1 hora.</p>
               </div>
-              <TasasDapEditor adminSecret={ADMIN_SECRET} />
+              <TasasDapEditor adminSecret="" />
             </div>
           )}
 

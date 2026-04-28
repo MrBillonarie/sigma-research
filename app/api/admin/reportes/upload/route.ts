@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkAdminAuth } from '@/lib/adminAuth'
 
 const BUCKET = 'Reportes'
 
@@ -10,11 +11,8 @@ function makeService() {
   )
 }
 
-export async function POST(req: Request) {
-  const secret = process.env.ADMIN_SECRET ?? 'adminsigma'
-  if (req.headers.get('authorization') !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export async function POST(req: NextRequest) {
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const form = await req.formData()
   const file = form.get('file') as File | null

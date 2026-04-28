@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendNuevoReporte } from '@/lib/email'
+import { checkAdminAuth }  from '@/lib/adminAuth'
 
 function makeService() {
   return createClient(
@@ -9,13 +10,8 @@ function makeService() {
   )
 }
 
-function checkAuth(req: Request) {
-  const secret = process.env.ADMIN_SECRET ?? 'adminsigma'
-  return req.headers.get('authorization') === `Bearer ${secret}`
-}
-
-export async function GET(req: Request) {
-  if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: NextRequest) {
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { data, error } = await makeService()
     .from('reportes')
     .select('id,numero,titulo,fecha,descripcion,url_pdf,activo,created_at')
@@ -24,8 +20,8 @@ export async function GET(req: Request) {
   return NextResponse.json({ reportes: data })
 }
 
-export async function POST(req: Request) {
-  if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function POST(req: NextRequest) {
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { numero, titulo, fecha, descripcion, url_pdf } = await req.json()
   const { data, error } = await makeService()
     .from('reportes')
@@ -59,8 +55,8 @@ export async function POST(req: Request) {
   return NextResponse.json({ reporte: data })
 }
 
-export async function PATCH(req: Request) {
-  if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function PATCH(req: NextRequest) {
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id, ...updates } = await req.json()
   const { data, error } = await makeService()
     .from('reportes')
@@ -72,8 +68,8 @@ export async function PATCH(req: Request) {
   return NextResponse.json({ reporte: data })
 }
 
-export async function DELETE(req: Request) {
-  if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function DELETE(req: NextRequest) {
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await req.json()
   const { error } = await makeService().from('reportes').delete().eq('id', id)
   if (error) return NextResponse.json({ error }, { status: 500 })

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkAdminAuth } from '@/lib/adminAuth'
 
 function sb() {
   return createClient(
@@ -9,14 +10,8 @@ function sb() {
   )
 }
 
-function auth(req: NextRequest) {
-  const header = req.headers.get('authorization') ?? ''
-  const secret = process.env.ADMIN_SECRET ?? 'adminsigma'
-  return header === `Bearer ${secret}`
-}
-
 export async function GET(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { data, error } = await sb().auth.admin.listUsers({ page: 1, perPage: 200 })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -35,7 +30,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { id, plan } = await req.json()
   if (!id || !['free', 'pro'].includes(plan)) {

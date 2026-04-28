@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkAdminAuth } from '@/lib/adminAuth'
 
 function sb() {
   return createClient(
@@ -10,11 +11,7 @@ function sb() {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization') ?? ''
-  const secret = process.env.ADMIN_SECRET ?? 'adminsigma'
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const client = sb()
   const hoy = new Date().toISOString().slice(0, 10)

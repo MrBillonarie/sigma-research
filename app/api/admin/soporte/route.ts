@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendSoporteRespuesta } from '@/lib/email'
+import { checkAdminAuth }       from '@/lib/adminAuth'
 
 function sb() {
   return createClient(
@@ -10,14 +11,9 @@ function sb() {
   )
 }
 
-function auth(req: NextRequest) {
-  const header = req.headers.get('authorization') ?? ''
-  const secret = process.env.ADMIN_SECRET ?? 'adminsigma'
-  return header === `Bearer ${secret}`
-}
 
 export async function GET(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { data, error } = await sb()
     .from('contact_submissions')
@@ -30,7 +26,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { id, status, respuesta, enviarEmail } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
