@@ -76,7 +76,7 @@ const YAHOO_HEADERS = {
 
 interface YahooData {
   r1m: number; r3m: number; r1y: number
-  closes28: number[]   // últimos 28 cierres diarios → RSI Wilder real
+  closes60: number[]   // últimos 60 cierres → RSI, MACD(12,26,9), EMA 20/50, BB
 }
 
 // ─── Dividend yields en batch (una sola llamada para todos los tickers) ────────
@@ -101,7 +101,7 @@ async function fetchDividendYields(tickers: string[]): Promise<Map<string, numbe
 }
 
 async function fetchYahooData(ticker: string): Promise<YahooData> {
-  const EMPTY: YahooData = { r1m: 0, r3m: 0, r1y: 0, closes28: [] }
+  const EMPTY: YahooData = { r1m: 0, r3m: 0, r1y: 0, closes60: [] }
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1y&interval=1d`
     const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 300 } })
@@ -118,7 +118,7 @@ async function fetchYahooData(ticker: string): Promise<YahooData> {
       r1m:     p30  > 0 ? ((cur - p30)  / p30)  * 100 : 0,
       r3m:     p90  > 0 ? ((cur - p90)  / p90)  * 100 : 0,
       r1y:     p365 > 0 ? ((cur - p365) / p365) * 100 : 0,
-      closes28: closes.slice(-28),
+      closes60: closes.slice(-60),
     }
   } catch {
     return EMPTY
@@ -242,7 +242,7 @@ export async function GET(req: NextRequest) {
     ...CRYPTO_TICKERS.map(c => fetchBinanceReturns(c.symbol)),
   ])
 
-  // Yahoo: RF + ETFs extra (retornos + closes28) + dividend yields en batch
+  // Yahoo: RF + ETFs extra (retornos + closes60) + dividend yields en batch
   const allYahooTickers = [
     ...EXTRA_ETFS.map(e => e.ticker),
     ...RF_BASE.filter(r => r.yahooTicker).map(r => r.yahooTicker!),
@@ -258,7 +258,7 @@ export async function GET(req: NextRequest) {
   const spyData = allExtraData[0]
   const tltData = rfData[0]
   const regime: MarketRegime = detectMarketRegime(
-    spyData?.closes28 ?? [],
+    spyData?.closes60 ?? [],
     spyData?.r1m ?? 0,
     tltData?.r1m ?? 0,
   )
@@ -294,7 +294,7 @@ export async function GET(req: NextRequest) {
     // fondos no tienen precio diario disponible → RSI simulado
   }))
 
-  // ETFs Supabase con retornos frescos de Yahoo y closes28 para RSI real
+  // ETFs Supabase con retornos frescos de Yahoo y closes60 para RSI real
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawEtfs = (etfsRes.data ?? []).map((e: any) => {
     const tk   = (e.ticker ?? '').toUpperCase()
@@ -305,7 +305,7 @@ export async function GET(req: NextRequest) {
       r1m:           live ? live.r1m      : Number(e.rent_1m  ?? 0),
       r3m:           live ? live.r3m      : Number(e.rent_3m  ?? 0),
       r1y:           live ? live.r1y      : Number(e.rent_12m ?? 0),
-      closes28:      live ? live.closes28 : undefined,
+      closes60:      live ? live.closes60 : undefined,
       dividendYield: dividendYields.get(tk),
     }
   })
@@ -327,7 +327,7 @@ export async function GET(req: NextRequest) {
       r1m:           has ? live!.r1m      : r.r1m,
       r3m:           has ? live!.r3m      : r.r3m,
       r1y:           has ? live!.r1y      : r.r1y,
-      closes28:      has ? live!.closes28 : undefined,
+      closes60:      has ? live!.closes60 : undefined,
       dividendYield: r.ticker ? dividendYields.get(r.ticker.toUpperCase()) : undefined,
     }
   })
@@ -343,7 +343,7 @@ export async function GET(req: NextRequest) {
       if (!d) return null
       return {
         id: e.id, name: e.name, ticker: e.ticker, assetClass: 'etfs' as const,
-        category: e.category, r1m: d.r1m, r3m: d.r3m, r1y: d.r1y, closes28: d.closes28,
+        category: e.category, r1m: d.r1m, r3m: d.r3m, r1y: d.r1y, closes60: d.closes60,
         dividendYield: dividendYields.get(e.ticker.toUpperCase()),
       }
     })

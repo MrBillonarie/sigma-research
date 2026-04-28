@@ -248,7 +248,25 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
                 </span>
               )}
             </div>
-            <StatusChip status={a.status ?? 'no-setup'} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <StatusChip status={a.status ?? 'no-setup'} />
+              {a.macdBullish != null && (
+                <span title="MACD" style={{
+                  fontSize: 9, fontFamily: 'monospace', fontWeight: 700,
+                  color: a.macdBullish ? '#1D9E75' : '#f87171',
+                }}>
+                  MACD{a.macdBullish ? '▲' : '▼'}
+                </span>
+              )}
+              {a.emaBullish != null && (
+                <span title="EMA20>EMA50" style={{
+                  fontSize: 9, fontFamily: 'monospace',
+                  color: a.emaBullish ? '#1D9E75' : '#f87171',
+                }}>
+                  EMA{a.emaBullish ? '✓' : '✗'}
+                </span>
+              )}
+            </div>
           </div>
         </td>
         <td style={{ padding: '8px 12px' }}><ScoreBar score={a.score} /></td>

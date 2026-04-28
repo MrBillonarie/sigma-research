@@ -27,6 +27,9 @@ export interface Asset {
   volScalar:       number        // scalar vol-target 0-100 (shrinkage por vol elevada)
   edgeVerified:    boolean       // Sharpe proxy >= umbral del perfil
   status:          TradeStatus   // 'entry' | 'watch' | 'no-setup'
+  macdBullish?:    boolean       // MACD(12,26,9) histograma > 0
+  emaBullish?:     boolean       // precio > EMA20 > EMA50 (tendencia de fondo alcista)
+  bbPosition?:     number        // 0-100: posición dentro de Bollinger Bands(20,2)
   dividendYield?:  number        // yield anual en % (1.8 = 1.8%), null si no distribuye
   priceAtSignal?:  number        // precio spot al emitir la señal (para medir accuracy futura)
   signalChanged?:  boolean       // true si la señal cambió respecto a la última guardada
