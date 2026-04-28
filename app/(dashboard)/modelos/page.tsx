@@ -361,8 +361,7 @@ export default function ModelosPage() {
             {TRADERS.map(trader => (
               <div key={trader.id} style={{ background: C.surface, border: `1px solid ${C.border}` }}>
                 <div style={{ padding: '11px 20px', borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${trader.color}`, display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, color: trader.color, letterSpacing: 1 }}>{trader.name}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{trader.focus}</span>
+                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, color: trader.color, letterSpacing: 1 }}>{trader.focus}</span>
                   <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted, marginLeft: 'auto' }}>{trader.session}</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
