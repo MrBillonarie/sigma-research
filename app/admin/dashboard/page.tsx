@@ -39,6 +39,10 @@ interface TicketRow {
   created_at: string
 }
 
+interface CampañaRow {
+  id: string; segmento: string; subject: string; title: string; sent_count: number; sent_at: string
+}
+
 interface MarketingForm {
   segmento: 'todos' | 'pro' | 'free'
   subject: string
@@ -126,6 +130,8 @@ export default function AdminDashboard() {
   const [mktForm,     setMktForm]     = useState<MarketingForm>(MARKETING_EMPTY)
   const [sendingMkt,  setSendingMkt]  = useState(false)
   const [mktResult,   setMktResult]   = useState<{ ok: boolean; text: string } | null>(null)
+  const [campañas,    setCampañas]    = useState<CampañaRow[]>([])
+  const [loadingCamp, setLoadingCamp] = useState(false)
 
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY) !== 'true') {
@@ -135,8 +141,32 @@ export default function AdminDashboard() {
       fetchUsers()
       fetchSyncStatus()
       fetchTickets()
+      fetchModelosState()
+      fetchCampañas()
     }
   }, [router])
+
+  async function fetchModelosState() {
+    try {
+      const res  = await fetch('/api/admin/modelos', { headers: ADMIN_HEADERS })
+      const json = await res.json()
+      if (json.modelos?.length) {
+        const map: Record<string, boolean> = {}
+        json.modelos.forEach((m: { tag: string; activo: boolean }) => { map[m.tag] = m.activo })
+        setModelos(prev => prev.map(m => map[m.tag] !== undefined ? { ...m, activo: map[m.tag] } : m))
+      }
+    } catch {}
+  }
+
+  async function fetchCampañas() {
+    setLoadingCamp(true)
+    try {
+      const res  = await fetch('/api/admin/campanas', { headers: ADMIN_HEADERS })
+      const json = await res.json()
+      if (json.campanas) setCampañas(json.campanas)
+    } catch {}
+    setLoadingCamp(false)
+  }
 
   async function fetchUsers() {
     setLoadingUsers(true)
@@ -329,6 +359,11 @@ export default function AdminDashboard() {
       const json = await res.json()
       if (json.ok) {
         setMktResult({ ok: true, text: `✓ Enviado a ${json.sent} destinatarios` })
+        // Guardar en historial
+        fetch('/api/admin/campanas', {
+          method: 'POST', headers: ADMIN_HEADERS,
+          body: JSON.stringify({ segmento: mktForm.segmento, subject: mktForm.subject, title: mktForm.title, sent: json.sent }),
+        }).then(() => fetchCampañas()).catch(() => {})
         setMktForm(MARKETING_EMPTY)
       } else {
         setMktResult({ ok: false, text: json.error ?? 'Error al enviar' })
@@ -345,7 +380,17 @@ export default function AdminDashboard() {
   }
 
   function toggleModelo(tag: string) {
-    setModelos(prev => prev.map(m => m.tag === tag ? { ...m, activo: !m.activo } : m))
+    setModelos(prev => {
+      const next = prev.map(m => m.tag === tag ? { ...m, activo: !m.activo } : m)
+      const modelo = next.find(m => m.tag === tag)
+      if (modelo) {
+        fetch('/api/admin/modelos', {
+          method: 'PATCH', headers: ADMIN_HEADERS,
+          body: JSON.stringify({ tag, activo: modelo.activo }),
+        }).catch(() => {})
+      }
+      return next
+    })
   }
 
   // ── Datos derivados ───────────────────────────────────────────────────────────
@@ -400,6 +445,20 @@ export default function AdminDashboard() {
     ]
     return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10)
   }, [users, tickets])
+
+  // Gráfico conversión free → PRO por semana
+  const conversionData = useMemo(() => {
+    const MS_WEEK = 7 * 24 * 3600 * 1000
+    const now     = Date.now()
+    return Array.from({ length: 8 }, (_, i) => {
+      const start   = now - (8 - i) * MS_WEEK
+      const end     = now - (7 - i) * MS_WEEK
+      const total   = users.filter(u => { const t = new Date(u.created_at).getTime(); return t >= start && t < end }).length
+      const pro     = users.filter(u => u.plan === 'pro' && (() => { const t = new Date(u.created_at).getTime(); return t >= start && t < end })()).length
+      const d       = new Date(end)
+      return { label: d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }), total, pro }
+    })
+  }, [users])
 
   // Conteo de destinatarios para marketing
   const mktCount = useMemo(() => {
@@ -490,7 +549,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Main content */}
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-3 sm:p-6 overflow-auto min-w-0">
 
           {/* ── RESUMEN ─────────────────────────────────────────────────────── */}
           {tab === 'resumen' && (
@@ -501,7 +560,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* KPIs */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
                 {kpis.map(k => (
                   <div key={k.label} className="bg-surface p-5">
                     <div className="section-label text-text-dim text-xs mb-1">{k.label}</div>
@@ -606,6 +665,46 @@ export default function AdminDashboard() {
                     })}
                   </div>
                 )}
+              </div>
+
+              {/* Conversión free → PRO */}
+              <div className="bg-surface p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="section-label text-gold">CONVERSIÓN FREE → PRO</div>
+                  <span className="terminal-text text-xs text-muted">últimas 8 semanas</span>
+                </div>
+                {loadingUsers ? (
+                  <div className="terminal-text text-xs text-muted">Cargando…</div>
+                ) : (
+                  <div className="flex items-end gap-2 h-28">
+                    {conversionData.map((w, i) => {
+                      const totalPct = Math.round((w.total / Math.max(...conversionData.map(d => d.total), 1)) * 100)
+                      const proPct   = w.total > 0 ? Math.round((w.pro / w.total) * 100) : 0
+                      return (
+                        <div key={i} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                          <span className="terminal-text text-[9px] text-emerald-400 num tabular-nums leading-none">
+                            {w.pro > 0 ? `${w.pro}P` : ''}
+                          </span>
+                          <div className="w-full relative bg-border" style={{ height: '72px' }}>
+                            {totalPct > 0 && (
+                              <div className="absolute bottom-0 w-full transition-all duration-700"
+                                style={{ height: `${totalPct}%`, background: 'rgba(212,175,55,0.25)' }} />
+                            )}
+                            {proPct > 0 && totalPct > 0 && (
+                              <div className="absolute bottom-0 w-full transition-all duration-700"
+                                style={{ height: `${Math.round(totalPct * proPct / 100)}%`, background: '#22c55e' }} />
+                            )}
+                          </div>
+                          <span className="terminal-text text-[8px] text-muted text-center leading-tight">{w.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-emerald-400 rounded-sm" /><span className="terminal-text text-[10px] text-muted">PRO</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-gold/25 rounded-sm" /><span className="terminal-text text-[10px] text-muted">Registros totales</span></div>
+                </div>
               </div>
 
               {/* Estado modelos */}
@@ -1399,6 +1498,51 @@ export default function AdminDashboard() {
                   {sendingMkt ? 'ENVIANDO…' : `ENVIAR A ${mktCount} DESTINATARIOS`}
                 </button>
               </form>
+
+              {/* Historial de campañas */}
+              <div className="bg-surface border border-border">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+                  <span className="section-label text-gold text-xs">HISTORIAL DE CAMPAÑAS</span>
+                  <button onClick={fetchCampañas} className="terminal-text text-xs text-text-dim hover:text-gold transition-colors">↻</button>
+                </div>
+                {loadingCamp ? (
+                  <div className="px-5 py-6 terminal-text text-xs text-muted">Cargando…</div>
+                ) : campañas.length === 0 ? (
+                  <div className="px-5 py-6 terminal-text text-xs text-muted">Aún no hay campañas enviadas.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b border-border">
+                          {['Fecha', 'Asunto', 'Segmento', 'Enviados'].map(h => (
+                            <th key={h} className="section-label text-text-dim text-xs text-left px-4 py-2.5">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {campañas.map(c => (
+                          <tr key={c.id} className="border-b border-border hover:bg-gold/5 transition-colors">
+                            <td className="terminal-text text-xs text-muted px-4 py-3 num whitespace-nowrap">
+                              {new Date(c.sent_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </td>
+                            <td className="terminal-text text-xs text-text px-4 py-3 max-w-[280px] truncate">{c.subject}</td>
+                            <td className="px-4 py-3">
+                              <span className={`section-label text-[10px] border px-2 py-0.5 ${
+                                c.segmento === 'pro'  ? 'text-gold border-gold/30' :
+                                c.segmento === 'free' ? 'text-text-dim border-border' :
+                                'text-emerald-400 border-emerald-400/30'
+                              }`}>
+                                {c.segmento.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="terminal-text text-xs text-emerald-400 px-4 py-3 num">{c.sent_count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

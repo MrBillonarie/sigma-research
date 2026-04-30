@@ -583,6 +583,26 @@ export default function JournalPage() {
   const csvPreviewTrades = csvParsed ? csvParsed.filter(t => t.tipo !== 'FUNDING') : []
   const csvPreviewFunding = csvParsed ? csvParsed.filter(t => t.tipo === 'FUNDING').reduce((s, t) => s + t.funding_fee, 0) : 0
 
+  function exportTradesCSV() {
+    if (!trades.length) return
+    const headers = ['Fecha', 'Par', 'Lado', 'Entrada', 'Salida', 'SL', 'TP', 'Tamaño USD', 'PnL USD', 'PnL %', 'Resultado', 'Notas']
+    const rows = trades.map(t => [
+      t.fecha, t.par, t.lado,
+      t.entry_price, t.exit_price,
+      t.sl ?? '', t.tp ?? '',
+      t.size_usd, t.pnl_usd.toFixed(2), t.pnl_pct.toFixed(2),
+      t.resultado ?? '', `"${(t.notas ?? '').replace(/"/g, '""')}"`,
+    ])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url
+    a.download = `sigma-journal-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   // ── Chart options ────────────────────────────────────────────────────────────
 
   const chartTooltipDefaults = {
@@ -795,8 +815,16 @@ export default function JournalPage() {
               ANÁLISIS
             </button>
           )}
-          <div style={{ marginLeft: 'auto', background: C.surface, padding: '10px 16px', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>
-            {filter === 'ANÁLISIS' ? `${csvTradesSorted.length} trades CSV` : `${visible.length} trade${visible.length !== 1 ? 's' : ''}`}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+            {trades.length > 0 && filter !== 'ANÁLISIS' && (
+              <button onClick={exportTradesCSV}
+                style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', border: 'none', cursor: 'pointer', background: C.surface, color: C.gold }}>
+                ↓ EXPORTAR CSV
+              </button>
+            )}
+            <div style={{ background: C.surface, padding: '10px 16px', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>
+              {filter === 'ANÁLISIS' ? `${csvTradesSorted.length} trades CSV` : `${visible.length} trade${visible.length !== 1 ? 's' : ''}`}
+            </div>
           </div>
         </div>
 
@@ -1116,7 +1144,19 @@ export default function JournalPage() {
         {filter !== 'ANÁLISIS' && (
           <div style={{ background: C.surface }}>
             {loading ? (
-              <div style={{ padding: '48px', textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: C.muted }}>Cargando…</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '1px', background: C.border }}>
+                <style>{`@keyframes skj{0%{background-position:-200% 0}100%{background-position:200% 0}}.skj{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:skj 1.4s ease infinite;border-radius:2px}`}</style>
+                {[1,2,3,4,5].map(i => (
+                  <div key={i} style={{ background: C.bg, padding: '14px 14px', display: 'flex', gap: 16, alignItems: 'center' }}>
+                    <div className="skj" style={{ width: 70, height: 10, flexShrink: 0 }} />
+                    <div className="skj" style={{ width: 80, height: 10, flexShrink: 0 }} />
+                    <div className="skj" style={{ width: 50, height: 10, flexShrink: 0 }} />
+                    <div className="skj" style={{ width: 70, height: 10, flexShrink: 0 }} />
+                    <div className="skj" style={{ width: 70, height: 10, flexShrink: 0 }} />
+                    <div className="skj" style={{ flex: 1, height: 10 }} />
+                  </div>
+                ))}
+              </div>
             ) : visible.length === 0 ? (
               <div style={{ padding: '48px', textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: C.muted }}>No hay trades. Añade el primero arriba.</div>
             ) : (

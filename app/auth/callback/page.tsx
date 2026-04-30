@@ -11,7 +11,8 @@ export default function AuthCallback() {
       if (event === 'PASSWORD_RECOVERY') {
         router.replace('/nueva-contrasena')
       } else if (event === 'SIGNED_IN' && session) {
-        router.replace('/home')
+        const done = session.user?.user_metadata?.onboarding_done
+        router.replace(done ? '/home' : '/onboarding')
       }
     })
 

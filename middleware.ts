@@ -6,6 +6,7 @@ const PUBLIC = new Set([
   '/login',
   '/registro',
   '/recuperar',
+  '/onboarding',
   '/quienes-somos',
   '/terminos',
   '/privacidad',

@@ -237,8 +237,12 @@ export default function PerfilPage() {
   const email    = user?.email ?? ''
   const provider = user?.app_metadata?.provider ?? 'email'
   const isOAuth  = provider !== 'email'
+  const plan     = (user?.app_metadata?.plan as string) ?? 'free'
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—'
+  const lastLogin = user?.last_sign_in_at
+    ? new Date(user.last_sign_in_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—'
 
   const displayName = nombre || profile?.username || email.split('@')[0] || 'TRADER'
@@ -307,14 +311,22 @@ export default function PerfilPage() {
                 {email}
               </div>
               {/* Plan badge */}
-              <span style={{ display: 'inline-block', fontFamily: MONO, fontSize: 11, color: GOLD, fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(245,200,66,0.12)', border: '1px solid rgba(245,200,66,0.4)', borderRadius: 6, padding: '4px 12px', marginBottom: 14 }}>
-                PLAN PRO
+              <span style={{ display: 'inline-block', fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', borderRadius: 6, padding: '4px 12px', marginBottom: 14,
+                color: plan === 'pro' ? GOLD : DIM,
+                background: plan === 'pro' ? 'rgba(245,200,66,0.12)' : 'rgba(255,255,255,0.05)',
+                border: plan === 'pro' ? '1px solid rgba(245,200,66,0.4)' : '1px solid rgba(255,255,255,0.12)',
+              }}>
+                {plan === 'pro' ? 'PLAN PRO' : 'PLAN FREE'}
               </span>
               {/* Meta */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
                   <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Miembro desde</span>
                   {createdAt}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
+                  <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Último acceso</span>
+                  {lastLogin}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
                   <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Acceso via</span>
@@ -376,6 +388,7 @@ export default function PerfilPage() {
                 {[
                   { label: 'Email',          val: email },
                   { label: 'Miembro desde',  val: createdAt },
+                  { label: 'Último acceso',  val: lastLogin },
                 ].map(({ label, val }) => (
                   <div key={label} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
                     <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 6 }}>{label}</div>
@@ -384,7 +397,11 @@ export default function PerfilPage() {
                 ))}
                 <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 8 }}>Plan</div>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: GOLD, fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(245,200,66,0.12)', border: '1px solid rgba(245,200,66,0.4)', borderRadius: 6, padding: '4px 12px' }}>PLAN PRO</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', borderRadius: 6, padding: '4px 12px',
+                    color: plan === 'pro' ? GOLD : DIM,
+                    background: plan === 'pro' ? 'rgba(245,200,66,0.12)' : 'rgba(255,255,255,0.05)',
+                    border: plan === 'pro' ? '1px solid rgba(245,200,66,0.4)' : '1px solid rgba(255,255,255,0.12)',
+                  }}>{plan === 'pro' ? 'PLAN PRO' : 'PLAN FREE'}</span>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 6 }}>Proveedor</div>
