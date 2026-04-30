@@ -393,7 +393,11 @@ export default function JournalPage() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [form, setForm] = useState<FormState>(EMPTY)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [filter, setFilter] = useState<MainFilter>('ALL')
+  const [filter,       setFilter]       = useState<MainFilter>('ALL')
+  const [search,       setSearch]       = useState('')
+  const [resultFilter, setResultFilter] = useState<'ALL' | 'WIN' | 'LOSS' | 'BREAKEVEN'>('ALL')
+  const [dateFrom,     setDateFrom]     = useState('')
+  const [dateTo,       setDateTo]       = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -557,9 +561,15 @@ export default function JournalPage() {
 
   // ── Derived data ────────────────────────────────────────────────────────────
 
-  const visible = useMemo(() =>
-    filter === 'ALL' ? trades : filter === 'ANÁLISIS' ? [] : trades.filter(t => t.lado === filter),
-    [trades, filter])
+  const visible = useMemo(() => {
+    if (filter === 'ANÁLISIS') return []
+    let r = filter === 'ALL' ? trades : trades.filter(t => t.lado === filter)
+    if (search.trim())          r = r.filter(t => t.par.toUpperCase().includes(search.trim().toUpperCase()))
+    if (resultFilter !== 'ALL') r = r.filter(t => t.resultado === resultFilter)
+    if (dateFrom)               r = r.filter(t => t.fecha >= dateFrom)
+    if (dateTo)                 r = r.filter(t => t.fecha <= dateTo)
+    return r
+  }, [trades, filter, search, resultFilter, dateFrom, dateTo])
 
   const stats = useMemo(() => {
     if (!trades.length) return { total: 0, wins: 0, winRate: 0, pnl: 0, best: 0, worst: 0, avgSize: 0 }
@@ -827,6 +837,57 @@ export default function JournalPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Barra de búsqueda y filtros ─────────────────────────────────────── */}
+        {filter !== 'ANÁLISIS' && (
+          <div style={{ display: 'flex', gap: 1, background: C.border, marginBottom: 1, flexWrap: 'wrap' }}>
+            {/* Búsqueda por par */}
+            <div style={{ flex: '1 1 160px', background: C.surface, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>⌕</span>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="BTC, ETH, SOL…"
+                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontFamily: 'monospace', fontSize: 11, color: C.text, minWidth: 0 }}
+              />
+              {search && (
+                <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: 11, color: C.muted, padding: 0 }}>✕</button>
+              )}
+            </div>
+            {/* Filtro resultado */}
+            {(['ALL', 'WIN', 'LOSS', 'BREAKEVEN'] as const).map(r => (
+              <button key={r} onClick={() => setResultFilter(r)}
+                style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', border: 'none', cursor: 'pointer',
+                  background: resultFilter === r
+                    ? r === 'WIN' ? C.green : r === 'LOSS' ? C.red : r === 'BREAKEVEN' ? C.yellow : C.gold
+                    : C.surface,
+                  color: resultFilter === r ? C.bg : C.dimText,
+                }}>
+                {r === 'ALL' ? 'RESULTADO' : r}
+              </button>
+            ))}
+            {/* Desde */}
+            <div style={{ background: C.surface, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, whiteSpace: 'nowrap' }}>DESDE</span>
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: 'monospace', fontSize: 11, color: C.text, colorScheme: 'dark', width: 120 }} />
+            </div>
+            {/* Hasta */}
+            <div style={{ background: C.surface, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, whiteSpace: 'nowrap' }}>HASTA</span>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: 'monospace', fontSize: 11, color: C.text, colorScheme: 'dark', width: 120 }} />
+            </div>
+            {/* Reset filtros */}
+            {(search || resultFilter !== 'ALL' || dateFrom || dateTo) && (
+              <button onClick={() => { setSearch(''); setResultFilter('ALL'); setDateFrom(''); setDateTo('') }}
+                style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', border: 'none', cursor: 'pointer', background: C.surface, color: C.gold }}>
+                LIMPIAR ✕
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ════════════════════════════════════════════════════════════════════ */}
         {/* ANÁLISIS TAB                                                         */}

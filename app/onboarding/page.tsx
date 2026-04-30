@@ -44,10 +44,14 @@ export default function OnboardingPage() {
 
   async function handleFinish() {
     setSaving(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+
     // Guardar nombre + perfil en metadata
     await supabase.auth.updateUser({
       data: { nombre: nombre.trim() || undefined, perfil_trader: perfil, onboarding_done: true },
     })
+
     // Guardar Binance keys si se proporcionaron
     if (apiKey && secret && userId) {
       await supabase.from('user_config').upsert(
@@ -55,6 +59,16 @@ export default function OnboardingPage() {
         { onConflict: 'user_id' }
       )
     }
+
+    // Enviar email de bienvenida personalizado (falla silenciosa)
+    if (user?.email) {
+      fetch('/api/email/onboarding-complete', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: user.email, nombre: nombre.trim() || 'Trader', perfil }),
+      }).catch(() => {})
+    }
+
     setSaving(false)
     router.replace('/home')
   }

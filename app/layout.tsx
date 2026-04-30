@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     locale: 'es_ES',
     images: [
       {
-        url: '/og-image.png',
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: 'Sigma Research — Inteligencia Cuantitativa',
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Sigma Research — Inteligencia Cuantitativa',
     description: 'Herramientas cuantitativas de grado institucional para inversores independientes.',
-    images: ['/og-image.png'],
+    images: ['/opengraph-image'],
   },
   icons: {
     icon: '/favicon.ico',
