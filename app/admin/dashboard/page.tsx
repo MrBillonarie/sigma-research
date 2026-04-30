@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -689,9 +689,8 @@ export default function AdminDashboard() {
                     </thead>
                     <tbody>
                       {users.map(u => (
-                        <>
+                        <Fragment key={u.id}>
                           <tr
-                            key={u.id}
                             className={`border-b border-border transition-colors cursor-pointer ${expandedUser === u.id ? 'bg-gold/5' : 'hover:bg-surface/60'}`}
                             onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}
                           >
@@ -758,7 +757,7 @@ export default function AdminDashboard() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       ))}
                       {users.length === 0 && (
                         <tr>

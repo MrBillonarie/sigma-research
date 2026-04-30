@@ -123,7 +123,7 @@ export default function AdminLogin() {
           {/* Header */}
           <div className="bg-gold/5 border-b border-gold/20 px-8 py-4 flex items-center justify-between">
             <div>
-              <div className="section-label text-gold text-[10px] mb-0.5">// ACCESO RESTRINGIDO</div>
+              <div className="section-label text-gold text-[10px] mb-0.5">{'// ACCESO RESTRINGIDO'}</div>
               <h1 className="display-heading text-2xl text-text">PANEL DE CONTROL</h1>
             </div>
             <div className={`w-2 h-2 rounded-full ${isLocked ? 'bg-red-400 animate-pulse' : 'bg-emerald-400'}`} />

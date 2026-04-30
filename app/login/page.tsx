@@ -183,10 +183,10 @@ export default function LoginPage() {
         <div className="mt-10 flex justify-center">
           <Link
             href="/admin"
-            className="terminal-text text-[10px] text-border hover:text-muted transition-colors duration-300 select-none"
+            className="terminal-text text-xs text-muted hover:text-gold transition-colors duration-300 select-none tracking-widest"
             tabIndex={-1}
           >
-            ⬡
+            · · ·
           </Link>
         </div>
       </div>
