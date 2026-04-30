@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 
-export const runtime     = 'nodejs'
+export const runtime     = 'edge'
 export const alt         = 'Sigma Research — Inteligencia Cuantitativa'
 export const size        = { width: 1200, height: 630 }
 export const contentType = 'image/png'
@@ -18,78 +18,60 @@ export default async function Image() {
           alignItems: 'flex-start',
           justifyContent: 'space-between',
           padding: '72px 80px',
-          fontFamily: 'monospace',
-          position: 'relative',
-          overflow: 'hidden',
         }}
       >
-        {/* Grid background pattern */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: 'linear-gradient(rgba(212,175,55,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.04) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-        }} />
-
-        {/* Gold radial glow */}
-        <div style={{
-          position: 'absolute',
-          top: -200, right: -100,
-          width: 600, height: 600,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(212,175,55,0.15) 0%, transparent 70%)',
-        }} />
-
         {/* Top: Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{
-            width: 44, height: 44,
+            width: 48, height: 48,
             border: '2px solid #d4af37',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#111111',
           }}>
-            <span style={{ fontSize: 22, fontWeight: 'bold', color: '#d4af37', fontFamily: 'serif' }}>Σ</span>
+            <span style={{ fontSize: 24, fontWeight: 'bold', color: '#d4af37' }}>S</span>
           </div>
-          <span style={{ fontSize: 14, letterSpacing: '0.35em', color: '#e5e5e5', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 15, letterSpacing: '0.3em', color: '#e5e5e5' }}>
             SIGMA RESEARCH
+          </span>
+          <span style={{ fontSize: 11, letterSpacing: '0.2em', color: '#d4af37', marginLeft: 8, background: '#1a1500', border: '1px solid #d4af37', padding: '3px 10px' }}>
+            QUANT
           </span>
         </div>
 
-        {/* Center: Main headline */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, zIndex: 1, flex: 1, justifyContent: 'center' }}>
-          <div style={{ fontSize: 11, letterSpacing: '0.3em', color: '#d4af37', textTransform: 'uppercase' }}>
+        {/* Center: Headline */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, justifyContent: 'center' }}>
+          <div style={{ fontSize: 12, letterSpacing: '0.3em', color: '#d4af37' }}>
             {'// INTELIGENCIA CUANTITATIVA'}
           </div>
-          <div style={{ fontSize: 72, fontWeight: 'bold', lineHeight: 0.93, letterSpacing: '0.02em', color: '#e5e5e5', fontFamily: 'sans-serif' }}>
-            HERRAMIENTAS
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <span style={{ fontSize: 80, fontWeight: 'bold', lineHeight: 1, color: '#e5e5e5' }}>
+              HERRAMIENTAS
+            </span>
+            <span style={{ fontSize: 80, fontWeight: 'bold', lineHeight: 1, color: '#d4af37' }}>
+              DE GRADO
+            </span>
+            <span style={{ fontSize: 80, fontWeight: 'bold', lineHeight: 1, color: '#e5e5e5' }}>
+              INSTITUCIONAL
+            </span>
           </div>
-          <div style={{ fontSize: 72, fontWeight: 'bold', lineHeight: 0.93, letterSpacing: '0.02em', color: '#d4af37', fontFamily: 'sans-serif' }}>
-            DE GRADO
-          </div>
-          <div style={{ fontSize: 72, fontWeight: 'bold', lineHeight: 0.93, letterSpacing: '0.02em', color: '#e5e5e5', fontFamily: 'sans-serif' }}>
-            INSTITUCIONAL
-          </div>
-          <div style={{ fontSize: 14, color: '#888888', marginTop: 8, maxWidth: 560, lineHeight: 1.6 }}>
-            Señales ML en vivo · Calculadora FIRE · Monte Carlo · Modelos cuantitativos para traders independientes
+          <div style={{ fontSize: 15, color: '#666666', marginTop: 12 }}>
+            Senales ML en vivo · Calculadora FIRE · Monte Carlo · Modelos cuantitativos
           </div>
         </div>
 
-        {/* Bottom: Features strip */}
-        <div style={{ display: 'flex', gap: 1, zIndex: 1, width: '100%' }}>
-          {[
-            { icon: '⚡', label: 'HUD EN VIVO' },
-            { icon: '◎', label: 'FIRE PLANNER' },
-            { icon: '∑',  label: 'MOTOR ML' },
-            { icon: '◈', label: 'PORTAFOLIO' },
-            { icon: '▣', label: 'REPORTES' },
-          ].map(f => (
-            <div key={f.label} style={{
+        {/* Bottom: Feature tags */}
+        <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+          {['HUD EN VIVO', 'FIRE PLANNER', 'MOTOR ML', 'PORTAFOLIO', 'REPORTES'].map(label => (
+            <div key={label} style={{
               flex: 1,
-              background: 'rgba(212,175,55,0.06)',
-              border: '1px solid rgba(212,175,55,0.2)',
-              padding: '12px 16px',
-              display: 'flex', flexDirection: 'column', gap: 4,
+              background: '#111111',
+              border: '1px solid #2a2000',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}>
-              <span style={{ fontSize: 16 }}>{f.icon}</span>
-              <span style={{ fontSize: 10, letterSpacing: '0.2em', color: '#d4af37' }}>{f.label}</span>
+              <span style={{ fontSize: 10, letterSpacing: '0.15em', color: '#d4af37' }}>{label}</span>
             </div>
           ))}
         </div>
