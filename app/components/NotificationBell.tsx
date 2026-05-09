@@ -92,6 +92,12 @@ export default function NotificationBell({ collapsed }: Props) {
       if (!user) return
       setUserId(user.id)
       loadNotifs(user.id)
+      // Auto-crear notifs para eventos macro próximos
+      fetch('/api/notifications/sync-macro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      }).catch(() => {})
     })
   }, [loadNotifs])
 

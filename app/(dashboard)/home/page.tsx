@@ -130,6 +130,7 @@ export default function DashboardHome() {
   const [spotlight,       setSpotlight]       = useState(false)
   const [spotQuery,       setSpotQuery]       = useState('')
   const [spotIdx,         setSpotIdx]         = useState(0)
+  const [showShortcuts,   setShowShortcuts]   = useState(false)
   const [trm,             setTrm]             = useState(TRM_DEFAULT)
   const [trmLive,         setTrmLive]         = useState(false)
 
@@ -189,7 +190,8 @@ export default function DashboardHome() {
         e.preventDefault()
         setSpotlight(v => !v); setSpotQuery(''); setSpotIdx(0); return
       }
-      if (e.key === 'Escape') { setSpotlight(false); setSpotQuery(''); return }
+      if (e.key === 'Escape') { setSpotlight(false); setSpotQuery(''); setShowShortcuts(false); return }
+      if (e.key === '?') { setShowShortcuts(v => !v); return }
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
       if (!spotlight && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const tool = TOOL_LIST.find(t => t.key?.toLowerCase() === e.key.toLowerCase())
@@ -250,8 +252,12 @@ export default function DashboardHome() {
     }
 
     const todayDate = now.toISOString().split('T')[0]
-    const upcoming  = MACRO_EVENTS.filter(e => e.date >= todayDate)
-    const nextEvent = upcoming[0] ?? null
+    const upcoming    = MACRO_EVENTS.filter(e => e.date >= todayDate)
+    const nextRaw     = upcoming[0] ?? null
+    const nextEvent   = nextRaw ? {
+      ...nextRaw,
+      daysUntil: Math.max(0, Math.round((new Date(nextRaw.date).getTime() - new Date(todayDate).getTime()) / 86400000)),
+    } : null
 
     // Sparkline PnL del mes (acumulado día a día)
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
@@ -322,6 +328,42 @@ export default function DashboardHome() {
         .tool-card  { transition: transform .15s ease, box-shadow .15s ease }
         .tool-card:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,.55) }
       `}</style>
+
+      {/* ── Shortcuts modal ── */}
+      {showShortcuts && (
+        <div onClick={() => setShowShortcuts(false)}
+          style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(4,5,10,.85)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width:480, background:C.surface, border:`1px solid ${C.gold}33`, boxShadow:`0 24px 80px rgba(0,0,0,.65)`, padding:'28px 32px' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+              <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.28em', color:C.gold }}>{'// ATAJOS DE TECLADO'}</div>
+              <kbd style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, background:C.border, padding:'2px 8px' }}>ESC para cerrar</kbd>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+              {[
+                { key: '?',     desc: 'Abrir/cerrar este panel' },
+                { key: '⌘K',    desc: 'Búsqueda rápida de herramientas' },
+                { key: 'H',     desc: 'Ir al HUD — señales en vivo' },
+                { key: 'T',     desc: 'Ir al Terminal' },
+                { key: 'J',     desc: 'Ir al Journal de trades' },
+                { key: 'M',     desc: 'Ir a Monte Carlo' },
+                { key: 'F',     desc: 'Ir a la calculadora FIRE' },
+                { key: 'L',     desc: 'Ir a LP DeFi' },
+                { key: 'C',     desc: 'Ir al Calendario macro' },
+                { key: 'ESC',   desc: 'Cerrar modales' },
+              ].map(s => (
+                <div key={s.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 0', borderBottom:`1px solid ${C.border}20` }}>
+                  <span style={{ fontFamily:'monospace', fontSize:12, color:C.dimText }}>{s.desc}</span>
+                  <kbd style={{ fontFamily:'monospace', fontSize:11, color:C.gold, background:`${C.gold}12`, border:`1px solid ${C.gold}30`, padding:'3px 10px', minWidth:32, textAlign:'center' }}>{s.key}</kbd>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontFamily:'monospace', fontSize:10, color:C.muted, marginTop:16, textAlign:'center' }}>
+              Los atajos funcionan cuando no estás escribiendo en un input
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Spotlight ── */}
       {spotlight && (
@@ -427,8 +469,45 @@ export default function DashboardHome() {
             </div>
           </div>
 
+          {/* ══ GETTING STARTED BANNER ══ */}
+          {!loading && D.totalUSD === 0 && (
+            <div style={{ marginBottom:16, border:`1px solid ${C.gold}30`, background:`${C.gold}06`, padding:'20px 24px' }}>
+              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
+                <div>
+                  <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.25em', color:C.gold, marginBottom:8 }}>
+                    {'// PRIMEROS PASOS · CONFIGURA TU CUENTA'}
+                  </div>
+                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color:C.text, marginBottom:12 }}>
+                    BIENVENIDO A SIGMA RESEARCH
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {[
+                      { n:'01', label:'Configura tu portafolio',  href:'/portafolio',  done: false, desc:'Registra tus plataformas: IBKR, Binance, Fintual, Santander' },
+                      { n:'02', label:'Añade un trade al journal', href:'/journal',     done: trades.length > 0, desc:'Importa CSV de Binance o agrega trades manualmente' },
+                      { n:'03', label:'Configura tu objetivo FIRE', href:'/fire',       done: !!fireTarget, desc:'Define tu meta de independencia financiera' },
+                    ].map(step => (
+                      <a key={step.n} href={step.href} style={{ display:'flex', alignItems:'center', gap:12, textDecoration:'none', padding:'8px 12px', background: step.done ? 'rgba(52,211,153,0.06)' : 'rgba(255,255,255,0.03)', border:`1px solid ${step.done ? 'rgba(52,211,153,0.2)' : C.border}`, transition:'border-color 0.15s' }}>
+                        <div style={{ width:22, height:22, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', background: step.done ? 'rgba(52,211,153,0.15)' : `${C.gold}15`, border:`1px solid ${step.done ? 'rgba(52,211,153,0.4)' : `${C.gold}40`}` }}>
+                          <span style={{ fontFamily:'monospace', fontSize:9, color: step.done ? C.green : C.gold }}>{step.done ? '✓' : step.n}</span>
+                        </div>
+                        <div>
+                          <div style={{ fontFamily:'monospace', fontSize:12, color: step.done ? C.green : C.text }}>{step.label}</div>
+                          <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{step.desc}</div>
+                        </div>
+                        {!step.done && <span style={{ marginLeft:'auto', fontFamily:'monospace', fontSize:11, color:C.gold }}>→</span>}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontFamily:'monospace', fontSize:10, color:C.muted, flexShrink:0 }}>
+                  Presiona <kbd style={{ background:C.border, padding:'2px 6px', fontFamily:'monospace' }}>?</kbd> para ver todos los atajos
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ══ KPI BAR ══ */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:1, background:C.border, marginBottom:1 }}>
+          <div className="sp-kpi-grid" style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:1, background:C.border, marginBottom:1 }}>
 
             {/* Patrimonio */}
             <div className="sp-fadein" style={{ background:C.surface, padding:'16px 18px', animationDelay:'0ms' }}>
@@ -493,7 +572,7 @@ export default function DashboardHome() {
           </div>
 
           {/* ══ QUICK SUMMARY BAR ══ */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:C.border, marginBottom:40 }}>
+          <div className="sp-summary-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:C.border, marginBottom:40 }}>
 
             <div style={{ background:C.bg, padding:'13px 18px', display:'flex', alignItems:'center', gap:14 }}>
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.gold, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>★</div>
@@ -524,13 +603,29 @@ export default function DashboardHome() {
             </div>
 
             <div style={{ background:C.bg, padding:'13px 18px', display:'flex', alignItems:'center', gap:14 }}>
-              <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.red, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>!</div>
-              <div>
-                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>PRÓXIMO EVENTO</div>
+              <div style={{ flexShrink:0 }}>
+                {D.nextEvent ? (
+                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, lineHeight:1, textAlign:'center', width:20,
+                    color: D.nextEvent.daysUntil === 0 ? C.red : D.nextEvent.daysUntil === 1 ? C.yellow : C.dimText }}>
+                    {D.nextEvent.daysUntil === 0 ? '!' : D.nextEvent.daysUntil <= 2 ? '⚡' : '◎'}
+                  </div>
+                ) : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.dimText, width:20 }}>◎</div>}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>PRÓXIMO EVENTO HIGH</div>
                 {D.nextEvent ? (
                   <div>
-                    <div style={{ fontFamily:'monospace', fontSize:11, color:C.text, marginBottom:2 }}>{D.nextEvent.title}</div>
-                    <div style={{ fontFamily:'monospace', fontSize:9, color:C.dimText }}>{D.nextEvent.date} · {D.nextEvent.time}</div>
+                    <div style={{ fontFamily:'monospace', fontSize:11, color:C.text, marginBottom:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{D.nextEvent.title}</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontFamily:'monospace', fontSize:9, color:C.dimText }}>{D.nextEvent.date} · {D.nextEvent.time}</span>
+                      <span style={{ fontFamily:'monospace', fontSize:9, fontWeight:700, padding:'1px 6px',
+                        color:   D.nextEvent.daysUntil === 0 ? C.red : D.nextEvent.daysUntil === 1 ? C.yellow : C.gold,
+                        background: D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.12)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.12)' : 'rgba(212,175,55,0.08)',
+                        border: `1px solid ${D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.3)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.3)' : 'rgba(212,175,55,0.2)'}`,
+                      }}>
+                        {D.nextEvent.daysUntil === 0 ? 'HOY' : D.nextEvent.daysUntil === 1 ? 'MAÑANA' : `en ${D.nextEvent.daysUntil}d`}
+                      </span>
+                    </div>
                   </div>
                 ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin eventos próximos</span>}
               </div>

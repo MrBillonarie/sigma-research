@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/app/lib/supabase'
 import type { User } from '@supabase/supabase-js'
@@ -105,6 +105,11 @@ export default function PerfilPage() {
   const [binanceError,  setBinanceError]  = useState('')
   const [showSecret,    setShowSecret]    = useState(false)
 
+  const [avatarUrl,     setAvatarUrl]     = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarMsg,     setAvatarMsg]     = useState('')
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
   const emptySetup = { par: '', tipo: 'LONG' as SetupTipo, entry: '', sl: '', tp: '', rangeLow: '', rangeHigh: '', feeTier: '', protocol: '', rr: '', timeframe: '4H', metodologia: '', nota: '' }
   const [setupForm,       setSetupForm]       = useState(emptySetup)
   const [publishingSetup, setPublishingSetup] = useState(false)
@@ -116,6 +121,9 @@ export default function PerfilPage() {
       if (!data.user) { router.replace('/login'); return }
       setUser(data.user)
       setNombre(data.user.user_metadata?.nombre ?? '')
+      // Cargar avatar si existe
+      const avatarMeta = data.user.user_metadata?.avatar_url as string | undefined
+      if (avatarMeta) setAvatarUrl(avatarMeta)
 
       const { data: prof } = await supabase
         .from('profiles')
@@ -194,6 +202,30 @@ export default function PerfilPage() {
       setSetupForm(emptySetup)
       setProfile(p => p ? { ...p, setups_published: p.setups_published + 1 } : p)
     }
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    if (file.size > 2 * 1024 * 1024) { setAvatarMsg('Máximo 2MB'); return }
+    setUploadingAvatar(true); setAvatarMsg('')
+    try {
+      const ext  = file.name.split('.').pop()
+      const path = `avatars/${user.id}.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+      const url = urlData.publicUrl
+      await supabase.auth.updateUser({ data: { avatar_url: url } })
+      setAvatarUrl(url)
+      setAvatarMsg('Foto actualizada.')
+    } catch (err) {
+      setAvatarMsg(`Error: ${err instanceof Error ? err.message : 'No se pudo subir la imagen'}`)
+    }
+    setUploadingAvatar(false)
+    setTimeout(() => setAvatarMsg(''), 3000)
   }
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -298,10 +330,27 @@ export default function PerfilPage() {
           <div className="perfil-sidebar" style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 0, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
             {/* Avatar + info */}
             <div style={{ padding: '28px 24px 20px', borderBottom: `1px solid ${BORDER}` }}>
-              {/* Avatar */}
-              <div style={{ width: 72, height: 72, borderRadius: '50%', background: `rgba(245,200,66,0.1)`, border: `2px solid ${GOLD}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>
+              {/* Avatar con upload */}
+              <div style={{ position: 'relative', width: 72, height: 72, marginBottom: 16 }}>
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="avatar" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${GOLD}55` }} />
+                ) : (
+                  <div style={{ width: 72, height: 72, borderRadius: '50%', background: `rgba(245,200,66,0.1)`, border: `2px solid ${GOLD}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>
+                  </div>
+                )}
+                {/* Upload overlay */}
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: '50%', background: GOLD, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}
+                  title="Cambiar foto"
+                >
+                  {uploadingAvatar ? '…' : '✎'}
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
               </div>
+              {avatarMsg && <div style={{ fontFamily: MONO, fontSize: 10, color: avatarMsg.startsWith('Error') ? '#f87171' : '#34d399', marginBottom: 8 }}>{avatarMsg}</div>}
               {/* Name */}
               <div style={{ fontFamily: MONO, fontSize: 14, color: TEXT, fontWeight: 600, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {displayName}

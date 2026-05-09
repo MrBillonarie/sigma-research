@@ -71,10 +71,12 @@ function timeAgo(ts: number) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function HudPage() {
-  const [signals,   setSignals]   = useState<Signal[]>([])
-  const [prices,    setPrices]    = useState<Price[]>([])
-  const [connected, setConnected] = useState(false)
-  const [regime,    setRegime]    = useState<{ label: string; color: string; adx: number }>({
+  const [signals,    setSignals]    = useState<Signal[]>([])
+  const [prices,     setPrices]     = useState<Price[]>([])
+  const [connected,  setConnected]  = useState(false)
+  const [hudSearch,  setHudSearch]  = useState('')
+  const [dirFilter,  setDirFilter]  = useState<'ALL' | 'LONG' | 'SHORT'>('ALL')
+  const [regime,     setRegime]     = useState<{ label: string; color: string; adx: number }>({
     label: 'LATERAL NORMAL', color: C.yellow, adx: 18,
   })
 
@@ -131,6 +133,12 @@ export default function HudPage() {
     }, 30_000)
     return () => clearInterval(id)
   }, [])
+
+  const visibleSignals = signals.filter(s => {
+    if (hudSearch && !s.ticker.toLowerCase().includes(hudSearch.toLowerCase())) return false
+    if (dirFilter !== 'ALL' && s.direction !== dirFilter) return false
+    return true
+  })
 
   const longCount  = signals.filter(s => s.direction === 'LONG').length
   const shortCount = signals.filter(s => s.direction === 'SHORT').length
@@ -209,11 +217,11 @@ export default function HudPage() {
         </div>
 
         {/* ── Main grid: signals + detail ───────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 1, background: C.border, minHeight: 500 }}>
+        <div className="hud-main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 1, background: C.border, minHeight: 500 }}>
 
           {/* Signal feed */}
           <div style={{ background: C.bg }}>
-            <div style={{ padding: '12px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '12px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>
                 FEED DE SEÑALES
               </span>
@@ -223,6 +231,35 @@ export default function HudPage() {
                   {connected ? 'BINANCE LIVE' : 'CONECTANDO…'}
                 </span>
               </span>
+            </div>
+
+            {/* Filtros */}
+            <div style={{ display: 'flex', gap: 1, background: C.border, borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ flex: 1, background: C.surface, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>⌕</span>
+                <input
+                  type="text"
+                  value={hudSearch}
+                  onChange={e => setHudSearch(e.target.value)}
+                  placeholder="BTC, ETH, SOL…"
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontFamily: 'monospace', fontSize: 11, color: C.text, minWidth: 0 }}
+                />
+                {hudSearch && (
+                  <button onClick={() => setHudSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: 11, color: C.muted, padding: 0 }}>✕</button>
+                )}
+              </div>
+              {(['ALL', 'LONG', 'SHORT'] as const).map(d => (
+                <button key={d} onClick={() => setDirFilter(d)}
+                  style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', border: 'none', cursor: 'pointer',
+                    background: dirFilter === d ? (d === 'LONG' ? C.green : d === 'SHORT' ? C.red : C.gold) : C.surface,
+                    color: dirFilter === d ? C.bg : C.dimText,
+                  }}>
+                  {d === 'ALL' ? 'TODOS' : d}
+                </button>
+              ))}
+              <div style={{ background: C.surface, padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{visibleSignals.length} señales</span>
+              </div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
@@ -237,7 +274,7 @@ export default function HudPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {signals.map((s, i) => (
+                  {visibleSignals.map((s, i) => (
                     <tr key={s.id} style={{ borderBottom: `1px solid ${C.border}`, background: i === 0 ? `${C.gold}08` : 'transparent', opacity: i === 0 ? 1 : Math.max(0.4, 1 - i * 0.06) }}>
                       <td style={{ padding: '12px 16px', color: C.text, fontWeight: 600, whiteSpace: 'nowrap' }}>{s.ticker}</td>
                       <td style={{ padding: '12px 16px' }}>
