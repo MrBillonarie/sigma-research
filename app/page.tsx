@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import HeroAnimation from './components/HeroAnimation'
 import AnimatedCounter from './components/AnimatedCounter'
+import ToolCards from './components/ToolCards'
 
 export const metadata: Metadata = {
   title: 'Sigma Research — Infraestructura Cuantitativa LATAM',
@@ -11,14 +12,6 @@ export const metadata: Metadata = {
     'Infraestructura cuantitativa institucional para inversores independientes en LATAM. Terminal en vivo, modelos ML, simulador FIRE y más.',
 }
 
-const tools = [
-  { tag: 'T-01', name: 'SIGMA TERMINAL',   desc: 'Dashboard de trading en vivo. Portafolio multi-broker, balances Binance Spot & Futures, P&L consolidado y posiciones abiertas en tiempo real.' },
-  { tag: 'T-02', name: 'MODELOS ML',        desc: 'Señales cuantitativas de régimen de mercado, volatilidad, momentum y análisis macro. Validadas con walk-forward out-of-sample.' },
-  { tag: 'T-03', name: 'MONTE CARLO',       desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
-  { tag: 'T-04', name: 'REPORTE MENSUAL',   desc: 'Análisis de rendimiento, Sharpe, Sortino, max drawdown y comparación contra benchmarks. Exportable en PDF incluido en plan PRO.' },
-  { tag: 'T-05', name: 'SIMULADOR FIRE',    desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
-  { tag: 'T-06', name: 'SEÑALES LP',        desc: 'Motor cuantitativo automático para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado.' },
-]
 
 const metrics = [
   { value: '85.2%', label: 'Win Rate verificado' },
@@ -146,19 +139,7 @@ export default async function RootPage() {
               <span className="gold-text">NECESITAS</span>
             </h2>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
-            {tools.map((t) => (
-              <div key={t.tag} className="bg-surface p-6 flex flex-col gap-4 group hover:bg-surface/80 transition-colors">
-                <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5 self-start">
-                  {t.tag}
-                </span>
-                <h3 className="display-heading text-2xl text-text group-hover:text-gold transition-colors">
-                  {t.name}
-                </h3>
-                <p className="terminal-text text-sm text-text-dim leading-relaxed">{t.desc}</p>
-              </div>
-            ))}
-          </div>
+          <ToolCards />
           <div className="mt-8 flex justify-end">
             <Link href="/recursos" className="section-label text-sm text-gold border border-gold/30 px-6 py-2.5 hover:bg-gold hover:text-bg transition-all duration-200">
               VER TODOS LOS RECURSOS →

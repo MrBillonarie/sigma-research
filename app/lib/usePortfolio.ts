@@ -10,7 +10,7 @@ const PLATFORMS = [
   { id: 'cash',            isCLP: false },
 ] as const
 
-const TRM_FALLBACK = 950
+const TRM_FALLBACK = 960 // actualizado — se sobreescribe con API live
 
 type PortfolioRow = Record<string, number>
 interface PassivePosition { capital: number }
@@ -23,9 +23,16 @@ export function usePortfolio() {
   const [totalFromStorage, setTotalFromStorage] = useState(0)
   const [portfolio,        setPortfolio]        = useState<PortfolioRow>({})
   const [positions,        setPositions]        = useState<PassivePosition[]>([])
+  const [trm,              setTrm]              = useState(TRM_FALLBACK)
   const [ready,            setReady]            = useState(false)
 
   useEffect(() => {
+    // Fetch TRM en vivo
+    fetch('/api/trm')
+      .then(r => r.json())
+      .then(j => { if (j.clpPerUsd > 0) setTrm(j.clpPerUsd) })
+      .catch(() => {})
+
     // Priority 1: pre-computed total from Portfolio page (includes live TRM)
     try {
       const n = Number(localStorage.getItem('sigma_portfolio_total'))
@@ -49,7 +56,7 @@ export function usePortfolio() {
   const computedTotal = useMemo(() => {
     const platformTotal = PLATFORMS.reduce((sum, p) => {
       const raw = portfolio[p.id] ?? 0
-      return sum + (p.isCLP ? raw / TRM_FALLBACK : raw)
+      return sum + (p.isCLP ? raw / trm : raw)
     }, 0)
     const passiveCapital = positions.reduce((sum, p) => sum + (p.capital ?? 0), 0)
     return platformTotal + passiveCapital
@@ -57,5 +64,5 @@ export function usePortfolio() {
 
   const totalUSD = totalFromStorage > 0 ? totalFromStorage : computedTotal
 
-  return { totalUSD, ready }
+  return { totalUSD, trm, ready }
 }

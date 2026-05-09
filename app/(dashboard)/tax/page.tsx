@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { C } from '@/app/lib/constants'
 
 // ─── Tramos IGC 2024 (CLP) ────────────────────────────────────────────────────
@@ -83,6 +83,7 @@ function UsdInput({ label, value, onChange, badge, badgeColor, accentBorder }:
 export default function TaxChilePage() {
   const [anio,            setAnio]            = useState<'2024' | '2025'>('2024')
   const [trm,             setTrm]             = useState('950')
+  const [trmLive,         setTrmLive]         = useState(false)
   const [btcSpot,         setBtcSpot]         = useState('')
   const [btcFutures,      setBtcFutures]      = useState('')
   const [accionesUS,      setAccionesUS]      = useState('')
@@ -92,6 +93,13 @@ export default function TaxChilePage() {
   const [otrosIngresos,   setOtrosIngresos]   = useState('')
   const [cl365,           setCl365]           = useState(false)
   const [copied,          setCopied]          = useState(false)
+
+  useEffect(() => {
+    fetch('/api/trm')
+      .then(r => r.json())
+      .then(j => { if (j.clpPerUsd > 0) { setTrm(String(j.clpPerUsd)); setTrmLive(true) } })
+      .catch(() => {})
+  }, [])
 
   const trmVal = parseFloat(trm) || 950
 
@@ -263,7 +271,9 @@ export default function TaxChilePage() {
                   type="number" value={trm} onChange={e => setTrm(e.target.value)} min={1}
                   style={{ width: 110, background: C.surface, border: `1px solid ${C.gold}55`, color: C.gold, fontFamily: 'monospace', fontSize: 14, padding: '6px 10px', outline: 'none' }}
                 />
-                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>CLP por USD · editable</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: trmLive ? '#34d399' : C.dimText }}>
+                  {trmLive ? '● live · editable' : 'CLP por USD · editable'}
+                </span>
               </div>
             </div>
 

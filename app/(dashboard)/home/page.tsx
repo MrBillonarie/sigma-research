@@ -42,7 +42,7 @@ const TOOL_LIST = [
 
 const DAYS_ES   = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO']
 const MONTHS_ES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE']
-const TRM = 950
+const TRM_DEFAULT = 950
 
 function fmtUSD(n: number)  { return '$' + Math.round(n).toLocaleString('es-CL') }
 function pct(n: number)     { return n.toFixed(1) + '%' }
@@ -130,11 +130,21 @@ export default function DashboardHome() {
   const [spotlight,       setSpotlight]       = useState(false)
   const [spotQuery,       setSpotQuery]       = useState('')
   const [spotIdx,         setSpotIdx]         = useState(0)
+  const [trm,             setTrm]             = useState(TRM_DEFAULT)
+  const [trmLive,         setTrmLive]         = useState(false)
 
   // Clock
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
+  }, [])
+
+  // TRM en vivo
+  useEffect(() => {
+    fetch('/api/trm')
+      .then(r => r.json())
+      .then(j => { if (j.clpPerUsd > 0) { setTrm(j.clpPerUsd); setTrmLive(true) } })
+      .catch(() => {})
   }, [])
 
   // localStorage hydration
@@ -193,7 +203,7 @@ export default function DashboardHome() {
   // ─── Derived ─────────────────────────────────────────────────────────────────
   const D = useMemo(() => {
     const FIRE_TARGET = fireTarget ?? 600_000
-    const platformTotals = PLATFORMS.map(p => { const raw = portfolio[p.id] ?? 0; return p.isCLP ? raw / TRM : raw })
+    const platformTotals = PLATFORMS.map(p => { const raw = portfolio[p.id] ?? 0; return p.isCLP ? raw / trm : raw })
     const totalUSD = platformTotals.reduce((s, v) => s + v, 0) || storedTotal
     const segments = PLATFORMS.map((p, i) => ({ ...p, usd: platformTotals[i], pct: totalUSD > 0 ? (platformTotals[i] / totalUSD) * 100 : 0 })).filter(s => s.usd > 0)
     const monthlyPassive = positions.reduce((s, p) => s + (p.ingresoMensual ?? 0), 0)
@@ -390,8 +400,15 @@ export default function DashboardHome() {
                   {greeting}
                 </span>
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
                 <span style={{ fontFamily:'monospace', fontSize:12, color:C.dimText, letterSpacing:'0.12em' }}>{dateStr}</span>
+                <span style={{ color:C.border }}>·</span>
+                {/* TRM badge */}
+                <span style={{ display:'flex', alignItems:'center', gap:5, fontFamily:'monospace', fontSize:10, color: trmLive ? C.green : C.dimText, background: trmLive ? 'rgba(52,211,153,0.08)' : 'transparent', border:`1px solid ${trmLive ? 'rgba(52,211,153,0.25)' : C.border}`, padding:'2px 8px' }}>
+                  {trmLive && <span style={{ width:5, height:5, borderRadius:'50%', background:C.green, display:'inline-block', animation:'sp-ping 1.5s infinite' }} />}
+                  USD/CLP {trm.toLocaleString('es-CL')}
+                  {trmLive ? ' · live' : ' · est.'}
+                </span>
                 <span style={{ color:C.border }}>·</span>
                 <button
                   onClick={() => { setSpotlight(true); setSpotQuery(''); setSpotIdx(0) }}
