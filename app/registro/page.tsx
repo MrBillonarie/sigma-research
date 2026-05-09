@@ -30,7 +30,7 @@ export default function RegistroPage() {
     if (Object.keys(e).length) return
 
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -38,7 +38,6 @@ export default function RegistroPage() {
         emailRedirectTo: `${location.origin}/auth/callback`,
       },
     })
-    console.log('[Supabase signUp]', { user: data?.user?.id ?? null, error: error ? { message: error.message, status: error.status, code: (error as { code?: string }).code } : null })
     setLoading(false)
 
     if (error) {

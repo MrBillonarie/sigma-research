@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { supabase } from '@/app/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
@@ -333,7 +334,7 @@ export default function PerfilPage() {
               {/* Avatar con upload */}
               <div style={{ position: 'relative', width: 72, height: 72, marginBottom: 16 }}>
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="avatar" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${GOLD}55` }} />
+                  <Image src={avatarUrl} alt="avatar" width={72} height={72} style={{ borderRadius: '50%', objectFit: 'cover', border: `2px solid ${GOLD}55` }} />
                 ) : (
                   <div style={{ width: 72, height: 72, borderRadius: '50%', background: `rgba(245,200,66,0.1)`, border: `2px solid ${GOLD}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>

@@ -30,16 +30,15 @@ function LoginForm() {
     if (Object.keys(e).length) return
 
     setLoading(true)
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
 
     if (error) {
-      console.error('[Supabase login error]', { message: error.message, status: error.status, code: (error as { code?: string }).code })
+
       setErrors({ form: traducirError(error) })
       return
     }
 
-    console.log('[Supabase login ok] user:', data.user?.email)
     // Hard navigation so the browser sends cookies in the new request,
     // letting the middleware verify the session correctly.
     window.location.href = next

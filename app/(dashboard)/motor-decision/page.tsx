@@ -3,11 +3,16 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { ProfileType, SignalsResponse } from '@/types/decision-engine'
 import { usePortfolio } from '@/app/lib/usePortfolio'
+import dynamic         from 'next/dynamic'
 import ProfileSelector from './components/ProfileSelector'
 import MetricCards     from './components/MetricCards'
-import AllocationDonut from './components/AllocationDonut'
 import FlowIndicator   from './components/FlowIndicator'
 import SignalTable     from './components/SignalTable'
+
+const AllocationDonut = dynamic(() => import('./components/AllocationDonut'), {
+  ssr:     false,
+  loading: () => <div style={{ height:260, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'monospace', fontSize:11, color:'#7a7f9a' }}>Cargando gráfico…</div>,
+})
 
 const STORAGE_KEY   = 'sigma_motor_profile'
 const AUTO_INTERVAL = 30 * 60 * 1000

@@ -1,8 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 
-  // Elimina el header X-Powered-By: Next.js (fingerprinting)
   poweredByHeader: false,
+
+  // Compresión gzip/brotli de assets estáticos
+  compress: true,
+
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+    ],
+  },
+
+  // Tree-shake lucide-react y otras librerías pesadas — carga solo los íconos usados
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'chart.js', 'react-chartjs-2', '@react-email/components'],
+  },
 
   async headers() {
     return [

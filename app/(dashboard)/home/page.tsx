@@ -279,7 +279,7 @@ export default function DashboardHome() {
       firePct, FIRE_TARGET, fireYears, nextEvent, upcoming: upcoming.slice(0, 5),
       monthTradesCount: monthTrades.length, totalTrades: trades.length,
     }
-  }, [portfolio, positions, trades, fireTarget, now, storedTotal])
+  }, [portfolio, positions, trades, fireTarget, now, storedTotal, trm])
 
   // Spotlight results
   const spotResults = useMemo(() => {
