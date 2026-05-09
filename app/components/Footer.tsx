@@ -53,10 +53,10 @@ export default function Footer() {
   return (
     <footer className="bg-bg border-t border-border px-6 py-16">
       <div className="max-w-7xl mx-auto">
-        <div className="grid md:grid-cols-4 gap-10 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
 
           {/* Brand */}
-          <div className="md:col-span-2">
+          <div>
             <Link href="/" className="flex items-center gap-3 mb-4 w-fit">
               <div className="w-7 h-7 border border-gold flex items-center justify-center">
                 <span className="display-heading text-gold text-sm leading-none">Σ</span>
@@ -67,17 +67,15 @@ export default function Footer() {
               Inteligencia cuantitativa de grado institucional. Construido sobre datos reales,
               diseñado para resultados reales.
             </p>
-            <div className="flex gap-4 mt-6">
+            <div className="flex items-center gap-2 mt-4">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="terminal-text text-xs text-emerald-400">Plataforma operativa</span>
+            </div>
+            <div className="flex gap-4 mt-4">
               {social.map(s => (
-                <a
-                  key={s.label}
-                  href={s.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={s.label}
-                  title={s.label}
-                  className="text-text-dim hover:text-gold transition-colors"
-                >
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
+                  aria-label={s.label} title={s.label}
+                  className="text-text-dim hover:text-gold transition-colors">
                   {s.icon}
                 </a>
               ))}
@@ -110,6 +108,30 @@ export default function Footer() {
                 </li>
               ))}
             </ul>
+          </div>
+
+          {/* Cuenta + Trust */}
+          <div>
+            <div className="section-label text-gold mb-4">Cuenta</div>
+            <ul className="space-y-2.5 mb-6">
+              {[
+                { label: 'Crear cuenta gratis', href: '/registro' },
+                { label: 'Iniciar sesión',       href: '/login'    },
+                { label: 'Plan PRO — $29/mes',   href: '/reportes' },
+                { label: 'Contactar equipo',     href: '/contacto' },
+              ].map(l => (
+                <li key={l.href}>
+                  <Link href={l.href} className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-col gap-2 border-t border-border pt-4">
+              {['🔒 Datos cifrados TLS 1.3', '🛡️ Sin venta de datos', '📊 Modelos validados OOS'].map(b => (
+                <span key={b} className="terminal-text text-xs text-muted">{b}</span>
+              ))}
+            </div>
           </div>
         </div>
 

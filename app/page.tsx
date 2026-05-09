@@ -265,21 +265,18 @@ export default async function RootPage() {
           </div>
         </div>
 
-        {/* Legal links */}
-        <div className="max-w-7xl mx-auto border-t border-border pt-10">
-          <div className="flex flex-wrap justify-center gap-x-8 gap-y-3">
-            {legalLinks.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="terminal-text text-xs text-text-dim hover:text-gold transition-colors tracking-widest uppercase"
-              >
+        {/* Legal bottom — el Footer global ya incluye el footer completo */}
+        <div className="max-w-7xl mx-auto border-t border-border pt-6 pb-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="terminal-text text-xs text-muted tracking-widest">
+            © {new Date().getFullYear()} SIGMA RESEARCH · TODOS LOS DERECHOS RESERVADOS
+          </div>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            {legalLinks.slice(2).map((l) => (
+              <Link key={l.href} href={l.href}
+                className="terminal-text text-[10px] text-muted hover:text-gold transition-colors tracking-widest uppercase">
                 {l.label}
               </Link>
             ))}
-          </div>
-          <div className="terminal-text text-xs text-text-dim text-center mt-6 tracking-widest">
-            © {new Date().getFullYear()} SIGMA RESEARCH · TODOS LOS DERECHOS RESERVADOS
           </div>
         </div>
       </section>
