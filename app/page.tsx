@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import HeroAnimation from './components/HeroAnimation'
+import AnimatedCounter from './components/AnimatedCounter'
 
 export const metadata: Metadata = {
   title: 'Sigma Research — Infraestructura Cuantitativa LATAM',
@@ -78,25 +80,56 @@ export default async function RootPage() {
     <main className="bg-bg min-h-screen">
 
       {/* ── 1. HERO ─────────────────────────────────────────────────────────── */}
-      <section className="pt-40 pb-28 px-6 bg-grid-pattern bg-grid relative overflow-hidden">
+      <section className="pt-40 pb-36 px-6 bg-grid-pattern bg-grid relative overflow-hidden min-h-[75vh] flex items-center">
         <div className="absolute inset-0 bg-radial-gold pointer-events-none" />
-        <div className="max-w-7xl mx-auto relative">
-          <div className="section-label text-gold mb-6">{'// SIGMA RESEARCH · LATAM'}</div>
-          <h1 className="display-heading text-6xl sm:text-8xl lg:text-[9rem] text-text leading-none mb-8">
+
+        {/* Equity curve + ticker animados */}
+        <HeroAnimation />
+
+        <div className="max-w-7xl mx-auto relative w-full">
+
+          {/* Badge LIVE */}
+          <div className="flex items-center gap-2 mb-6">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="terminal-text text-[11px] text-emerald-400 tracking-widest">PLATAFORMA EN VIVO</span>
+            <span className="terminal-text text-[11px] text-text-dim mx-2">·</span>
+            <span className="terminal-text text-[11px] text-text-dim tracking-widest">{'// SIGMA RESEARCH · LATAM'}</span>
+          </div>
+
+          <h1 className="display-heading text-6xl sm:text-8xl lg:text-[9rem] text-text leading-none mb-6">
             SIGMA
             <br />
             <span className="gold-text">RESEARCH</span>
           </h1>
-          <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-2xl mb-10">
+
+          <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-xl mb-4">
             Infraestructura cuantitativa institucional para inversores independientes en LATAM.
             Modelos validados, datos reales, sin conflictos de interés.
           </p>
+
+          {/* Trust signals inline */}
+          <div className="flex flex-wrap items-center gap-4 mb-10">
+            {[
+              { icon: '✓', text: 'Sin tarjeta de crédito' },
+              { icon: '✓', text: 'Plan gratuito disponible' },
+              { icon: '✓', text: '+127 traders activos' },
+            ].map(s => (
+              <span key={s.text} className="terminal-text text-xs text-text-dim flex items-center gap-1.5">
+                <span className="text-emerald-400">{s.icon}</span>{s.text}
+              </span>
+            ))}
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-4">
-            <Link href="/registro" className="bg-gold text-bg section-label px-8 py-3 hover:bg-gold-glow transition-colors duration-200 text-center">
-              CREAR CUENTA GRATIS
+            <Link href="/registro"
+              className="bg-gold text-bg section-label px-10 py-3.5 hover:bg-gold-glow transition-colors duration-200 text-center relative overflow-hidden group"
+            >
+              <span className="relative z-10">CREAR CUENTA GRATIS</span>
             </Link>
-            <Link href="/login" className="border border-border text-text-dim section-label px-8 py-3 hover:border-gold hover:text-gold transition-colors duration-200 text-center">
-              INICIAR SESIÓN
+            <Link href="/login"
+              className="border border-border text-text-dim section-label px-8 py-3.5 hover:border-gold hover:text-gold transition-colors duration-200 text-center"
+            >
+              INICIAR SESIÓN →
             </Link>
           </div>
         </div>
@@ -137,36 +170,47 @@ export default async function RootPage() {
       {/* ── 3. MÉTRICAS REALES ──────────────────────────────────────────────── */}
       <section className="py-20 px-6 bg-surface border-y border-border">
         <div className="max-w-7xl mx-auto">
-          <div className="section-label text-gold mb-10 text-center">
-            {'// TRACK RECORD VERIFICADO · FEB–ABR 2026'}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
+            <div className="section-label text-gold">{'// TRACK RECORD VERIFICADO · FEB–ABR 2026'}</div>
+            <span className="terminal-text text-xs text-text-dim border border-border px-3 py-1 self-start sm:self-auto">
+              Estrategia PRO.MACD v116 · Crypto Futuros
+            </span>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
             {metrics.map((m) => (
-              <div key={m.label} className="bg-bg p-10 text-center">
-                <div className="display-heading text-5xl sm:text-6xl gold-text mb-2">{m.value}</div>
-                <div className="terminal-text text-xs text-text-dim tracking-widest uppercase">{m.label}</div>
-              </div>
+              <AnimatedCounter key={m.label} value={m.value} label={m.label} />
             ))}
           </div>
+          <p className="terminal-text text-[10px] text-muted text-right mt-3">
+            * Resultados pasados no garantizan rendimientos futuros. Período: 1 Feb – 30 Abr 2026.
+          </p>
         </div>
       </section>
 
       {/* ── 4. PLANES/PRICING ───────────────────────────────────────────────── */}
       <section className="py-24 px-6 bg-bg">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-16">
-            <div className="section-label text-gold mb-4">{'// PLANES'}</div>
-            <h2 className="display-heading text-5xl sm:text-7xl text-text">
-              ELIGE TU
-              <br />
-              <span className="gold-text">PLAN</span>
-            </h2>
+          <div className="mb-16 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+            <div>
+              <div className="section-label text-gold mb-4">{'// PLANES'}</div>
+              <h2 className="display-heading text-5xl sm:text-7xl text-text">
+                ELIGE TU
+                <br />
+                <span className="gold-text">PLAN</span>
+              </h2>
+            </div>
+            {/* Social proof */}
+            <div className="flex items-center gap-3 border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 self-start sm:self-auto">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="terminal-text text-xs text-emerald-400">127 traders activos ahora mismo</span>
+            </div>
           </div>
+
           <div className="grid md:grid-cols-3 gap-px bg-border">
             {plans.map((p) => (
               <div
                 key={p.name}
-                className="bg-surface p-8 flex flex-col gap-6 relative"
+                className="bg-surface p-8 flex flex-col gap-6 relative transition-transform duration-200 hover:-translate-y-1"
                 style={{ outline: p.recommended ? `2px solid ${p.color}` : undefined }}
               >
                 {p.recommended && (
@@ -174,24 +218,31 @@ export default async function RootPage() {
                     className="absolute -top-3 left-6 section-label text-xs px-3 py-0.5"
                     style={{ background: p.color, color: '#04050a' }}
                   >
-                    ★ RECOMENDADO
+                    ★ MÁS POPULAR
                   </div>
                 )}
                 <div>
                   <div className="section-label mb-1" style={{ color: p.color }}>{p.name}</div>
-                  <div className="display-heading text-5xl" style={{ color: p.color }}>{p.price}</div>
-                  <div className="terminal-text text-xs text-text-dim mt-1">{p.period}</div>
+                  <div className="flex items-baseline gap-2">
+                    <div className="display-heading text-5xl" style={{ color: p.color }}>{p.price}</div>
+                    <div className="terminal-text text-xs text-text-dim">{p.period}</div>
+                  </div>
+                  {p.recommended && (
+                    <div className="terminal-text text-xs mt-2" style={{ color: p.color }}>
+                      Cancela cuando quieras · Sin permanencia
+                    </div>
+                  )}
                 </div>
-                <ul className="flex flex-col gap-2 flex-1">
+                <ul className="flex flex-col gap-2.5 flex-1">
                   {p.items.map((item) => (
                     <li key={item} className="terminal-text text-sm text-text-dim flex items-start gap-2">
-                      <span style={{ color: p.color }}>→</span>{item}
+                      <span style={{ color: p.color }} className="mt-0.5 shrink-0">✓</span>{item}
                     </li>
                   ))}
                 </ul>
                 <Link
                   href={p.href}
-                  className="section-label text-sm text-center py-3 transition-colors duration-200"
+                  className="section-label text-sm text-center py-3.5 transition-all duration-200 hover:opacity-90 active:scale-95"
                   style={{
                     background: p.recommended ? p.color : 'transparent',
                     color: p.recommended ? '#04050a' : p.color,
@@ -200,6 +251,9 @@ export default async function RootPage() {
                 >
                   {p.cta}
                 </Link>
+                {p.name === 'TERMINAL' && (
+                  <p className="terminal-text text-[10px] text-muted text-center -mt-3">Sin tarjeta requerida</p>
+                )}
               </div>
             ))}
           </div>

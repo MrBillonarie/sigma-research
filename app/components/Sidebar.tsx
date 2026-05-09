@@ -339,8 +339,22 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 export default function Sidebar() {
-  const pathname = usePathname()
+  const pathname  = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [userName, setUserName]   = useState('')
+  const [userPlan, setUserPlan]   = useState<'free' | 'pro'>('free')
+  const [initials, setInitials]   = useState('?')
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return
+      const nombre = (data.user.user_metadata?.nombre as string) ?? data.user.email?.split('@')[0] ?? ''
+      const plan   = (data.user.app_metadata?.plan as string) ?? 'free'
+      setUserName(nombre)
+      setUserPlan(plan === 'pro' ? 'pro' : 'free')
+      setInitials(nombre ? nombre.slice(0, 2).toUpperCase() : (data.user.email?.slice(0, 2).toUpperCase() ?? '?'))
+    })
+  }, [])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -351,16 +365,17 @@ export default function Sidebar() {
     display: 'flex',
     alignItems: 'center',
     gap: collapsed ? 0 : 12,
-    padding: '9px 12px',
-    borderRadius: 8,
+    padding: collapsed ? '9px 0' : '9px 12px 9px 10px',
+    borderRadius: 6,
     minHeight: 38,
     textDecoration: 'none',
     fontFamily: MONO,
     fontSize: 13,
     letterSpacing: '0.01em',
-    transition: 'color 0.15s, background 0.15s',
+    transition: 'color 0.15s, background 0.15s, border-color 0.15s',
     width: '100%',
     justifyContent: collapsed ? 'center' : 'flex-start',
+    borderLeft: '2px solid transparent',
   }
 
   return (
@@ -416,13 +431,14 @@ export default function Sidebar() {
               title={collapsed ? label : undefined}
               style={{
                 ...navLinkBase,
-                color:      active ? GOLD  : MUTED,
-                background: active ? 'rgba(212,175,55,0.08)' : 'transparent',
+                color:       active ? GOLD  : MUTED,
+                background:  active ? 'rgba(212,175,55,0.07)' : 'transparent',
+                borderLeft:  active ? `2px solid ${GOLD}` : '2px solid transparent',
               }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = MUTED }}
+              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#e8e9f0'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
             >
-              <Icon size={18} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
+              <Icon size={17} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
               {!collapsed && <span>{label}</span>}
             </Link>
           )
@@ -448,44 +464,82 @@ export default function Sidebar() {
               style={{
                 ...navLinkBase,
                 color:      active ? GOLD  : MUTED,
-                background: active ? 'rgba(212,175,55,0.08)' : 'transparent',
+                background: active ? 'rgba(212,175,55,0.07)' : 'transparent',
+                borderLeft: active ? `2px solid ${GOLD}` : '2px solid transparent',
               }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = MUTED }}
+              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#e8e9f0'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
             >
-              <Icon size={18} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
+              <Icon size={17} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
               {!collapsed && <span>{label}</span>}
             </Link>
           )
         })}
       </nav>
 
-      {/* Bottom: profile + logout */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 8px 16px', borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
+      {/* Bottom: user card + logout */}
+      <div style={{ borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
+
+        {/* User card */}
         <Link
           href="/perfil"
           title={collapsed ? 'Perfil' : undefined}
           style={{
-            ...navLinkBase,
-            color:      pathname === '/perfil' ? GOLD  : MUTED,
-            background: pathname === '/perfil' ? 'rgba(212,175,55,0.08)' : 'transparent',
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: collapsed ? '12px 0' : '12px 12px',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            textDecoration: 'none',
+            transition: 'background 0.15s',
+            borderBottom: `1px solid ${BORDER}`,
           }}
-          onMouseEnter={e => { if (pathname !== '/perfil') (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
-          onMouseLeave={e => { if (pathname !== '/perfil') (e.currentTarget as HTMLElement).style.color = MUTED }}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
         >
-          <User size={18} style={{ flexShrink: 0 }} />
-          {!collapsed && <span>Perfil</span>}
+          {/* Avatar */}
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+            background: `rgba(212,175,55,0.12)`,
+            border: `1px solid rgba(212,175,55,0.3)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontFamily: 'var(--font-bebas)', fontSize: 13, color: GOLD, letterSpacing: '0.05em' }}>
+              {initials}
+            </span>
+          </div>
+
+          {/* Name + plan */}
+          {!collapsed && (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: '#e8e9f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {userName || 'Trader'}
+              </div>
+              <div style={{
+                display: 'inline-block',
+                fontFamily: MONO, fontSize: 9, letterSpacing: '0.12em',
+                padding: '1px 6px', marginTop: 2, borderRadius: 3,
+                background: userPlan === 'pro' ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.06)',
+                color:      userPlan === 'pro' ? GOLD : MUTED,
+                border:     userPlan === 'pro' ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.1)',
+              }}>
+                {userPlan === 'pro' ? '★ PRO' : 'FREE'}
+              </div>
+            </div>
+          )}
         </Link>
 
+        {/* Logout */}
         <button
           onClick={handleLogout}
           title={collapsed ? 'Salir' : undefined}
-          style={{ ...navLinkBase, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#e8e9f0')}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = MUTED)}
+          style={{
+            ...navLinkBase, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED,
+            padding: collapsed ? '10px 0' : '10px 12px', margin: '4px 8px 8px', width: 'calc(100% - 16px)',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(248,113,113,0.06)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
         >
-          <LogOut size={18} style={{ flexShrink: 0 }} />
-          {!collapsed && <span>Salir</span>}
+          <LogOut size={16} style={{ flexShrink: 0 }} />
+          {!collapsed && <span style={{ fontSize: 12 }}>Cerrar sesión</span>}
         </button>
       </div>
 

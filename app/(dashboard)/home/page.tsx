@@ -83,6 +83,21 @@ function Sparkline({ data, w = 64, h = 22 }: { data: number[]; w?: number; h?: n
   )
 }
 
+// ─── Mini bar chart (últimos N resultados) ────────────────────────────────────
+function MiniBarChart({ data, w = 48, h = 20 }: { data: number[]; w?: number; h?: number }) {
+  if (!data.length) return null
+  const bw = Math.max(2, (w / data.length) - 1)
+  return (
+    <svg width={w} height={h} style={{ display: 'block', flexShrink: 0 }}>
+      {data.map((v, i) => {
+        const barH  = Math.max(2, v * (h - 2))
+        const color = v === 1 ? C.green : v === 0.5 ? C.yellow : C.red
+        return <rect key={i} x={i * (bw + 1)} y={h - barH} width={bw} height={barH} fill={color} rx="1" />
+      })}
+    </svg>
+  )
+}
+
 // ─── Pulsing live dot ─────────────────────────────────────────────────────────
 function LiveDot({ size = 8 }: { size?: number }) {
   return (
@@ -228,9 +243,23 @@ export default function DashboardHome() {
     const upcoming  = MACRO_EVENTS.filter(e => e.date >= todayDate)
     const nextEvent = upcoming[0] ?? null
 
+    // Sparkline PnL del mes (acumulado día a día)
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    let cumMonth = 0
+    const sparkMonthCum = Array.from({ length: Math.min(now.getDate(), daysInMonth) }, (_, i) => {
+      const d = `${ym}-${String(i + 1).padStart(2, '0')}`
+      cumMonth += trades.filter(t => t.fecha?.startsWith(d)).reduce((s, t) => s + (t.pnl_usd ?? 0), 0)
+      return cumMonth
+    })
+
+    // Mini barras de últimos 10 resultados (para Win Rate)
+    const last10Results = sorted.slice(0, 10).reverse().map(t =>
+      t.resultado === 'WIN' ? 1 : t.resultado === 'BREAKEVEN' ? 0.5 : 0
+    )
+
     return {
       totalUSD, segments, monthlyPassive, monthPnL, winRate, dailyPnL, dailyPct,
-      weekPnL, weekCount, sparkCum, streak, bestTrade, last5,
+      weekPnL, weekCount, sparkCum, sparkMonthCum, last10Results, streak, bestTrade, last5,
       firePct, FIRE_TARGET, fireYears, nextEvent, upcoming: upcoming.slice(0, 5),
       monthTradesCount: monthTrades.length, totalTrades: trades.length,
     }
@@ -399,14 +428,20 @@ export default function DashboardHome() {
             {/* PnL Mes */}
             <div className="sp-fadein" style={{ background:C.surface, padding:'16px 18px', animationDelay:'50ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PNL DEL MES</div>
-              {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.monthPnL >= 0 ? C.green : C.red, lineHeight:1, marginBottom:6 }}>{fmtDiff(D.monthPnL)}</div>}
-              <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{D.monthTradesCount} trades</div>
+              <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
+                {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.monthPnL >= 0 ? C.green : C.red, lineHeight:1 }}>{fmtDiff(D.monthPnL)}</div>}
+                {!loading && D.sparkMonthCum.length > 1 && <Sparkline data={D.sparkMonthCum} w={56} h={22} />}
+              </div>
+              <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{D.monthTradesCount} trades este mes</div>
             </div>
 
             {/* Win Rate */}
             <div className="sp-fadein" style={{ background:C.surface, padding:'16px 18px', animationDelay:'100ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>WIN RATE MES</div>
-              {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.winRate >= 50 ? C.green : C.red, lineHeight:1, marginBottom:6 }}>{pct(D.winRate)}</div>}
+              <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
+                {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.winRate >= 50 ? C.green : C.red, lineHeight:1 }}>{pct(D.winRate)}</div>}
+                {!loading && D.last10Results.length > 0 && <MiniBarChart data={D.last10Results} w={52} h={22} />}
+              </div>
               {D.streak > 1 && !loading && <div style={{ fontFamily:'monospace', fontSize:10, color:C.green }}>🔥 {D.streak}W STREAK</div>}
             </div>
 

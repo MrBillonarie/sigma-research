@@ -342,7 +342,16 @@ export default function ModelosPage() {
                     </span>
                     <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted }}>Datos sintéticos — pendiente de datos reales</span>
                   </div>
-                  <ModelChart labels={ilabels} equity={idata.curve} dd={idata.dd} color={selectedInstr.color} modelName={selectedInstr.ticker} />
+                  <ModelChart
+                    labels={ilabels}
+                    equity={idata.curve}
+                    dd={idata.dd}
+                    color={selectedInstr.color}
+                    modelName={selectedInstr.ticker}
+                    sharpe={selectedInstr.sharpe}
+                    maxDD={selectedInstr.maxDD}
+                    winRate={selectedInstr.winRate}
+                  />
                 </div>
 
                 {/* Descripción */}
