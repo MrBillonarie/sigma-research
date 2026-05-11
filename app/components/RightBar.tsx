@@ -1,20 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/app/lib/supabase'
-
-const T = {
-  bg:      '#04050a',
-  surface: '#0b0d14',
-  border:  '#1a1d2e',
-  gold:    '#d4af37',
-  green:   '#34d399',
-  red:     '#f87171',
-  text:    '#e8e9f0',
-  dimText: '#7a7f9a',
-  muted:   '#3a3f55',
-  violet:  '#a78bfa',
-  blue:    '#60a5fa',
-}
+import { C as T } from '@/app/lib/constants'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 const SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB'] as const
@@ -54,23 +41,6 @@ const SESSIONS = [
   { name: 'LONDON',   from: 7,  to: 16, color: T.blue,   tz: 'Europe/London',    label: 'London' },
   { name: 'NEW YORK', from: 13, to: 22, color: T.green,  tz: 'America/New_York', label: 'NY'     },
 ] as const
-
-// ─── Own setups (edit manually) ───────────────────────────────────────────────
-const SETUPS: Setup[] = [
-  {
-    id: '1', par: 'BTCUSDT', tipo: 'LONG',
-    entry: 83500, sl: 81200, tp: 88000, rr: 2.1,
-    timeframe: '4H', metodologia: 'OB+MACD', estado: 'ACTIVO',
-    nota: 'OB 4H respetado, MACD divergencia bull', fecha: '2026-04-18',
-  },
-  {
-    id: '2', par: 'ETH/USDC', tipo: 'LP',
-    rangeLow: 1580, rangeHigh: 1950,
-    feeTier: '0.05%', protocol: 'Uniswap v3',
-    timeframe: '—', metodologia: 'Concentrated LP', estado: 'EN_RANGO',
-    nota: 'Rango tight alrededor de precio actual', fecha: '2026-04-18',
-  },
-]
 
 const SYM_STREAM = SYMBOLS.map(s => `${s.toLowerCase()}usdt@ticker`).join('/')
 const WS_URL     = `wss://stream.binance.com:9443/stream?streams=${SYM_STREAM}`
@@ -149,6 +119,7 @@ export default function RightBar() {
   const [utcNow,     setUtcNow]     = useState(new Date())
   const [community,  setCommunity]  = useState<CommunitySetup[]>([])
   const [userVotes,  setUserVotes]  = useState<Record<string, 'up' | 'down'>>({})
+  const [setupsOwn,  setSetupsOwn]  = useState<Setup[]>([])
 
   const wsRef       = useRef<WebSocket | null>(null)
   const reconnRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -176,6 +147,14 @@ export default function RightBar() {
     try {
       const raw = localStorage.getItem('sigma_alerts')
       if (raw) setAlerts(JSON.parse(raw))
+    } catch {}
+  }, [])
+
+  // Load own setups from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sigma_setups')
+      if (raw) setSetupsOwn(JSON.parse(raw))
     } catch {}
   }, [])
 
@@ -533,9 +512,9 @@ export default function RightBar() {
 
         {/* ══ SETUPS (propio) ══ */}
         <Section label="SETUPS" />
-        {SETUPS.length === 0
-          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin setups activos</div>
-          : SETUPS.map(s => <SetupCard key={s.id} s={s} price={tickers[symFromPar(s.par)]?.price ?? 0} />)
+        {setupsOwn.length === 0
+          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin setups — crea uno en Journal</div>
+          : setupsOwn.map(s => <SetupCard key={s.id} s={s} price={tickers[symFromPar(s.par)]?.price ?? 0} />)
         }
 
         {/* ══ COMUNIDAD ══ */}

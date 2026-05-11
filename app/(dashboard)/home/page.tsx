@@ -16,16 +16,19 @@ const PLATFORMS = [
 ]
 
 const MACRO_EVENTS = [
-  { date: '2026-04-30', time: '08:30 UTC', title: 'PCE Price Index (YoY)' },
-  { date: '2026-05-01', time: '08:30 UTC', title: 'NFP (Non-Farm Payrolls)' },
-  { date: '2026-05-06', time: '18:00 UTC', title: 'FOMC Meeting (Día 1)' },
-  { date: '2026-05-07', time: '18:00 UTC', title: 'FOMC Decision + Press Conference' },
   { date: '2026-05-13', time: '08:30 UTC', title: 'CPI (YoY) — Mayo' },
   { date: '2026-05-29', time: '08:30 UTC', title: 'GDP Q1 2026 (Revisado)' },
   { date: '2026-06-05', time: '08:30 UTC', title: 'NFP — Junio' },
   { date: '2026-06-11', time: '08:30 UTC', title: 'CPI (YoY) — Junio' },
   { date: '2026-06-17', time: '18:00 UTC', title: 'FOMC Decision — Junio' },
   { date: '2026-06-26', time: '08:30 UTC', title: 'PCE Price Index — Junio' },
+  { date: '2026-07-02', time: '08:30 UTC', title: 'NFP — Julio' },
+  { date: '2026-07-14', time: '08:30 UTC', title: 'CPI (YoY) — Julio' },
+  { date: '2026-07-29', time: '18:00 UTC', title: 'FOMC Meeting (Día 1)' },
+  { date: '2026-07-30', time: '18:00 UTC', title: 'FOMC Decision + Press Conference' },
+  { date: '2026-07-31', time: '08:30 UTC', title: 'PCE Price Index — Julio' },
+  { date: '2026-08-07', time: '08:30 UTC', title: 'NFP — Agosto' },
+  { date: '2026-08-12', time: '08:30 UTC', title: 'CPI (YoY) — Agosto' },
 ]
 
 const TOOL_LIST = [
@@ -329,102 +332,18 @@ export default function DashboardHome() {
         .tool-card:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,.55) }
       `}</style>
 
-      {/* ── Shortcuts modal ── */}
-      {showShortcuts && (
-        <div onClick={() => setShowShortcuts(false)}
-          style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(4,5,10,.85)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ width:480, background:C.surface, border:`1px solid ${C.gold}33`, boxShadow:`0 24px 80px rgba(0,0,0,.65)`, padding:'28px 32px' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-              <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.28em', color:C.gold }}>{'// ATAJOS DE TECLADO'}</div>
-              <kbd style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, background:C.border, padding:'2px 8px' }}>ESC para cerrar</kbd>
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
-              {[
-                { key: '?',     desc: 'Abrir/cerrar este panel' },
-                { key: '⌘K',    desc: 'Búsqueda rápida de herramientas' },
-                { key: 'H',     desc: 'Ir al HUD — señales en vivo' },
-                { key: 'T',     desc: 'Ir al Terminal' },
-                { key: 'J',     desc: 'Ir al Journal de trades' },
-                { key: 'M',     desc: 'Ir a Monte Carlo' },
-                { key: 'F',     desc: 'Ir a la calculadora FIRE' },
-                { key: 'L',     desc: 'Ir a LP DeFi' },
-                { key: 'C',     desc: 'Ir al Calendario macro' },
-                { key: 'ESC',   desc: 'Cerrar modales' },
-              ].map(s => (
-                <div key={s.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 0', borderBottom:`1px solid ${C.border}20` }}>
-                  <span style={{ fontFamily:'monospace', fontSize:12, color:C.dimText }}>{s.desc}</span>
-                  <kbd style={{ fontFamily:'monospace', fontSize:11, color:C.gold, background:`${C.gold}12`, border:`1px solid ${C.gold}30`, padding:'3px 10px', minWidth:32, textAlign:'center' }}>{s.key}</kbd>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontFamily:'monospace', fontSize:10, color:C.muted, marginTop:16, textAlign:'center' }}>
-              Los atajos funcionan cuando no estás escribiendo en un input
-            </div>
-          </div>
-        </div>
-      )}
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
 
-      {/* ── Spotlight ── */}
       {spotlight && (
-        <div
-          onClick={() => { setSpotlight(false); setSpotQuery('') }}
-          style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(4,5,10,.88)', backdropFilter:'blur(6px)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'14vh' }}
-        >
-          <div onClick={e => e.stopPropagation()} style={{ width:520, background:C.surface, border:`1px solid ${C.border}`, boxShadow:`0 24px 80px rgba(0,0,0,.65),0 0 0 1px ${C.gold}22` }}>
-            {/* Input */}
-            <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderBottom:`1px solid ${C.border}` }}>
-              <span style={{ fontFamily:'monospace', fontSize:14, color:C.dimText }}>⌘</span>
-              <input
-                autoFocus
-                value={spotQuery}
-                onChange={e => { setSpotQuery(e.target.value); setSpotIdx(0) }}
-                onKeyDown={e => {
-                  if (e.key === 'ArrowDown') { e.preventDefault(); setSpotIdx(i => Math.min(i+1, spotResults.length-1)) }
-                  if (e.key === 'ArrowUp')   { e.preventDefault(); setSpotIdx(i => Math.max(i-1, 0)) }
-                  if (e.key === 'Enter' && spotResults[spotIdx]) {
-                    const t = spotResults[spotIdx]
-                    trackActivity(t.id); router.push(t.href); setSpotlight(false); setSpotQuery('')
-                  }
-                }}
-                placeholder="Buscar herramienta…"
-                style={{ flex:1, background:'transparent', border:'none', fontFamily:'monospace', fontSize:14, color:C.text, outline:'none', caretColor:C.gold }}
-              />
-              <kbd style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, background:C.border, padding:'2px 6px' }}>ESC</kbd>
-            </div>
-            {/* Results */}
-            <div style={{ maxHeight:320, overflowY:'auto' }}>
-              {spotResults.map((t, i) => (
-                <div
-                  key={t.id}
-                  onMouseEnter={() => setSpotIdx(i)}
-                  onClick={() => { trackActivity(t.id); router.push(t.href); setSpotlight(false); setSpotQuery('') }}
-                  style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', cursor:'pointer', background:i===spotIdx ? C.gold+'12' : 'transparent', borderLeft:`2px solid ${i===spotIdx ? C.gold : 'transparent'}`, transition:'background .1s' }}
-                >
-                  <div>
-                    <div style={{ fontFamily:'monospace', fontSize:12, color:C.text, marginBottom:2 }}>{t.label}</div>
-                    <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{t.sub}</div>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    {t.isLive && <LiveDot size={6} />}
-                    {t.key && <kbd style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, background:C.border, padding:'2px 5px' }}>{t.key}</kbd>}
-                  </div>
-                </div>
-              ))}
-              {spotResults.length === 0 && (
-                <div style={{ padding:'20px 16px', fontFamily:'monospace', fontSize:12, color:C.muted, textAlign:'center' }}>Sin resultados</div>
-              )}
-            </div>
-            {/* Footer hints */}
-            <div style={{ padding:'8px 16px', borderTop:`1px solid ${C.border}`, display:'flex', gap:16 }}>
-              {[['↵','Abrir'],['↑↓','Navegar'],['ESC','Cerrar']].map(([k,v]) => (
-                <span key={k} style={{ fontFamily:'monospace', fontSize:9, color:C.muted }}>
-                  <kbd style={{ background:C.border, padding:'1px 4px', marginRight:4 }}>{k}</kbd>{v}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <SpotlightModal
+          query={spotQuery}
+          setQuery={q => { setSpotQuery(q); setSpotIdx(0) }}
+          results={spotResults}
+          activeIdx={spotIdx}
+          setActiveIdx={setSpotIdx}
+          onClose={() => { setSpotlight(false); setSpotQuery('') }}
+          onSelect={t => { trackActivity(t.id); router.push(t.href); setSpotlight(false); setSpotQuery('') }}
+        />
       )}
 
       {/* ── Page ── */}
@@ -823,5 +742,117 @@ export default function DashboardHome() {
         </div>
       </div>
     </>
+  )
+}
+
+// ─── ShortcutsModal ───────────────────────────────────────────────────────────
+const SHORTCUTS = [
+  { key: '?',   desc: 'Abrir/cerrar este panel' },
+  { key: '⌘K',  desc: 'Búsqueda rápida de herramientas' },
+  { key: 'H',   desc: 'Ir al HUD — señales en vivo' },
+  { key: 'T',   desc: 'Ir al Terminal' },
+  { key: 'J',   desc: 'Ir al Journal de trades' },
+  { key: 'M',   desc: 'Ir a Monte Carlo' },
+  { key: 'F',   desc: 'Ir a la calculadora FIRE' },
+  { key: 'L',   desc: 'Ir a LP DeFi' },
+  { key: 'C',   desc: 'Ir al Calendario macro' },
+  { key: 'ESC', desc: 'Cerrar modales' },
+]
+
+function ShortcutsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(4,5,10,.85)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center' }}
+    >
+      <div onClick={e => e.stopPropagation()}
+        style={{ width:480, background:C.surface, border:`1px solid ${C.gold}33`, boxShadow:'0 24px 80px rgba(0,0,0,.65)', padding:'28px 32px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.28em', color:C.gold }}>{'// ATAJOS DE TECLADO'}</div>
+          <kbd style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, background:C.border, padding:'2px 8px' }}>ESC para cerrar</kbd>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+          {SHORTCUTS.map(s => (
+            <div key={s.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 0', borderBottom:`1px solid ${C.border}20` }}>
+              <span style={{ fontFamily:'monospace', fontSize:12, color:C.dimText }}>{s.desc}</span>
+              <kbd style={{ fontFamily:'monospace', fontSize:11, color:C.gold, background:`${C.gold}12`, border:`1px solid ${C.gold}30`, padding:'3px 10px', minWidth:32, textAlign:'center' }}>{s.key}</kbd>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontFamily:'monospace', fontSize:10, color:C.muted, marginTop:16, textAlign:'center' }}>
+          Los atajos funcionan cuando no estás escribiendo en un input
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── SpotlightModal ───────────────────────────────────────────────────────────
+type ToolEntry = typeof TOOL_LIST[number]
+
+interface SpotlightProps {
+  query:        string
+  setQuery:     (q: string) => void
+  results:      ToolEntry[]
+  activeIdx:    number
+  setActiveIdx: (i: number) => void
+  onClose:      () => void
+  onSelect:     (t: ToolEntry) => void
+}
+
+function SpotlightModal({ query, setQuery, results, activeIdx, setActiveIdx, onClose, onSelect }: SpotlightProps) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(4,5,10,.88)', backdropFilter:'blur(6px)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'14vh' }}
+    >
+      <div onClick={e => e.stopPropagation()} style={{ width:520, background:C.surface, border:`1px solid ${C.border}`, boxShadow:`0 24px 80px rgba(0,0,0,.65),0 0 0 1px ${C.gold}22` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderBottom:`1px solid ${C.border}` }}>
+          <span style={{ fontFamily:'monospace', fontSize:14, color:C.dimText }}>⌘</span>
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(Math.min(activeIdx + 1, results.length - 1)) }
+              if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(Math.max(activeIdx - 1, 0)) }
+              if (e.key === 'Enter' && results[activeIdx]) onSelect(results[activeIdx])
+            }}
+            placeholder="Buscar herramienta…"
+            style={{ flex:1, background:'transparent', border:'none', fontFamily:'monospace', fontSize:14, color:C.text, outline:'none', caretColor:C.gold }}
+          />
+          <kbd style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, background:C.border, padding:'2px 6px' }}>ESC</kbd>
+        </div>
+        <div style={{ maxHeight:320, overflowY:'auto' }}>
+          {results.map((t, i) => (
+            <div
+              key={t.id}
+              onMouseEnter={() => setActiveIdx(i)}
+              onClick={() => onSelect(t)}
+              style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', cursor:'pointer', background:i === activeIdx ? C.gold+'12' : 'transparent', borderLeft:`2px solid ${i === activeIdx ? C.gold : 'transparent'}`, transition:'background .1s' }}
+            >
+              <div>
+                <div style={{ fontFamily:'monospace', fontSize:12, color:C.text, marginBottom:2 }}>{t.label}</div>
+                <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{t.sub}</div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                {t.isLive && <LiveDot size={6} />}
+                {t.key && <kbd style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, background:C.border, padding:'2px 5px' }}>{t.key}</kbd>}
+              </div>
+            </div>
+          ))}
+          {results.length === 0 && (
+            <div style={{ padding:'20px 16px', fontFamily:'monospace', fontSize:12, color:C.muted, textAlign:'center' }}>Sin resultados</div>
+          )}
+        </div>
+        <div style={{ padding:'8px 16px', borderTop:`1px solid ${C.border}`, display:'flex', gap:16 }}>
+          {[['↵','Abrir'],['↑↓','Navegar'],['ESC','Cerrar']].map(([k, v]) => (
+            <span key={k} style={{ fontFamily:'monospace', fontSize:9, color:C.muted }}>
+              <kbd style={{ background:C.border, padding:'1px 4px', marginRight:4 }}>{k}</kbd>{v}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }

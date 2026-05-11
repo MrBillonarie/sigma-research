@@ -11,4 +11,6 @@ export const C = {
   red:     '#f87171',
   yellow:  '#fbbf24',
   purple:  '#a78bfa',
+  violet:  '#a78bfa',
+  blue:    '#60a5fa',
 } as const
