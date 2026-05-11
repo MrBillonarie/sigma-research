@@ -210,6 +210,7 @@ export default function PortfolioPage() {
         const vals: PortfolioRow = {}
         PLATFORM_META.forEach(p => { vals[p.id] = data[p.id] ?? 0 })
         setPortfolio(vals)
+        try { localStorage.setItem('sigma_portfolio', JSON.stringify(vals)) } catch {}
       }
       setLoading(false)
     }
@@ -264,6 +265,7 @@ export default function PortfolioPage() {
       if (data) setDbId(data.id)
     }
     setPortfolio({ ...draftForm })
+    try { localStorage.setItem('sigma_portfolio', JSON.stringify(draftForm)) } catch {}
     setSaving(false)
     setModalOpen(false)
   }

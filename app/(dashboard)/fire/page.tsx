@@ -107,6 +107,10 @@ export default function FirePage() {
     [capital, ahorro, retorno, gasto]
   )
 
+  useEffect(() => {
+    try { localStorage.setItem('sigma_fire_target', String(target)) } catch {}
+  }, [target])
+
   const years = data.length - 1
   const labels = Array.from({ length: years + 1 }, (_, i) => String(i))
   const progress = Math.min((capital / target) * 100, 100)

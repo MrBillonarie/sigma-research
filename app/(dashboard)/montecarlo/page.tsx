@@ -248,6 +248,12 @@ export default function MonteCarloPage() {
     }
   }, [result, years, μPct, σPct])
 
+  useEffect(() => {
+    if (stats?.prob != null) {
+      try { localStorage.setItem('sigma_montecarlo', JSON.stringify({ fireProbability: Math.round(stats.prob) })) } catch {}
+    }
+  }, [stats])
+
   async function saveRun() {
     if (!stats || !result) return
     setSaving(true); setSavedMsg('')
