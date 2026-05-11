@@ -36,22 +36,28 @@ const valores = [
 
 const equipo = [
   {
-    initials: 'AR',
-    name: 'Alejandro Ríos',
-    role: 'Fundador & Quant Lead',
-    bio: 'Ex-desk quant en banco de inversión europeo. 10 años modelando volatilidad y regímenes de mercado. PhD en Economía Financiera.',
+    initials: 'AM',
+    name: 'Alonso Moyano',
+    role: '// PRÓXIMAMENTE',
+    bio: 'Descripción del rol y experiencia por definir.',
   },
   {
-    initials: 'CM',
-    name: 'Carla Mendoza',
-    role: 'Data & ML Engineer',
-    bio: 'Especialista en pipelines de datos financieros de alta frecuencia. Background en HFT y machine learning aplicado a series temporales.',
+    initials: 'JA',
+    name: 'Jorge Arévalo',
+    role: '// PRÓXIMAMENTE',
+    bio: 'Descripción del rol y experiencia por definir.',
   },
   {
-    initials: 'DS',
-    name: 'Daniel Solano',
-    role: 'Research Analyst',
-    bio: 'CFA charterholder y analista macro. Cubre estrategias de factor investing, rotación sectorial y análisis de ciclo económico.',
+    initials: 'JB',
+    name: 'Jorge Barraza',
+    role: '// PRÓXIMAMENTE',
+    bio: 'Descripción del rol y experiencia por definir.',
+  },
+  {
+    initials: 'SG',
+    name: 'Sebastián García',
+    role: '// PRÓXIMAMENTE',
+    bio: 'Descripción del rol y experiencia por definir.',
   },
 ]
 
@@ -148,7 +154,7 @@ export default function QuienesSomosPage() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-px bg-border">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
             {equipo.map((m) => (
               <div key={m.name} className="bg-bg p-8 flex flex-col gap-5">
                 {/* Avatar */}
