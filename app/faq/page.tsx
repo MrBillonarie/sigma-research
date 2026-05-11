@@ -166,7 +166,7 @@ const CATEGORIES = [
 const ALL_ITEMS = CATEGORIES.flatMap(c => c.items.map(item => ({ ...item, category: c.id, categoryLabel: c.label })))
 
 // ─── Components ───────────────────────────────────────────────────────────────
-function AccordionItem({ q, a, id: _id, isOpen, onToggle }: {
+function AccordionItem({ q, a, isOpen, onToggle }: {
   q: string; a: string; id: string; isOpen: boolean; onToggle: () => void
 }) {
   return (
