@@ -1,13 +1,29 @@
 import type { NextRequest } from 'next/server'
+import crypto from 'crypto'
 
-// ─── Verificación de admin en API routes ─────────────────────────────────────
-// Acepta cookie httpOnly (nuevo, seguro) o Authorization header (legacy).
-// El secret vive en ADMIN_SECRET — nunca en variables NEXT_PUBLIC_*.
+// ─── Admin auth — constant-time comparison to prevent timing attacks ──────────
 export function checkAdminAuth(req: NextRequest): boolean {
   const secret = process.env.ADMIN_SECRET
   if (!secret) return false
+
+  const expected = Buffer.from(secret, 'utf8')
+
   const cookie = req.cookies.get('sigma_admin')?.value
-  if (cookie === secret) return true
+  if (cookie) {
+    try {
+      const candidate = Buffer.from(cookie, 'utf8')
+      if (candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected)) return true
+    } catch { /* length mismatch */ }
+  }
+
   const header = req.headers.get('authorization') ?? ''
-  return header === `Bearer ${secret}`
+  const bearer = header.startsWith('Bearer ') ? header.slice(7) : ''
+  if (bearer) {
+    try {
+      const candidate = Buffer.from(bearer, 'utf8')
+      if (candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected)) return true
+    } catch { /* length mismatch */ }
+  }
+
+  return false
 }

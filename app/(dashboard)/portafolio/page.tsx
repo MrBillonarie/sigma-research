@@ -224,27 +224,30 @@ export default function PortfolioPage() {
     return () => document.removeEventListener('keydown', fn)
   }, [])
 
-  // ─── Fetch Binance live data ──────────────────���───────────────────────────
+  // ─── Fetch Binance live data (parallel) ──────────────────────────────────
   useEffect(() => {
     async function fetchBinance() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { setLoadingBinanceFutures(false); setLoadingBinanceSpot(false); return }
       const headers = { Authorization: `Bearer ${session.access_token}` }
 
-      try {
-        const res = await fetch('/api/binance/positions', { headers })
-        const json = await res.json()
+      const [futuresResult, spotResult] = await Promise.allSettled([
+        fetch('/api/binance/positions', { headers }).then(r => r.json()),
+        fetch('/api/binance/spot',      { headers }).then(r => r.json()),
+      ])
+
+      if (futuresResult.status === 'fulfilled') {
+        const json = futuresResult.value
         if (json.error) setErrorBinanceFutures(json.error)
         else setBinanceFutures(json.positions ?? [])
-      } catch { setErrorBinanceFutures('Error al conectar.') }
+      } else { setErrorBinanceFutures('Error al conectar.') }
       setLoadingBinanceFutures(false)
 
-      try {
-        const res = await fetch('/api/binance/spot', { headers })
-        const json = await res.json()
+      if (spotResult.status === 'fulfilled') {
+        const json = spotResult.value
         if (json.error) setErrorBinanceSpot(json.error)
         else setBinanceSpot(json.balances ?? [])
-      } catch { setErrorBinanceSpot('Error al conectar.') }
+      } else { setErrorBinanceSpot('Error al conectar.') }
       setLoadingBinanceSpot(false)
     }
     fetchBinance()

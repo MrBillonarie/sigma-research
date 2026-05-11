@@ -49,7 +49,13 @@ export async function GET(req: NextRequest) {
     const account = await response.json()
 
     if (account.code) {
-      return NextResponse.json({ error: account.msg }, { status: 400 })
+      // Map Binance error codes to generic messages — don't leak internal details
+      const msg = account.code === -2015 || account.code === -1102
+        ? 'API key inválida o sin permisos de lectura'
+        : account.code === -1021
+        ? 'Error de sincronización de tiempo con Binance'
+        : 'Error al consultar Binance Spot'
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
 
     const balances = (account.balances ?? []).filter(

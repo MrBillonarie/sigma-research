@@ -9,6 +9,11 @@ const YAHOO_HEADERS = {
   'Origin': 'https://finance.yahoo.com',
 }
 
+// In-memory cache — 5 minute TTL (safe for serverless: worst case each instance has its own cache)
+let _cachedRate: number | null = null
+let _cacheAt = 0
+const CACHE_TTL_MS = 5 * 60 * 1000
+
 async function fetchYahoo(): Promise<number | null> {
   try {
     const res = await fetch(
@@ -38,10 +43,32 @@ async function fetchStooq(): Promise<number | null> {
 }
 
 export async function GET() {
+  const now = Date.now()
+
+  if (_cachedRate && now - _cacheAt < CACHE_TTL_MS) {
+    return NextResponse.json(
+      { clpPerUsd: _cachedRate, cached: true },
+      { headers: { 'Cache-Control': 'public, max-age=300' } }
+    )
+  }
+
   const rate = await fetchYahoo() ?? await fetchStooq()
-  if (!rate) return NextResponse.json({ error: 'unavailable' }, { status: 502 })
+  if (!rate) {
+    // Return stale cache rather than 502 if available
+    if (_cachedRate) {
+      return NextResponse.json(
+        { clpPerUsd: _cachedRate, stale: true },
+        { headers: { 'Cache-Control': 'public, max-age=60' } }
+      )
+    }
+    return NextResponse.json({ error: 'unavailable' }, { status: 502 })
+  }
+
+  _cachedRate = Math.round(rate)
+  _cacheAt = now
+
   return NextResponse.json(
-    { clpPerUsd: Math.round(rate) },
-    { headers: { 'Cache-Control': 'no-store' } }
+    { clpPerUsd: _cachedRate },
+    { headers: { 'Cache-Control': 'public, max-age=300' } }
   )
 }
