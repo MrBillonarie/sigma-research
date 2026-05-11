@@ -545,6 +545,7 @@ export default function PortfolioPage() {
             </div>
 
             {/* ── 5. BINANCE FUTURES POSITIONS ── */}
+            <style>{`@keyframes skp{0%{background-position:-200% 0}100%{background-position:200% 0}}.skp{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:skp 1.4s ease infinite;border-radius:2px}`}</style>
             <div style={{ marginBottom: 24 }}>
               <div style={{ background: C.surface, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
@@ -552,7 +553,16 @@ export default function PortfolioPage() {
               </div>
               <div style={{ background: C.bg, padding: '16px 18px' }}>
                 {loadingBinanceFutures ? (
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted }}>Cargando posiciones…</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {[1,2,3].map(i => (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, padding: '10px 12px', borderBottom: `1px solid ${C.border}` }}>
+                        <div className="skp" style={{ height: 12 }} />
+                        <div className="skp" style={{ height: 12, width: '60%' }} />
+                        <div className="skp" style={{ height: 12, width: '70%' }} />
+                        <div className="skp" style={{ height: 12, width: '50%' }} />
+                      </div>
+                    ))}
+                  </div>
                 ) : errorBinanceFutures ? (
                   <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.red }}>{errorBinanceFutures}</div>
                 ) : binanceFutures.length === 0 ? (
@@ -594,7 +604,14 @@ export default function PortfolioPage() {
               </div>
               <div style={{ background: C.bg, padding: '16px 18px' }}>
                 {loadingBinanceSpot ? (
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted }}>Cargando balances…</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 1, background: C.border }}>
+                    {[1,2,3,4,5,6].map(i => (
+                      <div key={i} style={{ background: C.bg, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="skp" style={{ height: 12, width: 50 }} />
+                        <div className="skp" style={{ height: 12, width: 70 }} />
+                      </div>
+                    ))}
+                  </div>
                 ) : errorBinanceSpot ? (
                   <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.red }}>{errorBinanceSpot}</div>
                 ) : binanceSpot.length === 0 ? (

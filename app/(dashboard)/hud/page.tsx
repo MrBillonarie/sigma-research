@@ -162,20 +162,30 @@ export default function HudPage() {
         </div>
 
         {/* ── Live price bar ────────────────────────────────────────────────── */}
+        <style>{`@keyframes sk{0%{background-position:-200% 0}100%{background-position:200% 0}}.sk{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:sk 1.4s ease infinite;border-radius:2px}`}</style>
         <div style={{ display: 'flex', gap: 1, background: C.border, marginBottom: 1, overflowX: 'auto' }}>
-          {prices.map(p => (
-            <div key={p.ticker} style={{ background: C.surface, padding: '12px 18px', flex: '1 0 auto', minWidth: 120 }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 4 }}>
-                {p.ticker.replace('/USDT', '')}
-              </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 14, color: C.text, fontVariantNumeric: 'tabular-nums' }}>
-                {fmtPrice(p.price)}
-              </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 11, color: p.change >= 0 ? C.green : C.red, marginTop: 2 }}>
-                {p.change >= 0 ? '+' : ''}{p.change.toFixed(2)}%
-              </div>
-            </div>
-          ))}
+          {prices.length === 0
+            ? WS_TICKERS.map(t => (
+                <div key={t} style={{ background: C.surface, padding: '12px 18px', flex: '1 0 auto', minWidth: 120 }}>
+                  <div className="sk" style={{ width: 30, height: 10, marginBottom: 8 }} />
+                  <div className="sk" style={{ width: 60, height: 14, marginBottom: 6 }} />
+                  <div className="sk" style={{ width: 40, height: 11 }} />
+                </div>
+              ))
+            : prices.map(p => (
+                <div key={p.ticker} style={{ background: C.surface, padding: '12px 18px', flex: '1 0 auto', minWidth: 120 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 4 }}>
+                    {p.ticker.replace('/USDT', '')}
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 14, color: C.text, fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtPrice(p.price)}
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: p.change >= 0 ? C.green : C.red, marginTop: 2 }}>
+                    {p.change >= 0 ? '+' : ''}{p.change.toFixed(2)}%
+                  </div>
+                </div>
+              ))
+          }
         </div>
 
         {/* ── Regime + bias ─────────────────────────────────────────────────── */}
@@ -225,10 +235,15 @@ export default function HudPage() {
               <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>
                 FEED DE SEÑALES
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? C.green : C.red, animation: connected ? 'pulse 2s infinite' : undefined }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 10, color: connected ? C.green : C.red }}>
-                  {connected ? 'BINANCE LIVE' : 'CONECTANDO…'}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.1em', color: C.muted, background: `${C.muted}20`, padding: '2px 7px', border: `1px solid ${C.muted}40` }}>
+                  DEMO
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? C.green : C.red, animation: connected ? 'pulse 2s infinite' : undefined }} />
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: connected ? C.green : C.red }}>
+                    {connected ? 'BINANCE LIVE' : 'CONECTANDO…'}
+                  </span>
                 </span>
               </span>
             </div>
@@ -274,7 +289,15 @@ export default function HudPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleSignals.map((s, i) => (
+                  {visibleSignals.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} style={{ padding: '40px 16px', textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, letterSpacing: '0.15em' }}>
+                          {hudSearch || dirFilter !== 'ALL' ? 'SIN RESULTADOS PARA EL FILTRO ACTUAL' : 'SIN SEÑALES — ESPERANDO DATOS…'}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : visibleSignals.map((s, i) => (
                     <tr key={s.id} style={{ borderBottom: `1px solid ${C.border}`, background: i === 0 ? `${C.gold}08` : 'transparent', opacity: i === 0 ? 1 : Math.max(0.4, 1 - i * 0.06) }}>
                       <td style={{ padding: '12px 16px', color: C.text, fontWeight: 600, whiteSpace: 'nowrap' }}>{s.ticker}</td>
                       <td style={{ padding: '12px 16px' }}>

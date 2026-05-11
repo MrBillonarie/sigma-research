@@ -22,12 +22,10 @@ function computeMetrics(): LiveMetrics {
     if (!trades.length) return empty
 
     const wins   = trades.filter(t => t.resultado === 'WIN').length
-    const losses = trades.filter(t => t.resultado === 'LOSS').length
     const winRate = trades.length > 0 ? (wins / trades.length) * 100 : 0
 
     const sorted = [...trades].sort((a,b) => (a.fecha??'').localeCompare(b.fecha??''))
     let peak = 0, cum = 0, maxDD = 0
-    const dailyPnL: number[] = []
     for (const t of sorted) {
       cum += t.pnl_usd
       if (cum > peak) peak = cum
