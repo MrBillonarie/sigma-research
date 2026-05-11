@@ -84,11 +84,36 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
+interface TradeStats {
+  total: number; wins: number; winRate: number; pnl: number
+  best: number; worst: number; streak: number
+}
+
+function calcTradeStats(): TradeStats | null {
+  try {
+    const raw = localStorage.getItem('sigma_trades')
+    if (!raw) return null
+    const trades: { pnl_usd: number; resultado: string }[] = JSON.parse(raw)
+    if (!trades.length) return null
+    const wins = trades.filter(t => t.resultado === 'WIN').length
+    const pnls = trades.map(t => t.pnl_usd)
+    let streak = 0
+    for (const t of trades) { if (t.resultado === 'WIN') streak++; else break }
+    return {
+      total: trades.length, wins,
+      winRate: Math.round((wins / trades.length) * 100),
+      pnl: pnls.reduce((a, b) => a + b, 0),
+      best: Math.max(...pnls), worst: Math.min(...pnls), streak,
+    }
+  } catch { return null }
+}
+
 export default function PerfilPage() {
   const router = useRouter()
   const [user,        setUser]        = useState<User | null>(null)
   const [profile,     setProfile]     = useState<Profile | null>(null)
   const [loading,     setLoading]     = useState(true)
+  const [tradeStats,  setTradeStats]  = useState<TradeStats | null>(null)
   const [nombre,      setNombre]      = useState('')
   const [savingName,  setSavingName]  = useState(false)
   const [nameMsg,     setNameMsg]     = useState('')
@@ -152,6 +177,7 @@ export default function PerfilPage() {
       }
 
       setLoading(false)
+      setTradeStats(calcTradeStats())
     })
   }, [router])
 
@@ -403,6 +429,30 @@ export default function PerfilPage() {
 
           {/* ── RIGHT CONTENT ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Performance Stats */}
+            {tradeStats && (
+              <Card title="// Performance de Trading">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 12 }}>
+                  {[
+                    { label: 'Total trades',  val: String(tradeStats.total),                                                              color: GOLD },
+                    { label: 'Win rate',      val: `${tradeStats.winRate}%`,                                                             color: tradeStats.winRate >= 50 ? GREEN : RED },
+                    { label: 'PnL total',     val: `${tradeStats.pnl >= 0 ? '+' : ''}$${Math.round(tradeStats.pnl).toLocaleString('es-CL')}`, color: tradeStats.pnl >= 0 ? GREEN : RED },
+                    { label: 'Mejor trade',   val: `+$${Math.round(tradeStats.best).toLocaleString('es-CL')}`,                           color: GREEN },
+                    { label: 'Peor trade',    val: `$${Math.round(tradeStats.worst).toLocaleString('es-CL')}`,                           color: RED },
+                    { label: 'Win streak',    val: `${tradeStats.streak}W`,                                                              color: tradeStats.streak >= 3 ? GOLD : DIM },
+                  ].map(({ label, val, color }) => (
+                    <div key={label} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center' }}>
+                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color, lineHeight: 1, marginBottom: 6 }}>{val}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textAlign: 'right' }}>
+                  Datos sincronizados desde Journal
+                </div>
+              </Card>
+            )}
 
             {/* Reputación */}
             {profile !== null && (

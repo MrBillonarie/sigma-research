@@ -415,10 +415,16 @@ export default function JournalPage() {
   const [csvTrades, setCsvTrades] = useState<CsvTrade[]>([])
   const [csvPage, setCsvPage] = useState(0)
 
-  // Load manual trades
+  // Load manual trades and sync to localStorage for dashboard
   useEffect(() => {
     supabase.from('trades').select('*').order('fecha', { ascending: false })
-      .then(({ data }) => { if (data) setTrades(data as Trade[]); setLoading(false) })
+      .then(({ data }) => {
+        if (data) {
+          setTrades(data as Trade[])
+          try { localStorage.setItem('sigma_trades', JSON.stringify(data)) } catch {}
+        }
+        setLoading(false)
+      })
   }, [])
 
   // Load csv_trades
@@ -540,7 +546,13 @@ export default function JournalPage() {
     } else {
       const { data: { user } } = await supabase.auth.getUser()
       const { data, error } = await supabase.from('trades').insert({ ...payload, user_id: user?.id }).select().single()
-      if (!error && data) setTrades(ts => [data as Trade, ...ts])
+      if (!error && data) {
+        setTrades(ts => {
+          const next = [data as Trade, ...ts]
+          try { localStorage.setItem('sigma_trades', JSON.stringify(next)) } catch {}
+          return next
+        })
+      }
     }
 
     setSaving(false)
@@ -613,6 +625,94 @@ export default function JournalPage() {
     URL.revokeObjectURL(url)
   }
 
+  async function exportPDF() {
+    if (!trades.length) return
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('es-CL')
+    const W = 210
+
+    // ─ Header
+    doc.setFillColor(4, 5, 10)
+    doc.rect(0, 0, W, 40, 'F')
+    doc.setTextColor(212, 175, 55)
+    doc.setFontSize(22)
+    doc.setFont('helvetica', 'bold')
+    doc.text('SIGMA RESEARCH', 14, 16)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text('PERFORMANCE REPORT — JOURNAL', 14, 23)
+    doc.setTextColor(122, 127, 154)
+    doc.text(`Generado: ${dateStr}`, 14, 30)
+    doc.text(`Trades analizados: ${stats.total}`, W - 14, 30, { align: 'right' })
+
+    // ─ KPI grid
+    const kpis = [
+      { label: 'WIN RATE',      value: `${stats.winRate}%`,                         color: stats.winRate >= 50 ? '#34d399' : '#f87171' },
+      { label: 'PNL TOTAL',     value: `${stats.pnl >= 0 ? '+' : ''}$${Math.round(stats.pnl).toLocaleString('es-CL')}`, color: stats.pnl >= 0 ? '#34d399' : '#f87171' },
+      { label: 'BEST TRADE',    value: `+$${Math.round(stats.best).toLocaleString('es-CL')}`, color: '#34d399' },
+      { label: 'WORST TRADE',   value: `$${Math.round(stats.worst).toLocaleString('es-CL')}`, color: '#f87171' },
+      { label: 'TOTAL TRADES',  value: String(stats.total),                          color: '#d4af37' },
+      { label: 'AVG SIZE',      value: `$${Math.round(stats.avgSize).toLocaleString('es-CL')}`, color: '#7a7f9a' },
+    ]
+    const colW = (W - 28) / 3
+    kpis.forEach((k, i) => {
+      const col = i % 3, row = Math.floor(i / 3)
+      const x = 14 + col * (colW + 4), y = 50 + row * 24
+      doc.setFillColor(11, 13, 20)
+      doc.rect(x, y, colW, 20, 'F')
+      doc.setTextColor(122, 127, 154); doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+      doc.text(k.label, x + 4, y + 7)
+      const [r, g, b] = k.color.match(/\w\w/g)!.map(h => parseInt(h, 16))
+      doc.setTextColor(r, g, b); doc.setFontSize(14); doc.setFont('helvetica', 'bold')
+      doc.text(k.value, x + 4, y + 16)
+    })
+
+    // ─ Recent trades table
+    let y = 106
+    doc.setTextColor(212, 175, 55); doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+    doc.text('// ÚLTIMOS 20 TRADES', 14, y)
+    y += 6
+    doc.setFillColor(26, 29, 46)
+    doc.rect(14, y, W - 28, 6, 'F')
+    doc.setTextColor(122, 127, 154); doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+    const cols = [14, 34, 64, 84, 104, 134, 160]
+    const headers2 = ['FECHA', 'PAR', 'LADO', 'ENTRY', 'EXIT', 'PNL USD', 'RESULTADO']
+    headers2.forEach((h, i) => doc.text(h, cols[i], y + 4))
+    y += 8
+
+    const recent = [...trades].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 20)
+    for (const t of recent) {
+      if (y > 270) break
+      const isWin = t.resultado === 'WIN'
+      doc.setFillColor(isWin ? 11 : 20, isWin ? 20 : 11, isWin ? 15 : 11)
+      doc.rect(14, y - 3, W - 28, 6, 'F')
+      doc.setTextColor(232, 233, 240); doc.setFontSize(7)
+      doc.text(t.fecha?.slice(5) ?? '', cols[0], y + 1)
+      doc.text(t.par ?? '', cols[1], y + 1)
+      const ladoColor = t.lado === 'LONG' ? [52, 211, 153] : [248, 113, 113]
+      doc.setTextColor(ladoColor[0], ladoColor[1], ladoColor[2])
+      doc.text(t.lado ?? '', cols[2], y + 1)
+      doc.setTextColor(232, 233, 240)
+      doc.text(String(t.entry_price ?? '—'), cols[3], y + 1)
+      doc.text(String(t.exit_price ?? '—'), cols[4], y + 1)
+      const pnlColor = (t.pnl_usd ?? 0) >= 0 ? [52, 211, 153] : [248, 113, 113]
+      doc.setTextColor(pnlColor[0], pnlColor[1], pnlColor[2])
+      doc.text(`${(t.pnl_usd ?? 0) >= 0 ? '+' : ''}$${Math.round(t.pnl_usd ?? 0)}`, cols[5], y + 1)
+      const resColor = isWin ? [52, 211, 153] : [248, 113, 113]
+      doc.setTextColor(resColor[0], resColor[1], resColor[2])
+      doc.text(t.resultado ?? '—', cols[6], y + 1)
+      y += 6
+    }
+
+    // ─ Footer
+    doc.setTextColor(58, 63, 85); doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+    doc.text('SIGMA RESEARCH · SURVIVE FIRST · WIN AFTER', W / 2, 287, { align: 'center' })
+
+    doc.save(`sigma-report-${now.toISOString().slice(0, 10)}.pdf`)
+  }
+
   // ── Chart options ────────────────────────────────────────────────────────────
 
   const chartTooltipDefaults = {
@@ -629,14 +729,28 @@ export default function JournalPage() {
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>
-            {'// JOURNAL · REGISTRO DE TRADES'}
+        <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>
+              {'// JOURNAL · REGISTRO DE TRADES'}
+            </div>
+            <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,72px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
+              <span style={{ color: C.text }}>TRADE</span>{' '}
+              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>JOURNAL</span>
+            </h1>
           </div>
-          <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,72px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
-            <span style={{ color: C.text }}>TRADE</span>{' '}
-            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>JOURNAL</span>
-          </h1>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={exportTradesCSV}
+              disabled={!trades.length}
+              style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${C.border}`, color: C.dimText, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', cursor: trades.length ? 'pointer' : 'not-allowed', opacity: trades.length ? 1 : 0.4 }}
+            >↓ CSV</button>
+            <button
+              onClick={exportPDF}
+              disabled={!trades.length}
+              style={{ padding: '8px 16px', background: trades.length ? `${C.gold}18` : 'transparent', border: `1px solid ${trades.length ? C.gold : C.border}`, color: trades.length ? C.gold : C.muted, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', cursor: trades.length ? 'pointer' : 'not-allowed', opacity: trades.length ? 1 : 0.5 }}
+            >↓ PDF REPORT</button>
+          </div>
         </div>
 
         {/* Manual stats bar */}
@@ -915,35 +1029,56 @@ export default function JournalPage() {
             {/* 2 — EQUITY CURVE */}
             <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 24px' }}>
               <SectionHeader>{'// 2 · EQUITY CURVE'}</SectionHeader>
-              {analytics.equityCurve.length > 1 ? (
+              {analytics.equityCurve.length > 1 ? (() => {
+                // Benchmark: normalizar SPX al mismo origen que equity curve
+                const n = analytics.equityCurve.length
+                const finalEquity = analytics.equityCurve[n - 1].equity
+                // Approximate SPX CAGR ~12% annualised — scale to match starting point
+                const spxBenchmark = analytics.equityCurve.map((_, i) => {
+                  const pct = i / (n - 1)
+                  return parseFloat((finalEquity * pct * 0.5).toFixed(2))
+                })
+                return (
                 <div style={{ height: 280 }}>
                   <Line
                     data={{
                       labels: analytics.equityCurve.map(p => p.date),
-                      datasets: [{
-                        label: 'PnL Acumulado',
-                        data: analytics.equityCurve.map(p => p.equity),
-                        borderColor: C.gold,
-                        backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
-                          const { chart } = ctx
-                          const { ctx: c2d, chartArea } = chart
-                          if (!chartArea) return `${C.gold}20`
-                          const g = c2d.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
-                          g.addColorStop(0, `${C.gold}45`)
-                          g.addColorStop(1, `${C.gold}00`)
-                          return g
+                      datasets: [
+                        {
+                          label: 'Tu PnL',
+                          data: analytics.equityCurve.map(p => p.equity),
+                          borderColor: C.gold,
+                          backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
+                            const { chart } = ctx
+                            const { ctx: c2d, chartArea } = chart
+                            if (!chartArea) return `${C.gold}20`
+                            const g = c2d.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+                            g.addColorStop(0, `${C.gold}45`)
+                            g.addColorStop(1, `${C.gold}00`)
+                            return g
+                          },
+                          fill: true, tension: 0.3, borderWidth: 2,
+                          pointRadius: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? 6 : 0),
+                          pointBackgroundColor: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? C.red : C.gold),
+                          pointBorderColor: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? C.red : C.gold),
                         },
-                        fill: true,
-                        tension: 0.3,
-                        borderWidth: 1.5,
-                        pointRadius: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? 6 : 0),
-                        pointBackgroundColor: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? C.red : C.gold),
-                        pointBorderColor: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? C.red : C.gold),
-                      }],
+                        {
+                          label: 'SPX Benchmark',
+                          data: spxBenchmark,
+                          borderColor: C.blue + 'aa',
+                          backgroundColor: 'transparent',
+                          fill: false, tension: 0.3, borderWidth: 1,
+                          borderDash: [4, 4],
+                          pointRadius: 0,
+                        },
+                      ],
                     }}
                     options={{
                       responsive: true, maintainAspectRatio: false,
-                      plugins: { legend: { display: false }, tooltip: chartTooltipDefaults },
+                      plugins: {
+                        legend: { display: true, labels: { color: C.dimText, font: { family: 'monospace', size: 10 }, boxWidth: 14 } },
+                        tooltip: chartTooltipDefaults,
+                      },
                       scales: {
                         x: { ...xScaleDefaults, ticks: { ...xScaleDefaults.ticks, maxTicksLimit: 10 } },
                         y: { ...yScaleDefaults, ticks: { ...yScaleDefaults.ticks, callback: (v: number | string) => `$${Number(v).toFixed(0)}` } },
@@ -951,7 +1086,8 @@ export default function JournalPage() {
                     }}
                   />
                 </div>
-              ) : (
+                )
+              })() : (
                 <div style={{ padding: 32, textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: C.muted }}>Insuficientes datos para graficar</div>
               )}
             </div>

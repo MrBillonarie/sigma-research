@@ -42,6 +42,21 @@ const SESSIONS = [
   { name: 'NEW YORK', from: 13, to: 22, color: T.green,  tz: 'America/New_York', label: 'NY'     },
 ] as const
 
+const TF_OPTIONS = ['1m','5m','15m','1H','4H','1D','1W'] as const
+
+type SetupDraft = {
+  par: string; tipo: Setup['tipo']
+  entry: string; sl: string; tp: string; rr: string
+  rangeLow: string; rangeHigh: string; feeTier: string; protocol: string
+  timeframe: string; metodologia: string; nota: string
+}
+const EMPTY_SETUP: SetupDraft = {
+  par: '', tipo: 'LONG',
+  entry: '', sl: '', tp: '', rr: '',
+  rangeLow: '', rangeHigh: '', feeTier: '0.05%', protocol: 'Uniswap v3',
+  timeframe: '4H', metodologia: '', nota: '',
+}
+
 const SYM_STREAM = SYMBOLS.map(s => `${s.toLowerCase()}usdt@ticker`).join('/')
 const WS_URL     = `wss://stream.binance.com:9443/stream?streams=${SYM_STREAM}`
 const EXT_POLL_MS = 30_000
@@ -111,15 +126,17 @@ export default function RightBar() {
   })
   const [spx, setSpx] = useState<ExtTicker | null>(null)
   const [xau, setXau] = useState<ExtTicker | null>(null)
-  const [alerts,     setAlerts]     = useState<PriceAlert[]>([])
-  const [showForm,   setShowForm]   = useState(false)
-  const [formSym,    setFormSym]    = useState<Sym>('BTC')
-  const [formCond,   setFormCond]   = useState<'ABOVE' | 'BELOW'>('ABOVE')
-  const [formPrice,  setFormPrice]  = useState('')
-  const [utcNow,     setUtcNow]     = useState(new Date())
-  const [community,  setCommunity]  = useState<CommunitySetup[]>([])
-  const [userVotes,  setUserVotes]  = useState<Record<string, 'up' | 'down'>>({})
-  const [setupsOwn,  setSetupsOwn]  = useState<Setup[]>([])
+  const [alerts,       setAlerts]       = useState<PriceAlert[]>([])
+  const [showForm,     setShowForm]     = useState(false)
+  const [formSym,      setFormSym]      = useState<Sym>('BTC')
+  const [formCond,     setFormCond]     = useState<'ABOVE' | 'BELOW'>('ABOVE')
+  const [formPrice,    setFormPrice]    = useState('')
+  const [utcNow,       setUtcNow]       = useState(new Date())
+  const [community,    setCommunity]    = useState<CommunitySetup[]>([])
+  const [userVotes,    setUserVotes]    = useState<Record<string, 'up' | 'down'>>({})
+  const [setupsOwn,    setSetupsOwn]    = useState<Setup[]>([])
+  const [showSetupForm,setShowSetupForm]= useState(false)
+  const [setupForm,    setSetupForm]    = useState<SetupDraft>(EMPTY_SETUP)
 
   const wsRef       = useRef<WebSocket | null>(null)
   const reconnRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -171,6 +188,37 @@ export default function RightBar() {
     try { localStorage.setItem('sigma_alerts', JSON.stringify(next)) } catch {}
   }
 
+  function saveSetups(next: Setup[]) {
+    setSetupsOwn(next)
+    try { localStorage.setItem('sigma_setups', JSON.stringify(next)) } catch {}
+  }
+
+  function addSetup() {
+    const f = setupForm
+    if (!f.par.trim() || !f.metodologia.trim()) return
+    const s: Setup = {
+      id: Date.now().toString(),
+      par: f.par.toUpperCase().trim(),
+      tipo: f.tipo,
+      timeframe: f.timeframe,
+      metodologia: f.metodologia.trim(),
+      estado: f.tipo === 'LP' ? 'EN_RANGO' : 'ACTIVO',
+      nota: f.nota.trim(),
+      fecha: new Date().toISOString().split('T')[0],
+      ...(f.tipo === 'LP'
+        ? { rangeLow: parseFloat(f.rangeLow) || undefined, rangeHigh: parseFloat(f.rangeHigh) || undefined, feeTier: f.feeTier, protocol: f.protocol }
+        : { entry: parseFloat(f.entry) || undefined, sl: parseFloat(f.sl) || undefined, tp: parseFloat(f.tp) || undefined, rr: parseFloat(f.rr) || undefined }
+      ),
+    }
+    saveSetups([...setupsOwn, s])
+    setSetupForm(EMPTY_SETUP)
+    setShowSetupForm(false)
+  }
+
+  function deleteSetup(id: string) {
+    saveSetups(setupsOwn.filter(s => s.id !== id))
+  }
+
   // WebSocket
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return
@@ -216,6 +264,24 @@ export default function RightBar() {
           alertsRef.current = next
           setAlerts(next)
           try { localStorage.setItem('sigma_alerts', JSON.stringify(next)) } catch {}
+          // Persist triggered alerts as Supabase notifications
+          const triggered = next.filter((a, i) => a.triggered && !cur[i]?.triggered)
+          if (triggered.length) {
+            const priceNow = newPrice
+            supabase.auth.getUser().then(({ data: { user } }) => {
+              if (!user) return
+              supabase.from('notifications').insert(
+                triggered.map(a => ({
+                  user_id: user.id,
+                  title:   `Alerta ${a.symbol} disparada`,
+                  body:    `${a.symbol} ${a.condition === 'ABOVE' ? 'superó' : 'bajó de'} $${a.price.toLocaleString('en-US')}. Precio actual: $${priceNow.toLocaleString('en-US')}`,
+                  type:    'mercado',
+                  urgente: true,
+                  read:    false,
+                }))
+              ).then(() => {})
+            })
+          }
         }
       } catch {}
     }
@@ -512,9 +578,59 @@ export default function RightBar() {
 
         {/* ══ SETUPS (propio) ══ */}
         <Section label="SETUPS" />
-        {setupsOwn.length === 0
-          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin setups — crea uno en Journal</div>
-          : setupsOwn.map(s => <SetupCard key={s.id} s={s} price={tickers[symFromPar(s.par)]?.price ?? 0} />)
+        <div style={{ padding: '8px 12px', borderBottom: `1px solid ${T.border}` }}>
+          <button onClick={() => setShowSetupForm(v => !v)} style={{
+            width: '100%', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.12em',
+            color: T.gold, background: T.gold + '14', border: `1px solid ${T.gold}44`,
+            padding: '5px', cursor: 'pointer',
+          }}>
+            {showSetupForm ? '✕ CANCELAR' : '+ SETUP'}
+          </button>
+
+          {showSetupForm && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <input
+                placeholder="Par (ej: BTCUSDT)"
+                value={setupForm.par}
+                onChange={e => setSetupForm(f => ({ ...f, par: e.target.value }))}
+                style={inputStyle}
+              />
+              <select value={setupForm.tipo} onChange={e => setSetupForm(f => ({ ...f, tipo: e.target.value as Setup['tipo'] }))} style={selStyle}>
+                <option value="LONG">LONG ▲</option>
+                <option value="SHORT">SHORT ▼</option>
+                <option value="LP">LP ◈</option>
+              </select>
+              <select value={setupForm.timeframe} onChange={e => setSetupForm(f => ({ ...f, timeframe: e.target.value }))} style={selStyle}>
+                {TF_OPTIONS.map(tf => <option key={tf}>{tf}</option>)}
+              </select>
+
+              {setupForm.tipo !== 'LP' ? (<>
+                <input placeholder="Entry" type="number" value={setupForm.entry} onChange={e => setSetupForm(f => ({ ...f, entry: e.target.value }))} style={inputStyle} />
+                <input placeholder="Stop Loss" type="number" value={setupForm.sl} onChange={e => setSetupForm(f => ({ ...f, sl: e.target.value }))} style={inputStyle} />
+                <input placeholder="Take Profit" type="number" value={setupForm.tp} onChange={e => setSetupForm(f => ({ ...f, tp: e.target.value }))} style={inputStyle} />
+                <input placeholder="R/R (ej: 2.5)" type="number" value={setupForm.rr} onChange={e => setSetupForm(f => ({ ...f, rr: e.target.value }))} style={inputStyle} />
+              </>) : (<>
+                <input placeholder="Range Low" type="number" value={setupForm.rangeLow} onChange={e => setSetupForm(f => ({ ...f, rangeLow: e.target.value }))} style={inputStyle} />
+                <input placeholder="Range High" type="number" value={setupForm.rangeHigh} onChange={e => setSetupForm(f => ({ ...f, rangeHigh: e.target.value }))} style={inputStyle} />
+                <input placeholder="Fee Tier (ej: 0.05%)" value={setupForm.feeTier} onChange={e => setSetupForm(f => ({ ...f, feeTier: e.target.value }))} style={inputStyle} />
+                <input placeholder="Protocolo (ej: Uniswap v3)" value={setupForm.protocol} onChange={e => setSetupForm(f => ({ ...f, protocol: e.target.value }))} style={inputStyle} />
+              </>)}
+
+              <input placeholder="Metodología (ej: OB+MACD)" value={setupForm.metodologia} onChange={e => setSetupForm(f => ({ ...f, metodologia: e.target.value }))} style={inputStyle} />
+              <input placeholder="Nota (opcional)" value={setupForm.nota} onChange={e => setSetupForm(f => ({ ...f, nota: e.target.value }))} style={inputStyle} />
+              <button onClick={addSetup} style={{
+                fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em',
+                color: T.bg, background: T.gold, border: 'none', padding: '5px', cursor: 'pointer',
+              }}>GUARDAR SETUP</button>
+            </div>
+          )}
+        </div>
+
+        {setupsOwn.length === 0 && !showSetupForm
+          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin setups activos</div>
+          : setupsOwn.map(s => (
+              <SetupCard key={s.id} s={s} price={tickers[symFromPar(s.par)]?.price ?? 0} onDelete={deleteSetup} />
+            ))
         }
 
         {/* ══ COMUNIDAD ══ */}
@@ -537,7 +653,7 @@ export default function RightBar() {
 }
 
 // ─── SetupCard: handles LONG / SHORT / LP ─────────────────────────────────────
-function SetupCard({ s, price }: { s: Setup; price: number }) {
+function SetupCard({ s, price, onDelete }: { s: Setup; price: number; onDelete?: (id: string) => void }) {
 
   if (s.tipo === 'LP') {
     const st      = resolveLpStatus(s, price)
@@ -550,7 +666,10 @@ function SetupCard({ s, price }: { s: Setup; price: number }) {
       <div style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
           <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.violet, background: T.violet + '20', padding: '1px 5px', letterSpacing: '0.08em' }}>LP</span>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: inRange ? T.green : T.red, background: (inRange ? T.green : T.red) + '18', padding: '1px 5px' }}>{st}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: inRange ? T.green : T.red, background: (inRange ? T.green : T.red) + '18', padding: '1px 5px' }}>{st}</span>
+            {onDelete && <button onClick={() => onDelete(s.id)} style={{ background: 'transparent', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 11, padding: 0 }}>✕</button>}
+          </div>
         </div>
         <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.text, marginBottom: 4 }}>{s.par}</div>
         {s.protocol && (
@@ -591,7 +710,10 @@ function SetupCard({ s, price }: { s: Setup; price: number }) {
           <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.08em', color: badgeColor, background: badgeColor + '20', padding: '1px 5px' }}>{s.tipo}</span>
           <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.dimText }}>{s.timeframe}</span>
         </div>
-        <span style={{ fontFamily: 'monospace', fontSize: 9, color: stColor, background: stColor + '18', padding: '1px 5px', letterSpacing: '0.1em' }}>{st}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 9, color: stColor, background: stColor + '18', padding: '1px 5px', letterSpacing: '0.1em' }}>{st}</span>
+          {onDelete && <button onClick={() => onDelete(s.id)} style={{ background: 'transparent', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 11, padding: 0 }}>✕</button>}
+        </div>
       </div>
       <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.text, marginBottom: 4 }}>{s.par}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
