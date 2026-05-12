@@ -25,8 +25,9 @@ export default function PwaRegister() {
   const promptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
-    // Registrar service worker
-    if ('serviceWorker' in navigator) {
+    // Registrar service worker solo en producción (no en localhost)
+    const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    if ('serviceWorker' in navigator && !isLocalhost) {
       navigator.serviceWorker.register('/sw.js').catch(() => {})
     }
 
