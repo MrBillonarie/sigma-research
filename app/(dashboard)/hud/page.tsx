@@ -1,100 +1,116 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { C } from '@/app/lib/constants'
+import type { Asset, MarketRegime } from '@/types/decision-engine'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Direction = 'LONG' | 'SHORT' | 'NEUTRAL'
-type Timeframe = '15m' | '1H' | '4H' | '1D'
-type Strength  = 'FUERTE' | 'MODERADA' | 'DÉBIL'
+interface Price { ticker: string; price: number; change: number }
 
-interface Signal {
-  id:         number
-  ticker:     string
-  direction:  Direction
-  timeframe:  Timeframe
-  confidence: number
-  entry:      number
-  tp:         number
-  sl:         number
-  strength:   Strength
-  model:      string
-  ts:         number
+interface MotorData {
+  signals:      Asset[]
+  regime:       MarketRegime
+  regimeLabel:  string
+  buyCount:     number
+  sellCount:    number
+  generatedAt:  string
 }
 
-interface Price {
-  ticker: string
-  price:  number
-  change: number
-  prev:   number
-}
-
-// ─── Binance WebSocket stream ─────────────────────────────────────────────────
+// ─── Binance WebSocket ────────────────────────────────────────────────────────
 const WS_TICKERS = ['btcusdt', 'ethusdt', 'bnbusdt', 'solusdt', 'avaxusdt', 'arbusdt']
-const WS_URL = `wss://stream.binance.com:9443/stream?streams=${WS_TICKERS.map(t => `${t}@miniTicker`).join('/')}`
-
+const WS_URL     = `wss://stream.binance.com:9443/stream?streams=${WS_TICKERS.map(t => `${t}@miniTicker`).join('/')}`
 const SYM_LABEL: Record<string, string> = {
-  BTCUSDT: 'BTC/USDT', ETHUSDT: 'ETH/USDT', BNBUSDT: 'BNB/USDT',
-  SOLUSDT: 'SOL/USDT', AVAXUSDT: 'AVAX/USDT', ARBUSDT: 'ARB/USDT',
+  BTCUSDT: 'BTC', ETHUSDT: 'ETH', BNBUSDT: 'BNB',
+  SOLUSDT: 'SOL', AVAXUSDT: 'AVAX', ARBUSDT: 'ARB',
 }
 
-const SIGNAL_POOL: Omit<Signal, 'id' | 'ts'>[] = [
-  { ticker: 'BTC/USDT', direction: 'LONG',  timeframe: '4H', confidence: 87, entry: 83_900, tp: 86_500, sl: 82_400, strength: 'FUERTE',   model: 'HMM-01' },
-  { ticker: 'ETH/USDT', direction: 'LONG',  timeframe: '1D', confidence: 74, entry:  3_150, tp:  3_400, sl:  3_000, strength: 'MODERADA', model: 'XGB-03' },
-  { ticker: 'BNB/USDT', direction: 'SHORT', timeframe: '1H', confidence: 68, entry:    595, tp:    570, sl:    610, strength: 'MODERADA', model: 'XGB-03' },
-  { ticker: 'SOL/USDT', direction: 'LONG',  timeframe: '4H', confidence: 81, entry:    145, tp:    162, sl:    138, strength: 'FUERTE',   model: 'HMM-01' },
-  { ticker: 'BTC/USDT', direction: 'SHORT', timeframe: '15m',confidence: 61, entry: 84_400, tp: 83_100, sl: 85_200, strength: 'DÉBIL',    model: 'STAT-05' },
-  { ticker: 'AVAX/USDT',direction: 'LONG',  timeframe: '1H', confidence: 72, entry:     35, tp:     40, sl:     33, strength: 'MODERADA', model: 'GARCH-02' },
-  { ticker: 'ARB/USDT', direction: 'SHORT', timeframe: '4H', confidence: 78, entry:   1.14, tp:   1.00, sl:   1.22, strength: 'FUERTE',   model: 'XGB-03' },
-  { ticker: 'ETH/USDT', direction: 'SHORT', timeframe: '1H', confidence: 65, entry:  3_200, tp:  3_050, sl:  3_280, strength: 'DÉBIL',    model: 'STAT-05' },
-]
-
-function dirColor(d: Direction) {
-  if (d === 'LONG')    return C.green
-  if (d === 'SHORT')   return C.red
-  return C.yellow
-}
-
-
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtPrice(p: number) {
   return p >= 1000 ? p.toLocaleString('en-US', { maximumFractionDigits: 0 })
-    : p >= 1 ? p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : p.toFixed(4)
+    : p >= 1 ? p.toFixed(2) : p.toFixed(4)
 }
 
-function timeAgo(ts: number) {
-  const s = Math.floor((Date.now() - ts) / 1000)
-  if (s < 60)  return `${s}s`
+function timeAgo(iso: string) {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60)   return `${s}s`
   if (s < 3600) return `${Math.floor(s / 60)}m`
   return `${Math.floor(s / 3600)}h`
 }
 
+function regimeColor(r: MarketRegime) {
+  if (r === 'risk-on')  return C.green
+  if (r === 'risk-off') return C.red
+  return C.yellow
+}
+
+function signalColor(s: string) {
+  if (s === 'comprar') return C.green
+  if (s === 'reducir') return C.red
+  return C.dimText
+}
+
+function signalLabel(s: string) {
+  if (s === 'comprar') return 'COMPRAR'
+  if (s === 'reducir') return 'REDUCIR'
+  if (s === 'mantener') return 'MANTENER'
+  return 'NEUTRAL'
+}
+
+function classLabel(c: string) {
+  if (c === 'crypto')     return 'CRYPTO'
+  if (c === 'etfs')       return 'ETF'
+  if (c === 'fondos')     return 'FONDO'
+  if (c === 'renta_fija') return 'RENTA FIJA'
+  return c.toUpperCase()
+}
+
+const REFRESH_MS = 30 * 60 * 1000 // 30 min
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function HudPage() {
-  const [signals,    setSignals]    = useState<Signal[]>([])
+  const [motor,      setMotor]      = useState<MotorData | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [lastFetch,  setLastFetch]  = useState<string | null>(null)
   const [prices,     setPrices]     = useState<Price[]>([])
   const [connected,  setConnected]  = useState(false)
-  const [hudSearch,  setHudSearch]  = useState('')
-  const [dirFilter,  setDirFilter]  = useState<'ALL' | 'LONG' | 'SHORT'>('ALL')
-  const [regime,     setRegime]     = useState<{ label: string; color: string; adx: number }>({
-    label: 'LATERAL NORMAL', color: C.yellow, adx: 18,
-  })
+  const [search,     setSearch]     = useState('')
+  const [sigFilter,  setSigFilter]  = useState<'ALL' | 'comprar' | 'reducir'>('ALL')
+  const [classFilter,setClassFilter]= useState<'ALL' | string>('ALL')
 
-  // ── Init demo signals ────────────────────────────────────────────────────
-  useEffect(() => {
-    setSignals(SIGNAL_POOL.slice(0, 5).map((s, i) => ({
-      ...s, id: i + 1, ts: Date.now() - (i * 7 * 60_000),
-    })))
+  // ── Fetch Motor signals ──────────────────────────────────────────────────
+  const fetchMotor = useCallback(async () => {
+    try {
+      const res  = await fetch('/api/motor/signals?profile=trader')
+      const json = await res.json()
+      if (json.ok) {
+        setMotor({
+          signals:     json.signals,
+          regime:      json.regime,
+          regimeLabel: json.regimeLabel,
+          buyCount:    json.buyCount,
+          sellCount:   json.sellCount,
+          generatedAt: json.generatedAt,
+        })
+        setLastFetch(new Date().toISOString())
+      }
+    } catch { /* silencioso */ }
+    finally  { setLoading(false) }
   }, [])
 
-  // ── Real prices via Binance WebSocket ────────────────────────────────────
+  useEffect(() => {
+    fetchMotor()
+    const id = setInterval(fetchMotor, REFRESH_MS)
+    return () => clearInterval(id)
+  }, [fetchMotor])
+
+  // ── Binance WebSocket ────────────────────────────────────────────────────
   useEffect(() => {
     let ws: WebSocket
     function connect() {
       ws = new WebSocket(WS_URL)
-      ws.onopen  = () => setConnected(true)
-      ws.onclose = () => { setConnected(false); setTimeout(connect, 5000) }
-      ws.onerror = () => ws.close()
+      ws.onopen    = () => setConnected(true)
+      ws.onclose   = () => { setConnected(false); setTimeout(connect, 5000) }
+      ws.onerror   = () => ws.close()
       ws.onmessage = (e: MessageEvent) => {
         try {
           const msg = JSON.parse(e.data as string) as { data: { s: string; c: string; o: string } }
@@ -105,12 +121,10 @@ export default function HudPage() {
           const open24 = parseFloat(openStr)
           const change = open24 > 0 ? ((price - open24) / open24) * 100 : 0
           setPrices(prev => {
-            const idx = prev.findIndex(p => p.ticker === label)
-            const next: Price = { ticker: label, price, prev: open24, change }
+            const idx  = prev.findIndex(p => p.ticker === label)
+            const next = { ticker: label, price, change }
             if (idx === -1) return [...prev, next]
-            const updated = [...prev]
-            updated[idx] = next
-            return updated
+            const updated = [...prev]; updated[idx] = next; return updated
           })
         } catch {}
       }
@@ -119,67 +133,73 @@ export default function HudPage() {
     return () => ws?.close()
   }, [])
 
-  // ── New signal every ~30s (demo — replace with real ML endpoint) ──────────
-  useEffect(() => {
-    const id = setInterval(() => {
-      const template = SIGNAL_POOL[Math.floor(Math.random() * SIGNAL_POOL.length)]
-      setSignals(prev => [{ ...template, id: Date.now(), ts: Date.now() }, ...prev].slice(0, 20))
-      const adx = Math.floor(Math.random() * 40) + 5
-      setRegime(
-        adx < 15  ? { label: 'LATERAL TIGHT',  color: C.green,  adx } :
-        adx <= 25 ? { label: 'LATERAL NORMAL', color: C.yellow, adx } :
-                    { label: 'TRENDING',        color: C.red,    adx }
-      )
-    }, 30_000)
-    return () => clearInterval(id)
-  }, [])
+  // ── Derived ──────────────────────────────────────────────────────────────
+  const signals    = motor?.signals ?? []
+  const classes    = Array.from(new Set(signals.map(s => s.assetClass))).sort()
+  const longCount  = motor?.buyCount  ?? 0
+  const shortCount = motor?.sellCount ?? 0
+  const bias       = longCount + shortCount > 0
+    ? Math.round((longCount / (longCount + shortCount)) * 100) : 50
 
-  const visibleSignals = signals.filter(s => {
-    if (hudSearch && !s.ticker.toLowerCase().includes(hudSearch.toLowerCase())) return false
-    if (dirFilter !== 'ALL' && s.direction !== dirFilter) return false
+  const avgConf = signals.length
+    ? Math.round(signals.reduce((a, s) => a + s.confidence, 0) / signals.length) : 0
+
+  const visible = signals.filter(s => {
+    if (search    && !s.name.toLowerCase().includes(search.toLowerCase()) &&
+                     !s.ticker?.toLowerCase().includes(search.toLowerCase())) return false
+    if (sigFilter   !== 'ALL' && s.signal !== sigFilter)    return false
+    if (classFilter !== 'ALL' && s.assetClass !== classFilter) return false
     return true
   })
 
-  const longCount  = signals.filter(s => s.direction === 'LONG').length
-  const shortCount = signals.filter(s => s.direction === 'SHORT').length
-  const bias = longCount + shortCount > 0
-    ? Math.round((longCount / (longCount + shortCount)) * 100)
-    : 50
+  const regime      = motor?.regime ?? 'neutral'
+  const regimeLabel = motor?.regimeLabel ?? '—'
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono,'DM Mono',monospace)" }}>
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '88px 24px 64px' }}>
 
-        {/* ── Header ────────────────────────────────────────────────────────── */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>
-            {'// HUD · SEÑALES EN VIVO · SIGMA RESEARCH'}
+        {/* ── Header ── */}
+        <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>
+              {'// HUD · SEÑALES DEL MOTOR · SIGMA RESEARCH'}
+            </div>
+            <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,72px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
+              <span style={{ color: C.text }}>SIGNAL</span>{' '}
+              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HUD</span>
+            </h1>
           </div>
-          <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,72px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
-            <span style={{ color: C.text }}>SIGNAL</span>{' '}
-            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HUD</span>
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {lastFetch && (
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted }}>
+                Actualizado: {new Date(lastFetch).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            <button
+              onClick={fetchMotor}
+              style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}44`, padding: '6px 14px', cursor: 'pointer' }}
+            >
+              ↻ REFRESCAR
+            </button>
+          </div>
         </div>
 
-        {/* ── Live price bar ────────────────────────────────────────────────── */}
+        {/* ── Price bar ── */}
         <style>{`@keyframes sk{0%{background-position:-200% 0}100%{background-position:200% 0}}.sk{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:sk 1.4s ease infinite;border-radius:2px}`}</style>
         <div style={{ display: 'flex', gap: 1, background: C.border, marginBottom: 1, overflowX: 'auto' }}>
           {prices.length === 0
             ? WS_TICKERS.map(t => (
-                <div key={t} style={{ background: C.surface, padding: '12px 18px', flex: '1 0 auto', minWidth: 120 }}>
+                <div key={t} style={{ background: C.surface, padding: '12px 18px', flex: '1 0 auto', minWidth: 100 }}>
                   <div className="sk" style={{ width: 30, height: 10, marginBottom: 8 }} />
                   <div className="sk" style={{ width: 60, height: 14, marginBottom: 6 }} />
                   <div className="sk" style={{ width: 40, height: 11 }} />
                 </div>
               ))
             : prices.map(p => (
-                <div key={p.ticker} style={{ background: C.surface, padding: '12px 18px', flex: '1 0 auto', minWidth: 120 }}>
-                  <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 4 }}>
-                    {p.ticker.replace('/USDT', '')}
-                  </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 14, color: C.text, fontVariantNumeric: 'tabular-nums' }}>
-                    {fmtPrice(p.price)}
-                  </div>
+                <div key={p.ticker} style={{ background: C.surface, padding: '12px 18px', flex: '1 0 auto', minWidth: 100 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 4 }}>{p.ticker}</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 14, color: C.text, fontVariantNumeric: 'tabular-nums' }}>{fmtPrice(p.price)}</div>
                   <div style={{ fontFamily: 'monospace', fontSize: 11, color: p.change >= 0 ? C.green : C.red, marginTop: 2 }}>
                     {p.change >= 0 ? '+' : ''}{p.change.toFixed(2)}%
                   </div>
@@ -188,23 +208,24 @@ export default function HudPage() {
           }
         </div>
 
-        {/* ── Regime + bias ─────────────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 1, background: C.border, marginBottom: 1 }}>
+        {/* ── KPI cards ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 1, background: C.border, marginBottom: 1 }}>
           <div style={{ background: C.surface, padding: '16px 20px' }}>
             <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6 }}>RÉGIMEN DE MERCADO</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: regime.color, boxShadow: `0 0 8px ${regime.color}`, flexShrink: 0 }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: regime.color, fontWeight: 600 }}>{regime.label}</span>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: regimeColor(regime), boxShadow: `0 0 8px ${regimeColor(regime)}`, flexShrink: 0 }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 13, color: regimeColor(regime), fontWeight: 600 }}>
+                {loading ? '—' : regimeLabel.toUpperCase()}
+              </span>
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginTop: 4 }}>ADX {regime.adx}</div>
           </div>
 
           <div style={{ background: C.surface, padding: '16px 20px' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6 }}>BIAS DEL MERCADO</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6 }}>BIAS DEL MOTOR</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.green }}>{longCount} LONG</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.green }}>{longCount} COMPRAR</span>
               <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>vs</span>
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.red }}>{shortCount} SHORT</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.red }}>{shortCount} REDUCIR</span>
             </div>
             <div style={{ height: 6, background: C.border, borderRadius: 3 }}>
               <div style={{ height: '100%', width: `${bias}%`, background: bias >= 50 ? C.green : C.red, borderRadius: 3, transition: 'width 0.5s' }} />
@@ -212,120 +233,161 @@ export default function HudPage() {
           </div>
 
           <div style={{ background: C.surface, padding: '16px 20px' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6 }}>SEÑALES ACTIVAS</div>
-            <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 40, color: C.gold, lineHeight: 1 }}>{signals.length}</div>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginTop: 2 }}>Última: {signals[0] ? timeAgo(signals[0].ts) : '—'}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6 }}>ACTIVOS ANALIZADOS</div>
+            <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 40, color: C.gold, lineHeight: 1 }}>
+              {loading ? '—' : signals.length}
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginTop: 2 }}>
+              {loading ? '' : `${longCount + shortCount} con señal activa`}
+            </div>
           </div>
 
           <div style={{ background: C.surface, padding: '16px 20px' }}>
             <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 6 }}>CONFIANZA PROMEDIO</div>
             <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 40, color: C.glow, lineHeight: 1 }}>
-              {signals.length ? Math.round(signals.reduce((a, s) => a + s.confidence, 0) / signals.length) : 0}%
+              {loading ? '—' : `${avgConf}%`}
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginTop: 2 }}>Últimas {signals.length} señales</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? C.green : C.red }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: connected ? C.green : C.red }}>
+                {connected ? 'BINANCE LIVE' : 'CONECTANDO…'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* ── Main grid: signals + detail ───────────────────────────────────── */}
+        {/* ── Main grid ── */}
         <style>{`@media(max-width:767px){.hud-main-grid{grid-template-columns:1fr !important}}`}</style>
-        <div className="hud-main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 1, background: C.border, minHeight: 500 }}>
+        <div className="hud-main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 1, background: C.border, minHeight: 500 }}>
 
-          {/* Signal feed */}
+          {/* ── Signal feed ── */}
           <div style={{ background: C.bg }}>
-            <div style={{ padding: '12px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>
-                FEED DE SEÑALES
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.1em', color: C.muted, background: `${C.muted}20`, padding: '2px 7px', border: `1px solid ${C.muted}40` }}>
-                  DEMO
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? C.green : C.red, animation: connected ? 'pulse 2s infinite' : undefined }} />
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: connected ? C.green : C.red }}>
-                    {connected ? 'BINANCE LIVE' : 'CONECTANDO…'}
-                  </span>
-                </span>
-              </span>
-            </div>
 
             {/* Filtros */}
-            <div style={{ display: 'flex', gap: 1, background: C.border, borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ flex: 1, background: C.surface, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px' }}>
+            <div style={{ display: 'flex', gap: 1, background: C.border, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 160, background: C.surface, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>⌕</span>
-                <input
-                  type="text"
-                  value={hudSearch}
-                  onChange={e => setHudSearch(e.target.value)}
-                  placeholder="BTC, ETH, SOL…"
+                <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar activo…"
                   style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontFamily: 'monospace', fontSize: 11, color: C.text, minWidth: 0 }}
                 />
-                {hudSearch && (
-                  <button onClick={() => setHudSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: 11, color: C.muted, padding: 0 }}>✕</button>
-                )}
+                {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontFamily: 'monospace', fontSize: 11, padding: 0 }}>✕</button>}
               </div>
-              {(['ALL', 'LONG', 'SHORT'] as const).map(d => (
-                <button key={d} onClick={() => setDirFilter(d)}
-                  style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', border: 'none', cursor: 'pointer',
-                    background: dirFilter === d ? (d === 'LONG' ? C.green : d === 'SHORT' ? C.red : C.gold) : C.surface,
-                    color: dirFilter === d ? C.bg : C.dimText,
+
+              {(['ALL', 'comprar', 'reducir'] as const).map(f => (
+                <button key={f} onClick={() => setSigFilter(f)}
+                  style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.12em', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                    background: sigFilter === f ? (f === 'comprar' ? C.green : f === 'reducir' ? C.red : C.gold) : C.surface,
+                    color:      sigFilter === f ? C.bg : C.dimText,
                   }}>
-                  {d === 'ALL' ? 'TODOS' : d}
+                  {f === 'ALL' ? 'TODOS' : f === 'comprar' ? 'COMPRAR' : 'REDUCIR'}
                 </button>
               ))}
-              <div style={{ background: C.surface, padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{visibleSignals.length} señales</span>
+
+              {classes.map(cl => (
+                <button key={cl} onClick={() => setClassFilter(classFilter === cl ? 'ALL' : cl)}
+                  style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.12em', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                    background: classFilter === cl ? C.gold : C.surface,
+                    color:      classFilter === cl ? C.bg : C.muted,
+                  }}>
+                  {classLabel(cl)}
+                </button>
+              ))}
+
+              <div style={{ background: C.surface, padding: '8px 12px', display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{visible.length} activos</span>
               </div>
             </div>
 
+            {/* Tabla */}
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                    {['Par', 'Dirección', 'TF', 'Entrada', 'TP', 'SL', 'Confianza', 'Modelo', 'Hace'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: C.dimText, fontWeight: 400, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleSignals.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} style={{ padding: '40px 16px', textAlign: 'center' }}>
-                        <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, letterSpacing: '0.15em' }}>
-                          {hudSearch || dirFilter !== 'ALL' ? 'SIN RESULTADOS PARA EL FILTRO ACTUAL' : 'SIN SEÑALES — ESPERANDO DATOS…'}
-                        </div>
-                      </td>
+              {loading ? (
+                <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, letterSpacing: '0.15em' }}>CARGANDO SEÑALES DEL MOTOR…</div>
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                      {['Activo', 'Clase', 'Señal', 'Score', 'Confianza', 'Ret. 30d', 'EV Neto', 'Conds', 'Hace'].map(h => (
+                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: C.dimText, fontWeight: 400, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  ) : visibleSignals.map((s, i) => (
-                    <tr key={s.id} style={{ borderBottom: `1px solid ${C.border}`, background: i === 0 ? `${C.gold}08` : 'transparent', opacity: i === 0 ? 1 : Math.max(0.4, 1 - i * 0.06) }}>
-                      <td style={{ padding: '12px 16px', color: C.text, fontWeight: 600, whiteSpace: 'nowrap' }}>{s.ticker}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <span style={{ color: dirColor(s.direction), fontWeight: 700, letterSpacing: '0.1em' }}>{s.direction}</span>
-                      </td>
-                      <td style={{ padding: '12px 16px', color: C.dimText }}>{s.timeframe}</td>
-                      <td style={{ padding: '12px 16px', color: C.text, fontVariantNumeric: 'tabular-nums' }}>{fmtPrice(s.entry)}</td>
-                      <td style={{ padding: '12px 16px', color: C.green, fontVariantNumeric: 'tabular-nums' }}>{fmtPrice(s.tp)}</td>
-                      <td style={{ padding: '12px 16px', color: C.red, fontVariantNumeric: 'tabular-nums' }}>{fmtPrice(s.sl)}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ flex: 1, height: 4, background: C.border, minWidth: 50 }}>
-                            <div style={{ height: '100%', width: `${s.confidence}%`, background: s.confidence >= 75 ? C.green : s.confidence >= 60 ? C.yellow : C.red }} />
+                  </thead>
+                  <tbody>
+                    {visible.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} style={{ padding: '40px 16px', textAlign: 'center' }}>
+                          <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, letterSpacing: '0.15em' }}>
+                            SIN RESULTADOS PARA EL FILTRO ACTUAL
                           </div>
-                          <span style={{ color: s.confidence >= 75 ? C.green : s.confidence >= 60 ? C.yellow : C.red, minWidth: 32 }}>{s.confidence}%</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px 16px', color: C.purple, fontSize: 11 }}>{s.model}</td>
-                      <td style={{ padding: '12px 16px', color: C.muted, fontSize: 11 }}>{timeAgo(s.ts)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                      </tr>
+                    ) : visible.map((s, i) => {
+                      const isBuy    = s.signal === 'comprar'
+                      const isSell   = s.signal === 'reducir'
+                      const sc       = signalColor(s.signal)
+                      const scoreCol = s.score >= 65 ? C.green : s.score >= 45 ? C.yellow : C.red
+                      const confCol  = s.confidence >= 70 ? C.green : s.confidence >= 50 ? C.yellow : C.red
+                      const ret30Col = (s.return30d ?? 0) >= 0 ? C.green : C.red
+                      const evCol    = (s.evNeto ?? 0) > 0 ? C.green : (s.evNeto ?? 0) < 0 ? C.red : C.dimText
+
+                      return (
+                        <tr key={s.id} style={{
+                          borderBottom: `1px solid ${C.border}`,
+                          background: i === 0 && (isBuy || isSell) ? `${sc}08` : 'transparent',
+                          opacity: s.signal === 'mantener' || s.signal === 'neutral' ? 0.6 : 1,
+                        }}>
+                          <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
+                            <div style={{ color: C.text, fontWeight: 600 }}>{s.name}</div>
+                            {s.ticker && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{s.ticker}</div>}
+                          </td>
+                          <td style={{ padding: '11px 14px' }}>
+                            <span style={{ fontSize: 9, letterSpacing: '0.1em', color: C.dimText, background: `${C.border}`, padding: '2px 6px' }}>
+                              {classLabel(s.assetClass)}
+                            </span>
+                          </td>
+                          <td style={{ padding: '11px 14px' }}>
+                            <span style={{ color: sc, fontWeight: 700, letterSpacing: '0.1em', fontSize: 11 }}>
+                              {signalLabel(s.signal)}
+                              {s.signalChanged && <span style={{ marginLeft: 6, fontSize: 9, color: C.gold }}>● NUEVA</span>}
+                            </span>
+                          </td>
+                          <td style={{ padding: '11px 14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 40, height: 4, background: C.border }}>
+                                <div style={{ height: '100%', width: `${s.score}%`, background: scoreCol }} />
+                              </div>
+                              <span style={{ color: scoreCol, minWidth: 24, fontSize: 11 }}>{s.score}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '11px 14px', color: confCol, fontVariantNumeric: 'tabular-nums' }}>
+                            {s.confidence}%
+                          </td>
+                          <td style={{ padding: '11px 14px', color: ret30Col, fontVariantNumeric: 'tabular-nums' }}>
+                            {(s.return30d ?? 0) >= 0 ? '+' : ''}{(s.return30d ?? 0).toFixed(1)}%
+                          </td>
+                          <td style={{ padding: '11px 14px', color: evCol, fontVariantNumeric: 'tabular-nums' }}>
+                            {(s.evNeto ?? 0) > 0 ? '+' : ''}{(s.evNeto ?? 0).toFixed(1)}%
+                          </td>
+                          <td style={{ padding: '11px 14px', color: C.dimText, fontSize: 11 }}>
+                            {s.conditionsMet}/{s.conditionsTotal}
+                          </td>
+                          <td style={{ padding: '11px 14px', color: C.muted, fontSize: 11 }}>
+                            {motor?.generatedAt ? timeAgo(motor.generatedAt) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
-          {/* Right panel: model status */}
+          {/* ── Right panel ── */}
           <div style={{ background: C.surface, display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '12px 20px', borderBottom: `1px solid ${C.border}` }}>
               <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>
@@ -333,13 +395,13 @@ export default function HudPage() {
               </span>
             </div>
             {[
-              { tag: 'HMM-01',  name: 'REGIME DETECTOR',  status: true,  metric: '91.2% acc' },
-              { tag: 'XGB-03',  name: 'MOMENTUM SCORE',   status: true,  metric: '2.41 sharpe' },
-              { tag: 'STAT-05', name: 'PAIRS TRADING',    status: true,  metric: '1.87 sharpe' },
-              { tag: 'GARCH-02',name: 'VOL FORECASTER',   status: true,  metric: '0.031 MAE' },
-              { tag: 'NLP-04',  name: 'SENTIMENT ALPHA',  status: false, metric: 'en revisión' },
+              { tag: 'HMM-01',   name: 'REGIME DETECTOR',  status: true,  metric: '91.2% acc' },
+              { tag: 'XGB-03',   name: 'MOMENTUM SCORE',   status: true,  metric: '2.41 sharpe' },
+              { tag: 'STAT-05',  name: 'PAIRS TRADING',    status: true,  metric: '1.87 sharpe' },
+              { tag: 'GARCH-02', name: 'VOL FORECASTER',   status: true,  metric: '0.031 MAE' },
+              { tag: 'NLP-04',   name: 'SENTIMENT ALPHA',  status: false, metric: 'en revisión' },
             ].map(m => (
-              <div key={m.tag} style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div key={m.tag} style={{ padding: '13px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                     <span style={{ width: 7, height: 7, borderRadius: '50%', background: m.status ? C.green : C.muted, flexShrink: 0 }} />
@@ -357,7 +419,10 @@ export default function HudPage() {
             <div style={{ padding: '16px 20px', marginTop: 'auto', borderTop: `1px solid ${C.border}` }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText, marginBottom: 8 }}>ACCIONES RÁPIDAS</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <Link href="/journal" style={{ display: 'block', padding: '10px 14px', border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 11, color: C.gold, textDecoration: 'none', textAlign: 'center', letterSpacing: '0.15em' }}>
+                <Link href="/motor-decision" style={{ display: 'block', padding: '10px 14px', border: `1px solid ${C.gold}44`, background: `${C.gold}10`, fontFamily: 'monospace', fontSize: 11, color: C.gold, textDecoration: 'none', textAlign: 'center', letterSpacing: '0.15em' }}>
+                  VER MOTOR COMPLETO
+                </Link>
+                <Link href="/journal" style={{ display: 'block', padding: '10px 14px', border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 11, color: C.dimText, textDecoration: 'none', textAlign: 'center', letterSpacing: '0.15em' }}>
                   + AÑADIR AL JOURNAL
                 </Link>
                 <Link href="/calendario" style={{ display: 'block', padding: '10px 14px', border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 11, color: C.dimText, textDecoration: 'none', textAlign: 'center', letterSpacing: '0.15em' }}>
@@ -366,8 +431,8 @@ export default function HudPage() {
               </div>
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   )
