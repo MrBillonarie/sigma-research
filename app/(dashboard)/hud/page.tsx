@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { C } from '@/app/lib/constants'
+import { supabase } from '@/app/lib/supabase'
 import type { Asset, MarketRegime } from '@/types/decision-engine'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -71,16 +72,25 @@ export default function HudPage() {
   const [motor,      setMotor]      = useState<MotorData | null>(null)
   const [loading,    setLoading]    = useState(true)
   const [lastFetch,  setLastFetch]  = useState<string | null>(null)
+  const [profile,    setProfile]    = useState<'retail' | 'trader' | 'institucional'>('trader')
   const [prices,     setPrices]     = useState<Price[]>([])
   const [connected,  setConnected]  = useState(false)
   const [search,     setSearch]     = useState('')
   const [sigFilter,  setSigFilter]  = useState<'ALL' | 'comprar' | 'reducir'>('ALL')
   const [classFilter,setClassFilter]= useState<'ALL' | string>('ALL')
 
+  // ── Leer perfil del usuario ──────────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const p = data.user?.user_metadata?.perfil_trader
+      if (p === 'retail' || p === 'institucional') setProfile(p)
+    })
+  }, [])
+
   // ── Fetch Motor signals ──────────────────────────────────────────────────
   const fetchMotor = useCallback(async () => {
     try {
-      const res  = await fetch('/api/motor/signals?profile=trader')
+      const res  = await fetch(`/api/motor/signals?profile=${profile}`)
       const json = await res.json()
       if (json.ok) {
         setMotor({
@@ -101,7 +111,7 @@ export default function HudPage() {
     fetchMotor()
     const id = setInterval(fetchMotor, REFRESH_MS)
     return () => clearInterval(id)
-  }, [fetchMotor])
+  }, [fetchMotor, profile])
 
   // ── Binance WebSocket ────────────────────────────────────────────────────
   useEffect(() => {

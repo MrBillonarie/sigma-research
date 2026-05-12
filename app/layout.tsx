@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     title: 'Sigma Research — Inteligencia Cuantitativa',
     description: 'Herramientas cuantitativas de grado institucional para inversores independientes.',
     type: 'website',
-    url: 'https://sigma-research.io',
+    url: process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.vercel.app',
     siteName: 'Sigma Research',
     locale: 'es_ES',
     images: [

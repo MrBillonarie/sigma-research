@@ -91,6 +91,7 @@ export default function EtfsPage() {
   const [pages,      setPages]      = useState(0)
   const [total,      setTotal]      = useState(0)
   const [ultimaAct,  setUltimaAct]  = useState<string | null>(null)
+  const [isSeed,     setIsSeed]     = useState(false)
   const [sortKey,    setSortKey]    = useState<SortKey>('r12m')
   const [sortDir,    setSortDir]    = useState<'asc' | 'desc'>('desc')
 
@@ -119,6 +120,7 @@ export default function EtfsPage() {
         setTotal(json.total ?? 0)
         setPages(json.pages ?? 0)
         setUltimaAct(json.ultima_actualizacion ?? null)
+        setIsSeed(!!(json as { isSeed?: boolean }).isSeed)
         if (json.exposiciones?.length) setExposiciones(json.exposiciones)
         if (json.sectores?.length)     setSectores(json.sectores)
         if (json.topCards?.length)     setTopCards(json.topCards)
@@ -202,6 +204,10 @@ export default function EtfsPage() {
             <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: C.dimText, background: C.surface, border: `1px solid ${C.border}`, padding: '3px 8px', borderRadius: 4 }}>
               CARGANDO…
             </span>
+          ) : isSeed ? (
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.15em', color: C.yellow, background: 'rgba(212,175,55,0.10)', border: `1px solid rgba(212,175,55,0.3)`, padding: '3px 8px', borderRadius: 4 }}>
+              ◈ DATOS DE REFERENCIA
+            </span>
           ) : ultimaAct ? (
             <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: C.green, background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.3)', padding: '3px 8px', borderRadius: 4 }}>
               ● LIVE · {total} ETFs
@@ -211,7 +217,9 @@ export default function EtfsPage() {
           )}
         </div>
         <div style={{ fontSize: 12, color: C.dimText, marginTop: 4 }}>
-          {ultimaAct
+          {isSeed
+            ? 'Datos de referencia — rentabilidades aproximadas 2025-2026. Se actualizarán cuando se sincronice la base de datos.'
+            : ultimaAct
             ? `Yahoo Finance · Supabase · Actualizado ${fmtDate(ultimaAct)} · Precios en USD`
             : 'Ejecuta npx tsx scripts/sync-etfs.ts para cargar los datos'}
         </div>

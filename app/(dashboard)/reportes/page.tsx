@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
 import { C } from '@/app/lib/constants'
 
@@ -77,11 +78,12 @@ export default function ReportesPage() {
     })
   }, [])
 
-  const handlePay = (plan: string) => {
-    alert(`Redirigiendo a pago: ${plan}\n(Integración con Stripe/LemonSqueezy pendiente)`)
-  }
+  const [payModal, setPayModal] = useState(false)
+
+  const handlePay = () => setPayModal(true)
 
   return (
+    <>
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
       {/* ── Hero ── */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '100px 24px 0' }}>
@@ -170,7 +172,7 @@ export default function ReportesPage() {
                 </li>
               ))}
             </ul>
-            <button onClick={() => handlePay('Mensual $29')} style={{
+            <button onClick={handlePay} style={{
               padding: '12px 0', background: 'transparent', color: C.dimText,
               border: `1px solid ${C.border}`, cursor: 'pointer',
               fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, letterSpacing: '0.12em',
@@ -205,7 +207,7 @@ export default function ReportesPage() {
                 </li>
               ))}
             </ul>
-            <button onClick={() => handlePay('Anual $249')} style={{
+            <button onClick={handlePay} style={{
               padding: '14px 0', background: C.gold, color: C.bg,
               border: 'none', cursor: 'pointer',
               fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, letterSpacing: '0.12em',
@@ -235,7 +237,7 @@ export default function ReportesPage() {
                 </li>
               ))}
             </ul>
-            <button onClick={() => handlePay('Institucional')} style={{
+            <button onClick={handlePay} style={{
               padding: '12px 0', background: 'transparent', color: C.dimText,
               border: `1px solid ${C.border}`, cursor: 'pointer',
               fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, letterSpacing: '0.12em',
@@ -340,5 +342,32 @@ export default function ReportesPage() {
         <div style={{ height: 48 }} />
       </div>
     </div>
+
+    {/* ── Modal pago próximamente ── */}
+    {payModal && (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        onClick={() => setPayModal(false)}>
+        <div style={{ background: '#0b0d14', border: `1px solid ${C.gold}50`, padding: '36px 32px', maxWidth: 440, width: '100%' }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.28em', color: C.gold, marginBottom: 16 }}>// SUSCRIPCIONES</div>
+          <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 32, color: C.text, marginBottom: 12, lineHeight: 1 }}>
+            PRÓXIMAMENTE
+          </div>
+          <p style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, lineHeight: 1.8, marginBottom: 24 }}>
+            Los pagos online estarán disponibles muy pronto.<br />
+            Por ahora, escríbenos directamente para coordinar tu acceso.
+          </p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Link href="/contacto" style={{ flex: 1, padding: '12px 0', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', textDecoration: 'none', textAlign: 'center', display: 'block' }}>
+              CONTACTAR
+            </Link>
+            <button onClick={() => setPayModal(false)} style={{ padding: '12px 18px', background: 'transparent', border: `1px solid ${C.border}`, color: C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer' }}>
+              CERRAR
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
