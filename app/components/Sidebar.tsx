@@ -27,6 +27,7 @@ import {
   Bell,
   Landmark,
   Zap,
+  Download,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -340,10 +341,13 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname  = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
-  const [userName, setUserName]   = useState('')
-  const [userPlan, setUserPlan]   = useState<'free' | 'pro'>('free')
-  const [initials, setInitials]   = useState('?')
+  const [collapsed,    setCollapsed]    = useState(false)
+  const [userName,     setUserName]     = useState('')
+  const [userPlan,     setUserPlan]     = useState<'free' | 'pro'>('free')
+  const [initials,     setInitials]     = useState('?')
+  const [installReady, setInstallReady] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const installPromptRef = useRef<any>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -355,6 +359,23 @@ export default function Sidebar() {
       setInitials(nombre ? nombre.slice(0, 2).toUpperCase() : (data.user.email?.slice(0, 2).toUpperCase() ?? '?'))
     })
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia('(display-mode: standalone)').matches) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (e: any) => { e.preventDefault(); installPromptRef.current = e; setInstallReady(true) }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  async function handleInstallApp() {
+    if (!installPromptRef.current) return
+    await installPromptRef.current.prompt()
+    const { outcome } = await installPromptRef.current.userChoice
+    if (outcome === 'accepted') setInstallReady(false)
+    installPromptRef.current = null
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -526,6 +547,26 @@ export default function Sidebar() {
             </div>
           )}
         </Link>
+
+        {/* Install App */}
+        {installReady && (
+          <button
+            onClick={handleInstallApp}
+            title={collapsed ? 'Instalar App' : undefined}
+            style={{
+              ...navLinkBase, background: 'rgba(212,175,55,0.08)',
+              border: '1px solid rgba(212,175,55,0.25)',
+              cursor: 'pointer', color: GOLD,
+              padding: collapsed ? '10px 0' : '9px 12px',
+              margin: '4px 8px 0', width: 'calc(100% - 16px)',
+            }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(212,175,55,0.15)'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(212,175,55,0.08)'}
+          >
+            <Download size={16} style={{ flexShrink: 0 }} />
+            {!collapsed && <span style={{ fontSize: 12, letterSpacing: '0.08em' }}>Instalar App</span>}
+          </button>
+        )}
 
         {/* Logout */}
         <button

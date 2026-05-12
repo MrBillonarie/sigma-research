@@ -1,7 +1,8 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Bebas_Neue, DM_Mono } from 'next/font/google'
 import './globals.css'
 import ConditionalShell from './components/ConditionalShell'
+import PwaRegister from './components/PwaRegister'
 
 const bebasNeue = Bebas_Neue({
   weight: '400',
@@ -16,6 +17,15 @@ const dmMono = DM_Mono({
   variable: '--font-dm-mono',
   display: 'swap',
 })
+
+export const viewport: Viewport = {
+  themeColor: '#d4af37',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   title: {
@@ -49,13 +59,21 @@ export const metadata: Metadata = {
     images: ['/opengraph-image'],
   },
   icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/apple-icon.png',
   },
   robots: {
     index: true,
     follow: true,
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-status-bar-style': 'black-translucent',
+    'apple-mobile-web-app-title': 'Sigma',
+    'application-name': 'Sigma Research',
+    'msapplication-TileColor': '#04050a',
   },
 }
 
@@ -70,6 +88,7 @@ export default function RootLayout({
         <ConditionalShell>
           {children}
         </ConditionalShell>
+        <PwaRegister />
       </body>
     </html>
   )
