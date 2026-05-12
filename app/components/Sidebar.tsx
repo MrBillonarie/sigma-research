@@ -346,6 +346,7 @@ export default function Sidebar() {
   const [userPlan,     setUserPlan]     = useState<'free' | 'pro'>('free')
   const [initials,     setInitials]     = useState('?')
   const [installReady, setInstallReady] = useState(false)
+  const [isMobile,     setIsMobile]     = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const installPromptRef = useRef<any>(null)
 
@@ -363,18 +364,24 @@ export default function Sidebar() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (window.matchMedia('(display-mode: standalone)').matches) return
+    const mobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent)
+    setIsMobile(mobile)
+    if (mobile) setInstallReady(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handler = (e: any) => { e.preventDefault(); installPromptRef.current = e; setInstallReady(true) }
+    const handler = (e: any) => { e.preventDefault(); installPromptRef.current = e }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
   async function handleInstallApp() {
-    if (!installPromptRef.current) return
-    await installPromptRef.current.prompt()
-    const { outcome } = await installPromptRef.current.userChoice
-    if (outcome === 'accepted') setInstallReady(false)
-    installPromptRef.current = null
+    if (installPromptRef.current) {
+      await installPromptRef.current.prompt()
+      const { outcome } = await installPromptRef.current.userChoice
+      if (outcome === 'accepted') { setInstallReady(false); return }
+      installPromptRef.current = null
+    }
+    // Sin prompt nativo: disparar el banner/guía de PwaRegister via custom event
+    window.dispatchEvent(new CustomEvent('sigma-pwa-show-guide'))
   }
 
   async function handleLogout() {
