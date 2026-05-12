@@ -1,14 +1,14 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Home, PieChart, BookOpen, Flame } from 'lucide-react'
 import { C } from '@/app/lib/constants'
 
 const NAV = [
-  { href: '/home',      label: 'HOME',    icon: '⌂' },
-  { href: '/hud',       label: 'HUD',     icon: '◉' },
-  { href: '/portafolio',label: 'CARTERA', icon: '◈' },
-  { href: '/journal',   label: 'JOURNAL', icon: '≡' },
-  { href: '/fire',      label: 'FIRE',    icon: '🔥' },
+  { href: '/home',       label: 'Inicio',   Icon: Home     },
+  { href: '/portafolio', label: 'Cartera',  Icon: PieChart },
+  { href: '/journal',    label: 'Journal',  Icon: BookOpen },
+  { href: '/fire',       label: 'FIRE',     Icon: Flame    },
 ]
 
 export default function MobileNav() {
@@ -27,31 +27,63 @@ export default function MobileNav() {
           position: 'fixed',
           bottom: 0, left: 0, right: 0,
           zIndex: 9000,
-          background: C.surface,
+          background: 'rgba(11,13,20,0.97)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           borderTop: `1px solid ${C.border}`,
-          padding: '6px 0 max(6px, env(safe-area-inset-bottom))',
+          paddingBottom: 'env(safe-area-inset-bottom)',
           justifyContent: 'space-around',
-          alignItems: 'center',
+          alignItems: 'stretch',
+          height: 64,
         }}
       >
-        {NAV.map(item => {
-          const active = path === item.href || path.startsWith(item.href + '/')
+        {NAV.map(({ href, label, Icon }) => {
+          const active = path === href || path.startsWith(href + '/')
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={href}
+              href={href}
               style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                gap: 2, textDecoration: 'none', flex: 1, padding: '4px 0',
-                borderTop: `2px solid ${active ? C.gold : 'transparent'}`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4,
+                flex: 1,
+                textDecoration: 'none',
+                position: 'relative',
+                paddingTop: 4,
               }}
             >
-              <span style={{ fontSize: 18, lineHeight: 1 }}>{item.icon}</span>
+              {/* Indicador activo — línea superior */}
+              {active && (
+                <span style={{
+                  position: 'absolute',
+                  top: 0, left: '20%', right: '20%',
+                  height: 2,
+                  background: C.gold,
+                  borderRadius: '0 0 2px 2px',
+                }} />
+              )}
+
+              {/* Ícono */}
+              <Icon
+                size={22}
+                strokeWidth={active ? 2.2 : 1.6}
+                color={active ? C.gold : C.muted}
+                style={{ transition: 'color 0.15s' }}
+              />
+
+              {/* Label */}
               <span style={{
-                fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.15em',
+                fontFamily: 'monospace',
+                fontSize: 9,
+                letterSpacing: '0.06em',
                 color: active ? C.gold : C.muted,
+                transition: 'color 0.15s',
+                lineHeight: 1,
               }}>
-                {item.label}
+                {label}
               </span>
             </Link>
           )
