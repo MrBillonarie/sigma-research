@@ -4,11 +4,11 @@ import Navbar from './Navbar'
 import Footer from './Footer'
 
 const DASHBOARD_ROUTES = [
-  '/home', '/terminal', '/hud', '/journal', '/calendario',
+  '/home', '/hud', '/journal', '/calendario',
   '/montecarlo', '/fire', '/modelos', '/mis-reportes',
   '/lp-defi', '/lp-signal', '/perfil', '/diagnosticador',
-  '/ingresos-pasivos', '/portfolio', '/tax', '/notificaciones',
-  '/comparador',
+  '/ingresos-pasivos', '/portafolio', '/tax', '/notificaciones',
+  '/comparador', '/motor-decision', '/reportes',
 ]
 
 export default function ConditionalShell({ children }: { children: React.ReactNode }) {

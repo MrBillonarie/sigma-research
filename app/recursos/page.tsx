@@ -9,11 +9,11 @@ export const metadata: Metadata = {
 const tools = [
   {
     tag: 'T-01',
-    name: 'SIGMA TERMINAL',
-    desc: 'Dashboard de trading en vivo. Portafolio multi-broker, balances Binance Spot & Futures, P&L consolidado y posiciones abiertas en tiempo real.',
-    detail: 'Conecta tus cuentas de Binance Spot y Futures vía API de solo lectura. Visualiza tu P&L consolidado, posiciones abiertas, historial de operaciones y distribución de capital en un solo panel.',
-    href: '/login',
-    cta: 'ACCEDER AL TERMINAL',
+    name: 'PORTAFOLIO',
+    desc: 'Dashboard de portafolio multi-plataforma. IBKR, Binance Spot & Futures, Fintual, Santander, Cash — consolidado en un solo panel con P&L en tiempo real.',
+    detail: 'Conecta tus cuentas de Binance vía API de solo lectura. Visualiza tu P&L consolidado, posiciones abiertas, distribución de capital por plataforma y curva de capital 24 meses.',
+    href: '/portafolio',
+    cta: 'VER PORTAFOLIO',
   },
   {
     tag: 'T-02',

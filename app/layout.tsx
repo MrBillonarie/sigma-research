@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   description:
     'Herramientas cuantitativas de grado institucional para inversores independientes: calculadora FIRE, señales algorítmicas y análisis de mercado con ML.',
   keywords: ['quant finance', 'FIRE calculator', 'trading algorítmico', 'machine learning', 'análisis de mercado', 'inversión cuantitativa'],
-  metadataBase: new URL('https://sigma-research.io'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.vercel.app'),
   openGraph: {
     title: 'Sigma Research — Inteligencia Cuantitativa',
     description: 'Herramientas cuantitativas de grado institucional para inversores independientes.',

@@ -13,7 +13,7 @@ function makeClient() {
 }
 
 const TEST_NOTIFS = [
-  { type: 'señal',    urgente: true,  title: 'Nueva señal PRO.MACD',        body: 'BTCUSDT LONG 4H · Entry: $76,200 · SL: $74,800 · TP: $81,000',           accion_label: 'Ver señal',    accion_href: '/terminal' },
+  { type: 'señal',    urgente: true,  title: 'Nueva señal PRO.MACD',        body: 'BTCUSDT LONG 4H · Entry: $76,200 · SL: $74,800 · TP: $81,000',           accion_label: 'Ver señal',    accion_href: '/hud' },
   { type: 'mercado',  urgente: true,  title: 'Cambio de régimen HMM',       body: 'Bull → Lateral · Reducir exposición y aumentar stops',                     accion_label: 'Ver HUD',      accion_href: '/hud' },
   { type: 'mercado',  urgente: false, title: 'Movimiento relevante: BTC',   body: 'BTC +3.1% en las últimas 4 horas · $75,200 → $77,500',                     accion_label: null,           accion_href: null },
   { type: 'portfolio',urgente: false, title: 'P&L del día',                 body: '+$1,240 acumulado hoy · Win rate semanal: 73% · 5 trades ejecutados',       accion_label: 'Ver journal',  accion_href: '/journal' },

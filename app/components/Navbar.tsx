@@ -12,7 +12,7 @@ const GROUPS = [
     label: 'Herramientas',
     links: [
       { label: 'HUD',         href: '/hud',        desc: 'Señales en vivo' },
-      { label: 'Terminal',    href: '/terminal',   desc: 'Dashboard de portafolio' },
+      { label: 'Portafolio',  href: '/portafolio', desc: 'Dashboard de portafolio' },
       { label: 'Journal',     href: '/journal',    desc: 'Registro de trades' },
       { label: 'Calendario',  href: '/calendario', desc: 'Eventos macro' },
       { label: 'Monte Carlo', href: '/montecarlo', desc: 'Simulación de trayectorias' },

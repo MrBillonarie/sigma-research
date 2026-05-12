@@ -7,7 +7,7 @@ import { supabase } from '@/app/lib/supabase'
 // useSearchParams() requires a Suspense boundary in Next.js 14 App Router
 function LoginForm() {
   const searchParams = useSearchParams()
-  const next         = searchParams.get('next') ?? '/terminal'
+  const next         = searchParams.get('next') ?? '/home'
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')

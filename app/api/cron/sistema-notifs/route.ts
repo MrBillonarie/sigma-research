@@ -114,8 +114,8 @@ export async function POST(req: Request) {
           title:        `Movimiento relevante: ${asset.symbol}`,
           body:         `${asset.symbol} ${dir}${change24h.toFixed(1)}% en las últimas 24h · $${Math.round(asset.data.usd).toLocaleString()}`,
           urgente:      Math.abs(change24h) >= 5,
-          accion_label: 'Ver terminal',
-          accion_href:  '/terminal',
+          accion_label: 'Ver HUD',
+          accion_href:  '/hud',
           read:         false,
         }))
 

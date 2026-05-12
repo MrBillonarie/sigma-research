@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 const herramientas = [
-  { label: 'Terminal',    href: '/terminal'   },
+  { label: 'Portafolio',  href: '/portafolio' },
   { label: 'Modelos ML',  href: '/modelos'    },
   { label: 'Monte Carlo', href: '/montecarlo' },
   { label: 'LP DeFi',     href: '/lp-defi'    },
