@@ -349,7 +349,7 @@ export default function ReportesPage() {
         onClick={() => setPayModal(false)}>
         <div style={{ background: '#0b0d14', border: `1px solid ${C.gold}50`, padding: '36px 32px', maxWidth: 440, width: '100%' }}
           onClick={e => e.stopPropagation()}>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.28em', color: C.gold, marginBottom: 16 }}>// SUSCRIPCIONES</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.28em', color: C.gold, marginBottom: 16 }}>{'// SUSCRIPCIONES'}</div>
           <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 32, color: C.text, marginBottom: 12, lineHeight: 1 }}>
             PRÓXIMAMENTE
           </div>

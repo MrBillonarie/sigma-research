@@ -105,7 +105,7 @@ export default function HudPage() {
       }
     } catch { /* silencioso */ }
     finally  { setLoading(false) }
-  }, [])
+  }, [profile])
 
   useEffect(() => {
     fetchMotor()
