@@ -33,7 +33,7 @@ const MACRO_EVENTS = [
 
 const TOOL_LIST = [
   { id: 'hud',        href: '/hud',        label: 'HUD',         sub: 'Vista operativa live',      key: 'H', isLive: true  },
-  { id: 'terminal',   href: '/terminal',   label: 'TERMINAL',    sub: 'Posiciones y órdenes',       key: 'T', isLive: true  },
+  { id: 'terminal',   href: '/portafolio', label: 'PORTAFOLIO',  sub: 'Posiciones y plataformas',   key: 'T', isLive: true  },
   { id: 'journal',    href: '/journal',    label: 'JOURNAL',     sub: 'Registro de operaciones',    key: 'J', isLive: false },
   { id: 'montecarlo', href: '/montecarlo', label: 'MONTE CARLO', sub: 'Simulación de riesgo',       key: 'M', isLive: false },
   { id: 'fire',       href: '/fire',       label: 'FIRE',        sub: 'Libertad financiera',        key: 'F', isLive: false },
@@ -620,7 +620,7 @@ export default function DashboardHome() {
             <div style={{ background:C.surface, padding:'20px 20px', display:'flex', flexDirection:'column', gap:14 }}>
               <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText }}>PORTAFOLIO SNAPSHOT</div>
               {D.segments.length === 0 ? (
-                <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin datos — carga en Terminal</div>
+                <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin datos — <a href="/portafolio" style={{ color:C.gold, textDecoration:'none' }}>configura tu portafolio →</a></div>
               ) : (
                 <>
                   <div style={{ display:'flex', height:8, borderRadius:2, overflow:'hidden', background:C.border }}>
@@ -668,7 +668,7 @@ export default function DashboardHome() {
                 )}
               </div>
               {D.last5.length === 0 ? (
-                <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin trades — carga en Journal</div>
+                <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin trades — <a href="/journal" style={{ color:C.gold, textDecoration:'none' }}>registra tu primer trade →</a></div>
               ) : (
                 <table style={{ width:'100%', borderCollapse:'collapse' }}>
                   <thead>
@@ -750,7 +750,7 @@ const SHORTCUTS = [
   { key: '?',   desc: 'Abrir/cerrar este panel' },
   { key: '⌘K',  desc: 'Búsqueda rápida de herramientas' },
   { key: 'H',   desc: 'Ir al HUD — señales en vivo' },
-  { key: 'T',   desc: 'Ir al Terminal' },
+  { key: 'T',   desc: 'Ir al Portafolio' },
   { key: 'J',   desc: 'Ir al Journal de trades' },
   { key: 'M',   desc: 'Ir a Monte Carlo' },
   { key: 'F',   desc: 'Ir a la calculadora FIRE' },

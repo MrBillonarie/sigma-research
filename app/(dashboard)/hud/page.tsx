@@ -227,6 +227,7 @@ export default function HudPage() {
         </div>
 
         {/* ── Main grid: signals + detail ───────────────────────────────────── */}
+        <style>{`@media(max-width:767px){.hud-main-grid{grid-template-columns:1fr !important}}`}</style>
         <div className="hud-main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 1, background: C.border, minHeight: 500 }}>
 
           {/* Signal feed */}

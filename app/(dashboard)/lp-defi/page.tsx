@@ -454,11 +454,11 @@ export default function LpSignalPage() {
                 <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 700, color: C.gold, lineHeight: 1 }}>
                   {usd(capitalUSD)}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dimText, marginTop: 4 }}>base Kelly · desde Terminal</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dimText, marginTop: 4 }}>base Kelly · desde Portafolio</div>
               </>
             ) : (
-              <a href="/terminal" style={{ fontFamily: MONO, fontSize: 10, color: C.gold, textDecoration: 'none', letterSpacing: '0.06em', lineHeight: 1.5 }}>
-                Ve al Terminal para registrar tu patrimonio →
+              <a href="/portafolio" style={{ fontFamily: MONO, fontSize: 10, color: C.gold, textDecoration: 'none', letterSpacing: '0.06em', lineHeight: 1.5 }}>
+                Ve a Portafolio para registrar tu patrimonio →
               </a>
             )}
           </TopCell>
@@ -481,7 +481,7 @@ export default function LpSignalPage() {
             fontFamily: MONO, fontSize: 11, fontWeight: 700,
             width: '100%', boxSizing: 'border-box', letterSpacing: '0.05em',
           }}>
-            ⚠️ Ve al Terminal a registrar tu patrimonio para ver proyecciones reales en $
+            ⚠️ Configura tu patrimonio en Portafolio para ver proyecciones reales en $
           </div>
         )}
 

@@ -17,7 +17,7 @@ const metrics = [
   { value: '85.2%', label: 'Win Rate verificado' },
   { value: '4.16x', label: 'Profit Factor' },
   { value: '10.25', label: 'Sharpe Ratio' },
-  { value: '122',   label: 'Trades Feb–Abr 2026' },
+  { value: '122',   label: 'Trades backtesting OOS' },
 ]
 
 const plans = [
@@ -163,7 +163,7 @@ export default async function RootPage() {
             ))}
           </div>
           <p className="terminal-text text-[10px] text-muted text-right mt-3">
-            * Resultados pasados no garantizan rendimientos futuros. Período: 1 Feb – 30 Abr 2026.
+            * Resultados pasados no garantizan rendimientos futuros. Datos de backtesting out-of-sample.
           </p>
         </div>
       </section>

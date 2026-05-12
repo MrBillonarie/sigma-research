@@ -98,8 +98,8 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/comparador/etfs',           label: 'ETFs',           href: '/comparador/etfs',          category: 'Comparador',  icon: TrendingUp      },
   // Tickers
   ...TICKER_LIST.map(t => ({
-    id: `ticker-${t}`, label: `Ver ${t} en Terminal`, href: `/terminal?symbol=${t}`,
-    category: 'Terminal', keywords: [t.toLowerCase(), t],
+    id: `ticker-${t}`, label: `Ver ${t} en HUD`, href: `/hud`,
+    category: 'HUD', keywords: [t.toLowerCase(), t],
   })),
   // Config
   { id: 'cfg-api',  label: 'API Key Binance',    href: '/perfil#binance-keys',  category: 'Configuración', icon: Settings, keywords: ['api','key','binance','secret','api key'] },
@@ -107,10 +107,10 @@ const ALL_ITEMS: SearchItem[] = [
   { id: 'cfg-name', label: 'Editar nombre',       href: '/perfil#editar-nombre', category: 'Configuración', icon: Settings, keywords: ['nombre','editar','username','perfil'] },
   { id: 'cfg-plan', label: 'Plan / Reportes',     href: '/mis-reportes',         category: 'Configuración', icon: Settings, keywords: ['plan','reportes','upgrade','suscripcion'] },
   // Alert
-  { id: 'alert-new', label: '+ Nueva alerta', href: '/terminal', category: 'Alerta', icon: Bell, keywords: ['alerta','crear alerta','nueva alerta','nueva','alert'] },
+  { id: 'alert-new', label: '+ Nueva alerta', href: '/hud', category: 'Alerta', icon: Bell, keywords: ['alerta','crear alerta','nueva alerta','nueva','alert'] },
 ]
 
-const QUICK_IDS = ['/terminal', '/hud', '/mis-reportes', 'alert-new']
+const QUICK_IDS = ['/hud', '/portafolio', '/mis-reportes', 'alert-new']
 const QUICK_ACCESS = ALL_ITEMS.filter(i => QUICK_IDS.includes(i.id))
 
 function searchItems(query: string): SearchItem[] {
