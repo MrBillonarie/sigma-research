@@ -346,7 +346,6 @@ export default function Sidebar() {
   const [userPlan,     setUserPlan]     = useState<'free' | 'pro'>('free')
   const [initials,     setInitials]     = useState('?')
   const [installReady, setInstallReady] = useState(false)
-  const [isMobile,     setIsMobile]     = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const installPromptRef = useRef<any>(null)
 
@@ -365,7 +364,6 @@ export default function Sidebar() {
     if (typeof window === 'undefined') return
     if (window.matchMedia('(display-mode: standalone)').matches) return
     const mobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent)
-    setIsMobile(mobile)
     if (mobile) setInstallReady(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handler = (e: any) => { e.preventDefault(); installPromptRef.current = e }
