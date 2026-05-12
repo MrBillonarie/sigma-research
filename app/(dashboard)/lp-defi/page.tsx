@@ -485,6 +485,22 @@ export default function LpSignalPage() {
           </div>
         )}
 
+        {/* ── Banner datos de referencia ── */}
+        {!loading && engine.pools.length > 0 && engine.pools.every(p => p.apiFailed) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            background: 'rgba(212,175,55,0.06)', border: `1px solid ${C.gold}50`,
+            padding: '12px 18px', marginBottom: 16,
+          }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: 'rgba(212,175,55,0.15)', padding: '3px 8px', flexShrink: 0 }}>
+              DATOS DE REFERENCIA
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.dimText, lineHeight: 1.5 }}>
+              No se pudo conectar a la API de PancakeSwap. Los APRs y TVL mostrados son estimaciones de referencia, no tasas en tiempo real.
+            </span>
+          </div>
+        )}
+
         {/* ── POOL CARDS + ANALYTICS ── */}
         {loading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>

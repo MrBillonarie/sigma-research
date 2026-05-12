@@ -18,7 +18,6 @@ const PUBLIC = new Set([
 
 const PROTECTED = [
   '/home',
-  '/terminal',
   '/hud',
   '/journal',
   '/calendario',
@@ -36,6 +35,7 @@ const PROTECTED = [
   '/motor-decision',
   '/notificaciones',
   '/comparador',
+  '/onboarding',
 ]
 
 export async function middleware(request: NextRequest) {
@@ -78,7 +78,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/home/:path*',
-    '/terminal/:path*',
     '/hud/:path*',
     '/journal/:path*',
     '/calendario/:path*',
@@ -96,5 +95,7 @@ export const config = {
     '/motor-decision/:path*',
     '/notificaciones/:path*',
     '/comparador/:path*',
+    '/onboarding/:path*',
+    '/onboarding',
   ],
 }

@@ -9,6 +9,7 @@ const DASHBOARD_ROUTES = [
   '/lp-defi', '/lp-signal', '/perfil', '/diagnosticador',
   '/ingresos-pasivos', '/portafolio', '/tax', '/notificaciones',
   '/comparador', '/motor-decision', '/reportes',
+  '/onboarding', '/auth',
 ]
 
 export default function ConditionalShell({ children }: { children: React.ReactNode }) {

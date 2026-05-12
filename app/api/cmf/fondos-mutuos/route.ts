@@ -163,6 +163,23 @@ export async function GET(req: NextRequest) {
   }))
 
   const total = count ?? 0
+
+  // ── Seed fallback cuando DB está vacía ──────────────────────────────────────
+  if (total === 0 && !search && !agf && !tipo) {
+    const seedFondos = SEED_FONDOS
+    const seedTop = ['renta fija', 'conservador', 'moderado', 'agresivo'].map(cat => {
+      const best = seedFondos.filter(f => f.tipo === cat).sort((a, b) => (b.r1a ?? 0) - (a.r1a ?? 0))[0]
+      return { categoria: cat, nombre: best?.nombre ?? null, adm: best?.adm ?? null, r12m: best?.r1a ?? null }
+    })
+    const seedAgfs = Array.from(new Set(seedFondos.map(f => f.adm)))
+    return NextResponse.json({
+      ok: true, data: seedFondos, total: seedFondos.length, page: 1,
+      pages: 1, liveCount: seedFondos.length,
+      agfs: seedAgfs, ultima_actualizacion: null,
+      topPorCategoria: seedTop, isSeed: true,
+    })
+  }
+
   return NextResponse.json({
     ok: true, data: fondos, total, page,
     pages: Math.ceil(total / PER_PAGE),
@@ -172,3 +189,22 @@ export async function GET(req: NextRequest) {
     topPorCategoria,
   })
 }
+
+// ── Seed data — Fondos Mutuos chilenos representativos ────────────────────
+const SEED_FONDOS = [
+  { nombre: 'Fintual Prudente Pizarro',    adm: 'Fintual',          tipo: 'renta fija',  riesgo: 1, r1m: 0.4,  r3m: 1.2,  r1a: 5.8,  r3a: 4.2,  tac: 0.49, minCLP: 1000, source: 'seed' as const },
+  { nombre: 'Fintual Risky Norris',         adm: 'Fintual',          tipo: 'agresivo',    riesgo: 5, r1m: 3.1,  r3m: 8.4,  r1a: 28.6, r3a: 12.1, tac: 1.19, minCLP: 1000, source: 'seed' as const },
+  { nombre: 'Fintual Moderate Clooney',     adm: 'Fintual',          tipo: 'moderado',    riesgo: 3, r1m: 1.8,  r3m: 4.9,  r1a: 16.2, r3a: 8.4,  tac: 0.79, minCLP: 1000, source: 'seed' as const },
+  { nombre: 'Fintual Conservador Prat',     adm: 'Fintual',          tipo: 'conservador', riesgo: 2, r1m: 0.6,  r3m: 1.8,  r1a: 7.4,  r3a: 5.1,  tac: 0.59, minCLP: 1000, source: 'seed' as const },
+  { nombre: 'BTG Pactual Renta Fija CLP',  adm: 'BTG Pactual',      tipo: 'renta fija',  riesgo: 1, r1m: 0.38, r3m: 1.15, r1a: 5.2,  r3a: 3.9,  tac: 0.60, minCLP: 500000, source: 'seed' as const },
+  { nombre: 'BTG Pactual Acciones Chile',  adm: 'BTG Pactual',      tipo: 'agresivo',    riesgo: 5, r1m: 1.2,  r3m: 3.8,  r1a: 11.4, r3a: 4.8,  tac: 1.50, minCLP: 500000, source: 'seed' as const },
+  { nombre: 'Banchile Fondos Acciones',    adm: 'Banchile',         tipo: 'agresivo',    riesgo: 5, r1m: 1.5,  r3m: 4.2,  r1a: 13.8, r3a: 5.6,  tac: 1.79, minCLP: 100000, source: 'seed' as const },
+  { nombre: 'Banchile Renta Nominal',      adm: 'Banchile',         tipo: 'renta fija',  riesgo: 1, r1m: 0.42, r3m: 1.25, r1a: 5.6,  r3a: 4.1,  tac: 0.55, minCLP: 100000, source: 'seed' as const },
+  { nombre: 'Santander Acciones Chile',    adm: 'Santander AM',     tipo: 'agresivo',    riesgo: 5, r1m: 1.3,  r3m: 3.9,  r1a: 12.5, r3a: 5.1,  tac: 1.65, minCLP: 100000, source: 'seed' as const },
+  { nombre: 'Santander Equilibrio',        adm: 'Santander AM',     tipo: 'moderado',    riesgo: 3, r1m: 1.0,  r3m: 3.1,  r1a: 10.8, r3a: 6.2,  tac: 1.10, minCLP: 100000, source: 'seed' as const },
+  { nombre: 'LarrainVial Acciones USA',    adm: 'LarrainVial',      tipo: 'agresivo',    riesgo: 5, r1m: 3.8,  r3m: 9.1,  r1a: 32.4, r3a: 14.2, tac: 1.20, minCLP: 500000, source: 'seed' as const },
+  { nombre: 'LarrainVial Renta Fija',      adm: 'LarrainVial',      tipo: 'renta fija',  riesgo: 1, r1m: 0.45, r3m: 1.35, r1a: 6.1,  r3a: 4.5,  tac: 0.65, minCLP: 500000, source: 'seed' as const },
+  { nombre: 'Principal Moderado',          adm: 'Principal',        tipo: 'moderado',    riesgo: 3, r1m: 1.1,  r3m: 3.3,  r1a: 11.9, r3a: 6.8,  tac: 1.05, minCLP: 100000, source: 'seed' as const },
+  { nombre: 'Itaú Acciones Globales',      adm: 'Itaú Asset Mgmt',  tipo: 'agresivo',    riesgo: 5, r1m: 2.9,  r3m: 7.8,  r1a: 26.4, r3a: 11.8, tac: 1.35, minCLP: 500000, source: 'seed' as const },
+  { nombre: 'Scotiabank Mix Moderado',     adm: 'Scotiabank',       tipo: 'moderado',    riesgo: 3, r1m: 0.9,  r3m: 2.8,  r1a: 9.6,  r3a: 5.4,  tac: 1.15, minCLP: 100000, source: 'seed' as const },
+]
