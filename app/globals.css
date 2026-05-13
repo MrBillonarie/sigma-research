@@ -194,6 +194,18 @@ body {
   }
 }
 
+/* ── Landing page responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Capabilities 3-col → 1-col */
+  .landing-cap-grid  { grid-template-columns: 1fr !important; }
+  /* Models 2-col → 1-col */
+  .landing-mod-grid  { grid-template-columns: 1fr !important; gap: 40px !important; }
+  /* Stats 4-col → 2-col */
+  .landing-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  /* Plans 3-col → 1-col */
+  .landing-plans-grid { grid-template-columns: 1fr !important; }
+}
+
 /* ── Zona ciega tablet 768–900px ──────────────────────────────────────────── */
 @media (min-width: 769px) and (max-width: 900px) {
   .sp-kpi-grid      { grid-template-columns: repeat(3, 1fr) !important; }

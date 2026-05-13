@@ -150,17 +150,45 @@ export default function DashboardHome() {
     setLoading(false)
   }, [])
 
-  // Auth user
+  // Auth + Supabase fallback sync
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', data.user.id)
-        .maybeSingle()
+      const uid = data.user.id
+
+      // Nombre
+      const { data: prof } = await supabase.from('profiles').select('username').eq('id', uid).maybeSingle()
       const name = prof?.username || data.user.user_metadata?.nombre || 'TRADER'
       setUsername(name.toUpperCase())
+
+      // Trades: si localStorage vacío, leer desde Supabase
+      try {
+        const cached = localStorage.getItem('sigma_trades')
+        if (!cached || JSON.parse(cached).length === 0) {
+          const { data: rows } = await supabase
+            .from('trades').select('fecha,pnl_usd,resultado,par,lado').eq('user_id', uid).order('fecha', { ascending: false }).limit(100)
+          if (rows?.length) {
+            setTrades(rows as Trade[])
+            try { localStorage.setItem('sigma_trades', JSON.stringify(rows)) } catch {}
+          }
+        }
+      } catch {}
+
+      // Portfolio: si localStorage vacío, leer desde Supabase
+      try {
+        const cached = localStorage.getItem('sigma_portfolio')
+        if (!cached) {
+          const { data: port } = await supabase.from('portfolio').select('*').eq('user_id', uid).maybeSingle()
+          if (port) {
+            const vals: PortfolioRow = {}
+            ;['ibkr','binance_spot','binance_futures','fintual','santander','cash'].forEach((k: string) => {
+              vals[k as keyof PortfolioRow] = (port as Record<string, number>)[k] ?? 0
+            })
+            setPortfolio(vals)
+            try { localStorage.setItem('sigma_portfolio', JSON.stringify(vals)) } catch {}
+          }
+        }
+      } catch {}
     })
   }, [])
 
