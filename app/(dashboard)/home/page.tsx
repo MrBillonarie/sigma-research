@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { C } from '@/app/lib/constants'
 import { supabase } from '@/app/lib/supabase'
+import { useCalendarEvents } from '@/app/hooks/useCalendarEvents'
 
 // ─── Platform config ──────────────────────────────────────────────────────────
 const PLATFORMS = [
@@ -15,21 +16,6 @@ const PLATFORMS = [
   { id: 'cash',            name: 'Cash',            color: '#6b7280', isCLP: false },
 ]
 
-const MACRO_EVENTS = [
-  { date: '2026-05-13', time: '08:30 UTC', title: 'CPI (YoY) — Mayo' },
-  { date: '2026-05-29', time: '08:30 UTC', title: 'GDP Q1 2026 (Revisado)' },
-  { date: '2026-06-05', time: '08:30 UTC', title: 'NFP — Junio' },
-  { date: '2026-06-11', time: '08:30 UTC', title: 'CPI (YoY) — Junio' },
-  { date: '2026-06-17', time: '18:00 UTC', title: 'FOMC Decision — Junio' },
-  { date: '2026-06-26', time: '08:30 UTC', title: 'PCE Price Index — Junio' },
-  { date: '2026-07-02', time: '08:30 UTC', title: 'NFP — Julio' },
-  { date: '2026-07-14', time: '08:30 UTC', title: 'CPI (YoY) — Julio' },
-  { date: '2026-07-29', time: '18:00 UTC', title: 'FOMC Meeting (Día 1)' },
-  { date: '2026-07-30', time: '18:00 UTC', title: 'FOMC Decision + Press Conference' },
-  { date: '2026-07-31', time: '08:30 UTC', title: 'PCE Price Index — Julio' },
-  { date: '2026-08-07', time: '08:30 UTC', title: 'NFP — Agosto' },
-  { date: '2026-08-12', time: '08:30 UTC', title: 'CPI (YoY) — Agosto' },
-]
 
 const TOOL_LIST = [
   { id: 'hud',        href: '/hud',        label: 'HUD',         sub: 'Vista operativa live',      key: 'H', isLive: true  },
@@ -119,6 +105,7 @@ function Sk({ w, h }: { w: number | string; h: number }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DashboardHome() {
   const router = useRouter()
+  const { events: calendarEvents } = useCalendarEvents()
 
   const [portfolio,       setPortfolio]       = useState<PortfolioRow>({})
   const [positions,       setPositions]       = useState<PassivePos[]>([])
@@ -255,7 +242,11 @@ export default function DashboardHome() {
     }
 
     const todayDate = now.toISOString().split('T')[0]
-    const upcoming    = MACRO_EVENTS.filter(e => e.date >= todayDate)
+    // Normalizar eventos del hook al shape { date, time, title, impact }
+    const mappedEvents = calendarEvents
+      .filter(e => e.impact === 'HIGH')          // solo HIGH impact en home
+      .map(e => ({ date: e.event_date, time: e.event_time + ' ET', title: e.title, impact: e.impact }))
+    const upcoming    = mappedEvents.filter(e => e.date >= todayDate)
     const nextRaw     = upcoming[0] ?? null
     const nextEvent   = nextRaw ? {
       ...nextRaw,
@@ -282,7 +273,7 @@ export default function DashboardHome() {
       firePct, FIRE_TARGET, fireYears, nextEvent, upcoming: upcoming.slice(0, 5),
       monthTradesCount: monthTrades.length, totalTrades: trades.length,
     }
-  }, [portfolio, positions, trades, fireTarget, now, storedTotal, trm])
+  }, [portfolio, positions, trades, fireTarget, now, storedTotal, trm, calendarEvents])
 
   // Spotlight results
   const spotResults = useMemo(() => {

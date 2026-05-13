@@ -503,7 +503,7 @@ export default function PortfolioPage() {
             <div style={{ background: C.surface, marginBottom: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>EVOLUCIÓN DE CAPITAL · 24 MESES</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>base: USD equiv.</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>base: USD equiv. · curva estimada hasta sync</span>
               </div>
               <TerminalChart labels={MONTHS.slice(0, 24)} total={totalHistory} platforms={platformHistories} />
             </div>

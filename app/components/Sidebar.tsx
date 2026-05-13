@@ -341,13 +341,21 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname  = usePathname()
-  const [collapsed,    setCollapsed]    = useState(false)
+  const [collapsed,    setCollapsed]    = useState(true) // empieza colapsado; se expande en desktop
   const [userName,     setUserName]     = useState('')
   const [userPlan,     setUserPlan]     = useState<'free' | 'pro'>('free')
   const [initials,     setInitials]     = useState('?')
   const [installReady, setInstallReady] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const installPromptRef = useRef<any>(null)
+
+  // Expandir automáticamente en desktop, colapsar en mobile
+  useEffect(() => {
+    const update = () => setCollapsed(window.innerWidth < 900)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
