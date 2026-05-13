@@ -339,7 +339,7 @@ export default function DashboardHome() {
 
       {/* ── Page ── */}
       <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"var(--font-dm-mono,'DM Mono',monospace)" }}>
-        <div style={{ maxWidth:1280, margin:'0 auto', padding:'72px 24px 56px' }}>
+        <div className="dash-content" style={{ maxWidth:1280, margin:'0 auto', padding:'72px 24px 56px' }}>
 
           {/* ══ HEADER ══ */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:32 }}>
@@ -605,7 +605,7 @@ export default function DashboardHome() {
           </div>
 
           {/* ══ TRES COLUMNAS — DATA ══ */}
-          <div style={{ display:'grid', gridTemplateColumns:'35% 35% 30%', gap:1, background:C.border, marginBottom:32, alignItems:'start' }}>
+          <div className="sp-bottom-grid" style={{ display:'grid', gridTemplateColumns:'35% 35% 30%', gap:1, background:C.border, marginBottom:32, alignItems:'start' }}>
 
             {/* Portfolio snapshot */}
             <div style={{ background:C.surface, padding:'20px 20px', display:'flex', flexDirection:'column', gap:14 }}>

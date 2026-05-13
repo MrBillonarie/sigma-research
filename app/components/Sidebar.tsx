@@ -341,7 +341,8 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname  = usePathname()
-  const [collapsed,    setCollapsed]    = useState(true) // empieza colapsado; se expande en desktop
+  const [collapsed,    setCollapsed]    = useState(true)
+  const [isMobile,     setIsMobile]     = useState(false)
   const [userName,     setUserName]     = useState('')
   const [userPlan,     setUserPlan]     = useState<'free' | 'pro'>('free')
   const [initials,     setInitials]     = useState('?')
@@ -349,13 +350,30 @@ export default function Sidebar() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const installPromptRef = useRef<any>(null)
 
-  // Expandir automáticamente en desktop, colapsar en mobile
+  // Responsive: desktop expande, mobile oculta
   useEffect(() => {
-    const update = () => setCollapsed(window.innerWidth < 900)
+    const update = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      setCollapsed(window.innerWidth < 900)
+    }
     update()
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
   }, [])
+
+  // Escuchar toggle desde fuera (hamburger button en header mobile)
+  useEffect(() => {
+    const handler = () => setCollapsed(c => !c)
+    window.addEventListener('sigma-toggle-sidebar', handler)
+    // Cerrar al cambiar de ruta en mobile
+    return () => window.removeEventListener('sigma-toggle-sidebar', handler)
+  }, [])
+
+  // Cerrar sidebar al navegar en mobile
+  useEffect(() => {
+    if (isMobile) setCollapsed(true)
+  }, [pathname, isMobile])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -413,18 +431,32 @@ export default function Sidebar() {
   }
 
   return (
+    <>
+      {/* Backdrop en mobile cuando está abierto */}
+      {isMobile && !collapsed && (
+        <div
+          onClick={() => setCollapsed(true)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 49,
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(2px)',
+          }}
+        />
+      )}
     <aside
       style={{
-        position: 'sticky',
+        position: isMobile ? 'fixed' : 'sticky',
         top: 0,
+        left: 0,
+        zIndex: isMobile ? 50 : 'auto',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
         height: '100vh',
-        width: collapsed ? 64 : 220,
+        width: isMobile ? (collapsed ? 0 : 260) : (collapsed ? 64 : 220),
         background: '#0b0d14',
-        borderRight: `1px solid ${BORDER}`,
-        transition: 'width 0.3s',
+        borderRight: isMobile && collapsed ? 'none' : `1px solid ${BORDER}`,
+        transition: 'width 0.3s ease',
         overflow: 'hidden',
       }}
     >
@@ -597,19 +629,41 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setCollapsed(c => !c)}
-        style={{
-          position: 'absolute', right: -12, top: 24,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 24, height: 24, borderRadius: '50%',
-          background: '#1a1d2e', border: '1px solid #2a2d3e',
-          color: MUTED, cursor: 'pointer', zIndex: 10,
-        }}
-      >
-        {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-      </button>
+      {/* Collapse toggle — solo en desktop */}
+      {!isMobile && (
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          style={{
+            position: 'absolute', right: -12, top: 24,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 24, height: 24, borderRadius: '50%',
+            background: '#1a1d2e', border: '1px solid #2a2d3e',
+            color: MUTED, cursor: 'pointer', zIndex: 10,
+          }}
+        >
+          {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        </button>
+      )}
     </aside>
+
+    {/* Hamburger flotante en mobile (solo cuando sidebar está cerrado) */}
+    {isMobile && collapsed && (
+      <button
+        onClick={() => setCollapsed(false)}
+        style={{
+          position: 'fixed', top: 12, left: 12, zIndex: 48,
+          width: 40, height: 40, borderRadius: 8,
+          background: '#0b0d14', border: `1px solid ${BORDER}`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 5, cursor: 'pointer',
+        }}
+        aria-label="Abrir menú"
+      >
+        <span style={{ width: 18, height: 1.5, background: GOLD, borderRadius: 1 }} />
+        <span style={{ width: 18, height: 1.5, background: GOLD, borderRadius: 1 }} />
+        <span style={{ width: 12, height: 1.5, background: GOLD, borderRadius: 1 }} />
+      </button>
+    )}
+    </>
   )
 }

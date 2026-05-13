@@ -146,6 +146,11 @@ body {
     grid-template-columns: 1fr !important;
   }
 
+  /* Home — bottom 3-col grid (portafolio+trades+eventos) → 1 col */
+  .sp-bottom-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   /* Journal — form grid */
   .journal-form-grid {
     grid-template-columns: 1fr !important;
@@ -162,9 +167,27 @@ body {
     grid-template-columns: 1fr !important;
   }
 
+  /* Portafolio — 4 KPIs → 2 columnas */
+  .port-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
   /* Portafolio — ocultar columnas secundarias en mobile */
   .mobile-hide { display: none !important; }
 
   /* Padding reducido en mobile */
   .mobile-px { padding-left: 12px !important; padding-right: 12px !important; }
+
+  /* Padding-top reducido en todas las páginas del dashboard */
+  /* Las páginas usan padding: '88px 24px' diseñado para top-navbar que ya no existe */
+  .dash-content {
+    padding-top: 56px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Hamburger space: evitar que contenido quede bajo el botón hamburger */
+  .dash-content-inner {
+    padding-top: 56px !important;
+  }
 }
