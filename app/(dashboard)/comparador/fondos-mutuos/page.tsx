@@ -211,7 +211,7 @@ export default function FondosMutuosPage() {
 
       {/* ── TOP POR CATEGORÍA ──────────────────────────────────────────────────── */}
       {topCat.length > 0 && filtro !== 'etf' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
+        <div className="comp-top-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
           {topCat.map(t => {
             const color = CAT_COLOR[t.categoria] ?? C.gold
             const icon  = CAT_ICON[t.categoria]  ?? '📊'

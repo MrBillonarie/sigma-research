@@ -100,6 +100,18 @@ export default function FirePage() {
   const [edad,    setEdad]    = useState(29)
   const [gasto,   setGasto]   = useState(MODES[1].defaultGasto)
 
+  // Restaurar gasto guardado desde localStorage al montar
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sigma_fire_gasto')
+      if (saved && Number(saved) > 0) setGasto(Number(saved))
+      const savedAhorro = localStorage.getItem('sigma_fire_ahorro')
+      if (savedAhorro && Number(savedAhorro) > 0) setAhorro(Number(savedAhorro))
+      const savedEdad = localStorage.getItem('sigma_fire_edad')
+      if (savedEdad && Number(savedEdad) > 0) setEdad(Number(savedEdad))
+    } catch {}
+  }, [])
+
   const m = MODES[mode]
 
   const { data, target, fireYear } = useMemo(
@@ -107,9 +119,15 @@ export default function FirePage() {
     [capital, ahorro, retorno, gasto]
   )
 
+  // Persistir parámetros FIRE
   useEffect(() => {
-    try { localStorage.setItem('sigma_fire_target', String(target)) } catch {}
-  }, [target])
+    try {
+      localStorage.setItem('sigma_fire_target', String(target))
+      localStorage.setItem('sigma_fire_gasto', String(gasto))
+      localStorage.setItem('sigma_fire_ahorro', String(ahorro))
+      localStorage.setItem('sigma_fire_edad', String(edad))
+    } catch {}
+  }, [target, gasto, ahorro, edad])
 
   const years = data.length - 1
   const labels = Array.from({ length: years + 1 }, (_, i) => String(i))

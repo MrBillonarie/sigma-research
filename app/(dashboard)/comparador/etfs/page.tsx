@@ -227,7 +227,7 @@ export default function EtfsPage() {
 
       {/* ── TOP CARDS ──────────────────────────────────────────────────────────── */}
       {topCards.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
+        <div className="comp-top-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
           {topCards.map(t => {
             const color = EXP_COLOR[t.exposicion ?? ''] ?? C.gold
             const icon = t.grupo === 'USA' ? '🇺🇸' : t.grupo === 'Global' ? '🌍' : t.grupo === 'Emergentes' ? '🌏' : '📊'

@@ -159,7 +159,7 @@ export default function RentaFijaPage() {
 
       {/* Top por plazo */}
       {bancos.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
+        <div className="comp-top-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
           {topBancos.map(t => (
             <div key={t.label} style={{
               background: C.surface, border: `1px solid ${C.border}`,

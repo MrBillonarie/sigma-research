@@ -89,7 +89,7 @@ export default function MotorDecisionPage() {
   const BEBAS = "'Bebas Neue', Impact, sans-serif"
 
   return (
-    <div style={{
+    <div className="dash-content" style={{
       minHeight: '100vh', background: '#04050a',
       padding: '88px 24px 64px', maxWidth: 1280, margin: '0 auto',
     }}>

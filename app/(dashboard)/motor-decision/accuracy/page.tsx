@@ -101,7 +101,7 @@ export default function AccuracyPage() {
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#04050a', padding: '88px 24px 64px', maxWidth: 1200, margin: '0 auto' }}>
+    <div className="dash-content" style={{ minHeight: '100vh', background: '#04050a', padding: '88px 24px 64px', maxWidth: 1200, margin: '0 auto' }}>
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>

@@ -11,6 +11,8 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
 html {
@@ -190,4 +192,30 @@ body {
   .dash-content-inner {
     padding-top: 56px !important;
   }
+}
+
+/* ── Zona ciega tablet 768–900px ──────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 900px) {
+  .sp-kpi-grid      { grid-template-columns: repeat(3, 1fr) !important; }
+  .sp-bottom-grid   { grid-template-columns: 1fr 1fr !important; }
+  .dash-content     { padding-top: 32px !important; padding-left: 18px !important; padding-right: 18px !important; }
+}
+
+/* ── Grids extra responsive ───────────────────────────────────────────────── */
+@media (max-width: 640px) {
+
+  /* Comparadores — top cards 4 cols → 2 cols */
+  .comp-top-cards  { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Motor / Montecarlo — 4 stat cards → 2 cols */
+  .stats-4-grid    { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* FIRE — 3 modos → 1 col */
+  .fire-modes-grid { grid-template-columns: 1fr !important; }
+
+  /* LP DeFi — 3 pools → 1 col */
+  .lp-pools-grid   { grid-template-columns: 1fr !important; }
+
+  /* Textos grandes — clamp más agresivo en mobile pequeño */
+  h1 { font-size: clamp(36px, 10vw, 64px) !important; }
 }

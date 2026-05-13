@@ -503,13 +503,13 @@ export default function LpSignalPage() {
 
         {/* ── POOL CARDS + ANALYTICS ── */}
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+          <div className="lp-pools-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
             {[0, 1, 2].map(i => (
               <div key={i} className="animate-pulse" style={{ background: C.surface, border: `1px solid ${C.border}`, height: 400 }} />
             ))}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+          <div className="lp-pools-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
             {engine.pools.map((p, i) => (
               <div key={p.name} style={{ display: 'flex', flexDirection: 'column' }}>
                 <PoolCard pool={p} />
