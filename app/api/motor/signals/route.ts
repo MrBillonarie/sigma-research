@@ -1,6 +1,20 @@
 export const revalidate = 300
 
 import { NextRequest, NextResponse } from 'next/server'
+
+// ─── Rate limiting simple: max 10 req/IP/minuto ───────────────────────────────
+const _rlMap = new Map<string, { count: number; reset: number }>()
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = _rlMap.get(ip)
+  if (!entry || now > entry.reset) {
+    _rlMap.set(ip, { count: 1, reset: now + 60_000 })
+    return true
+  }
+  if (entry.count >= 10) return false
+  entry.count++
+  return true
+}
 import { createClient }              from '@supabase/supabase-js'
 import {
   processAsset, applyCrossSection, applyCorrelationPenalty,
@@ -222,6 +236,11 @@ async function saveSignalHistory(
 }
 
 export async function GET(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta en un minuto.' }, { status: 429 })
+  }
+
   const { searchParams } = new URL(req.url)
   const profileType = (searchParams.get('profile') ?? 'retail') as ProfileType
   const profile     = PROFILES[profileType] ?? PROFILES.retail

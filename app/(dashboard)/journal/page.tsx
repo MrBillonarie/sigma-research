@@ -417,20 +417,26 @@ export default function JournalPage() {
 
   // Load manual trades and sync to localStorage for dashboard
   useEffect(() => {
-    supabase.from('trades').select('*').order('fecha', { ascending: false })
-      .then(({ data }) => {
-        if (data) {
-          setTrades(data as Trade[])
-          try { localStorage.setItem('sigma_trades', JSON.stringify(data)) } catch {}
-        }
-        setLoading(false)
-      })
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { setLoading(false); return }
+      supabase.from('trades').select('*').eq('user_id', user.id).order('fecha', { ascending: false })
+        .then(({ data }) => {
+          if (data) {
+            setTrades(data as Trade[])
+            try { localStorage.setItem('sigma_trades', JSON.stringify(data)) } catch {}
+          }
+          setLoading(false)
+        })
+    })
   }, [])
 
   // Load csv_trades
   useEffect(() => {
-    supabase.from('csv_trades').select('*').order('timestamp', { ascending: true })
-      .then(({ data }) => { if (data) setCsvTrades(data as CsvTrade[]) })
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('csv_trades').select('*').eq('user_id', user.id).order('timestamp', { ascending: true })
+        .then(({ data }) => { if (data) setCsvTrades(data as CsvTrade[]) })
+    })
   }, [])
 
   // ── CSV handlers ────────────────────────────────────────────────────────────
@@ -486,7 +492,7 @@ export default function JournalPage() {
         imported_at: new Date().toISOString(),
       })
 
-      const { data: fresh } = await supabase.from('csv_trades').select('*').order('timestamp', { ascending: true })
+      const { data: fresh } = await supabase.from('csv_trades').select('*').eq('user_id', user.id).order('timestamp', { ascending: true })
       if (fresh) setCsvTrades(fresh as CsvTrade[])
 
       setCsvImportMsg(`✓ ${newTrades.length} trades importados correctamente.`)

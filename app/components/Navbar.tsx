@@ -82,6 +82,8 @@ export default function Navbar() {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
+    const SIGMA_KEYS = ['sigma_portfolio','sigma_positions','sigma_trades','sigma_fire_target','sigma_montecarlo','sigma_activity','sigma_portfolio_total','sigma_setups','sigma_alerts','sigma_lp_capital','sigma_fire_gasto','sigma_fire_ahorro','sigma_fire_edad']
+    SIGMA_KEYS.forEach(k => { try { localStorage.removeItem(k) } catch {} })
     router.push('/')
   }
 

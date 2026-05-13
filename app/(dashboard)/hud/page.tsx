@@ -71,6 +71,7 @@ const REFRESH_MS = 30 * 60 * 1000 // 30 min
 export default function HudPage() {
   const [motor,      setMotor]      = useState<MotorData | null>(null)
   const [loading,    setLoading]    = useState(true)
+  const [motorError, setMotorError] = useState<string | null>(null)
   const [lastFetch,  setLastFetch]  = useState<string | null>(null)
   const [profile,    setProfile]    = useState<'retail' | 'trader' | 'institucional'>('trader')
   const [prices,     setPrices]     = useState<Price[]>([])
@@ -89,8 +90,10 @@ export default function HudPage() {
 
   // ── Fetch Motor signals ──────────────────────────────────────────────────
   const fetchMotor = useCallback(async () => {
+    setMotorError(null)
     try {
       const res  = await fetch(`/api/motor/signals?profile=${profile}`)
+      if (!res.ok) throw new Error(`Error ${res.status}`)
       const json = await res.json()
       if (json.ok) {
         setMotor({
@@ -102,8 +105,12 @@ export default function HudPage() {
           generatedAt: json.generatedAt,
         })
         setLastFetch(new Date().toISOString())
+      } else {
+        setMotorError(json.error ?? 'Error al cargar señales del Motor')
       }
-    } catch { /* silencioso */ }
+    } catch (e) {
+      setMotorError(e instanceof Error ? e.message : 'Sin conexión al Motor de Decisión')
+    }
     finally  { setLoading(false) }
   }, [profile])
 
@@ -308,6 +315,15 @@ export default function HudPage() {
                 <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{visible.length} activos</span>
               </div>
             </div>
+
+            {/* Error del motor */}
+            {motorError && (
+              <div style={{ padding: '14px 20px', background: 'rgba(248,113,113,0.08)', borderBottom: `1px solid rgba(248,113,113,0.25)`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', color: C.red, background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.3)', padding: '2px 8px', flexShrink: 0 }}>ERROR</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.red }}>{motorError}</span>
+                <button onClick={fetchMotor} style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 10, color: C.gold, background: 'none', border: `1px solid ${C.gold}44`, cursor: 'pointer', padding: '4px 12px', flexShrink: 0 }}>REINTENTAR</button>
+              </div>
+            )}
 
             {/* Tabla */}
             <div style={{ overflowX: 'auto' }}>

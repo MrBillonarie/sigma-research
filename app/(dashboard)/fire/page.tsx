@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { fmt, fmtK } from '@/app/lib/format'
 import FireChallenges from './FireChallenges'
 import { usePortfolio } from '@/app/lib/usePortfolio'
+import { supabase } from '@/app/lib/supabase'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
@@ -100,16 +101,19 @@ export default function FirePage() {
   const [edad,    setEdad]    = useState(29)
   const [gasto,   setGasto]   = useState(MODES[1].defaultGasto)
 
-  // Restaurar gasto guardado desde localStorage al montar
+  // Restaurar parámetros FIRE vinculados al user_id (evita mezcla entre cuentas)
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sigma_fire_gasto')
-      if (saved && Number(saved) > 0) setGasto(Number(saved))
-      const savedAhorro = localStorage.getItem('sigma_fire_ahorro')
-      if (savedAhorro && Number(savedAhorro) > 0) setAhorro(Number(savedAhorro))
-      const savedEdad = localStorage.getItem('sigma_fire_edad')
-      if (savedEdad && Number(savedEdad) > 0) setEdad(Number(savedEdad))
-    } catch {}
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? 'anon'
+      try {
+        const g = localStorage.getItem(`sigma_fire_gasto_${uid}`)
+        if (g && Number(g) > 0) setGasto(Number(g))
+        const a = localStorage.getItem(`sigma_fire_ahorro_${uid}`)
+        if (a && Number(a) > 0) setAhorro(Number(a))
+        const e = localStorage.getItem(`sigma_fire_edad_${uid}`)
+        if (e && Number(e) > 0) setEdad(Number(e))
+      } catch {}
+    })
   }, [])
 
   const m = MODES[mode]
@@ -119,14 +123,17 @@ export default function FirePage() {
     [capital, ahorro, retorno, gasto]
   )
 
-  // Persistir parámetros FIRE
+  // Persistir parámetros FIRE vinculados al user_id
   useEffect(() => {
-    try {
-      localStorage.setItem('sigma_fire_target', String(target))
-      localStorage.setItem('sigma_fire_gasto', String(gasto))
-      localStorage.setItem('sigma_fire_ahorro', String(ahorro))
-      localStorage.setItem('sigma_fire_edad', String(edad))
-    } catch {}
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? 'anon'
+      try {
+        localStorage.setItem('sigma_fire_target', String(target))
+        localStorage.setItem(`sigma_fire_gasto_${uid}`, String(gasto))
+        localStorage.setItem(`sigma_fire_ahorro_${uid}`, String(ahorro))
+        localStorage.setItem(`sigma_fire_edad_${uid}`, String(edad))
+      } catch {}
+    })
   }, [target, gasto, ahorro, edad])
 
   const years = data.length - 1

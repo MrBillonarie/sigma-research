@@ -114,7 +114,7 @@ export default function DiagnosticadorPage() {
 
         const [portResult, tradesResult] = await Promise.all([
           supabase.from('portfolio').select('*').eq('user_id', user.id).single(),
-          supabase.from('trades').select('pnl_usd, resultado, sl, tp, entry_price, lado'),
+          supabase.from('trades').select('pnl_usd, resultado, sl, tp, entry_price, lado').eq('user_id', user.id),
         ])
 
         let totalTrading = 0

@@ -8,9 +8,8 @@ export const maxDuration = 60
 import { NextRequest, NextResponse } from 'next/server'
 
 const PROFILES  = ['retail', 'trader', 'institucional'] as const
-const BASE_URL  = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : 'http://localhost:3000'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL
+  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
 export async function GET(req: NextRequest) {
   // Vercel valida esta cabecera automáticamente en Hobby/Pro

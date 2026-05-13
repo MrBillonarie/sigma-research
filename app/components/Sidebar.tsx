@@ -410,6 +410,14 @@ export default function Sidebar() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
+    // Limpiar localStorage al cerrar sesión para evitar que datos de un usuario
+    // aparezcan al iniciar sesión con otra cuenta en el mismo dispositivo
+    const SIGMA_KEYS = [
+      'sigma_portfolio','sigma_positions','sigma_trades','sigma_fire_target',
+      'sigma_montecarlo','sigma_activity','sigma_portfolio_total','sigma_setups',
+      'sigma_alerts','sigma_lp_capital','sigma_fire_gasto','sigma_fire_ahorro','sigma_fire_edad',
+    ]
+    SIGMA_KEYS.forEach(k => { try { localStorage.removeItem(k) } catch {} })
     window.location.href = '/'
   }
 
