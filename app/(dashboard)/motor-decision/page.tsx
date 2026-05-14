@@ -111,6 +111,9 @@ export default function MotorDecisionPage() {
           <span style={{ fontSize: 10, color: '#1D9E75', fontFamily: MONO, letterSpacing: 1 }}>
             LIVE — MOTOR DE DECISIÓN
           </span>
+          <span style={{ fontSize: 9, fontFamily: MONO, letterSpacing: '0.15em', color: '#d4af37', background: 'rgba(212,175,55,0.10)', border: '1px solid rgba(212,175,55,0.25)', padding: '2px 8px', borderRadius: 3 }}>
+            {profile.toUpperCase()}
+          </span>
           {data && (() => {
             const rColor = data.regime === 'risk-on' ? '#1D9E75' : data.regime === 'risk-off' ? '#f87171' : '#7a7f9a'
             return (

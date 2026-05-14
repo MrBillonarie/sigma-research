@@ -476,15 +476,22 @@ export default function LpSignalPage() {
           </TopCell>
         </div>
 
-        {/* BUG 2 fix: warning banner above pool cards when no capital */}
+        {/* Warning: proyecciones sobre capital de referencia */}
         {capitalUSD === 0 && (
           <div style={{
-            background: C.gold, color: '#1a1200',
-            padding: '10px 16px', marginBottom: 16,
-            fontFamily: MONO, fontSize: 11, fontWeight: 700,
-            width: '100%', boxSizing: 'border-box', letterSpacing: '0.05em',
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            background: 'rgba(212,175,55,0.08)', border: `1px solid ${C.gold}50`,
+            padding: '12px 16px', marginBottom: 16,
           }}>
-            ⚠️ Configura tu patrimonio en Portafolio para ver proyecciones reales en $
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: 'rgba(212,175,55,0.15)', padding: '3px 8px', flexShrink: 0 }}>
+              CAPITAL DE REFERENCIA
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.dimText, lineHeight: 1.5 }}>
+              Proyecciones calculadas sobre <strong style={{ color: C.gold }}>$1.000</strong> de referencia. Configura tu portafolio para ver proyecciones reales.
+            </span>
+            <a href="/portafolio" style={{ fontFamily: MONO, fontSize: 10, color: C.gold, textDecoration: 'none', border: `1px solid ${C.gold}44`, padding: '4px 10px', flexShrink: 0 }}>
+              IR A PORTAFOLIO →
+            </a>
           </div>
         )}
 

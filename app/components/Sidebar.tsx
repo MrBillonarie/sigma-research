@@ -524,7 +524,8 @@ export default function Sidebar() {
         {!collapsed && (
           <div style={{
             padding: '0 4px 4px', fontFamily: MONO, fontSize: 9,
-            letterSpacing: '0.22em', color: MUTED, textTransform: 'uppercase',
+            letterSpacing: '0.22em', textTransform: 'uppercase',
+            color: pathname.startsWith('/comparador') ? GOLD : MUTED,
           }}>
             Comparador
           </div>
