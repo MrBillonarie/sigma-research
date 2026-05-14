@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/app/lib/supabase'
 
 export default function RegistroPage() {
   const [nombre,    setNombre]    = useState('')
@@ -30,25 +29,18 @@ export default function RegistroPage() {
     if (Object.keys(e).length) return
 
     setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { nombre },
-        emailRedirectTo: `${location.origin}/auth/callback`,
-      },
+    // Usar API admin para crear usuario ya confirmado (sin email de verificación)
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, nombre }),
     })
+    const result = await res.json()
     setLoading(false)
 
-    if (error) {
-      // Si el error es solo de email pero el usuario se creó, tratarlo como éxito
-      const isEmailError = error.message.toLowerCase().includes('email') &&
-        (error.message.includes('sending') || error.message.includes('confirmation'))
-      if (!isEmailError) {
-        setErrors({ form: traducirError(error.message) })
-        return
-      }
-      // El usuario fue creado — continuar aunque no llegue el email
+    if (!res.ok) {
+      setErrors({ form: result.error ?? 'Error al crear la cuenta.' })
+      return
     }
 
     fetch('/api/email/welcome', {
@@ -200,9 +192,3 @@ export default function RegistroPage() {
   )
 }
 
-function traducirError(msg: string): string {
-  if (msg.includes('User already registered'))  return 'Ya existe una cuenta con ese email.'
-  if (msg.includes('Password should be'))       return 'La contraseña no cumple los requisitos mínimos.'
-  if (msg.includes('Unable to validate email')) return 'Email no válido.'
-  return msg
-}
