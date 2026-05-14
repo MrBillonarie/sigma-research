@@ -14,6 +14,14 @@ function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
 const FROM     = process.env.EMAIL_FROM     ?? 'onboarding@resend.dev'
 const ADMIN_TO = process.env.EMAIL_ADMIN_TO ?? 'alonsomoyanoreyes@gmail.com'
+
+// Sin dominio verificado, Resend solo permite enviar al dueño de la cuenta.
+// DOMAIN_VERIFIED=true cuando se tenga dominio propio configurado en Resend.
+const DOMAIN_VERIFIED = process.env.DOMAIN_VERIFIED === 'true'
+// Resuelve el destinatario: si no hay dominio verificado, redirige al admin
+function resolveTo(userEmail: string): string {
+  return DOMAIN_VERIFIED ? userEmail : ADMIN_TO
+}
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.io'
 
 type SendResult = { success: boolean; error?: string }
@@ -26,7 +34,9 @@ async function toHtml(el: React.ReactElement): Promise<string> {
 export async function sendWelcome(to: string, firstName: string): Promise<SendResult> {
   try {
     const html = await toHtml(React.createElement(WelcomeEmail, { firstName, dashboardUrl: `${APP_URL}/home` }))
-    const { error } = await getResend().emails.send({ from: FROM, to, subject: 'Bienvenido a Sigma Research', html })
+    const dest  = resolveTo(to)
+    const subj  = DOMAIN_VERIFIED ? 'Bienvenido a Sigma Research' : `[NUEVO REGISTRO] ${firstName} (${to})`
+    const { error } = await getResend().emails.send({ from: FROM, to: dest, subject: subj, html })
     if (error) { console.error('[email:welcome]', error); return { success: false, error: error.message } }
     return { success: true }
   } catch (e) { console.error('[email:welcome]', e); return { success: false, error: 'Error al enviar bienvenida' } }
