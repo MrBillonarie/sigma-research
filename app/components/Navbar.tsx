@@ -291,8 +291,15 @@ export default function Navbar() {
             </div>
           ))}
 
+          {/* Language switcher mobile */}
+          <div className="flex items-center gap-2 pt-3 mt-1 border-t border-border">
+            <span className="terminal-text text-xs text-text-dim">Idioma:</span>
+            <Link href="/" className={`section-label px-3 py-1 transition-colors ${!pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold border border-border'}`}>ES</Link>
+            <Link href="/en" className={`section-label px-3 py-1 transition-colors ${pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold border border-border'}`}>EN</Link>
+          </div>
+
           {/* Auth */}
-          <div className="flex flex-col gap-3 pt-3 mt-1 border-t border-border">
+          <div className="flex flex-col gap-3 pt-3 border-t border-border">
             {user ? (
               <>
                 <Link href="/perfil" className="section-label text-text-dim hover:text-gold transition-colors">

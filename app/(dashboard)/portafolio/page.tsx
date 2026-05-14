@@ -468,7 +468,7 @@ export default function PortfolioPage() {
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <style>{`@keyframes sk{0%{background-position:-200% 0}100%{background-position:200% 0}}.sk-pulse{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:sk 1.4s ease infinite;border-radius:2px}`}</style>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border }}>
+            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border }}>
               {[1,2,3,4].map(i => (
                 <div key={i} style={{ background: C.surface, padding: '20px 18px' }}>
                   <div className="sk-pulse" style={{ width: '60%', height: 10, marginBottom: 12 }} />
@@ -495,7 +495,7 @@ export default function PortfolioPage() {
         ) : (
           <>
             {/* ── 1. KPI CARDS ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
+            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
               {[
                 { label: 'Total Patrimonio', value: fmtUSD(D.totalUSD),  sub: 'USD equiv.',       color: C.gold },
                 { label: 'Rentabilidad YTD', value: `${ytdReturn > 0 ? '+' : ''}${ytdReturn.toFixed(2)}%`, sub: 'vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red },
@@ -520,7 +520,7 @@ export default function PortfolioPage() {
             </div>
 
             {/* ── 3. KPIs × 4 (portfolio totals) ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border, marginBottom: 40 }}>
+            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border, marginBottom: 40 }}>
               {[
                 { label: 'Patrimonio Total USD', value: fmtUSD(D.totalUSD),       color: C.text  },
                 { label: 'Patrimonio Total CLP', value: fmtCLP(D.totalCLP),       color: C.text  },
