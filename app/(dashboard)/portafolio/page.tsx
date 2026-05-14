@@ -960,7 +960,10 @@ export default function PortfolioPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={e => { if (e.target === e.currentTarget) setModalOpen(false) }}>
           <div ref={modalRef} style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 32, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 20 }}>{'// EDITAR PORTAFOLIO'}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold }}>{'// EDITAR PORTAFOLIO'}</div>
+              <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.muted }}>ESC para cerrar</span>
+            </div>
             <p style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginBottom: 24, lineHeight: 1.6 }}>
               Introduce el valor actual en USD de cada plataforma. Los datos se guardan en tu cuenta.
             </p>

@@ -195,9 +195,10 @@ export default function HudPage() {
             )}
             <button
               onClick={fetchMotor}
-              style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}44`, padding: '6px 14px', cursor: 'pointer' }}
+              disabled={loading}
+              style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: C.gold, background: `${C.gold}14`, border: `1px solid ${C.gold}44`, padding: '6px 14px', cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.6 : 1 }}
             >
-              ↻ REFRESCAR
+              {loading ? '⟳ CARGANDO…' : '↻ REFRESCAR'}
             </button>
           </div>
         </div>

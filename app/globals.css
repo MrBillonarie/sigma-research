@@ -15,8 +15,16 @@
   -webkit-touch-callout: none;
 }
 
-html {
+html, .dash-scroll {
   scroll-behavior: smooth;
+}
+
+/* Focus outline consistente en todos los inputs del dashboard */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 1.5px solid #d4af37;
+  outline-offset: 2px;
 }
 
 section[id] {

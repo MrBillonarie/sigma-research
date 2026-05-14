@@ -130,7 +130,7 @@ export default async function RootPage() {
           <div style={{ display:'flex', gap:24, flexWrap:'wrap' }}>
             {[
               { dot:'#34d399', text:'Sin tarjeta de crédito' },
-              { dot:G,         text:'127 traders activos'    },
+              { dot:G,         text:'Comunidad de traders'    },
               { dot:'#60a5fa', text:'Datos Binance en vivo'  },
             ].map(b => (
               <div key={b.text} style={{ display:'flex', alignItems:'center', gap:7 }}>

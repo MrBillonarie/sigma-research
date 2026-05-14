@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/app/lib/supabase'
 import { C } from '@/app/lib/constants'
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'sigma-research.io'
+const SITE_LABEL = SITE_URL.replace(/^https?:\/\//, '')
+
 interface ReporteRow {
   id:          string
   numero:      number
@@ -143,7 +146,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   // Footer p1
   line(20, 280, W - 20, 280, '#1a1d2e', 0.3)
   setFont(7, 'normal', GRAY)
-  doc.text('SIGMA RESEARCH · sigma-research.io · Uso exclusivo del titular de la cuenta', 20, 287)
+  doc.text('SIGMA RESEARCH · ' + SITE_LABEL + ' · Uso exclusivo del titular de la cuenta', 20, 287)
   doc.text('1', W - 20, 287, { align: 'right' })
 
   // ── PAGE 2: PORTAFOLIO ────────────────────────────────────────────────────
@@ -228,7 +231,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   // Footer p2
   line(20, 280, W - 20, 280, '#1a1d2e', 0.3)
   setFont(7, 'normal', GRAY)
-  doc.text('SIGMA RESEARCH · sigma-research.io', 20, 287)
+  doc.text('SIGMA RESEARCH · ' + SITE_LABEL, 20, 287)
   doc.text('2', W - 20, 287, { align: 'right' })
 
   // ── PAGES 3-8: SECCIONES ──────────────────────────────────────────────────
@@ -277,7 +280,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
     doc.text('Datos actualizados disponibles en la plataforma en tiempo real.', W / 2, sy + 36, { align: 'center' })
     doc.text('Accede al dashboard para ver las métricas completas.', W / 2, sy + 46, { align: 'center' })
     setFont(8, 'normal', GOLD)
-    doc.text('sigma-research.io/home', W / 2, sy + 58, { align: 'center' })
+    doc.text(SITE_LABEL + '/home', W / 2, sy + 58, { align: 'center' })
 
     // Section note
     sy += 92
@@ -291,7 +294,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
     // Footer
     line(20, 280, W - 20, 280, '#1a1d2e', 0.3)
     setFont(7, 'normal', GRAY)
-    doc.text('SIGMA RESEARCH · sigma-research.io', 20, 287)
+    doc.text('SIGMA RESEARCH · ' + SITE_LABEL, 20, 287)
     doc.text(String(idx + 3), W - 20, 287, { align: 'right' })
   })
 
@@ -328,7 +331,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
 
   line(20, 280, W - 20, 280, '#1a1d2e', 0.3)
   setFont(7, 'normal', GRAY)
-  doc.text('© SIGMA RESEARCH · sigma-research.io · Todos los derechos reservados', 20, 287)
+  doc.text('© SIGMA RESEARCH · ' + SITE_LABEL + ' · Todos los derechos reservados', 20, 287)
   doc.text(String(CONTENT.length + 3), W - 20, 287, { align: 'right' })
 
   doc.save(`SIGMA_Analisis_Personal_${fileMonth}.pdf`)
