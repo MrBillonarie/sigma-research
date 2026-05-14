@@ -753,11 +753,6 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          {/* ══ TAGLINE ══ */}
-          <div style={{ textAlign:'center', fontFamily:'monospace', fontSize:11, letterSpacing:'0.35em', textTransform:'uppercase', color:C.gold+'aa' }}>
-            SURVIVE FIRST · WIN AFTER
-          </div>
-
         </div>
       </div>
     </>

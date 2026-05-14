@@ -78,7 +78,7 @@ export default function NotificacionesPage() {
       if (!user) { router.replace('/login'); return }
       setUserId(user.id)
       loadNotifs(user.id)
-    })
+    }).catch(() => router.replace('/login'))
   }, [loadNotifs, router])
 
   async function markRead(id: string) {
@@ -106,6 +106,12 @@ export default function NotificacionesPage() {
 
   const filtered = filter === 'all' ? notifs : notifs.filter(n => n.type === filter)
   const unread   = notifs.filter(n => !n.read).length
+
+  if (loading && !userId) return (
+    <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.2em', color: MUTED }}>CARGANDO…</div>
+    </div>
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: MONO }}>

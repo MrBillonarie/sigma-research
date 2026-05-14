@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.vercel.app',
     siteName: 'Sigma Research',
-    locale: 'es_ES',
+    locale: 'es_CL',
     images: [
       {
         url: '/opengraph-image',
@@ -59,7 +59,11 @@ export const metadata: Metadata = {
     images: ['/opengraph-image'],
   },
   icons: {
-    icon: '/icon.png',
+    icon: [
+      { url: '/icon.png',       sizes: '32x32',  type: 'image/png' },
+      { url: '/api/icon/192',   sizes: '192x192', type: 'image/png' },
+      { url: '/api/icon/512',   sizes: '512x512', type: 'image/png' },
+    ],
     shortcut: '/icon.png',
     apple: '/apple-icon.png',
   },

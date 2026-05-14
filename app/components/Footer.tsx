@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+const PRO_PRICE = '$29/mes'
+
 const herramientas = [
   { label: 'Portafolio',  href: '/portafolio' },
   { label: 'Modelos ML',  href: '/modelos'    },
@@ -126,7 +128,7 @@ export default function Footer() {
               {[
                 { label: 'Crear cuenta gratis', href: '/registro' },
                 { label: 'Iniciar sesión',       href: '/login'    },
-                { label: 'Plan PRO — $29/mes',   href: '/reportes' },
+                { label: `Plan PRO — ${PRO_PRICE}`, href: '/reportes' },
                 { label: 'Contactar equipo',     href: '/contacto' },
               ].map(l => (
                 <li key={l.href}>

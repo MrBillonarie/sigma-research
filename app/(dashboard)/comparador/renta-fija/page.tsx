@@ -114,7 +114,7 @@ export default function RentaFijaPage() {
   })
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
+    <div className="dash-content" style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
 
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
