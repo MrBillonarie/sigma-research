@@ -182,6 +182,26 @@ export default function Navbar() {
             </div>
           ))}
 
+          {/* ── Language switcher ──────────────────────────────────────────── */}
+          <div className="flex items-center gap-1 border border-border rounded-sm overflow-hidden">
+            <Link
+              href="/"
+              className={`terminal-text text-[10px] px-2.5 py-1 transition-colors ${
+                !pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold'
+              }`}
+            >
+              ES
+            </Link>
+            <Link
+              href="/en"
+              className={`terminal-text text-[10px] px-2.5 py-1 transition-colors ${
+                pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold'
+              }`}
+            >
+              EN
+            </Link>
+          </div>
+
           {/* ── Auth buttons ───────────────────────────────────────────────── */}
           <div className="flex items-center gap-3 ml-2">
             {user ? (
