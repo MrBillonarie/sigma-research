@@ -161,6 +161,7 @@ export default function PortfolioPage() {
   const [positions,    setPositions]    = useState<PassivePosition[]>([])
   const [storedTotal,  setStoredTotal]  = useState(0)
   const [loading,      setLoading]      = useState(true)
+  const [lastSaved,    setLastSaved]    = useState<string | null>(null)
   const [trm,          setTrm]          = useState('950')
   const [trmLive,      setTrmLive]      = useState(false)
   const [monthlySav,   setMonthlySav]   = useState('500')
@@ -267,8 +268,11 @@ export default function PortfolioPage() {
       const { data } = await supabase.from('portfolio').insert(payload).select().single()
       if (data) setDbId(data.id)
     }
+    const savedAt = new Date().toISOString()
     setPortfolio({ ...draftForm })
+    setLastSaved(savedAt)
     try { localStorage.setItem('sigma_portfolio', JSON.stringify(draftForm)) } catch {}
+    try { localStorage.setItem('sigma_portfolio_saved_at', savedAt) } catch {}
     setSaving(false)
     setModalOpen(false)
   }
@@ -448,9 +452,16 @@ export default function PortfolioPage() {
                 style={{ width: 80, background: C.bg, border: `1px solid ${C.gold}44`, color: C.gold, fontFamily: 'monospace', fontSize: 13, padding: '4px 8px', outline: 'none', textAlign: 'right' }}
               />
             </div>
-            <button onClick={openModal} style={{ padding: '10px 22px', border: `1px solid ${C.gold}`, background: 'transparent', color: C.gold, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', cursor: 'pointer' }}>
-              EDITAR PORTAFOLIO
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+              {lastSaved && (
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.muted, letterSpacing: '0.1em' }}>
+                  Guardado {new Date(lastSaved).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <button onClick={openModal} style={{ padding: '10px 22px', border: `1px solid ${C.gold}`, background: 'transparent', color: C.gold, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', cursor: 'pointer' }}>
+                EDITAR PORTAFOLIO
+              </button>
+            </div>
           </div>
         </div>
 

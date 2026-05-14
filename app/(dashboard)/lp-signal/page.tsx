@@ -81,13 +81,19 @@ export default function LpSignalPage() {
   const [noSig,    setNoSig]    = useState(false)
   const [loading,  setLoading]  = useState(true)
   const [btcPrice, setBtcPrice] = useState<number>(0)
-  const [capital,  setCapital]  = useState(() => {
-    if (typeof window === 'undefined') return 5000
-    return parseFloat(localStorage.getItem('sigma_lp_client_pat') || '5000')
-  })
+  const [capital,  setCapital]  = useState(5000)
   const [copied, setCopied] = useState(false)
 
   // ── Data loading ─────────────────────────────────────────────────────────────
+
+  // Leer capital desde portfolio total o clave user-specific
+  useEffect(() => {
+    const pt = Number(localStorage.getItem('sigma_portfolio_total'))
+    if (pt > 0) { setCapital(pt); return }
+    // No importar supabase para una lectura tan simple — usar key genérica como fallback
+    const saved = parseFloat(localStorage.getItem('sigma_lp_client_pat') || '0')
+    if (saved > 0) setCapital(saved)
+  }, [])
 
   useEffect(() => {
     fetch('/api/lp-signal/active')

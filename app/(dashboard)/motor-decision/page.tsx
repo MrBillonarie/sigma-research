@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { ProfileType, SignalsResponse } from '@/types/decision-engine'
 import { usePortfolio } from '@/app/lib/usePortfolio'
+import { supabase } from '@/app/lib/supabase'
 import dynamic         from 'next/dynamic'
 import ProfileSelector from './components/ProfileSelector'
 import MetricCards     from './components/MetricCards'
@@ -42,11 +43,17 @@ export default function MotorDecisionPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countRef    = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Prioridad: localStorage → user_metadata.perfil_trader → default 'retail'
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as ProfileType | null
-      if (saved && ['retail', 'trader', 'institucional'].includes(saved)) setProfile(saved)
+      if (saved && ['retail', 'trader', 'institucional'].includes(saved)) return
     } catch {}
+    // Si no hay preferencia guardada, usar el perfil del onboarding
+    supabase.auth.getUser().then(({ data }) => {
+      const p = data.user?.user_metadata?.perfil_trader as ProfileType | undefined
+      if (p && ['retail', 'trader', 'institucional'].includes(p)) setProfile(p)
+    })
   }, [])
 
   const fetchSignals = useCallback(async (p: ProfileType) => {

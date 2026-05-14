@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { C } from '@/app/lib/constants'
+import { supabase } from '@/app/lib/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Kline { open: number; high: number; low: number; close: number }
@@ -277,15 +278,17 @@ export default function LpSignalPage() {
 
   const [capitalUSD, setCapitalUSD] = useState(0)
 
-  // Read capital on mount: sigma_portfolio_total (Terminal) → sigma_lp_capital (manual fallback)
+  // Read capital on mount: sigma_portfolio_total → sigma_lp_capital_<uid> (user-specific)
   useEffect(() => {
-    try {
-      const keys = ['sigma_portfolio_total', 'sigma_lp_capital']
-      for (const key of keys) {
-        const n = Number(localStorage.getItem(key))
-        if (n > 0) { setCapitalUSD(n); return }
-      }
-    } catch {}
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? 'anon'
+      try {
+        const pt = Number(localStorage.getItem('sigma_portfolio_total'))
+        if (pt > 0) { setCapitalUSD(pt); return }
+        const lp = Number(localStorage.getItem(`sigma_lp_capital_${uid}`))
+        if (lp > 0) { setCapitalUSD(lp); return }
+      } catch {}
+    })
   }, [])
 
   const [bnbPrice,   setBnbPrice]   = useState(0)
