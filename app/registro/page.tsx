@@ -41,8 +41,14 @@ export default function RegistroPage() {
     setLoading(false)
 
     if (error) {
-      setErrors({ form: traducirError(error.message) })
-      return
+      // Si el error es solo de email pero el usuario se creó, tratarlo como éxito
+      const isEmailError = error.message.toLowerCase().includes('email') &&
+        (error.message.includes('sending') || error.message.includes('confirmation'))
+      if (!isEmailError) {
+        setErrors({ form: traducirError(error.message) })
+        return
+      }
+      // El usuario fue creado — continuar aunque no llegue el email
     }
 
     fetch('/api/email/welcome', {
