@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { id, status, respuesta, enviarEmail } = await req.json()
+  const { id, status, respuesta, enviarEmail } = await req.json().catch(() => ({}))
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }

@@ -14,7 +14,7 @@ function sb() {
 export async function POST(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { segmento, subject, title, subtitle, body, ctaText, ctaUrl } = await req.json()
+  const { segmento, subject, title, subtitle, body, ctaText, ctaUrl } = await req.json().catch(() => ({}))
 
   if (!subject || !title || !body || !ctaText || !ctaUrl) {
     return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })

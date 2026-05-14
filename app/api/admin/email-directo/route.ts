@@ -5,7 +5,7 @@ import { sendSoporteRespuesta } from '@/lib/email'
 export async function POST(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { email, nombre, mensaje } = await req.json()
+  const { email, nombre, mensaje } = await req.json().catch(() => ({}))
   if (!email || !mensaje) {
     return NextResponse.json({ error: 'email y mensaje requeridos' }, { status: 400 })
   }

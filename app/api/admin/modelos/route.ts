@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  const { tag, activo } = await req.json()
+  const { tag, activo } = await req.json().catch(() => ({}))
   if (!tag) return NextResponse.json({ error: 'tag requerido' }, { status: 400 })
 
   const { error } = await sb()

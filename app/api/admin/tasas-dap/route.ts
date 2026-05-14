@@ -13,7 +13,7 @@ function sb() {
 export async function PUT(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { id, d30, d60, d90, d180, d360 } = body
 
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })

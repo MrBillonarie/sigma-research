@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { id, plan } = await req.json()
+  const { id, plan } = await req.json().catch(() => ({}))
   if (!id || !['free', 'pro'].includes(plan)) {
     return NextResponse.json({ error: 'id y plan (free|pro) requeridos' }, { status: 400 })
   }

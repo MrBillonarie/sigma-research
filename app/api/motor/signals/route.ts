@@ -100,7 +100,7 @@ async function fetchDividendYields(tickers: string[]): Promise<Map<string, numbe
   try {
     const symbols = tickers.slice(0, 120).join(',')
     const url     = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`
-    const res     = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 } })
+    const res     = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) return new Map()
     const json   = await res.json()
     const result = new Map<string, number>()
@@ -118,7 +118,7 @@ async function fetchYahooData(ticker: string): Promise<YahooData> {
   const EMPTY: YahooData = { r1m: 0, r3m: 0, r1y: 0, closes60: [] }
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1y&interval=1d`
-    const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 300 } })
+    const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) return EMPTY
     const json = await res.json()
     const raw: (number | null)[] = json.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? []

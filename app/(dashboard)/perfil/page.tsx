@@ -130,6 +130,7 @@ export default function PerfilPage() {
   const [binanceMsg,    setBinanceMsg]    = useState('')
   const [binanceError,  setBinanceError]  = useState('')
   const [showSecret,    setShowSecret]    = useState(false)
+  const [showKey,       setShowKey]       = useState(false)
 
   const [avatarUrl,     setAvatarUrl]     = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -541,11 +542,20 @@ export default function PerfilPage() {
               </div>
               <form onSubmit={handleSaveBinance} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <Field label="API Key">
-                  <input
-                    type="text" value={binanceKey} onChange={e => setBinanceKey(e.target.value)}
-                    placeholder="Pega tu Binance API Key aquí"
-                    className="perf-input" style={inputCss} autoComplete="off"
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={binanceKey} onChange={e => setBinanceKey(e.target.value)}
+                      placeholder="Pega tu Binance API Key aquí"
+                      className="perf-input" style={{ ...inputCss, paddingRight: 48 }} autoComplete="off"
+                    />
+                    <button
+                      type="button" onClick={() => setShowKey(s => !s)}
+                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+                    >
+                      <EyeIcon open={showKey} />
+                    </button>
+                  </div>
                 </Field>
                 <Field label="API Secret">
                   <div style={{ position: 'relative' }}>

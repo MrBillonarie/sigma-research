@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { segmento, subject, sent, title } = body
   if (!subject || sent === undefined) return NextResponse.json({ error: 'Faltan campos' }, { status: 400 })
 
