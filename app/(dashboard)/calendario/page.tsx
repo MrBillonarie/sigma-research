@@ -633,7 +633,7 @@ export default function CalendarioPage() {
                     DATOS DE REFERENCIA
                   </span>
                 )}
-                {error && (
+                {error && !usingMock && (
                   <span style={{ fontSize:9, color:C.red, background:C.red+'12', padding:'3px 8px' }}>
                     {error}
                   </span>
