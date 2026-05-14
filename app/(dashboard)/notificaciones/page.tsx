@@ -82,8 +82,9 @@ export default function NotificacionesPage() {
   }, [loadNotifs, router])
 
   async function markRead(id: string) {
+    if (!userId) return
     setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
   }
 
   async function markAllRead() {
@@ -93,8 +94,9 @@ export default function NotificacionesPage() {
   }
 
   async function deleteNotif(id: string) {
+    if (!userId) return
     setNotifs(prev => prev.filter(n => n.id !== id))
-    await supabase.from('notifications').delete().eq('id', id)
+    await supabase.from('notifications').delete().eq('id', id).eq('user_id', userId)
   }
 
   async function handleClick(n: Notification) {

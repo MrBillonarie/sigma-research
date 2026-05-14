@@ -547,7 +547,10 @@ export default function JournalPage() {
     const payload = { ...form, pnl_usd, pnl_pct, resultado }
 
     if (editing) {
-      const { error } = await supabase.from('trades').update(payload).eq('id', editing)
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (!u) return
+      // Filtrar por id Y user_id — protección doble si RLS falla
+      const { error } = await supabase.from('trades').update(payload).eq('id', editing).eq('user_id', u.id)
       if (!error) { setTrades(ts => ts.map(t => t.id === editing ? { ...t, ...payload } : t)); setEditing(null) }
     } else {
       const { data: { user } } = await supabase.auth.getUser()
@@ -572,8 +575,12 @@ export default function JournalPage() {
   }
 
   async function handleDelete(id: string) {
-    await supabase.from('trades').delete().eq('id', id)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    // Filtrar por id Y user_id — nunca borrar trades de otro usuario
+    await supabase.from('trades').delete().eq('id', id).eq('user_id', user.id)
     setTrades(ts => ts.filter(t => t.id !== id))
+    try { localStorage.setItem('sigma_trades', JSON.stringify(trades.filter(t => t.id !== id))) } catch {}
     if (editing === id) { setEditing(null); setForm({ ...EMPTY }) }
   }
 
