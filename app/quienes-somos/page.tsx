@@ -34,13 +34,6 @@ const valores = [
   },
 ]
 
-const equipo = [
-  { initials: 'AM', name: 'Alonso Moyano'   },
-  { initials: 'JA', name: 'Jorge Arévalo'   },
-  { initials: 'JB', name: 'Jorge Barraza'   },
-  { initials: 'SG', name: 'Sebastián García' },
-]
-
 const redes = [
   {
     label: 'Discord',
@@ -159,37 +152,6 @@ export default function QuienesSomosPage() {
                   {v.name}
                 </h3>
                 <p className="terminal-text text-sm text-text-dim leading-relaxed">{v.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── EQUIPO ── */}
-      <section className="py-24 px-6 bg-surface">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-16">
-            <div className="section-label text-gold mb-4">{'// EQUIPO'}</div>
-            <h2 className="display-heading text-5xl sm:text-7xl text-text">
-              LAS PERSONAS
-              <br />
-              <span className="gold-text">DETRÁS</span>
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
-            {equipo.map((m) => (
-              <div key={m.name} className="bg-bg p-8 flex flex-col items-start gap-5">
-                {/* Avatar */}
-                <div className="w-16 h-16 rounded-full border border-gold/40 flex items-center justify-center bg-surface shadow-gold">
-                  <span className="display-heading text-2xl text-gold">{m.initials}</span>
-                </div>
-                <div>
-                  <div className="display-heading text-2xl text-text">{m.name}</div>
-                  <div className="terminal-text text-xs text-text-dim mt-2 tracking-widest">
-                    SIGMA RESEARCH
-                  </div>
-                </div>
               </div>
             ))}
           </div>
