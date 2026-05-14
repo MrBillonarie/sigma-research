@@ -98,7 +98,7 @@ export default function MotorDecisionPage() {
   return (
     <div className="dash-content" style={{
       minHeight: '100vh', background: '#04050a',
-      padding: '88px 24px 64px', maxWidth: 1280, margin: '0 auto',
+      padding: '88px 24px 64px', maxWidth: 1280, margin: '0 auto', width: '100%',
     }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>

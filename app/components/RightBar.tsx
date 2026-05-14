@@ -145,9 +145,9 @@ export default function RightBar() {
   const alertsRef   = useRef<PriceAlert[]>([])
   alertsRef.current = alerts
 
-  // Mobile visibility
+  // Visible solo en pantallas >= 1024px (evita solapamiento con sidebar en tablet)
   useEffect(() => {
-    const check = () => setVisible(window.innerWidth >= 768)
+    const check = () => setVisible(window.innerWidth >= 1024)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)

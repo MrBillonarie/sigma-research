@@ -218,9 +218,11 @@ export default function NotificationBell({ collapsed }: Props) {
             <BellIcon size={18} />
             {unread > 0 && (
               <span style={{
-                position: 'absolute', top: -5, right: -5, background: '#ef4444', color: '#fff',
-                fontSize: 9, fontWeight: 700, minWidth: 14, height: 14, borderRadius: 7,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1,
+                position: 'absolute', top: -6, right: -6,
+                background: '#ef4444', color: '#fff',
+                fontSize: 9, fontWeight: 700, minWidth: 16, height: 16, borderRadius: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1,
+                boxShadow: '0 0 0 2px #0b0d14',  // contorno oscuro para contraste sobre cualquier fondo
               }}>
                 {unread > 9 ? '9+' : unread}
               </span>
