@@ -44,11 +44,11 @@ const MODELS = [
 ]
 
 const PLANS = [
-  { tier:'FREE ACCESS', price:'$0',    period:'always free',   accent:'#2a2d3e', textAccent:D,  fill:false, badge:null,            cta:'OPEN ACCOUNT',  href:'/registro',
+  { tier:'FREE ACCESS', price:'$0',    period:'always free',   accent:'#2a2d3e', textAccent:D,  fill:false, badge:null,            cta:'OPEN ACCOUNT',  href:'/en/registro',
     items:['Full dashboard','Trade journal','FIRE calculator','Monte Carlo','Signal HUD','Comparators'] },
-  { tier:'PRO',          price:'$29',  period:'USD / month',   accent:G,         textAccent:G,  fill:true,  badge:'★ MOST POPULAR', cta:'ACTIVATE PRO',  href:'/registro',
+  { tier:'PRO',          price:'$29',  period:'USD / month',   accent:G,         textAccent:G,  fill:true,  badge:'★ MOST POPULAR', cta:'ACTIVATE PRO',  href:'/en/registro',
     items:['Everything in free','Monthly PDF reports','Active PRO.MACD signals','Updated equity curves','Priority support'] },
-  { tier:'INSTITUTIONAL',price:'Custom',period:'quote',        accent:'#3b82f6', textAccent:'#60a5fa', fill:false, badge:null,      cta:'CONTACT US',    href:'/contacto',
+  { tier:'INSTITUTIONAL',price:'Custom',period:'quote',        accent:'#3b82f6', textAccent:'#60a5fa', fill:false, badge:null,      cta:'CONTACT US',    href:'/en/contacto',
     items:['Everything in PRO','Full API access','Custom models','White label available','SLA guaranteed'] },
 ]
 
@@ -96,7 +96,7 @@ export default async function EnPage() {
           </p>
 
           <div style={{ display:'flex', gap:14, flexWrap:'wrap', marginBottom:64 }}>
-            <Link href="/registro" style={{
+            <Link href="/en/registro" style={{
               background:`linear-gradient(135deg, ${G}, #c9a227)`,
               color:BG, fontFamily:'monospace', fontSize:11, letterSpacing:'0.22em',
               padding:'15px 40px', textDecoration:'none', display:'inline-block',
@@ -104,7 +104,7 @@ export default async function EnPage() {
             }}>
               CREATE FREE ACCOUNT
             </Link>
-            <Link href="/login" style={{
+            <Link href="/en/login" style={{
               border:`1px solid ${B}`, color:D,
               fontFamily:'monospace', fontSize:11, letterSpacing:'0.18em',
               padding:'15px 28px', textDecoration:'none', display:'inline-block',
@@ -159,7 +159,7 @@ export default async function EnPage() {
                 <span style={{ background:`linear-gradient(135deg,${G},#f0cc5a,#a88c25)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>QUANT NEEDS</span>
               </h2>
             </div>
-            <Link href="/registro" style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', color:G, border:`1px solid rgba(212,175,55,0.25)`, padding:'10px 18px', textDecoration:'none', whiteSpace:'nowrap' }}>
+            <Link href="/en/registro" style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', color:G, border:`1px solid rgba(212,175,55,0.25)`, padding:'10px 18px', textDecoration:'none', whiteSpace:'nowrap' }}>
               SEE ALL →
             </Link>
           </div>
@@ -287,10 +287,10 @@ export default async function EnPage() {
             Immediate access to all dashboard tools.
           </p>
           <div style={{ display:'flex', gap:14, justifyContent:'center', flexWrap:'wrap', marginBottom:64 }}>
-            <Link href="/registro" style={{ background:`linear-gradient(135deg,${G},#c9a227)`, color:BG, fontFamily:'monospace', fontSize:11, letterSpacing:'0.22em', padding:'16px 44px', textDecoration:'none', boxShadow:`0 0 40px rgba(212,175,55,0.3)` }}>
+            <Link href="/en/registro" style={{ background:`linear-gradient(135deg,${G},#c9a227)`, color:BG, fontFamily:'monospace', fontSize:11, letterSpacing:'0.22em', padding:'16px 44px', textDecoration:'none', boxShadow:`0 0 40px rgba(212,175,55,0.3)` }}>
               CREATE FREE ACCOUNT
             </Link>
-            <Link href="/login" style={{ border:`1px solid ${B}`, color:D, background:'rgba(255,255,255,0.02)', fontFamily:'monospace', fontSize:11, letterSpacing:'0.18em', padding:'16px 28px', textDecoration:'none' }}>
+            <Link href="/en/login" style={{ border:`1px solid ${B}`, color:D, background:'rgba(255,255,255,0.02)', fontFamily:'monospace', fontSize:11, letterSpacing:'0.18em', padding:'16px 28px', textDecoration:'none' }}>
               ALREADY HAVE AN ACCOUNT →
             </Link>
           </div>

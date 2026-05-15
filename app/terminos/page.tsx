@@ -75,7 +75,7 @@ const sections = [
     id: '9',
     title: '9. LEY APLICABLE',
     body: [
-      'Estos Términos se rigen por las leyes españolas. Cualquier disputa que no pueda resolverse amistosamente se someterá a la jurisdicción exclusiva de los tribunales de Madrid, España.',
+      'Estos Términos se rigen por las leyes de la República de Chile. Cualquier disputa que no pueda resolverse amistosamente se someterá a la jurisdicción exclusiva de los tribunales ordinarios de justicia de Santiago de Chile.',
     ],
   },
   {

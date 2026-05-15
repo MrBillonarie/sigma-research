@@ -115,6 +115,7 @@ export default function DashboardHome() {
   const [activity,        setActivity]        = useState<Record<string, number>>({})
   const [storedTotal,     setStoredTotal]     = useState(0)
   const [username,        setUsername]        = useState('TRADER')
+  const [perfil,          setPerfil]          = useState<'retail' | 'trader' | 'institucional'>('trader')
   const [loading,         setLoading]         = useState(true)
   const [now,             setNow]             = useState(new Date())
   const [spotlight,       setSpotlight]       = useState(false)
@@ -160,6 +161,8 @@ export default function DashboardHome() {
       const { data: prof } = await supabase.from('profiles').select('username').eq('id', uid).maybeSingle()
       const name = prof?.username || data.user.user_metadata?.nombre || 'TRADER'
       setUsername(name.toUpperCase())
+      const p = data.user.user_metadata?.perfil_trader
+      if (p === 'retail' || p === 'institucional') setPerfil(p)
 
       // Trades: si localStorage vacío, leer desde Supabase
       try {
@@ -309,11 +312,26 @@ export default function DashboardHome() {
     return q ? TOOL_LIST.filter(t => t.label.toLowerCase().includes(q) || t.sub.toLowerCase().includes(q)) : TOOL_LIST
   }, [spotQuery])
 
-  // Tools sorted by last activity
-  const sortedTools = useMemo(
-    () => [...TOOL_LIST].sort((a, b) => (activity[b.id] ?? 0) - (activity[a.id] ?? 0)),
-    [activity]
-  )
+  // Prioridad por perfil: si el usuario no ha usado nada aún, mostrar según su perfil
+  const PROFILE_PRIORITY = useMemo<Record<string, string[]>>(() => ({
+    retail:       ['fire', 'montecarlo', 'terminal', 'calendar', 'hud', 'journal', 'lp-defi', 'reportes', 'modelos'],
+    trader:       ['hud', 'journal', 'terminal', 'montecarlo', 'fire', 'calendario', 'lp-defi', 'modelos', 'reportes'],
+    institucional:['motor', 'hud', 'terminal', 'journal', 'montecarlo', 'fire', 'modelos', 'reportes', 'lp-defi'],
+  }), [])
+
+  const sortedTools = useMemo(() => {
+    const hasActivity = Object.keys(activity).length > 0
+    if (hasActivity) {
+      return [...TOOL_LIST].sort((a, b) => (activity[b.id] ?? 0) - (activity[a.id] ?? 0))
+    }
+    // Sin actividad: ordenar por perfil del usuario
+    const priority = PROFILE_PRIORITY[perfil] ?? PROFILE_PRIORITY.trader
+    return [...TOOL_LIST].sort((a, b) => {
+      const ai = priority.indexOf(a.id)
+      const bi = priority.indexOf(b.id)
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
+  }, [activity, perfil, PROFILE_PRIORITY])
 
   function getToolBadge(id: string): string | null {
     switch (id) {

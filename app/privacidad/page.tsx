@@ -56,7 +56,7 @@ const sections = [
     id: '7',
     title: '7. TUS DERECHOS',
     body: [
-      'De acuerdo con el Reglamento General de Protección de Datos (RGPD) y la normativa española aplicable, tienes derecho a: acceder a tus datos, rectificarlos, suprimirlos ("derecho al olvido"), oponerte al tratamiento, solicitar la portabilidad y limitar el tratamiento.',
+      'De acuerdo con la Ley N° 19.628 sobre Protección de la Vida Privada de Chile y normativa aplicable, tienes derecho a: acceder a tus datos personales, rectificarlos, cancelarlos y oponerte a su tratamiento (derechos ARCO).',
       'Para ejercer cualquiera de estos derechos, escríbenos a privacidad@sigma-research.io adjuntando una copia de tu documento de identidad. Responderemos en un plazo máximo de 30 días.',
     ],
   },
@@ -79,7 +79,7 @@ const sections = [
     id: '10',
     title: '10. CONTACTO Y RECLAMACIONES',
     body: [
-      'Para cualquier consulta sobre privacidad: privacidad@sigma-research.io. Si consideras que el tratamiento de tus datos vulnera la normativa, tienes derecho a presentar una reclamación ante la Agencia Española de Protección de Datos (aepd.es).',
+      'Para cualquier consulta sobre privacidad: privacidad@sigma-research.io. Si consideras que el tratamiento de tus datos vulnera la normativa chilena, puedes presentar una denuncia ante el Consejo para la Transparencia (consejotransparencia.cl) o recurrir a los tribunales civiles competentes en Chile.',
     ],
   },
 ]
