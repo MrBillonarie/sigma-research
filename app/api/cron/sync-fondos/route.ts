@@ -103,10 +103,9 @@ function extractTac(attrs: any): number | null {
 }
 
 export async function GET(req: NextRequest) {
-  const isDev = process.env.NODE_ENV === 'development'
-  const auth  = req.headers.get('authorization')
-  if (!isDev && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const CRON_SECRET = process.env.CRON_SECRET
+  if (!CRON_SECRET || req.headers.get('authorization') !== `Bearer ${CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const db        = sb()

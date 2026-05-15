@@ -25,8 +25,8 @@ function serviceClient() {
 }
 
 export async function POST(req: Request) {
-  const auth = req.headers.get('authorization') ?? ''
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const CRON_SECRET = process.env.CRON_SECRET
+  if (!CRON_SECRET || (req.headers.get('authorization') ?? '') !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

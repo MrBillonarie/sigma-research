@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+const _signupAttempts = new Map<string, { count: number; reset: number }>()
+function checkSignupRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = _signupAttempts.get(ip)
+  if (!entry || now > entry.reset) {
+    _signupAttempts.set(ip, { count: 1, reset: now + 10 * 60_000 })
+    return true
+  }
+  if (entry.count >= 5) return false
+  entry.count++
+  return true
+}
+
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -25,6 +38,11 @@ function validateSignup(email: unknown, password: unknown, nombre: unknown): str
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    if (!checkSignupRateLimit(ip)) {
+      return NextResponse.json({ error: 'Demasiados intentos. Espera 10 minutos.' }, { status: 429 })
+    }
+
     // Verificar variables de entorno primero
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.error('[signup] Variables de Supabase no configuradas en Vercel')

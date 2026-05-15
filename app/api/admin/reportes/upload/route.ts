@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkAdminAuth } from '@/lib/adminAuth'
+import crypto from 'crypto'
 
 const BUCKET   = 'Reportes'
 const MAX_SIZE = 10 * 1024 * 1024 // 10 MB máximo
@@ -44,8 +45,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'El archivo no es un PDF válido' }, { status: 400 })
   }
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const path     = `${Date.now()}-${safeName}`
+  const safeName = `${Date.now()}-${crypto.randomUUID()}.pdf`
+  const path     = safeName
 
   const supabase = makeService()
   const { error } = await supabase.storage

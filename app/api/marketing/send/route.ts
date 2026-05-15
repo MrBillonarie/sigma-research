@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendMarketingEmail, MarketingPayload } from '@/lib/email'
+import { checkAdminAuth } from '@/lib/adminAuth'
 
 export async function POST(req: NextRequest) {
   try {
-    // Protect with API secret header
-    const secret = req.headers.get('x-admin-secret')
-    if (!secret || secret !== process.env.ADMIN_SECRET)
+    if (!checkAdminAuth(req))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { subject, recipients, payload } = await req.json() as {

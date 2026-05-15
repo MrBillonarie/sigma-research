@@ -42,7 +42,7 @@ function LoginForm() {
       return
     }
 
-    window.location.href = next
+    window.location.href = safeRedirect(next)
   }
 
   return (
@@ -86,6 +86,15 @@ function LoginForm() {
       </form>
     </div>
   )
+}
+
+function safeRedirect(url: string): string {
+  try {
+    const u = new URL(url, window.location.origin)
+    return u.origin === window.location.origin ? url : '/home'
+  } catch {
+    return '/home'
+  }
 }
 
 export default function EnLoginPage() {
