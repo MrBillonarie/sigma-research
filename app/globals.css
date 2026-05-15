@@ -151,6 +151,11 @@ body {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 
+  /* Home — Tool cards: 3 cols → 2 cols */
+  .sp-tool-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
   /* Home — Quick summary bar: 3 → 1 */
   .sp-summary-grid {
     grid-template-columns: 1fr !important;
@@ -200,6 +205,12 @@ body {
   .dash-content-inner {
     padding-top: 56px !important;
   }
+}
+
+/* ── Tablet 768–900px: sp-bottom-grid y tool-grid ───────────────────────── */
+@media (min-width: 769px) and (max-width: 900px) {
+  .sp-bottom-grid  { grid-template-columns: 1fr 1fr !important; }
+  .sp-tool-grid    { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
 /* ── Landing page responsive ──────────────────────────────────────────────── */

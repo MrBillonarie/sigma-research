@@ -446,7 +446,7 @@ export default function Sidebar() {
         <div
           onClick={() => setCollapsed(true)}
           style={{
-            position: 'fixed', inset: 0, zIndex: 49,
+            position: 'fixed', inset: 0, zIndex: 9994,
             background: 'rgba(0,0,0,0.6)',
             backdropFilter: 'blur(2px)',
           }}
@@ -457,7 +457,7 @@ export default function Sidebar() {
         position: isMobile ? 'fixed' : 'sticky',
         top: 0,
         left: 0,
-        zIndex: isMobile ? 50 : 'auto',
+        zIndex: isMobile ? 9995 : 'auto', // por encima de modales del dashboard (9990/9991)
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,

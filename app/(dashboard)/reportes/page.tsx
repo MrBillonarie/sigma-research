@@ -86,7 +86,7 @@ export default function ReportesPage() {
     <>
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
       {/* ── Hero ── */}
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '100px 24px 0' }}>
+      <div className="dash-content" style={{ maxWidth: 1280, margin: '0 auto', padding: '100px 24px 0' }}>
         <div style={{ textAlign: 'center', marginBottom: 64 }}>
           <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 12 }}>
             {'// SIGMA RESEARCH · REPORTE MENSUAL'}

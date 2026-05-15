@@ -181,10 +181,10 @@ export default function NotificationBell({ collapsed }: Props) {
               style={{ width: 320, background: '#0f0f0f', border: `1px solid rgba(255,255,255,0.08)`, borderLeft: `3px solid ${borderColor}`, padding: '12px 14px', boxShadow: '0 8px 32px rgba(0,0,0,0.7)', pointerEvents: 'all' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#e8e9f0', fontWeight: 600 }}>{t.notif.title}</span>
+                <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#e8e9f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{t.notif.title}</span>
                 <button onClick={() => dismissToast(t.id)} style={{ background: 'none', border: 'none', color: '#3a3f55', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0, marginLeft: 8 }}>×</button>
               </div>
-              <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#7a7f9a', lineHeight: 1.5 }}>{t.notif.body}</div>
+              <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#7a7f9a', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>{t.notif.body}</div>
               {t.notif.accion_href && t.notif.accion_label && (
                 <button
                   onClick={() => { dismissToast(t.id); const h = t.notif.accion_href!; router.push(h.startsWith('/') ? h : '/home') }}

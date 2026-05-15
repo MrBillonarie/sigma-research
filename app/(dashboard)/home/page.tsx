@@ -596,7 +596,7 @@ export default function DashboardHome() {
           </div>
 
           {/* ══ TOOL CARDS (3×3) ══ */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:C.border, marginBottom:40 }}>
+          <div className="sp-tool-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:C.border, marginBottom:40 }}>
             {sortedTools.map(tool => {
               const badge    = getToolBadge(tool.id)
               const lastSeen = activity[tool.id]

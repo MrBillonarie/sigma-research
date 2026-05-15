@@ -192,7 +192,7 @@ export default function EtfsPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
+    <div className="dash-content" style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>

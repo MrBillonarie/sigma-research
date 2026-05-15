@@ -205,7 +205,9 @@ export default function HudPage() {
 
         {/* ── Price bar ── */}
         <style>{`@keyframes sk{0%{background-position:-200% 0}100%{background-position:200% 0}}.sk{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:sk 1.4s ease infinite;border-radius:2px}`}</style>
-        <div style={{ display: 'flex', gap: 1, background: C.border, marginBottom: 1, overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 1, background: C.border, marginBottom: 1, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+          className="mobile-scroll">
+
           {prices.length === 0
             ? WS_TICKERS.map(t => (
                 <div key={t} style={{ background: C.surface, padding: '12px 18px', flex: '1 0 auto', minWidth: 100 }}>
