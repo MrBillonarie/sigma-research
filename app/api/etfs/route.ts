@@ -45,11 +45,15 @@ const SORT_MAP: Record<string, string> = {
   precio:   'precio',
 }
 
+function escapeLike(s: string): string {
+  return s.replace(/[%_\\]/g, c => `\\${c}`)
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const search     = (searchParams.get('search')     ?? '').trim()
-  const exposicion = (searchParams.get('exposicion') ?? '').trim()
-  const sector     = (searchParams.get('sector')     ?? '').trim()
+  const search     = escapeLike((searchParams.get('search')     ?? '').trim().slice(0, 100))
+  const exposicion = (searchParams.get('exposicion') ?? '').trim().slice(0, 50)
+  const sector     = (searchParams.get('sector')     ?? '').trim().slice(0, 50)
   const page       = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
   const sortKey    = searchParams.get('sort') ?? 'r12m'
   const sortDir    = searchParams.get('dir')  === 'asc'

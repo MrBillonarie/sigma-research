@@ -43,10 +43,15 @@ const SORT_MAP: Record<string, string> = {
   tac:    'tac',
 }
 
+// Escapa caracteres especiales de PostgreSQL LIKE/ILIKE para evitar comportamiento inesperado
+function escapeLike(s: string): string {
+  return s.replace(/[%_\\]/g, c => `\\${c}`)
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const search = (searchParams.get('search') ?? '').trim()
-  const agf    = (searchParams.get('agf')    ?? '').trim()
+  const search = escapeLike((searchParams.get('search') ?? '').trim().slice(0, 100))
+  const agf    = (searchParams.get('agf')    ?? '').trim().slice(0, 100)
   const tipo   = (searchParams.get('tipo')   ?? '').trim()
   const page   = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
   const sortKey     = searchParams.get('sort') ?? 'r12m'
