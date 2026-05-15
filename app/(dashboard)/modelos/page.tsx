@@ -340,7 +340,9 @@ export default function ModelosPage() {
                     <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>
                       EQUITY CURVE · {selectedInstr.trades} TRADES · {selectedInstr.tf}
                     </span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted }}>Backtest simulado · Ene 2022 – Dic 2024</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, background: `${C.border}`, padding: '2px 8px', letterSpacing: '0.1em' }}>
+                      ◈ BACKTEST SIMULADO · Ene 2022 – Dic 2024 · No garantiza rendimientos futuros
+                    </span>
                   </div>
                   <ModelChart
                     labels={ilabels}

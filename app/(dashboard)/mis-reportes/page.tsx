@@ -172,9 +172,14 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
 
   let y = 72
   if (platforms.length === 0) {
-    setFont(10, 'normal', GRAY)
-    doc.text('No hay datos de portfolio registrados.', 20, y)
-    doc.text('Configura tu portfolio en la sección Terminal.', 20, y + 10)
+    fillRect(20, y - 5, W - 40, 30, '#0f1118')
+    line(20, y - 5, 20, y + 25, GOLD, 2)
+    setFont(9, 'bold', GOLD)
+    doc.text('PORTAFOLIO NO CONFIGURADO', 28, y + 4)
+    setFont(8, 'normal', GRAY)
+    doc.text('Para ver tus datos en este reporte, configura tu portafolio', 28, y + 13)
+    doc.text('en la sección Portafolio del dashboard.', 28, y + 21)
+    y += 38
   } else {
     // Table header
     fillRect(20, y - 5, W - 40, 9, '#0f1118')
