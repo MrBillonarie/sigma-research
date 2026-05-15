@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Usa service_role para crear usuarios ya confirmados sin email de verificación
 function adminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,29 +9,49 @@ function adminClient() {
   )
 }
 
+// Validación server-side robusta
+function validateSignup(email: unknown, password: unknown, nombre: unknown): string | null {
+  if (typeof email !== 'string' || typeof password !== 'string') return 'Datos inválidos'
+  if (!email.trim() || !password) return 'Email y contraseña requeridos'
+  if (email.length > 254) return 'Email demasiado largo'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Formato de email inválido'
+  if (password.length < 8) return 'La contraseña debe tener al menos 8 caracteres'
+  if (password.length > 128) return 'La contraseña es demasiado larga'
+  if (typeof nombre === 'string' && nombre.length > 100) return 'El nombre es demasiado largo'
+  return null
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, nombre } = await req.json().catch(() => ({}))
+    const body = await req.json().catch(() => ({}))
+    const { email, password, nombre } = body
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email y contraseña requeridos' }, { status: 400 })
+    const validationError = validateSignup(email, password, nombre)
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
     const supabase = adminClient()
-
-    // Crear usuario ya confirmado (sin email de verificación)
     const { data, error } = await supabase.auth.admin.createUser({
-      email,
+      email: email.trim().toLowerCase(),
       password,
-      email_confirm: true,         // confirma automáticamente
-      user_metadata: { nombre },
+      email_confirm: true,
+      user_metadata: { nombre: typeof nombre === 'string' ? nombre.trim().slice(0, 100) : '' },
     })
 
     if (error) {
+      // Mapear errores internos a mensajes genéricos
       if (error.message.includes('already registered') || error.message.includes('already exists')) {
         return NextResponse.json({ error: 'Ya existe una cuenta con ese email.' }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      if (error.message.includes('invalid') && error.message.includes('email')) {
+        return NextResponse.json({ error: 'Formato de email inválido.' }, { status: 400 })
+      }
+      if (error.message.includes('password')) {
+        return NextResponse.json({ error: 'La contraseña no cumple los requisitos.' }, { status: 400 })
+      }
+      // Error genérico — no exponer mensaje interno
+      return NextResponse.json({ error: 'Error al crear la cuenta. Intenta nuevamente.' }, { status: 400 })
     }
 
     return NextResponse.json({ ok: true, userId: data.user?.id })

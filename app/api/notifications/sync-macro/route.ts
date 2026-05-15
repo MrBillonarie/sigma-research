@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     if (!toInsert.length) return NextResponse.json({ ok: true, created: 0 })
 
     const { error } = await sb.from('notifications').insert(toInsert)
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ ok: false, error: 'Error interno del servidor' }, { status: 500 })
 
     return NextResponse.json({ ok: true, created: toInsert.length })
   } catch (e) {

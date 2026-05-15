@@ -17,6 +17,6 @@ export async function GET() {
     .select('*')
     .order('d30', { ascending: false })
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ ok: false, error: 'Error interno del servidor' }, { status: 500 })
   return NextResponse.json({ ok: true, data: data ?? [] })
 }

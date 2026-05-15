@@ -101,7 +101,11 @@ export default function NotificacionesPage() {
 
   async function handleClick(n: Notification) {
     if (!n.read) await markRead(n.id)
-    if (n.accion_href) router.push(n.accion_href)
+    if (n.accion_href) {
+      // Solo permitir rutas internas (previene open redirect)
+      const href = n.accion_href.startsWith('/') ? n.accion_href : '/home'
+      router.push(href)
+    }
   }
 
   const filtered = filter === 'all' ? notifs : notifs.filter(n => n.type === filter)

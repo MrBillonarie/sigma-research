@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   if (sector)     q = q.eq('sector', sector)
 
   const { data, count, error } = await q
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ ok: false, error: 'Error interno del servidor' }, { status: 500 })
 
   // ── CSV export ──────────────────────────────────────────────────────────────
   if (exportAll) {

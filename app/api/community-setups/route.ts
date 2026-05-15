@@ -21,7 +21,7 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(20)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
 
   const filtered = (data ?? []).filter((s: { profiles?: { reputation?: number } }) => (s.profiles?.reputation ?? 0) >= MIN_REP)
   return NextResponse.json(filtered)
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
 }
 
@@ -102,6 +102,6 @@ export async function PATCH(req: NextRequest) {
     .from('setup_votes')
     .upsert({ user_id: user.id, setup_id, vote_type }, { onConflict: 'user_id,setup_id' })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
