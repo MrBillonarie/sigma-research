@@ -5,7 +5,7 @@ function safeEqual(a: string, b: string): boolean {
   try {
     const ba = Buffer.from(a, 'utf8')
     const bb = Buffer.from(b, 'utf8')
-    if (ba.length !== bb.length) { crypto.timingSafeEqual(ba, ba); return false }
+    if (ba.length !== bb.length) return false
     return crypto.timingSafeEqual(ba, bb)
   } catch { return false }
 }

@@ -14,9 +14,8 @@ export async function GET(req: NextRequest) {
     const result = await runAutoModel()
     return NextResponse.json({ ok: true, result })
   } catch (e: unknown) {
-    const msg   = e instanceof Error ? e.message : String(e)
-    const stack = e instanceof Error ? e.stack   : undefined
-    return NextResponse.json({ ok: false, error: msg, stack }, { status: 500 })
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }
 }
 
@@ -92,9 +91,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ action: 'signal_pending', signalId: data.id })
   } catch (e: unknown) {
-    const msg   = e instanceof Error ? e.message : String(e)
-    const stack = e instanceof Error ? e.stack   : undefined
-    console.error('[cron/lp-model]', msg, stack)
-    return NextResponse.json({ error: msg, stack }, { status: 500 })
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[cron/lp-model]', msg)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
