@@ -37,7 +37,7 @@ const valores = [
 const redes = [
   {
     label: 'Discord',
-    href: 'https://discord.gg/6gdN5rNH',
+    href: 'https://discord.gg/7T8FP9p4',
     desc: 'Comunidad de traders',
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
