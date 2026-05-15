@@ -248,11 +248,15 @@ function BtcPriceTicker({ onPriceUpdate }: { onPriceUpdate: (p: number) => void 
     function connect() {
       ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@miniTicker')
       ws.onmessage = (e: MessageEvent) => {
-        const p = parseFloat((JSON.parse(e.data as string) as { c: string }).c)
-        if (prevRef.current > 0) setChange(((p - prevRef.current) / prevRef.current) * 100)
-        prevRef.current = p
-        setPrice(p)
-        onPriceUpdate(p)
+        try {
+          const p = parseFloat((JSON.parse(e.data as string) as { c: string }).c)
+          if (!isNaN(p) && p > 0) {
+            if (prevRef.current > 0) setChange(((p - prevRef.current) / prevRef.current) * 100)
+            prevRef.current = p
+            setPrice(p)
+            onPriceUpdate(p)
+          }
+        } catch { /* mensaje inesperado de Binance */ }
       }
       ws.onclose = () => setTimeout(connect, 5000)
     }

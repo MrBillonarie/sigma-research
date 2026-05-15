@@ -159,7 +159,8 @@ export default function NotificationBell({ collapsed }: Props) {
     if (!n.read) await markRead(n.id)
     if (n.accion_href) {
       setOpen(false)
-      router.push(n.accion_href)
+      const href = n.accion_href.startsWith('/') ? n.accion_href : '/home'
+      router.push(href)
     }
   }
 
@@ -186,7 +187,7 @@ export default function NotificationBell({ collapsed }: Props) {
               <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#7a7f9a', lineHeight: 1.5 }}>{t.notif.body}</div>
               {t.notif.accion_href && t.notif.accion_label && (
                 <button
-                  onClick={() => { dismissToast(t.id); router.push(t.notif.accion_href!) }}
+                  onClick={() => { dismissToast(t.id); const h = t.notif.accion_href!; router.push(h.startsWith('/') ? h : '/home') }}
                   style={{ marginTop: 8, fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: borderColor, background: 'none', border: `1px solid ${borderColor}44`, padding: '3px 8px', cursor: 'pointer', letterSpacing: '0.1em' }}
                 >
                   {t.notif.accion_label} →
