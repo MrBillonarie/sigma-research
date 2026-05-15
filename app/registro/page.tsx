@@ -72,13 +72,15 @@ export default function RegistroPage() {
 
           {done ? (
             <div className="flex flex-col gap-3 border border-gold/30 bg-gold/5 px-5 py-4">
-              <p className="section-label text-gold">REVISA TU EMAIL</p>
+              <p className="section-label text-gold">✓ CUENTA CREADA</p>
               <p className="terminal-text text-text-dim text-sm">
-                Te enviamos un enlace de confirmación a <strong className="text-text">{email}</strong>.
-                Confirma tu cuenta para empezar a operar.
+                Tu cuenta está lista. Inicia sesión con <strong className="text-text">{email}</strong> para acceder al dashboard.
               </p>
-              <Link href="/login" className="terminal-text text-xs text-gold hover:text-gold-glow transition-colors mt-1">
-                ← Ir al login
+              <Link
+                href="/login"
+                className="bg-gold text-bg section-label px-6 py-2.5 hover:bg-gold-glow transition-colors text-center mt-2"
+              >
+                INICIAR SESIÓN →
               </Link>
             </div>
           ) : (
