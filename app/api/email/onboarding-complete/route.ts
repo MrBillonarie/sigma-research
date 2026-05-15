@@ -4,8 +4,24 @@ import { render } from '@react-email/render'
 import * as React from 'react'
 import OnboardingCompleteEmail from '@/emails/OnboardingCompleteEmail'
 
+const _onboardingRate = new Map<string, { count: number; reset: number }>()
+function checkRate(ip: string): boolean {
+  const now = Date.now()
+  const entry = _onboardingRate.get(ip)
+  if (!entry || now > entry.reset) {
+    _onboardingRate.set(ip, { count: 1, reset: now + 60 * 60_000 })
+    return true
+  }
+  if (entry.count >= 3) return false
+  entry.count++
+  return true
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    if (!checkRate(ip)) return NextResponse.json({ ok: true })
+
     const { email, nombre, perfil } = await req.json() as {
       email: string
       nombre: string
