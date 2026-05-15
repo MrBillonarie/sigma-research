@@ -24,17 +24,10 @@ export async function POST(req: NextRequest) {
       dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.io'}/home`,
     }))
 
-    const domainVerified = process.env.DOMAIN_VERIFIED === 'true'
-    const adminTo = process.env.EMAIL_ADMIN_TO ?? 'squantdesk@gmail.com'
-    const dest    = domainVerified ? email : adminTo
-    const subj    = domainVerified
-      ? `${nombre || 'Trader'}, tu configuración en Sigma está lista`
-      : `[ONBOARDING] ${nombre || 'Trader'} (${email}) — perfil: ${perfil}`
-
     const { error } = await resend.emails.send({
       from:    process.env.EMAIL_FROM ?? 'onboarding@resend.dev',
-      to:      dest,
-      subject: subj,
+      to:      email,
+      subject: `${nombre || 'Trader'}, tu configuración en Sigma está lista`,
       html,
     })
 
