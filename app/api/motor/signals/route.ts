@@ -1,21 +1,53 @@
 export const revalidate = 300
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient }              from '@supabase/supabase-js'
 
-// ─── Rate limiting simple: max 10 req/IP/minuto ───────────────────────────────
-const _rlMap = new Map<string, { count: number; reset: number }>()
-function checkRateLimit(ip: string): boolean {
+// ─── Rate limiting distribuido via Supabase (escala entre instancias serverless)
+// Fallback a Map en memoria si Supabase no está disponible
+const _rlFallback = new Map<string, { count: number; reset: number }>()
+
+async function checkRateLimit(ip: string): Promise<boolean> {
+  const MAX = 10
+  const WINDOW_MS = 60_000
+  const key = `rl:motor:${ip}`
   const now = Date.now()
-  const entry = _rlMap.get(ip)
-  if (!entry || now > entry.reset) {
-    _rlMap.set(ip, { count: 1, reset: now + 60_000 })
+  const resetAt = new Date(now + WINDOW_MS).toISOString()
+
+  try {
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    )
+
+    const { data, error } = await sb
+      .from('rate_limits')
+      .select('count, reset_at')
+      .eq('id', key)
+      .maybeSingle()
+
+    if (error) throw error
+
+    if (!data || new Date(data.reset_at) < new Date(now)) {
+      await sb.from('rate_limits').upsert({ id: key, count: 1, reset_at: resetAt }, { onConflict: 'id' })
+      return true
+    }
+    if (data.count >= MAX) return false
+    await sb.from('rate_limits').update({ count: data.count + 1 }).eq('id', key)
+    return true
+  } catch {
+    // Fallback a Map en memoria si Supabase falla
+    const entry = _rlFallback.get(ip)
+    if (!entry || now > entry.reset) {
+      _rlFallback.set(ip, { count: 1, reset: now + WINDOW_MS })
+      return true
+    }
+    if (entry.count >= MAX) return false
+    entry.count++
     return true
   }
-  if (entry.count >= 10) return false
-  entry.count++
-  return true
 }
-import { createClient }              from '@supabase/supabase-js'
 import {
   processAsset, applyCrossSection, applyCorrelationPenalty,
   computeFlowSignals, computeFlowScore, detectMarketRegime,
@@ -237,7 +269,7 @@ async function saveSignalHistory(
 
 export async function GET(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  if (!checkRateLimit(ip)) {
+  if (!await checkRateLimit(ip)) {
     return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta en un minuto.' }, { status: 429 })
   }
 

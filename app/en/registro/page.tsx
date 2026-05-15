@@ -1,20 +1,50 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import type { Metadata } from 'next'
+'use client'
+import { useState } from 'react'
 import Link from 'next/link'
 
-export const metadata: Metadata = {
-  title: 'Create Account — Sigma Research',
-  description: 'Create your free Sigma Research account and access institutional-grade quantitative tools.',
-}
+export default function EnRegistroPage() {
+  const [nombre,   setNombre]   = useState('')
+  const [email,    setEmail]    = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm,  setConfirm]  = useState('')
+  const [terms,    setTerms]    = useState(false)
+  const [errors,   setErrors]   = useState<Record<string, string>>({})
+  const [loading,  setLoading]  = useState(false)
+  const [done,     setDone]     = useState(false)
 
-export default async function EnRegistroPage() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect('/home')
+  function validate() {
+    const e: Record<string, string> = {}
+    if (!nombre.trim())                                      e.nombre   = 'Name is required.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))         e.email    = 'Invalid email.'
+    if (password.length < 8)                                e.password = 'Minimum 8 characters.'
+    if (password !== confirm)                               e.confirm  = 'Passwords do not match.'
+    if (!terms)                                             e.terms    = 'You must accept the terms.'
+    return e
+  }
 
-  // Render English version of the registration page
-  // Uses the same /api/auth/signup endpoint
+  async function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault()
+    const e = validate()
+    setErrors(e)
+    if (Object.keys(e).length) return
+
+    setLoading(true)
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, nombre }),
+    })
+    const result = await res.json()
+    setLoading(false)
+
+    if (!res.ok) {
+      setErrors({ form: result.error ?? 'Error creating account.' })
+      return
+    }
+
+    setDone(true)
+  }
+
   return (
     <main className="min-h-screen bg-bg bg-grid-pattern bg-grid flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
@@ -31,23 +61,84 @@ export default async function EnRegistroPage() {
           <h1 className="display-heading text-4xl gold-text mb-1">CREATE ACCOUNT</h1>
           <p className="terminal-text text-text-dim mb-8">Join the quant platform.</p>
 
-          <div className="terminal-text text-sm text-text-dim text-center py-6 border border-border">
-            <p className="mb-4">Registration form available in Spanish.</p>
-            <Link
-              href="/registro"
-              className="bg-gold text-bg section-label px-6 py-2.5 hover:bg-gold-glow transition-colors inline-block"
-            >
-              GO TO REGISTRATION →
-            </Link>
-          </div>
+          {done ? (
+            <div className="flex flex-col gap-3 border border-gold/30 bg-gold/5 px-5 py-4">
+              <p className="section-label text-gold">✓ ACCOUNT CREATED</p>
+              <p className="terminal-text text-text-dim text-sm">
+                Your account is ready. Sign in to access the dashboard.
+              </p>
+              <Link href="/login" className="terminal-text text-xs text-gold hover:text-gold-glow transition-colors mt-1">
+                → Go to login
+              </Link>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1.5">
+                <label className="section-label text-text-dim">Name</label>
+                <input type="text" required autoComplete="name" value={nombre}
+                  onChange={e => setNombre(e.target.value)} placeholder="Your name"
+                  className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors" />
+                {errors.nombre && <span className="terminal-text text-red-400 text-xs">{errors.nombre}</span>}
+              </div>
 
-          <p className="terminal-text text-center text-text-dim mt-6">
-            Already have an account?{' '}
-            <Link href="/en/login" className="text-gold hover:text-gold-glow transition-colors">
-              SIGN IN
-            </Link>
-          </p>
+              <div className="flex flex-col gap-1.5">
+                <label className="section-label text-text-dim">Email</label>
+                <input type="email" required autoComplete="email" value={email}
+                  onChange={e => setEmail(e.target.value)} placeholder="your@email.com"
+                  className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors" />
+                {errors.email && <span className="terminal-text text-red-400 text-xs">{errors.email}</span>}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="section-label text-text-dim">Password</label>
+                <input type="password" required autoComplete="new-password" value={password}
+                  onChange={e => setPassword(e.target.value)} placeholder="Minimum 8 characters"
+                  className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors" />
+                {errors.password && <span className="terminal-text text-red-400 text-xs">{errors.password}</span>}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="section-label text-text-dim">Confirm password</label>
+                <input type="password" required autoComplete="new-password" value={confirm}
+                  onChange={e => setConfirm(e.target.value)} placeholder="Repeat password"
+                  className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors" />
+                {errors.confirm && <span className="terminal-text text-red-400 text-xs">{errors.confirm}</span>}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={terms} onChange={e => setTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-gold cursor-pointer shrink-0" />
+                  <span className="terminal-text text-text-dim leading-relaxed">
+                    I accept the{' '}
+                    <Link href="/terminos" className="text-gold hover:text-gold-glow transition-colors">Terms</Link>
+                    {' '}and{' '}
+                    <Link href="/privacidad" className="text-gold hover:text-gold-glow transition-colors">Privacy Policy</Link>
+                  </span>
+                </label>
+                {errors.terms && <span className="terminal-text text-red-400 text-xs pl-7">{errors.terms}</span>}
+              </div>
+
+              {errors.form && (
+                <div className="border border-red-400/30 bg-red-400/5 px-4 py-2.5">
+                  <p className="terminal-text text-red-400 text-xs">{errors.form}</p>
+                </div>
+              )}
+
+              <button type="submit" disabled={loading}
+                className="mt-1 bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                {loading ? 'CREATING ACCOUNT…' : 'CREATE ACCOUNT'}
+              </button>
+            </form>
+          )}
         </div>
+
+        <p className="terminal-text text-center text-text-dim mt-6">
+          Already have an account?{' '}
+          <Link href="/en/login" className="text-gold hover:text-gold-glow transition-colors">
+            SIGN IN
+          </Link>
+        </p>
       </div>
     </main>
   )
