@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    throw new Error(`Supabase no configurado. URL: ${url ? 'OK' : 'FALTA'}, KEY: ${key ? 'OK' : 'FALTA'}`)
+  }
+
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-// Validación server-side robusta
 function validateSignup(email: unknown, password: unknown, nombre: unknown): string | null {
   if (typeof email !== 'string' || typeof password !== 'string') return 'Datos inválidos'
   if (!email.trim() || !password) return 'Email y contraseña requeridos'
@@ -23,6 +25,12 @@ function validateSignup(email: unknown, password: unknown, nombre: unknown): str
 
 export async function POST(req: NextRequest) {
   try {
+    // Verificar variables de entorno primero
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('[signup] Variables de Supabase no configuradas en Vercel')
+      return NextResponse.json({ error: 'Servicio no disponible. Contacta al soporte.' }, { status: 503 })
+    }
+
     const body = await req.json().catch(() => ({}))
     const { email, password, nombre } = body
 
@@ -40,8 +48,8 @@ export async function POST(req: NextRequest) {
     })
 
     if (error) {
-      // Mapear errores internos a mensajes genéricos
-      if (error.message.includes('already registered') || error.message.includes('already exists')) {
+      console.error('[signup] Supabase error:', error.message, '| URL:', process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 40))
+      if (error.message.includes('already registered') || error.message.includes('already exists') || error.status === 422) {
         return NextResponse.json({ error: 'Ya existe una cuenta con ese email.' }, { status: 409 })
       }
       if (error.message.includes('invalid') && error.message.includes('email')) {
@@ -50,13 +58,17 @@ export async function POST(req: NextRequest) {
       if (error.message.includes('password')) {
         return NextResponse.json({ error: 'La contraseña no cumple los requisitos.' }, { status: 400 })
       }
-      // Error genérico — no exponer mensaje interno
+      if (error.message.includes('not authorized') || error.status === 401 || error.status === 403) {
+        console.error('[signup] Service role key inválida o sin permisos de admin')
+        return NextResponse.json({ error: 'Error de configuración del servidor.' }, { status: 503 })
+      }
       return NextResponse.json({ error: 'Error al crear la cuenta. Intenta nuevamente.' }, { status: 400 })
     }
 
     return NextResponse.json({ ok: true, userId: data.user?.id })
   } catch (e) {
-    console.error('[api/auth/signup]', e)
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+    const msg = e instanceof Error ? e.message : 'Unknown'
+    console.error('[signup] Exception:', msg)
+    return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500 })
   }
 }

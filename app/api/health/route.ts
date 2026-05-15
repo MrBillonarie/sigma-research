@@ -1,0 +1,39 @@
+export const dynamic = 'force-dynamic'
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+// Endpoint de diagnóstico — verificar conectividad con Supabase
+// Acceder en: /api/health
+export async function GET() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+  const svc  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+
+  const checks: Record<string, string> = {
+    supabase_url:    url  ? `OK (${url.slice(8, 40)}…)` : 'FALTA',
+    anon_key:        anon ? `OK (${anon.slice(0, 20)}…)` : 'FALTA',
+    service_key:     svc  ? `OK (${svc.slice(0, 20)}…)`  : 'FALTA',
+    resend_key:      process.env.RESEND_API_KEY      ? 'OK' : 'FALTA',
+    admin_secret:    process.env.ADMIN_SECRET         ? 'OK' : 'FALTA',
+    app_url:         process.env.NEXT_PUBLIC_APP_URL  ?? 'no definida',
+  }
+
+  // Intentar ping a Supabase
+  let dbStatus = 'no testado'
+  if (url && svc) {
+    try {
+      const sb = createClient(url, svc, { auth: { persistSession: false } })
+      const { error } = await sb.from('profiles').select('id').limit(1)
+      dbStatus = error ? `ERROR: ${error.message}` : 'OK — DB conectada'
+    } catch (e) {
+      dbStatus = `EXCEPTION: ${e instanceof Error ? e.message : 'unknown'}`
+    }
+  }
+
+  return NextResponse.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    env: checks,
+    db: dbStatus,
+  })
+}
