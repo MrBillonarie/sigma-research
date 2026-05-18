@@ -10,12 +10,12 @@ export async function GET() {
   const svc  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 
   const checks: Record<string, string> = {
-    supabase_url:    url  ? `OK (${url.slice(8, 40)}…)` : 'FALTA',
-    anon_key:        anon ? `OK (${anon.slice(0, 20)}…)` : 'FALTA',
-    service_key:     svc  ? `OK (${svc.slice(0, 20)}…)`  : 'FALTA',
+    supabase_url:    url  ? 'OK' : 'FALTA',
+    anon_key:        anon ? 'OK' : 'FALTA',
+    service_key:     svc  ? 'OK' : 'FALTA',
     resend_key:      process.env.RESEND_API_KEY      ? 'OK' : 'FALTA',
     admin_secret:    process.env.ADMIN_SECRET         ? 'OK' : 'FALTA',
-    app_url:         process.env.NEXT_PUBLIC_APP_URL  ?? 'no definida',
+    app_url:         process.env.NEXT_PUBLIC_APP_URL  ? 'OK' : 'no definida',
   }
 
   // Intentar ping a Supabase

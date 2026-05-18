@@ -22,7 +22,7 @@ export function checkAdminAuth(req: NextRequest): boolean {
   // Authorization: Bearer <secret>
   const header = req.headers.get('authorization') ?? ''
   const bearer = header.startsWith('Bearer ') ? header.slice(7) : ''
-  if (bearer && safeEqual(bearer, secret)) return true
+  if (bearer.length > 0 && safeEqual(bearer, secret)) return true
 
   // x-admin-secret header (used by marketing and direct email routes)
   const xSecret = req.headers.get('x-admin-secret') ?? ''

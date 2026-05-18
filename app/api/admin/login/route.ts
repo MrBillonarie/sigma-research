@@ -21,11 +21,7 @@ function safeCompare(a: string, b: string): boolean {
   try {
     const ba = Buffer.from(a, 'utf8')
     const bb = Buffer.from(b, 'utf8')
-    if (ba.length !== bb.length) {
-      // Comparar de todas formas para evitar timing leak por longitud
-      crypto.timingSafeEqual(ba, ba)
-      return false
-    }
+    if (ba.length !== bb.length) return false
     return crypto.timingSafeEqual(ba, bb)
   } catch {
     return false
@@ -77,7 +73,6 @@ export async function POST(req: NextRequest) {
     path:     '/',
     maxAge:   8 * 60 * 60,
   })
-  // Mantener cookie legacy para compatibilidad con checkAdminAuth actual
   res.cookies.set('sigma_admin', secret, {
     httpOnly: true,
     secure:   process.env.NODE_ENV === 'production',
