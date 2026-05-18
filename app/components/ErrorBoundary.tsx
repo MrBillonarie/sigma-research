@@ -38,7 +38,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           color: '#f87171',
           letterSpacing: '0.05em',
         }}>
-          // ERROR EN ESTE MÓDULO — recarga la página para reintentar
+          {'// ERROR EN ESTE MÓDULO — recarga la página para reintentar'}
         </div>
       )
     }

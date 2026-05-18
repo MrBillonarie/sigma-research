@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   // Verify authenticated user
   const cookieStore = await cookies()
   const supabaseAuth = createServerClient(
