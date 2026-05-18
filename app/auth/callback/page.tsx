@@ -7,17 +7,30 @@ export default function AuthCallback() {
   const router = useRouter()
 
   useEffect(() => {
+    let redirected = false
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (redirected) return
       if (event === 'PASSWORD_RECOVERY') {
+        redirected = true
+        subscription.unsubscribe()
         router.replace('/nueva-contrasena')
       } else if (event === 'SIGNED_IN' && session) {
+        redirected = true
+        subscription.unsubscribe()
         const done = session.user?.user_metadata?.onboarding_done
         router.replace(done ? '/home' : '/onboarding')
       }
     })
 
-    // Safety fallback after 10 s
-    const timeout = setTimeout(() => router.replace('/login'), 10_000)
+    // Safety fallback after 10 s — cleans up subscription before redirecting
+    const timeout = setTimeout(() => {
+      if (!redirected) {
+        redirected = true
+        subscription.unsubscribe()
+        router.replace('/login')
+      }
+    }, 10_000)
 
     return () => {
       subscription.unsubscribe()

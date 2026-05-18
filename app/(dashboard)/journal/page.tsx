@@ -482,13 +482,15 @@ export default function JournalPage() {
       const { error: insertErr } = await supabase.from('csv_trades').insert(newTrades.map(t => ({ ...t, user_id: user.id })))
       if (insertErr) throw new Error(insertErr.message)
 
-      const dates = csvParsed.map(t => new Date(t.timestamp).getTime())
+      const dates = csvParsed.map(t => new Date(t.timestamp).getTime()).filter(d => !isNaN(d))
+      const dateFrom = dates.length ? new Date(Math.min(...dates)).toISOString() : new Date().toISOString()
+      const dateTo   = dates.length ? new Date(Math.max(...dates)).toISOString() : new Date().toISOString()
       await supabase.from('csv_imports').insert({
         user_id: user.id,
         filename: csvFile.name,
         total_trades: newTrades.length,
-        date_from: new Date(Math.min(...dates)).toISOString(),
-        date_to: new Date(Math.max(...dates)).toISOString(),
+        date_from: dateFrom,
+        date_to: dateTo,
         imported_at: new Date().toISOString(),
       })
 
@@ -554,7 +556,8 @@ export default function JournalPage() {
       if (!error) { setTrades(ts => ts.map(t => t.id === editing ? { ...t, ...payload } : t)); setEditing(null) }
     } else {
       const { data: { user } } = await supabase.auth.getUser()
-      const { data, error } = await supabase.from('trades').insert({ ...payload, user_id: user?.id }).select().single()
+      if (!user) { setSaving(false); return }
+      const { data, error } = await supabase.from('trades').insert({ ...payload, user_id: user.id }).select().single()
       if (!error && data) {
         setTrades(ts => {
           const next = [data as Trade, ...ts]
