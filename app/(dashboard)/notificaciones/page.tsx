@@ -207,7 +207,7 @@ export default function NotificacionesPage() {
                         {fmtTime(n.created_at)}
                       </span>
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: '#3a3f55', lineHeight: 1.6, marginBottom: n.accion_label ? 10 : 0 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: n.read ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.7)', lineHeight: 1.6, marginBottom: n.accion_label ? 10 : 0 }}>
                       {n.body}
                     </div>
                     {n.accion_label && n.accion_href && (

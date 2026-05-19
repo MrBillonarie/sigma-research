@@ -22,7 +22,7 @@ const TEST_NOTIFS = [
 ]
 
 export async function POST(req: Request) {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
     return NextResponse.json({ error: 'Solo disponible en desarrollo' }, { status: 403 })
   }
 

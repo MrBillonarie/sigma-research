@@ -9,7 +9,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const PROFILES  = ['retail', 'trader', 'institucional'] as const
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL
-  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+if (!BASE_URL) throw new Error('[motor-signals] NEXT_PUBLIC_APP_URL no definida')
 
 export async function GET(req: NextRequest) {
   // Vercel valida esta cabecera automáticamente en Hobby/Pro

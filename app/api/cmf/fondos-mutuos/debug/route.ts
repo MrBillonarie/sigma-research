@@ -1,11 +1,13 @@
 export const dynamic = 'force-dynamic'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { checkAdminAuth } from '@/lib/adminAuth'
 
 const BASE = 'https://fintual.com/api'
 const HEADERS = { Accept: 'application/json' }
 const FUND_NAMES = ['Risky Norris', 'Moderate Pitt', 'Conservative Clooney', 'Very Conservative Streep']
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const out: Record<string, any> = {}
 

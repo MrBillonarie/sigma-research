@@ -11,7 +11,8 @@ export const maxDuration = 60
 import { NextRequest, NextResponse } from 'next/server'
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL
-  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+if (!BASE_URL) throw new Error('[motor-accuracy] NEXT_PUBLIC_APP_URL no definida')
 
 export async function GET(req: NextRequest) {
   const CRON_SECRET = process.env.CRON_SECRET
