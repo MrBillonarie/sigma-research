@@ -33,7 +33,7 @@ export async function PATCH(req: NextRequest) {
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (status)    updates.status    = status
-  if (respuesta) updates.respuesta = respuesta
+  if (respuesta) updates.respuesta = String(respuesta).replace(/<[^>]*>/g, '').slice(0, 5000)
 
   const { data, error } = await sb()
     .from('contact_submissions')
