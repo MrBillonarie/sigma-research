@@ -9,6 +9,16 @@ import ContactReplyEmail        from '@/emails/ContactReplyEmail'
 import ContactNotificationEmail from '@/emails/ContactNotificationEmail'
 import MarketingOfferEmail      from '@/emails/MarketingOfferEmail'
 
+// ─── HTML escaping — prevents XSS in email templates ────────────────────────
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 // ─── Client ───────────────────────────────────────────────────────────────────
 function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
@@ -82,14 +92,15 @@ export async function sendContactoNotif(data: {
 // ─── Marketing ────────────────────────────────────────────────────────────────
 export interface MarketingPayload { title: string; subtitle?: string; body: string; ctaText: string; ctaUrl: string }
 
-export async function sendMarketingEmail(recipients: string[], subject: string, payload: MarketingPayload): Promise<SendResult> {
+export async function sendMarketingEmail(recipients: string[], subject: string, payload: MarketingPayload): Promise<SendResult & { sent: number; failed: number }> {
   try {
-    const html = await toHtml(React.createElement(MarketingOfferEmail, payload))
+    const html    = await toHtml(React.createElement(MarketingOfferEmail, payload))
     const results = await Promise.allSettled(recipients.map(to => getResend().emails.send({ from: FROM, to, subject, html })))
-    const failed = results.filter(r => r.status === 'rejected').length
-    if (failed) console.warn(`[email:marketing] ${failed}/${recipients.length} failed`)
-    return { success: failed < recipients.length }
-  } catch (e) { console.error('[email:marketing]', e); return { success: false, error: 'Error en envío masivo' } }
+    const failed  = results.filter(r => r.status === 'rejected').length
+    const sent    = recipients.length - failed
+    if (failed) console.warn(`[email:marketing] ${failed}/${recipients.length} fallaron`)
+    return { success: failed === 0, sent, failed }
+  } catch (e) { console.error('[email:marketing]', e); return { success: false, sent: 0, failed: recipients.length, error: 'Error en envío masivo' } }
 }
 
 // ─── Reporte mensual (legacy HTML — works fine without migration) ──────────────
@@ -135,10 +146,10 @@ export async function sendSoporteRespuesta(
         <h2 style="margin:0 0 20px;font-size:22px;font-weight:bold;color:#e5e5e5">Hemos respondido tu consulta</h2>
         <div style="background:#1a1a1a;border:1px solid #222;padding:16px;margin-bottom:24px">
           <p style="margin:0 0 6px;font-size:10px;color:#555;letter-spacing:0.2em">TU MENSAJE ORIGINAL</p>
-          <p style="margin:0;font-size:12px;color:#666;line-height:1.8">${mensajeOriginal.replace(/\n/g, '<br>')}</p>
+          <p style="margin:0;font-size:12px;color:#666;line-height:1.8">${escHtml(mensajeOriginal).replace(/\n/g, '<br>')}</p>
         </div>
         <p style="margin:0 0 6px;font-size:10px;color:#d4af37;letter-spacing:0.2em">RESPUESTA DEL EQUIPO</p>
-        <p style="margin:0 0 28px;font-size:13px;color:#e5e5e5;line-height:1.8;white-space:pre-line">${respuesta}</p>
+        <p style="margin:0 0 28px;font-size:13px;color:#e5e5e5;line-height:1.8;white-space:pre-line">${escHtml(respuesta)}</p>
         <p style="margin:0;font-size:11px;color:#555">Si tienes más preguntas, escríbenos de nuevo a través del formulario de contacto.</p>
       </td></tr>`)
     const { error } = await getResend().emails.send({

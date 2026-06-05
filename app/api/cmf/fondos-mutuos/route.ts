@@ -128,23 +128,21 @@ export async function GET(req: NextRequest) {
     .limit(1)
     .maybeSingle()
 
-  // Top por categoría (1 fondo por tipo, siempre ordenado por rent_12m desc)
+  // Top por categoría — una sola query con todas las categorías + filtrado en JS
   const CATEGORIAS = ['renta fija', 'conservador', 'moderado', 'agresivo']
-  const topResults = await Promise.all(
-    CATEGORIAS.map(cat => {
-      const tq = db.from('fondos_mutuos')
-        .select('nombre, rent_12m, agf(nombre)')
-        .eq('activo', true)
-        .eq('categoria', cat)
-        .not('rent_12m', 'is', null)
-        .not('nombre', 'ilike', '%ETF%')
-        .order('rent_12m', { ascending: false })
-        .limit(1)
-      return tq.maybeSingle()
-    })
-  )
-  const topPorCategoria = CATEGORIAS.map((cat, i) => {
-    const row = topResults[i].data as FondoRow | null
+  const { data: topAllRows } = await db
+    .from('fondos_mutuos')
+    .select('nombre, rent_12m, categoria, agf(nombre)')
+    .eq('activo', true)
+    .in('categoria', CATEGORIAS)
+    .not('rent_12m', 'is', null)
+    .not('nombre', 'ilike', '%ETF%')
+    .order('rent_12m', { ascending: false })
+    .limit(40)
+
+  const topPorCategoria = CATEGORIAS.map(cat => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = (topAllRows ?? []).find((f: any) => f.categoria === cat) as (FondoRow & { categoria: string | null }) | undefined
     return {
       categoria: cat,
       nombre:    row?.nombre ?? null,

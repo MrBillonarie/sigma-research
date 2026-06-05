@@ -1,10 +1,12 @@
 'use client'
+import { memo, useMemo } from 'react'
 import {
   Chart as ChartJS, LineElement, PointElement, LinearScale,
   CategoryScale, Filler, Tooltip, Legend,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 
+// Registro global — solo corre una vez por módulo, no en cada render
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend)
 
 const C = {
@@ -29,10 +31,10 @@ interface Props {
   winRate?:  number
 }
 
-export default function ModelChart({ labels, equity, dd, color, modelName, sharpe, maxDD, winRate }: Props) {
+function ModelChartInner({ labels, equity, dd, color, modelName, sharpe, maxDD, winRate }: Props) {
 
-  // Gradient fill: verde arriba del 0, transparente abajo
-  const equityGradientPlugin = {
+  // Plugin memoizado — solo se recrea si cambia color o equity data
+  const equityGradientPlugin = useMemo(() => ({
     id: 'equityGradient',
     beforeDatasetsDraw(chart: ChartJS) {
       const ctx    = chart.ctx
@@ -44,21 +46,22 @@ export default function ModelChart({ labels, equity, dd, color, modelName, sharp
       const bottom = chart.chartArea.bottom
 
       const gradAbove = ctx.createLinearGradient(0, top, 0, zero)
-      gradAbove.addColorStop(0,   `${color}28`)
-      gradAbove.addColorStop(1,   `${color}06`)
+      gradAbove.addColorStop(0, `${color}28`)
+      gradAbove.addColorStop(1, `${color}06`)
 
       const gradBelow = ctx.createLinearGradient(0, zero, 0, bottom)
-      gradBelow.addColorStop(0,   'rgba(248,113,113,0.10)')
-      gradBelow.addColorStop(1,   'rgba(248,113,113,0.02)')
+      gradBelow.addColorStop(0, 'rgba(248,113,113,0.10)')
+      gradBelow.addColorStop(1, 'rgba(248,113,113,0.02)')
 
       chart.data.datasets[0].backgroundColor = (ctx2: { dataIndex: number }) => {
         const v = equity[ctx2.dataIndex] ?? 0
         return v >= 0 ? gradAbove : gradBelow
       }
     },
-  }
+  }), [color, equity])
 
-  const datasets = [
+  // Datasets memoizados — solo se recrea si cambia equity, dd, color o modelName
+  const datasets = useMemo(() => [
     {
       label: `${modelName} · Equity`,
       data: equity,
@@ -86,7 +89,7 @@ export default function ModelChart({ labels, equity, dd, color, modelName, sharp
       yAxisID: 'y2',
       order: 2,
     },
-  ]
+  ], [equity, dd, color, modelName])
 
   return (
     <div style={{ background: C.bg }}>
@@ -192,3 +195,5 @@ export default function ModelChart({ labels, equity, dd, color, modelName, sharp
     </div>
   )
 }
+
+export default memo(ModelChartInner)

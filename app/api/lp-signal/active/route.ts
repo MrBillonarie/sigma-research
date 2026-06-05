@@ -1,4 +1,5 @@
-export const dynamic = 'force-dynamic'
+export const dynamic   = 'force-dynamic'
+export const revalidate = 60  // Cache 60s — LP signals cambian máximo cada hora
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'

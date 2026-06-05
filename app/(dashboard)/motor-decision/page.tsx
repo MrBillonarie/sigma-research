@@ -4,11 +4,13 @@ import Link from 'next/link'
 import type { ProfileType, SignalsResponse } from '@/types/decision-engine'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { supabase } from '@/app/lib/supabase'
-import dynamic         from 'next/dynamic'
-import ProfileSelector from './components/ProfileSelector'
-import MetricCards     from './components/MetricCards'
-import FlowIndicator   from './components/FlowIndicator'
-import SignalTable     from './components/SignalTable'
+import dynamic                  from 'next/dynamic'
+import ProfileSelector          from './components/ProfileSelector'
+import MetricCards              from './components/MetricCards'
+import FlowIndicator            from './components/FlowIndicator'
+import SignalTable              from './components/SignalTable'
+import LiveRefreshIndicator     from '@/app/components/LiveRefreshIndicator'
+import PageErrorBoundary        from '@/app/components/PageErrorBoundary'
 
 const AllocationDonut = dynamic(() => import('./components/AllocationDonut'), {
   ssr:     false,
@@ -96,6 +98,7 @@ export default function MotorDecisionPage() {
   const BEBAS = "'Bebas Neue', Impact, sans-serif"
 
   return (
+    <PageErrorBoundary section="Motor de Decisión">
     <div className="dash-content" style={{
       minHeight: '100vh', background: '#04050a',
       paddingBottom: '64px', maxWidth: 1280, margin: '0 auto', width: '100%',
@@ -155,10 +158,18 @@ export default function MotorDecisionPage() {
             padding: '8px 14px', color: autoRefresh ? '#1D9E75' : '#7a7f9a',
             fontSize: 11, fontFamily: MONO, cursor: 'pointer',
           }}>
-            {autoRefresh
-              ? `⏱ Auto: ${Math.ceil(nextRefresh / 60000)}m`
-              : '⏱ Auto-refresh'}
+            {autoRefresh ? '⏸ Auto-refresh' : '⏱ Auto-refresh'}
           </button>
+
+          {/* Indicador de countdown cuando auto-refresh está activo */}
+          {autoRefresh && (
+            <LiveRefreshIndicator
+              loading={loading}
+              nextRefreshMs={nextRefresh}
+              intervalMs={AUTO_INTERVAL}
+              onRefresh={() => fetchSignals(profile)}
+            />
+          )}
 
           {data && (
             <Link href="/motor-decision/reporte" style={{
@@ -305,6 +316,7 @@ export default function MotorDecisionPage() {
       ) : null}
 
     </div>
+    </PageErrorBoundary>
   )
 }
 
