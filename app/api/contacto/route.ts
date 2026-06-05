@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { sendContactoNotif, sendContactReply } from '@/lib/email'
 
 function makeSb() {
@@ -13,14 +13,13 @@ function makeSb() {
 // ─── Supabase-based rate limiter: max 3 por IP por hora (escala en serverless) ─
 const _rlFallback = new Map<string, { count: number; reset: number }>()
 
-async function checkRate(ip: string): Promise<boolean> {
+async function checkRate(ip: string, sb: SupabaseClient): Promise<boolean> {
   const MAX       = 3
   const WINDOW_MS = 3_600_000
   const key       = `rl:contacto:${ip}`
   const resetAt   = new Date(Date.now() + WINDOW_MS).toISOString()
 
   try {
-    const sb = makeSb()
     const { data, error } = await sb
       .from('rate_limits')
       .select('count, reset_at')
@@ -47,10 +46,12 @@ async function checkRate(ip: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  // Un solo cliente reutilizado en rate limit + insert
   const sb = makeSb()
+
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-    if (!await checkRate(ip)) {
+    if (!await checkRate(ip, sb)) {
       return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta en una hora.' }, { status: 429 })
     }
 

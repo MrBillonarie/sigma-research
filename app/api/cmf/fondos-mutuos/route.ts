@@ -116,29 +116,30 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Lista AGFs
-  const { data: agfList } = await db.from('agf').select('nombre').order('nombre')
-
-  // Última sync
-  const { data: lastRow } = await db
-    .from('fondos_mutuos')
-    .select('updated_at')
-    .eq('activo', true)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  // Top por categoría — una sola query con todas las categorías + filtrado en JS
   const CATEGORIAS = ['renta fija', 'conservador', 'moderado', 'agresivo']
-  const { data: topAllRows } = await db
-    .from('fondos_mutuos')
-    .select('nombre, rent_12m, categoria, agf(nombre)')
-    .eq('activo', true)
-    .in('categoria', CATEGORIAS)
-    .not('rent_12m', 'is', null)
-    .not('nombre', 'ilike', '%ETF%')
-    .order('rent_12m', { ascending: false })
-    .limit(40)
+
+  // Tres queries independientes en paralelo
+  const [
+    { data: agfList },
+    { data: lastRow },
+    { data: topAllRows },
+  ] = await Promise.all([
+    db.from('agf').select('nombre').order('nombre'),
+    db.from('fondos_mutuos')
+      .select('updated_at')
+      .eq('activo', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    db.from('fondos_mutuos')
+      .select('nombre, rent_12m, categoria, agf(nombre)')
+      .eq('activo', true)
+      .in('categoria', CATEGORIAS)
+      .not('rent_12m', 'is', null)
+      .not('nombre', 'ilike', '%ETF%')
+      .order('rent_12m', { ascending: false })
+      .limit(40),
+  ])
 
   const topPorCategoria = CATEGORIAS.map(cat => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

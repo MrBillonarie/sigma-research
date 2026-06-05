@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOnboarding } from '@/app/lib/useOnboarding'
 
@@ -31,29 +31,29 @@ const OBJETIVO_HREF: Record<string, string> = {
 }
 
 export default function OnboardingWizard() {
-  const router           = useRouter()
-  const { showWizard, prefs, savePrefs, completeOnboarding } = useOnboarding()
-  const [step,    setStep]    = useState(0)
+  const router                                   = useRouter()
+  const { showWizard, savePrefs, completeOnboarding } = useOnboarding()
+  const [step,     setStep]     = useState(0)
   const [objetivo, setObjetivo] = useState<string | null>(null)
   const [plats,    setPlats]    = useState<string[]>([])
   const [saving,   setSaving]   = useState(false)
 
-  if (!showWizard) return null
-
-  async function handleComplete() {
+  const handleComplete = useCallback(async () => {
     setSaving(true)
     const perfil = objetivo === 'trading' ? 'trader' : objetivo === 'cuantitativo' ? 'institucional' : 'retail'
     await savePrefs({ objetivo, plataformas: plats, perfil, onboarding_step: 3 })
     await completeOnboarding()
     setSaving(false)
     router.push(OBJETIVO_HREF[objetivo ?? 'fire'] ?? '/home')
-  }
+  }, [objetivo, plats, savePrefs, completeOnboarding, router])
 
-  const steps = [
+  const steps = useMemo(() => [
     { label: 'Objetivo',    completed: objetivo !== null },
     { label: 'Plataformas', completed: true },
     { label: 'Listo',       completed: false },
-  ]
+  ], [objetivo])
+
+  if (!showWizard) return null
 
   return (
     <>

@@ -1,11 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 
-function sb() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  )
+// Singleton — un solo cliente por proceso, no uno por llamada
+let _sb: ReturnType<typeof createClient> | null = null
+function getSb() {
+  if (!_sb) {
+    _sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    )
+  }
+  return _sb
 }
 
 export async function logError(
@@ -16,7 +21,8 @@ export async function logError(
   const err = error instanceof Error ? error : new Error(String(error))
   console.error(`[${endpoint}]`, err)
   try {
-    await sb().from('error_logs').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (getSb() as any).from('error_logs').insert({
       endpoint,
       error_msg:   err.message,
       error_stack: err.stack ?? null,
