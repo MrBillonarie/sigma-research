@@ -36,29 +36,36 @@ async function getPageData() {
     const engine = engineRes.ok ? await engineRes.json() : null
     const pub    = publicRes.ok  ? await publicRes.json()  : null
 
+    const fire: FireData | null           = engine?.fire ?? null
+    const last_decision_at: string | null = engine?.last_decision_at ?? null
+    const regime: string                  = pub?.regime ?? 'UNKNOWN'
+    const champions: Champion[]           = (pub?.top_models ?? []).slice(0, 6)
+    const history: HistoryTrade[]         = (pub?.history ?? []).filter(
+      (t: HistoryTrade) => t.equity_after != null
+    )
+
     return {
-      metrics:          engine?.portfolio                              ?? null,
-      fire:             engine?.fire                                   ?? null as FireData | null,
-      coverage:         engine?.coverage                               ?? null,
-      backtests:        (engine?.backtests_total ?? 16_767_345) as number,
-      last_decision_at: (engine?.last_decision_at ?? null)            as string | null,
-      regime:           (pub?.regime ?? 'UNKNOWN')                    as string,
-      champions:        ((pub?.top_models ?? []).slice(0, 6))         as Champion[],
-      history:          ((pub?.history ?? []).filter((t: HistoryTrade) => t.equity_after != null)) as HistoryTrade[],
+      metrics:  engine?.portfolio ?? null,
+      fire,
+      coverage: engine?.coverage ?? null,
+      backtests: Number(engine?.backtests_total ?? 16_767_345),
+      last_decision_at,
+      regime,
+      champions,
+      history,
     }
   } catch {
     return {
-      metrics: null, fire: null, coverage: null,
-      backtests: 16_767_345, last_decision_at: null,
-      regime: 'UNKNOWN', champions: [], history: [],
+      metrics: null, fire: null as (FireData | null), coverage: null,
+      backtests: 16_767_345, last_decision_at: null as (string | null),
+      regime: 'UNKNOWN', champions: [] as Champion[], history: [] as HistoryTrade[],
     }
   }
 }
 
 // ─── Equity curve SVG (server-rendered) ───────────────────────────────────────
 function EquityCurveSVG({ history, initial }: { history: HistoryTrade[]; initial: number }) {
-  type Point = { eq: number; status: string }
-  const points: Point[] = [
+  const points: Array<{ eq: number; status: string }> = [
     { eq: initial, status: 'start' },
     ...history
       .filter(t => t.equity_after != null)
@@ -82,7 +89,7 @@ function EquityCurveSVG({ history, initial }: { history: HistoryTrade[]; initial
   const fillPts = `${linePts} L${lastX.toFixed(1)},${H} L${PAD_X},${H} Z`
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }} aria-hidden>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }} aria-hidden="true">
       <defs>
         <linearGradient id="eq-fill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%"   stopColor="#d4af37" stopOpacity="0.18" />
@@ -185,7 +192,7 @@ export default async function RootPage() {
   const returnPct   = fire
     ? (((fire.current_equity - fire.starting_equity) / fire.starting_equity) * 100).toFixed(2)
     : '13.19'
-  const regimeColor = REGIME_COLOR[regime] ?? REGIME_COLOR.UNKNOWN
+  const regimeColor = REGIME_COLOR[regime] ?? '#7a7f9a'
 
   return (
     <main className="bg-bg min-h-screen">
@@ -333,7 +340,7 @@ export default async function RootPage() {
               { v: `${metrics?.wr        ? metrics.wr.toFixed(0)        : '68'}%`,  l: 'Win Rate'       },
               { v: `${metrics?.pf        ? metrics.pf.toFixed(1)        : '1.7'}x`, l: 'Profit Factor'  },
               { v: `${metrics?.calmar    ? metrics.calmar.toFixed(1)    : '1.6'}x`, l: 'Calmar Ratio'   },
-              { v: `${metrics?.n_trades  ? metrics.n_trades             : history.length + 1}`,           l: 'Trades registrados' },
+              { v: `${metrics?.n_trades ?? history.length + 1}`, l: 'Trades registrados' },
             ].map(({ v, l }) => (
               <div key={l} className="bg-surface px-6 py-6 text-center">
                 <div className="num text-3xl font-bold text-gold mb-1 tabular-nums">{v}</div>
