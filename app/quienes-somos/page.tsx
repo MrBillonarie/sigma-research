@@ -238,17 +238,32 @@ export default function QuienesSomosPage() {
       </div>
 
       {/* ── MISIÓN (compacta) ───────────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-surface border-t border-gold/10">
-        <div className="max-w-4xl mx-auto">
+      <section className="py-20 px-6 bg-surface border-t border-gold/10 relative overflow-hidden">
+        {/* decorative large quote watermark */}
+        <div
+          className="absolute left-0 top-0 select-none pointer-events-none"
+          aria-hidden
+          style={{
+            fontSize: 'clamp(12rem, 30vw, 22rem)',
+            lineHeight: 0.8,
+            color: 'rgba(212,175,55,0.04)',
+            fontFamily: 'Georgia, serif',
+            userSelect: 'none',
+          }}
+        >
+          &ldquo;
+        </div>
+
+        <div className="max-w-4xl mx-auto relative">
           <FadeIn>
-            <div className="section-label text-gold mb-4">{'// MISIÓN'}</div>
-            <blockquote className="border-l-2 border-gold pl-6 py-1 mb-8">
-              <p className="display-heading text-[clamp(1.8rem,4vw,3rem)] text-text leading-tight">
-                &ldquo;No vendemos señales.<br />
-                <span className="gold-text">Proveemos infraestructura.&rdquo;</span>
+            <div className="section-label text-gold mb-6">{'// MISIÓN'}</div>
+            <blockquote className="border-l-2 border-gold pl-8 py-2 mb-10">
+              <p className="display-heading text-[clamp(2rem,4.5vw,3.5rem)] text-text leading-[1.05]">
+                No vendemos señales.<br />
+                <span className="gold-text">Proveemos infraestructura.</span>
               </p>
             </blockquote>
-            <p className="terminal-text text-sm text-text-dim leading-relaxed max-w-2xl">
+            <p className="terminal-text text-sm text-text-dim leading-relaxed max-w-2xl border-l border-gold/15 pl-8">
               Las herramientas cuantitativas de grado institucional — modelos de régimen, forecasting
               de volatilidad, análisis de factor investing — han estado reservadas a hedge funds con
               presupuestos de ocho cifras. Sigma Research construye ese mismo stack y lo pone al alcance
@@ -279,24 +294,29 @@ export default function QuienesSomosPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
             {valores.map((v, i) => (
               <FadeIn key={v.tag} delay={i * 80}>
-                <div className="bg-bg p-7 flex flex-col gap-4 group hover:bg-surface transition-colors duration-200 relative overflow-hidden h-full">
-                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-gold opacity-30 group-hover:opacity-70 transition-opacity duration-200" />
+                <div className="bg-bg p-7 flex flex-col gap-4 group hover:bg-surface transition-colors duration-200 relative overflow-hidden h-full border-l-2 border-transparent hover:border-gold/60 transition-[border-color]">
+                  {/* top scan line */}
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-gold/40 via-gold/10 to-transparent" />
 
-                  <div className="relative flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                     <span className="terminal-text text-[10px] text-gold border border-gold/20 px-2 py-0.5 tracking-widest">
                       {v.tag}
                     </span>
                   </div>
 
-                  <h3 className="display-heading text-xl text-text group-hover:text-gold transition-colors duration-200 relative leading-tight">
+                  <h3 className="display-heading text-xl text-text group-hover:text-gold transition-colors duration-200 leading-tight">
                     {v.name}
                   </h3>
 
-                  <div className="terminal-text text-[11px] text-gold/60 tracking-wider border-l border-gold/20 pl-3">
-                    {v.stat}
+                  {/* stat — más visible */}
+                  <div className="flex items-center gap-2">
+                    <span className="w-px h-4 bg-gold/40 shrink-0" />
+                    <span className="terminal-text text-[10px] text-gold tracking-wider font-medium">
+                      {v.stat}
+                    </span>
                   </div>
 
-                  <p className="terminal-text text-xs text-text-dim leading-relaxed relative">
+                  <p className="terminal-text text-xs text-text-dim leading-relaxed mt-auto">
                     {v.description}
                   </p>
                 </div>
@@ -323,20 +343,25 @@ export default function QuienesSomosPage() {
                 href={r.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-surface p-8 flex flex-col gap-5 group hover:bg-gold/5 transition-colors duration-200 relative overflow-hidden"
+                className="bg-surface p-7 flex flex-col gap-5 group hover:bg-gold/5 transition-colors duration-200 relative overflow-hidden border-b-2 border-transparent hover:border-gold/40 transition-[border-color]"
               >
-                <div className="absolute top-0 left-0 right-0 h-px bg-gold/0 group-hover:bg-gold/30 transition-colors duration-300" />
-                <div className="text-text-dim group-hover:text-gold transition-colors duration-200">
+                {/* top scan line */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/0 group-hover:via-gold/40 to-transparent transition-all duration-300" />
+
+                {/* icon in bordered container */}
+                <div className="w-12 h-12 border border-gold/20 group-hover:border-gold/50 flex items-center justify-center text-text-dim group-hover:text-gold transition-all duration-200">
                   {r.icon}
                 </div>
-                <div>
-                  <div className="display-heading text-2xl text-text group-hover:text-gold transition-colors duration-200">
+
+                <div className="flex-1">
+                  <div className="display-heading text-xl text-text group-hover:text-gold transition-colors duration-200">
                     {r.label}
                   </div>
                   <div className="terminal-text text-xs text-text-dim mt-1">{r.desc}</div>
                 </div>
-                <span className="terminal-text text-xs text-gold mt-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200 tracking-widest">
-                  IR A {r.label.toUpperCase()} →
+
+                <span className="terminal-text text-[10px] text-gold tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  ABRIR →
                 </span>
               </a>
             ))}

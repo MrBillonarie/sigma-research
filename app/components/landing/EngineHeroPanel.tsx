@@ -1,59 +1,65 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-interface OpenTrade {
-  sym: string
-  direction: string
-  grade: string
-  entry: number
-  strategy?: string
-}
-
 interface PanelData {
   regime: string
   equity: number
   equity_initial: number
-  open_trades: OpenTrade[]
-  promoted_today: number
   last_decision_at: string | null
-  backtests: number
+  snapshot_trigger: string | null
+  bayesian_confirmed: number
+  bayesian_watching: number
   coverage_active: number
+  coverage_target: number
   wr: number
+  promoted_today: number
 }
 
-function relativeTime(iso: string | null): string {
+interface CycleStep { asset: string; tf: string; from: string; to: string }
+
+function parseSnapshot(raw: string | null): CycleStep[] {
+  if (!raw) return []
+  return raw
+    .split(';')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .map(s => {
+      const [header = '', transition = ''] = s.split(':').map(p => p.trim())
+      const parts  = header.split(' ')
+      const asset  = parts[0] ?? ''
+      const tf     = parts[1] ?? ''
+      const [fromRaw = '', toRaw = ''] = transition.split('→').map(p => p.trim())
+      const from   = fromRaw.split('|')[0].replace(/_/g, ' ')
+      const to     = toRaw.split('|')[0].replace(/_/g, ' ')
+      return { asset, tf, from, to }
+    })
+    .filter(s => s.asset)
+}
+
+function relTime(iso: string | null): string {
   if (!iso) return '--'
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
-  if (diff < 1)  return 'hace <1m'
-  if (diff < 60) return `hace ${diff}m`
-  return `hace ${Math.floor(diff / 60)}h ${diff % 60}m`
+  if (diff < 1)  return '<1m'
+  if (diff < 60) return `${diff}m`
+  return `${Math.floor(diff / 60)}h`
 }
 
 const REGIME_COLOR: Record<string, string> = {
-  BEAR:    '#f87171',
-  BULL:    '#34d399',
-  NEUTRAL: '#d4af37',
-  UNKNOWN: '#7a7f9a',
-}
-
-const GRADE_COLOR: Record<string, string> = {
-  'A+': '#d4af37',
-  'A':  '#4a9eff',
-  'B':  '#8b8fa8',
-  'C':  '#f87171',
+  BEAR: '#f87171', BULL: '#34d399', NEUTRAL: '#d4af37', UNKNOWN: '#7a7f9a',
 }
 
 export default function EngineHeroPanel() {
-  const [data,       setData]       = useState<PanelData | null>(null)
-  const [updateTime, setUpdateTime] = useState('--')
+  const [data,   setData]   = useState<PanelData | null>(null)
+  const [tick,   setTick]   = useState('')
 
   async function load() {
     try {
       const r = await fetch('/api/public/landing-data', { cache: 'no-store' })
-      if (!r.ok) return
-      const d: PanelData = await r.json()
-      setData(d)
-      setUpdateTime(new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }))
+      if (r.ok) {
+        setData(await r.json())
+        setTick(new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }))
+      }
     } catch {}
   }
 
@@ -63,106 +69,112 @@ export default function EngineHeroPanel() {
     return () => clearInterval(id)
   }, [])
 
-  const regimeColor = REGIME_COLOR[data?.regime ?? 'UNKNOWN']
-  const returnPct   = data
-    ? (((data.equity - data.equity_initial) / data.equity_initial) * 100).toFixed(2)
-    : '--'
-  const openTrade   = data?.open_trades?.[0] ?? null
+  const rc   = data ? (REGIME_COLOR[data.regime] ?? '#7a7f9a') : '#7a7f9a'
+  const ret  = data ? (((data.equity - data.equity_initial) / data.equity_initial) * 100).toFixed(1) : '--'
+  const steps = parseSnapshot(data?.snapshot_trigger ?? null)
 
   return (
     <div className="relative border border-gold/20 bg-surface/60 backdrop-blur-sm overflow-hidden">
-      {/* Top scan line */}
+      {/* top scan line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-gold/10">
         <span className="terminal-text text-[9px] text-gold/60 tracking-[0.3em]">{'// SIGMA ENGINE · LIVE'}</span>
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="terminal-text text-[9px] text-muted">{updateTime}</span>
+          <span className="terminal-text text-[9px] text-muted">{tick || '--:--'}</span>
         </div>
       </div>
 
-      {/* Regime + Return */}
+      {/* ── Régimen + última decisión ────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-px bg-gold/8 border-b border-gold/10">
-        <div className="bg-surface px-5 py-5">
+        <div className="bg-surface px-5 py-4">
           <div className="terminal-text text-[9px] text-muted tracking-[0.25em] uppercase mb-2">Régimen</div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: regimeColor }} />
-            <span className="terminal-text text-sm font-bold" style={{ color: regimeColor }}>
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: rc }} />
+            <span className="terminal-text text-sm font-bold" style={{ color: rc }}>
               {data?.regime ?? '---'}
             </span>
           </div>
         </div>
-        <div className="bg-surface px-5 py-5">
-          <div className="terminal-text text-[9px] text-muted tracking-[0.25em] uppercase mb-2">Paper Equity</div>
-          <div className="num text-sm font-bold text-gold tabular-nums leading-none">
-            ${data ? data.equity.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '---'}
-          </div>
-          <div className="num text-xs text-emerald-400 tabular-nums mt-1">
-            {returnPct !== '--' ? `+${returnPct}%` : '--'}
+        <div className="bg-surface px-5 py-4">
+          <div className="terminal-text text-[9px] text-muted tracking-[0.25em] uppercase mb-2">Última decisión</div>
+          <div className="terminal-text text-sm font-bold text-text">
+            hace {relTime(data?.last_decision_at ?? null)}
           </div>
         </div>
       </div>
 
-      {/* Open trade */}
-      <div className="px-5 py-4 border-b border-gold/10 min-h-[72px]">
-        <div className="terminal-text text-[9px] text-muted tracking-[0.25em] uppercase mb-3">Trade activo</div>
-        {openTrade ? (
-          <div className="flex items-center gap-3 flex-wrap">
-            <span
-              className="terminal-text text-xs px-2 py-0.5 border font-bold"
-              style={{ color: GRADE_COLOR[openTrade.grade] ?? '#7a7f9a', borderColor: (GRADE_COLOR[openTrade.grade] ?? '#7a7f9a') + '40' }}
-            >
-              {openTrade.grade}
+      {/* ── Snapshot trigger — lo que el motor vio ──────────────────────── */}
+      <div className="border-b border-gold/10">
+        <div className="px-5 pt-4 pb-2">
+          <span className="terminal-text text-[9px] text-gold/50 tracking-[0.25em]">{'// ÚLTIMO CICLO DEL MOTOR'}</span>
+        </div>
+
+        <div className="px-5 pb-4 flex flex-col gap-2 min-h-[64px]">
+          {steps.length > 0 ? steps.map((s, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <span className="terminal-text text-[10px] font-bold text-text w-8 shrink-0">{s.asset}</span>
+              <span className="terminal-text text-[9px] text-muted w-6 shrink-0">{s.tf}</span>
+              <span className="terminal-text text-[9px] text-text-dim truncate max-w-[80px]">{s.from}</span>
+              <span className="terminal-text text-[9px] text-gold/60 shrink-0">→</span>
+              <span className="terminal-text text-[9px] text-gold truncate">{s.to}</span>
+            </div>
+          )) : (
+            <div className="terminal-text text-[9px] text-muted italic">aguardando ciclo…</div>
+          )}
+        </div>
+
+        {data?.promoted_today ? (
+          <div className="px-5 py-2 border-t border-gold/8 flex items-center gap-2">
+            <span className="w-1 h-1 rounded-full bg-emerald-400" />
+            <span className="terminal-text text-[9px] text-emerald-400">
+              {data.promoted_today} champion{data.promoted_today > 1 ? 's' : ''} promovido{data.promoted_today > 1 ? 's' : ''} hoy
             </span>
-            <span className="display-heading text-lg text-text">{openTrade.sym}</span>
-            <span
-              className="terminal-text text-[9px] px-2 py-0.5 border"
-              style={{
-                color:        openTrade.direction === 'short' ? '#f87171' : '#34d399',
-                borderColor: (openTrade.direction === 'short' ? '#f87171' : '#34d399') + '30',
-                background:  (openTrade.direction === 'short' ? 'rgba(248,113,113,' : 'rgba(52,211,153,') + '0.08)',
-              }}
-            >
-              {openTrade.direction.toUpperCase()}
-            </span>
-            <span className="terminal-text text-[9px] text-muted ml-auto">@ {openTrade.entry}</span>
           </div>
-        ) : (
-          <span className="terminal-text text-xs text-muted">Sin posición abierta</span>
-        )}
+        ) : null}
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-px bg-gold/8 border-b border-gold/10">
-        <div className="bg-surface px-4 py-4 text-center">
-          <div className="num text-xl font-bold text-text tabular-nums">
-            {data ? `${data.wr.toFixed(0)}%` : '--'}
-          </div>
-          <div className="terminal-text text-[8px] text-muted tracking-[0.2em] mt-1 uppercase">Win Rate</div>
-        </div>
-        <div className="bg-surface px-4 py-4 text-center">
-          <div className="num text-xl font-bold text-text tabular-nums">
-            {data?.coverage_active ?? '--'}
-          </div>
-          <div className="terminal-text text-[8px] text-muted tracking-[0.2em] mt-1 uppercase">Modelos</div>
-        </div>
-        <div className="bg-surface px-4 py-4 text-center">
+      {/* ── Stats: bayesian · modelos · fire ────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-px bg-gold/8">
+
+        <div className="bg-surface px-4 py-4 flex flex-col gap-1">
+          <div className="terminal-text text-[8px] text-muted tracking-[0.2em] uppercase">Bayesian</div>
           <div className="num text-xl font-bold text-gold tabular-nums">
-            {data ? `${(data.backtests / 1_000_000).toFixed(1)}M` : '--'}
+            {data?.bayesian_confirmed ?? '--'}
           </div>
-          <div className="terminal-text text-[8px] text-muted tracking-[0.2em] mt-1 uppercase">Backtests</div>
+          <div className="terminal-text text-[8px] text-muted leading-tight">
+            edge confirmado<br />
+            <span className="text-text-dim">{data?.bayesian_watching ?? '--'} en estudio</span>
+          </div>
+        </div>
+
+        <div className="bg-surface px-4 py-4 flex flex-col gap-1">
+          <div className="terminal-text text-[8px] text-muted tracking-[0.2em] uppercase">Modelos</div>
+          <div className="num text-xl font-bold text-text tabular-nums">
+            {data ? `${data.coverage_active}/${data.coverage_target}` : '--'}
+          </div>
+          <div className="w-full h-1 bg-border rounded-full overflow-hidden mt-1">
+            <div
+              className="h-full rounded-full bg-gold/60"
+              style={{ width: data ? `${(data.coverage_active / data.coverage_target) * 100}%` : '0%' }}
+            />
+          </div>
+        </div>
+
+        <div className="bg-surface px-4 py-4 flex flex-col gap-1">
+          <div className="terminal-text text-[8px] text-muted tracking-[0.2em] uppercase">Fire Eq.</div>
+          <div className="num text-lg font-bold text-gold tabular-nums leading-tight">
+            ${data ? Math.round(data.equity).toLocaleString('es-CL') : '--'}
+          </div>
+          <div className="terminal-text text-[9px] text-emerald-400 tabular-nums">
+            +{ret}%
+          </div>
         </div>
       </div>
 
-      {/* Last decision */}
-      <div className="px-5 py-3 flex items-center justify-between">
-        <span className="terminal-text text-[9px] text-muted">última decisión del motor</span>
-        <span className="terminal-text text-[9px] text-gold">{data ? relativeTime(data.last_decision_at) : '--'}</span>
-      </div>
-
-      {/* Bottom accent */}
+      {/* bottom accent */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
     </div>
   )

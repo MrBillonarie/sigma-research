@@ -5,15 +5,17 @@ export const dynamic = 'force-dynamic'
 const VPS = process.env.VPS_URL ?? 'http://localhost:8080'
 
 const FALLBACK = {
-  regime: 'UNKNOWN',
-  equity: 11319,
-  equity_initial: 10000,
-  open_trades: [] as unknown[],
-  promoted_today: 0,
+  regime:           'UNKNOWN',
+  equity:           11319,
+  equity_initial:   10000,
   last_decision_at: null as string | null,
-  backtests: 16_767_345,
-  coverage_active: 18,
-  wr: 68,
+  snapshot_trigger: null as string | null,
+  bayesian_confirmed: 1,
+  bayesian_watching:  2,
+  coverage_active:  18,
+  coverage_target:  40,
+  wr:               68,
+  promoted_today:   0,
 }
 
 export async function GET() {
@@ -27,15 +29,17 @@ export async function GET() {
     const pub    = publicRes.ok  ? await publicRes.json()  : null
 
     return NextResponse.json({
-      regime:           pub?.regime                                    ?? FALLBACK.regime,
-      equity:           engine?.fire?.current_equity                   ?? FALLBACK.equity,
-      equity_initial:   engine?.fire?.starting_equity                  ?? FALLBACK.equity_initial,
-      open_trades:      pub?.open_trades                               ?? FALLBACK.open_trades,
-      promoted_today:   engine?.decision_activity_24h?.champion_promoted ?? FALLBACK.promoted_today,
-      last_decision_at: engine?.last_decision_at                       ?? FALLBACK.last_decision_at,
-      backtests:        engine?.backtests_total                        ?? FALLBACK.backtests,
-      coverage_active:  engine?.coverage?.active                       ?? FALLBACK.coverage_active,
-      wr:               engine?.portfolio?.wr                          ?? FALLBACK.wr,
+      regime:             pub?.regime                                      ?? FALLBACK.regime,
+      equity:             engine?.fire?.current_equity                     ?? FALLBACK.equity,
+      equity_initial:     engine?.fire?.starting_equity                    ?? FALLBACK.equity_initial,
+      last_decision_at:   engine?.last_decision_at                         ?? FALLBACK.last_decision_at,
+      snapshot_trigger:   engine?.snapshot_trigger                         ?? FALLBACK.snapshot_trigger,
+      bayesian_confirmed: engine?.bayesian?.edge_confirmed                 ?? FALLBACK.bayesian_confirmed,
+      bayesian_watching:  engine?.bayesian?.watching                       ?? FALLBACK.bayesian_watching,
+      coverage_active:    engine?.coverage?.active                         ?? FALLBACK.coverage_active,
+      coverage_target:    engine?.coverage?.target                         ?? FALLBACK.coverage_target,
+      wr:                 engine?.portfolio?.wr                            ?? FALLBACK.wr,
+      promoted_today:     engine?.decision_activity_24h?.champion_promoted ?? FALLBACK.promoted_today,
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch {
     return NextResponse.json(FALLBACK)
