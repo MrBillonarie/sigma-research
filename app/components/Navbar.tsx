@@ -155,14 +155,26 @@ export default function Navbar() {
 
               {/* Dropdown */}
               {activeGroup === group.id && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 min-w-[200px]">
-                  <div className="bg-surface border border-border py-1">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 min-w-[220px]">
+                  <div className="bg-surface border border-gold/20 relative overflow-hidden">
+                    {/* Scan line */}
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
+
+                    {/* Header label */}
+                    <div className="px-4 pt-3 pb-2 border-b border-gold/8">
+                      <span className="terminal-text text-[9px] text-gold/50 tracking-[0.35em] uppercase">
+                        {`// ${group.label}`}
+                      </span>
+                    </div>
+
                     {group.links.map(l => (
                       <Link
                         key={l.href}
                         href={l.href}
-                        className={`flex flex-col px-4 py-2.5 transition-colors duration-200 group/item ${
-                          isActive(l.href) ? 'bg-gold/5' : 'hover:bg-gold/5'
+                        className={`flex flex-col px-4 py-2.5 transition-colors duration-150 group/item border-l-2 ${
+                          isActive(l.href)
+                            ? 'bg-gold/8 border-gold'
+                            : 'border-transparent hover:bg-gold/5 hover:border-gold/50'
                         }`}
                         onClick={() => setActiveGroup(null)}
                       >
@@ -176,6 +188,9 @@ export default function Navbar() {
                         </span>
                       </Link>
                     ))}
+
+                    {/* Bottom accent */}
+                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/15 to-transparent" />
                   </div>
                 </div>
               )}
