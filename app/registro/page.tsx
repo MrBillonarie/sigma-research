@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/app/lib/supabase'
 
 export default function RegistroPage() {
   const [nombre,    setNombre]    = useState('')
@@ -31,24 +30,22 @@ export default function RegistroPage() {
 
     setLoading(true)
 
-    const { error } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
-      password,
-      options: {
-        data: { nombre: nombre.trim() },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-
-    setLoading(false)
-
-    if (error) {
-      if (error.message.includes('already registered') || error.message.includes('already exists')) {
-        setErrors({ form: 'Ya existe una cuenta con ese email.' })
-      } else {
-        setErrors({ form: 'Error al crear la cuenta. Intenta nuevamente.' })
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password, nombre: nombre.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setErrors({ form: data.error ?? 'Error al crear la cuenta. Intenta nuevamente.' })
+        return
       }
+    } catch {
+      setErrors({ form: 'Error de conexión. Intenta nuevamente.' })
       return
+    } finally {
+      setLoading(false)
     }
 
     setDone(true)
@@ -74,16 +71,16 @@ export default function RegistroPage() {
 
           {done ? (
             <div className="flex flex-col gap-3 border border-gold/30 bg-gold/5 px-5 py-4">
-              <p className="section-label text-gold">✓ REVISA TU EMAIL</p>
+              <p className="section-label text-gold">✓ CUENTA CREADA</p>
               <p className="terminal-text text-text-dim text-sm">
-                Enviamos un enlace de confirmación a <strong className="text-text">{email}</strong>.
-                Haz clic en el link para activar tu cuenta.
+                Tu cuenta ha sido activada. Ya puedes iniciar sesión con{' '}
+                <strong className="text-text">{email}</strong>.
               </p>
-              <p className="terminal-text text-xs text-muted mt-1">
-                Si no ves el email, revisa la carpeta de spam. El link expira en 24 horas.
-              </p>
-              <Link href="/login" className="terminal-text text-xs text-gold hover:text-gold-glow transition-colors mt-1">
-                ← Ya confirmé, ir al login
+              <Link
+                href="/login"
+                className="mt-2 bg-gold text-bg section-label px-6 py-2.5 hover:bg-gold-glow transition-colors duration-200 text-center"
+              >
+                IR AL LOGIN →
               </Link>
             </div>
           ) : (
