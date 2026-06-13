@@ -241,7 +241,7 @@ export default async function RootPage() {
             </div>
             {[
               { label: 'RÉGIMEN', value: regime, color: regimeColor },
-              { label: 'EQUITY',  value: fire ? `$${fire.current_equity.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, color: '#d4af37' },
+              { label: 'EQUITY',  value: fire ? `$${fire.current_equity.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '--', color: '#d4af37' },
               { label: 'RETORNO', value: `+${returnPct}%`, color: '#34d399' },
               { label: 'WIN RATE', value: metrics?.wr ? `${metrics.wr.toFixed(0)}%` : '68%', color: undefined },
               { label: 'MODELOS', value: `${coverage?.active ?? 18} activos`, color: undefined },
