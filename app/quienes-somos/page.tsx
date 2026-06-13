@@ -180,43 +180,51 @@ export default function QuienesSomosPage() {
 
         <div className="max-w-7xl mx-auto relative">
           <FadeIn>
-            <div className="section-label text-gold mb-6">{'// ACCEDE AL MOTOR'}</div>
+            <div className="grid lg:grid-cols-2 gap-16 items-center">
 
-            <h2 className="display-heading text-[clamp(3rem,9vw,7.5rem)] text-text leading-[0.92] mb-8 max-w-3xl">
-              EMPIEZA HOY.<br />
-              <span className="gold-text">ES GRATIS.</span>
-            </h2>
+              {/* Left — headline */}
+              <div>
+                <div className="section-label text-gold mb-6">{'// ACCEDE AL MOTOR'}</div>
+                <h2 className="display-heading text-[clamp(3rem,8vw,7rem)] text-text leading-[0.92] mb-6">
+                  EMPIEZA HOY.<br />
+                  <span className="gold-text">ES GRATIS.</span>
+                </h2>
+                <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-md">
+                  Dashboard completo, modelos de régimen de mercado y señales
+                  en tiempo real para 11 activos — sin coste.
+                </p>
+              </div>
 
-            <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-xl mb-10">
-              Dashboard completo, modelos de régimen de mercado y señales en tiempo real
-              para 11 activos — sin coste.
-            </p>
+              {/* Right — Bloomberg cells + button */}
+              <div className="flex flex-col gap-4">
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-12">
-              <Link
-                href="/registro"
-                className="bg-gold text-bg section-label px-10 py-4 hover:bg-gold-glow transition-colors duration-200 text-center"
-              >
-                CREAR CUENTA GRATIS
-              </Link>
-              <p className="terminal-text text-[11px] text-muted tracking-wide">
-                Sin tarjeta de crédito · Plan gratuito permanente · Cancela cuando quieras
-              </p>
-            </div>
-
-            {/* Trust pills */}
-            <div className="flex flex-wrap gap-3">
-              {[
-                { v: '11',   l: 'Activos cubiertos' },
-                { v: '16M+', l: 'Backtests validados' },
-                { v: '0',    l: 'Comisiones ocultas' },
-                { v: '100%', l: 'Out-of-sample' },
-              ].map(({ v, l }) => (
-                <div key={l} className="flex items-center gap-3 border border-gold/20 px-4 py-2 bg-surface/60 backdrop-blur-sm">
-                  <span className="num text-gold font-bold text-base">{v}</span>
-                  <span className="terminal-text text-text-dim text-xs">{l}</span>
+                {/* Stats grid — células Bloomberg flotantes */}
+                <div className="grid grid-cols-3 gap-px bg-gold/10">
+                  {[
+                    { v: '11',   l: 'ACTIVOS' },
+                    { v: '16M+', l: 'BACKTESTS' },
+                    { v: '0',    l: 'COMISIONES' },
+                  ].map(({ v, l }) => (
+                    <div key={l} className="bg-surface/80 backdrop-blur-sm px-5 py-5 flex flex-col gap-1.5">
+                      <div className="terminal-text text-[10px] text-muted tracking-[0.25em] uppercase">{l}</div>
+                      <div className="num text-2xl font-bold text-gold tabular-nums leading-none">{v}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+
+                {/* Button */}
+                <Link
+                  href="/registro"
+                  className="bg-gold text-bg section-label px-8 py-4 hover:bg-gold-glow transition-colors duration-200 text-center block w-full"
+                >
+                  CREAR CUENTA GRATIS
+                </Link>
+
+                <p className="terminal-text text-[11px] text-muted text-center tracking-wide">
+                  Sin tarjeta de crédito · Plan gratuito permanente · Cancela cuando quieras
+                </p>
+
+              </div>
             </div>
           </FadeIn>
         </div>
