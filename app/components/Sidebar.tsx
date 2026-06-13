@@ -4,95 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 
-// ─── Motor open trades ────────────────────────────────────────────────────────
-interface OpenTrade {
-  sym?: string; tf?: string; direction?: string
-  entry?: number; sl?: number; tp?: number
-  kelly_pct?: number; sl_dist_pct_at_open?: number
-  strategy?: string; grade?: string; opened_at?: string
-}
 
-function useOpenTrades() {
-  const [trades, setTrades] = useState<OpenTrade[]>([])
-  useEffect(() => {
-    async function load() {
-      try {
-        const r = await fetch('/api/vps/motor-api/trades', { cache: 'no-store' })
-        if (!r.ok) return
-        const d = await r.json()
-        setTrades(d?.open ?? [])
-      } catch {}
-    }
-    load()
-    const id = setInterval(load, 60000)
-    return () => clearInterval(id)
-  }, [])
-  return trades
-}
-
-function gradeColor(g?: string) {
-  if (g === 'A+') return '#ffd700'
-  if (g === 'A')  return '#00e676'
-  if (g === 'B')  return '#4a9eff'
-  return '#555'
-}
-
-function SetupCard({ t, collapsed }: { t: OpenTrade; collapsed: boolean }) {
-  const isLong = (t.direction ?? '') !== 'short'
-  const dirColor = isLong ? '#00e676' : '#f44336'
-  const sym = t.sym ?? '?'
-  const tf  = t.tf?.toUpperCase() ?? ''
-
-  if (collapsed) {
-    return (
-      <div title={`${isLong ? '▲' : '▼'} ${sym} ${tf} — Grade ${t.grade}`}
-        style={{
-          display: 'flex', justifyContent: 'center', alignItems: 'center',
-          padding: '6px 0', cursor: 'default',
-        }}>
-        <span style={{
-          fontSize: 10, fontWeight: 700, color: dirColor,
-          fontFamily: 'monospace',
-        }}>
-          {isLong ? '▲' : '▼'}
-        </span>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{
-      background: isLong ? 'rgba(0,230,118,0.04)' : 'rgba(244,67,54,0.04)',
-      border: `1px solid ${isLong ? 'rgba(0,230,118,0.15)' : 'rgba(244,67,54,0.15)'}`,
-      borderLeft: `3px solid ${dirColor}`,
-      borderRadius: 6,
-      padding: '6px 8px',
-      marginBottom: 4,
-      cursor: 'default',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-        <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: dirColor }}>
-          {isLong ? '▲' : '▼'} {sym}
-        </span>
-        <span style={{
-          fontSize: 9, fontWeight: 700, color: gradeColor(t.grade),
-          border: `1px solid ${gradeColor(t.grade)}40`,
-          borderRadius: 3, padding: '1px 5px', fontFamily: 'monospace',
-        }}>
-          {t.grade ?? '?'}
-        </span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#555' }}>
-          {tf} · {t.strategy?.slice(0, 12)}
-        </span>
-        <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#7a8db5' }}>
-          @{t.entry?.toFixed(0)}
-        </span>
-      </div>
-    </div>
-  )
-}
 import {
   Home,
   Activity,
@@ -431,7 +343,6 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 export default function Sidebar() {
   const pathname  = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const openTrades = useOpenTrades()
 
   async function handleLogout() {
     await supabase.auth.signOut()
