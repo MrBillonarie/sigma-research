@@ -25,10 +25,6 @@ const ANIM_CSS = `
   0%   { background-position: -200% center; }
   100% { background-position:  200% center; }
 }
-@keyframes ec-pulse-border {
-  0%, 100% { opacity: 0.25; }
-  50%       { opacity: 0.55; }
-}
 `
 
 function fmt1(n: number, decimals = 2) { return n.toFixed(decimals) }
@@ -85,8 +81,7 @@ export default function EquityCurve() {
   ]
 
   return (
-    <div className="relative bg-surface border border-gold/25 overflow-hidden"
-         style={{ animation: 'ec-pulse-border 4s ease-in-out infinite' }}>
+    <div className="relative bg-surface border border-gold/25 overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: ANIM_CSS }} />
 
       {/* Top scan line */}
