@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { Home, PieChart, BookOpen, Flame, MoreHorizontal, X,
          Activity, TrendingUp, Zap, BrainCircuit, Calendar,
-         Stethoscope, Coins, Receipt, Layers, FileText } from 'lucide-react'
+         Stethoscope, Coins, Receipt, Layers, FileText, Download } from 'lucide-react'
 import { C } from '@/app/lib/constants'
 
 // Breakpoint unificado con Sidebar (860px)
@@ -120,6 +120,41 @@ export default function MobileNav() {
                 </Link>
               )
             })}
+          </div>
+
+          {/* Descargar App — Coming Soon */}
+          <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 14px',
+                borderRadius: 8,
+                background: 'rgba(255,255,255,0.02)',
+                border: `1px solid ${C.border}`,
+                opacity: 0.5,
+                cursor: 'not-allowed',
+              }}
+            >
+              <Download size={18} strokeWidth={1.6} color={C.muted} />
+              <div style={{ flex: 1 }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.muted, letterSpacing: '0.06em' }}>
+                  DESCARGAR APP
+                </span>
+              </div>
+              <span style={{
+                fontFamily: MONO,
+                fontSize: 8,
+                letterSpacing: '0.12em',
+                color: '#d4af37',
+                border: '1px solid rgba(212,175,55,0.35)',
+                padding: '2px 6px',
+                borderRadius: 3,
+              }}>
+                PRÓXIMAMENTE
+              </span>
+            </div>
           </div>
         </div>
       )}

@@ -35,6 +35,7 @@ const PROTECTED = [
   '/motor-decision',
   '/notificaciones',
   '/comparador',
+  '/terminal',
   '/onboarding',
 ]
 
@@ -95,6 +96,8 @@ export const config = {
     '/motor-decision/:path*',
     '/notificaciones/:path*',
     '/comparador/:path*',
+    '/terminal/:path*',
+    '/terminal',
     '/onboarding/:path*',
     '/onboarding',
   ],
