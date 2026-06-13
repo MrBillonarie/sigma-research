@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import type { CSSProperties } from 'react'
 import Link from 'next/link'
-import EngineHeroPanel from './components/landing/EngineHeroPanel'
+import HeroAnimation from './components/HeroAnimation'
 
 export const metadata: Metadata = {
   title: 'SQuant Desk — Infraestructura Cuantitativa LATAM',
@@ -11,21 +11,29 @@ export const metadata: Metadata = {
     'Infraestructura cuantitativa institucional para inversores independientes en LATAM. Terminal en vivo, modelos ML, simulador FIRE y más.',
 }
 
+// ─── Design tokens (aligned with English version palette) ─────────────────────
+const G   = '#d4af37'  // gold
+const BG  = '#04050a'  // background
+const S   = '#0b0d14'  // surface
+const B   = '#1a1d2e'  // border
+const T   = '#e8e9f0'  // text
+const D   = '#7a7f9a'  // dim
+const M   = '#4a5068'  // muted
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Champion {
   sym: string; tf: string; strategy: string; grade: string
-  wr: number; cagr: number; direction?: string; dd?: number
+  wr: number; cagr: number; direction?: string
 }
 interface HistoryTrade {
-  sym: string; direction: string; status: string
-  equity_after?: number; closed_at?: string
+  sym: string; direction: string; status: string; equity_after?: number
 }
 interface FireData {
   current_equity: number; starting_equity: number
   target_equity: number; progress_pct: number; baseline_date: string
 }
 
-// ─── Server data fetch ────────────────────────────────────────────────────────
+// ─── Data fetch ───────────────────────────────────────────────────────────────
 const VPS = process.env.VPS_URL ?? 'http://localhost:8080'
 
 async function getPageData() {
@@ -36,34 +44,26 @@ async function getPageData() {
     ])
     const engine = engineRes.ok ? await engineRes.json() : null
     const pub    = publicRes.ok  ? await publicRes.json()  : null
-
-    const fire: FireData | null           = engine?.fire ?? null
-    const last_decision_at: string | null = engine?.last_decision_at ?? null
-    const regime: string                  = pub?.regime ?? 'UNKNOWN'
-    const champions: Champion[]           = (pub?.top_models ?? []).slice(0, 6)
-    const history: HistoryTrade[]         = (pub?.history ?? []).filter(
-      (t: HistoryTrade) => t.equity_after != null
-    )
+    const fire: FireData | null = engine?.fire ?? null
     return {
       metrics:   engine?.portfolio ?? null,
       fire,
       coverage:  engine?.coverage ?? null,
       backtests: Number(engine?.backtests_total ?? 16_767_345),
-      last_decision_at,
-      regime,
-      champions,
-      history,
+      regime:    (pub?.regime ?? 'UNKNOWN') as string,
+      champions: ((pub?.top_models ?? []) as Champion[]).slice(0, 6),
+      history:   ((pub?.history   ?? []) as HistoryTrade[]).filter(t => t.equity_after != null),
     }
   } catch {
     return {
       metrics: null, fire: null as (FireData | null), coverage: null,
-      backtests: 16_767_345, last_decision_at: null as (string | null),
-      regime: 'UNKNOWN', champions: [] as Champion[], history: [] as HistoryTrade[],
+      backtests: 16_767_345, regime: 'UNKNOWN',
+      champions: [] as Champion[], history: [] as HistoryTrade[],
     }
   }
 }
 
-// ─── Equity curve SVG (server-rendered) ───────────────────────────────────────
+// ─── Equity curve SVG ─────────────────────────────────────────────────────────
 function EquityCurveSVG({ history, initial }: { history: HistoryTrade[]; initial: number }) {
   const points: Array<{ eq: number; status: string }> = [
     { eq: initial, status: 'start' },
@@ -71,138 +71,108 @@ function EquityCurveSVG({ history, initial }: { history: HistoryTrade[]; initial
   ]
   if (points.length < 2) return null
 
-  const W = 760, H = 140
-  const PAD_X = 12, PAD_Y = 20
+  const W = 760, H = 140, PX = 12, PY = 20
   const eqs   = points.map(p => p.eq)
   const minEq = Math.min(...eqs) - 150
   const maxEq = Math.max(...eqs) + 150
-
-  const mapX = (i: number) => PAD_X + (i / (points.length - 1)) * (W - 2 * PAD_X)
-  const mapY = (eq: number) => H - PAD_Y - ((eq - minEq) / (maxEq - minEq)) * (H - 2 * PAD_Y)
-
-  const linePts = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${mapX(i).toFixed(1)},${mapY(p.eq).toFixed(1)}`)
-    .join(' ')
+  const mapX  = (i: number)   => PX + (i / (points.length - 1)) * (W - 2 * PX)
+  const mapY  = (eq: number)  => H - PY - ((eq - minEq) / (maxEq - minEq)) * (H - 2 * PY)
+  const linePts = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${mapX(i).toFixed(1)},${mapY(p.eq).toFixed(1)}`).join(' ')
   const lastX   = mapX(points.length - 1)
-  const fillPts = `${linePts} L${lastX.toFixed(1)},${H} L${PAD_X},${H} Z`
+  const fillPts = `${linePts} L${lastX.toFixed(1)},${H} L${PX},${H} Z`
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }} aria-hidden="true">
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 160 }} aria-hidden="true">
       <defs>
         <linearGradient id="eq-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#d4af37" stopOpacity="0.22" />
-          <stop offset="100%" stopColor="#d4af37" stopOpacity="0"    />
+          <stop offset="0%"   stopColor={G} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={G} stopOpacity="0"   />
         </linearGradient>
         <linearGradient id="eq-line" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"   stopColor="#d4af37" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="#d4af37" stopOpacity="1"   />
+          <stop offset="0%"   stopColor={G} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={G} stopOpacity="1"   />
         </linearGradient>
-        <filter id="glow-gold" x="-20%" y="-50%" width="140%" height="200%">
+        <filter id="glow-g" x="-20%" y="-50%" width="140%" height="200%">
           <feGaussianBlur stdDeviation="2.5" result="blur" />
           <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
       </defs>
-
-      {/* Subtle horizontal grid dashes */}
       {[0.25, 0.5, 0.75].map(t => (
         <line key={t}
-          x1={PAD_X} y1={(H - PAD_Y) - t * (H - 2 * PAD_Y)}
-          x2={W - PAD_X} y2={(H - PAD_Y) - t * (H - 2 * PAD_Y)}
-          stroke="rgba(212,175,55,0.07)" strokeWidth="1" strokeDasharray="4,10"
+          x1={PX} y1={(H - PY) - t * (H - 2 * PY)}
+          x2={W - PX} y2={(H - PY) - t * (H - 2 * PY)}
+          stroke="rgba(212,175,55,0.06)" strokeWidth="1" strokeDasharray="4,10"
         />
       ))}
-
-      {/* Area fill */}
       <path d={fillPts} fill="url(#eq-fill)" />
-
-      {/* Line with glow */}
-      <path d={linePts} fill="none" stroke="url(#eq-line)"
-        strokeWidth="1.5" strokeLinejoin="round" filter="url(#glow-gold)" />
-
-      {/* Trade markers */}
+      <path d={linePts} fill="none" stroke="url(#eq-line)" strokeWidth="1.5" strokeLinejoin="round" filter="url(#glow-g)" />
       {points.slice(1).map((p, i) => {
-        const x     = mapX(i + 1)
-        const y     = mapY(p.eq)
+        const x = mapX(i + 1), y = mapY(p.eq)
         const isWin = p.status === 'TP_HIT' || p.status === 'TRAIL_HIT'
-        const color = isWin ? '#34d399' : '#f87171'
+        const c = isWin ? '#34d399' : '#f87171'
         return (
           <g key={i}>
             <circle cx={x.toFixed(1)} cy={y.toFixed(1)} r="5"
-              fill={color} fillOpacity="0.12" stroke={color} strokeOpacity="0.3" strokeWidth="1" />
-            <circle cx={x.toFixed(1)} cy={y.toFixed(1)} r="2.5" fill={color} fillOpacity="0.9" />
+              fill={c} fillOpacity="0.12" stroke={c} strokeOpacity="0.3" strokeWidth="1" />
+            <circle cx={x.toFixed(1)} cy={y.toFixed(1)} r="2.5" fill={c} fillOpacity="0.9" />
           </g>
         )
       })}
-
-      {/* Last point — pulsing ring effect (static, 2 circles) */}
-      <circle
-        cx={mapX(points.length - 1).toFixed(1)}
-        cy={mapY(points[points.length - 1].eq).toFixed(1)}
-        r="6" fill="none" stroke="#d4af37" strokeOpacity="0.2" strokeWidth="1"
-      />
-      <circle
-        cx={mapX(points.length - 1).toFixed(1)}
-        cy={mapY(points[points.length - 1].eq).toFixed(1)}
-        r="3" fill="#d4af37"
-      />
+      <circle cx={mapX(points.length - 1).toFixed(1)} cy={mapY(points[points.length - 1].eq).toFixed(1)}
+        r="6" fill="none" stroke={G} strokeOpacity="0.25" strokeWidth="1" />
+      <circle cx={mapX(points.length - 1).toFixed(1)} cy={mapY(points[points.length - 1].eq).toFixed(1)}
+        r="3" fill={G} />
     </svg>
   )
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function gradeColor(grade: string) {
-  if (grade === 'A+') return '#d4af37'
-  if (grade === 'A')  return '#4a9eff'
-  if (grade === 'B')  return '#8b8fa8'
+function gradeColor(g: string) {
+  if (g === 'A+') return G
+  if (g === 'A')  return '#4a9eff'
+  if (g === 'B')  return '#8b8fa8'
   return '#f87171'
 }
 
-const REGIME_COLOR: Record<string, string> = {
-  BEAR: '#f87171', BULL: '#34d399', NEUTRAL: '#d4af37', UNKNOWN: '#7a7f9a',
-}
-
-// Section divider with label — luxury chapter marker
+// Section rule — luxury chapter marker
 function SectionRule({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-5">
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent to-gold/15" />
-      <span className="terminal-text text-[8px] text-gold/25 tracking-[0.5em] shrink-0 select-none">{label}</span>
-      <div className="flex-1 h-px bg-gradient-to-l from-transparent to-gold/15" />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 48 }}>
+      <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${B})` }} />
+      <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.4em', whiteSpace: 'nowrap' }}>{label}</span>
+      <div style={{ flex: 1, height: 1, background: `linear-gradient(270deg, transparent, ${B})` }} />
     </div>
   )
 }
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 const tools = [
-  { tag: 'T-01', name: 'SIGMA ENGINE',      desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre BTC/ETH/SOL/BNB/LTC/XAU con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
-  { tag: 'T-02', name: 'MODELOS ML',        desc: 'Champions cuantitativos con grades A+/A/B/C. Cada modelo valida con robustness gate, OOS gate y Kelly sizing antes de activarse.' },
-  { tag: 'T-03', name: 'MOTOR DE DECISIÓN', desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre ETFs, fondos mutuos, cripto y renta fija. Ajustado por régimen de mercado (risk-on/off).' },
-  { tag: 'T-04', name: 'MONTE CARLO',       desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
-  { tag: 'T-05', name: 'SIMULADOR FIRE',    desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
-  { tag: 'T-06', name: 'SEÑALES LP',        desc: 'Motor cuantitativo para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado por par.' },
+  { id: '01', name: 'SIGMA ENGINE',      col: '#34d399', desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre BTC/ETH/SOL/BNB/XAU con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
+  { id: '02', name: 'MODELOS ML',        col: G,         desc: 'Champions cuantitativos con grades A+/A/B/C. Cada modelo valida con robustness gate, OOS gate y Kelly sizing antes de activarse en producción.' },
+  { id: '03', name: 'MOTOR DECISIÓN',    col: '#60a5fa', desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre ETFs, fondos mutuos, cripto y renta fija. Ajustado por régimen de mercado (risk-on/off).' },
+  { id: '04', name: 'MONTE CARLO',       col: '#a78bfa', desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
+  { id: '05', name: 'SIMULADOR FIRE',    col: '#f59e0b', desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
+  { id: '06', name: 'SEÑALES LP',        col: '#f87171', desc: 'Motor cuantitativo para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado por par.' },
 ]
 
 const plans = [
   {
-    name: 'TERMINAL', price: '$0', period: 'siempre gratis', color: '#8b8fa8',
-    recommended: false, cta: 'EMPEZAR GRATIS', href: '/registro',
-    items: ['Dashboard de portfolio', 'Journal de trades', 'Calculadora FIRE básica', 'Calendario macro'],
+    tier: 'ACCESO LIBRE', price: '$0',      period: 'siempre gratis', col: D,         fill: false, badge: null,            cta: 'CREAR CUENTA',  href: '/registro',
+    items: ['Dashboard completo', 'Journal de trades', 'Calculadora FIRE', 'Monte Carlo', 'Signal HUD', 'Comparadores'],
   },
   {
-    name: 'PRO', price: '$29', period: '/mes USD', color: '#d4af37',
-    recommended: true, cta: 'ACTIVAR PRO', href: '/registro',
-    items: ['Todo lo anterior', 'Modelos ML + señales', 'Monte Carlo avanzado', 'LP DeFi cuantitativo', 'Reporte mensual PDF', 'Soporte prioritario'],
+    tier: 'PRO',           price: '$29',    period: 'USD / mes',      col: G,         fill: true,  badge: '★ MÁS POPULAR', cta: 'ACTIVAR PRO',   href: '/registro',
+    items: ['Todo lo anterior', 'Reportes PDF mensuales', 'Señales PRO.MACD activas', 'Equity curves actualizadas', 'Soporte prioritario'],
   },
   {
-    name: 'INSTITUTIONAL', price: 'Custom', period: 'cotizar', color: '#4a9eff',
-    recommended: false, cta: 'CONTACTAR', href: '/contacto',
-    items: ['Todo lo anterior', 'API acceso directo', 'Modelos a medida', 'White label disponible', 'SLA garantizado', 'Multi-usuario'],
+    tier: 'INSTITUTIONAL', price: 'Custom', period: 'cotizar',        col: '#60a5fa', fill: false, badge: null,            cta: 'CONTACTAR',     href: '/contacto',
+    items: ['Todo lo anterior', 'Acceso API completo', 'Modelos a medida', 'White label disponible', 'SLA garantizado'],
   },
 ]
 
 const legalLinks = [
   { href: '/quienes-somos', label: 'Quiénes Somos' },
-  { href: '/terminos',      label: 'Términos y Condiciones' },
+  { href: '/terminos',      label: 'Términos' },
   { href: '/privacidad',    label: 'Privacidad' },
   { href: '/faq',           label: 'FAQ' },
   { href: '/contacto',      label: 'Contacto' },
@@ -216,268 +186,233 @@ export default async function RootPage() {
 
   const { metrics, fire, coverage, backtests, regime, champions, history } = await getPageData()
 
-  const returnPct   = fire
+  const returnPct = fire
     ? (((fire.current_equity - fire.starting_equity) / fire.starting_equity) * 100).toFixed(2)
     : '13.19'
-  const regimeColor = REGIME_COLOR[regime] ?? '#7a7f9a'
 
-  // Metallic gold gradient — reused in headlines
-  const goldMetal: CSSProperties = {
-    background: 'linear-gradient(135deg, #a07828 0%, #d4af37 35%, #f5d060 52%, #d4af37 68%, #9a7020 100%)',
+  // Metallic gold gradient — spread into style={{}} where needed
+  const gMetal: CSSProperties = {
+    background: `linear-gradient(135deg, #a07828 0%, ${G} 35%, #f5d060 52%, ${G} 68%, #9a7020 100%)`,
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
   }
 
   return (
-    <main className="bg-bg min-h-screen">
+    <main style={{ background: BG, color: T, minHeight: '100vh', overflowX: 'hidden' }}>
 
-      {/* ══ 1. HERO ══════════════════════════════════════════════════════════ */}
-      <section className="pt-40 pb-24 px-6 bg-grid-pattern bg-grid relative overflow-hidden border-b border-gold/8">
-        <div className="absolute inset-0 bg-radial-gold pointer-events-none" />
-        {/* Vignette for depth — pulls focus to centre */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 85% 85% at 50% 50%, transparent 35%, rgba(4,5,10,0.55) 100%)' }}
-        />
+      {/* ══ 1. HERO — full viewport ══════════════════════════════════════════ */}
+      <section style={{
+        position: 'relative', minHeight: '100vh',
+        display: 'flex', alignItems: 'center',
+        overflow: 'hidden', borderBottom: `1px solid ${B}`,
+      }}>
+        {/* Grid texture */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          backgroundImage: `linear-gradient(rgba(212,175,55,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.03) 1px, transparent 1px)`,
+          backgroundSize: '60px 60px',
+        }} />
+        {/* Radial gold glow — left anchor */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: `radial-gradient(ellipse 80% 80% at -5% 50%, rgba(212,175,55,0.11) 0%, transparent 55%)`,
+        }} />
 
-        <div className="max-w-7xl mx-auto relative">
-          <div className="grid lg:grid-cols-[1fr_420px] gap-16 items-center">
+        {/* Animated equity curve + live tickers */}
+        <HeroAnimation />
 
-            {/* Left — headline + readout + CTAs */}
-            <div>
-              <div className="section-label text-gold/50 mb-6 tracking-[0.4em]">{'// SQUANT DESK · LATAM'}</div>
+        <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', padding: '160px 32px 80px', position: 'relative', zIndex: 1 }}>
 
-              <h1 className="display-heading text-[clamp(4.5rem,11vw,9rem)] text-text leading-[0.9] mb-8">
-                SQUANT<br />
-                <span style={goldMetal}>DESK</span>
-              </h1>
-
-              {/* Terminal attribute readout — shows system status, not just marketing */}
-              <div className="mb-10 border border-gold/10 bg-surface/20 backdrop-blur-sm relative">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/35 to-transparent" />
-                {([
-                  { k: 'MERCADOS',     v: 'BTC · ETH · SOL · BNB · XAU',   accent: false, live: false },
-                  { k: 'ESTRATEGIAS',  v: '70+ validadas · walk-forward OOS', accent: false, live: false },
-                  { k: 'CAPITAL FIRE', v: fire
-                      ? `$${Math.round(fire.current_equity).toLocaleString('es-CL')}  ·  +${returnPct}%`
-                      : `$11.319  ·  +${returnPct}%`,
-                    accent: true, live: false },
-                  { k: 'ESTADO',       v: `LIVE · ${regime}`, accent: true, live: true },
-                ] as Array<{ k: string; v: string; accent: boolean; live: boolean }>).map(
-                  ({ k, v, accent, live }, idx, arr) => (
-                    <div
-                      key={k}
-                      className={`px-5 py-2.5 flex items-center gap-5 ${idx < arr.length - 1 ? 'border-b border-gold/5' : ''}`}
-                    >
-                      <span className="terminal-text text-[9px] text-gold/30 tracking-[0.3em] w-24 shrink-0">{k}</span>
-                      <div className="flex items-center gap-2">
-                        {live && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />}
-                        <span
-                          className="terminal-text text-[10px] font-medium"
-                          style={{ color: accent ? '#34d399' : '#c0c1d0' }}
-                        >
-                          {v}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-
-              {/* CTAs */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  href="/registro"
-                  className="section-label px-8 py-3.5 text-center relative overflow-hidden transition-all duration-300"
-                  style={{
-                    background: 'linear-gradient(135deg, #c09520, #d4af37, #e5c84a)',
-                    color: '#04050a',
-                    boxShadow: '0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 28px rgba(212,175,55,0.22)',
-                  }}
-                >
-                  {/* inner sheen */}
-                  <span className="absolute inset-0 bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
-                  <span className="relative z-10">CREAR CUENTA GRATIS</span>
-                </Link>
-                <Link
-                  href="/login"
-                  className="group border border-gold/18 text-gold/55 section-label px-8 py-3.5 hover:border-gold/45 hover:text-gold/80 transition-all duration-300 text-center relative overflow-hidden"
-                >
-                  <span className="absolute inset-0 bg-gold/0 group-hover:bg-gold/3 transition-colors duration-300 pointer-events-none" />
-                  <span className="relative z-10">INICIAR SESIÓN</span>
-                </Link>
-              </div>
+          {/* Status badges */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 44, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', border: '1px solid rgba(52,211,153,0.25)', background: 'rgba(52,211,153,0.05)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.25em', color: '#34d399' }}>PLATAFORMA ACTIVA</span>
             </div>
-
-            {/* Right — live engine panel */}
-            <div>
-              <EngineHeroPanel />
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {['HMM · LIVE', 'XGB · LIVE', 'GARCH · LIVE'].map(m => (
+                <span key={m} style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', color: D, border: `1px solid ${B}`, padding: '4px 10px' }}>{m}</span>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ══ 2. ENGINE STATUS STRIP ═══════════════════════════════════════════ */}
-      <section
-        className="border-b border-gold/8"
-        style={{ background: 'linear-gradient(90deg, #07080f, #050610, #07080f)' }}
-      >
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="terminal-text text-[9px] text-emerald-400 tracking-[0.3em] font-medium">MOTOR ACTIVO</span>
-            </div>
-            {[
-              { label: 'RÉGIMEN',   value: regime, color: regimeColor },
-              { label: 'EQUITY',    value: fire ? `$${fire.current_equity.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '--', color: '#d4af37' },
-              { label: 'RETORNO',   value: `+${returnPct}%`, color: '#34d399' },
-              { label: 'WIN RATE',  value: metrics?.wr ? `${metrics.wr.toFixed(0)}%` : '68%', color: undefined },
-              { label: 'MODELOS',   value: `${coverage?.active ?? 18} activos`, color: undefined },
-              { label: 'BACKTESTS', value: `${(backtests / 1_000_000).toFixed(1)}M`, color: undefined },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="flex items-center gap-2 shrink-0">
-                <span className="hidden sm:block w-px h-4 bg-gold/10" />
-                <span className="terminal-text text-[9px] text-gold/28 tracking-[0.2em]">{label}</span>
-                <span
-                  className="terminal-text text-[9px] font-bold tabular-nums"
-                  style={color ? { color } : { color: '#c0c1d0' }}
-                >
-                  {value}
-                </span>
-              </div>
-            ))}
+          {/* 3-line headline */}
+          <div style={{ marginBottom: 32, fontFamily: "'Bebas Neue', Impact, sans-serif", letterSpacing: '0.02em', lineHeight: 0.88 }}>
+            <div style={{ fontSize: 'clamp(72px, 12vw, 140px)', color: T }}>VENTAJA</div>
+            <div style={{ fontSize: 'clamp(72px, 12vw, 140px)', ...gMetal }}>CUANTITATIVA</div>
+            <div style={{ fontSize: 'clamp(40px, 7vw, 86px)', color: D, marginTop: 6 }}>PARA OPERADORES EN LATAM</div>
           </div>
-        </div>
-      </section>
 
-      {/* ══ 3. HERRAMIENTAS ══════════════════════════════════════════════════ */}
-      <section id="herramientas" className="py-24 px-6 bg-bg">
-        <div className="max-w-7xl mx-auto">
-          <SectionRule label="// HERRAMIENTAS · 6 MÓDULOS" />
-          <div className="mt-14 mb-12">
-            <h2 className="display-heading text-5xl sm:text-7xl text-text">
-              TODO LO QUE<br /><span style={goldMetal}>NECESITAS</span>
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-gold/5">
-            {tools.map((t) => (
-              <div
-                key={t.tag}
-                className="bg-surface p-6 flex flex-col gap-4 group relative overflow-hidden transition-colors duration-200 hover:bg-surface/75"
-                style={{ borderLeft: '2px solid transparent', transition: 'border-color 0.25s, background-color 0.2s' }}
-                onMouseEnter={undefined}
-              >
-                {/* Left accent — CSS only, via group-hover on parent we simulate with a pseudo via sibling */}
-                <div className="absolute top-0 left-0 bottom-0 w-0.5 bg-gold/0 group-hover:bg-gold/35 transition-colors duration-300 pointer-events-none" />
-                {/* Top scan on hover */}
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-gold/50 via-gold/12 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                {/* Corner brackets top-right — appear on hover */}
-                <span className="absolute top-3 right-3 w-3.5 h-3.5 border-t border-r border-gold/0 group-hover:border-gold/25 transition-[border-color] duration-300 pointer-events-none" />
-                <span className="absolute bottom-3 right-3 w-3.5 h-3.5 border-b border-r border-gold/0 group-hover:border-gold/20 transition-[border-color] duration-300 pointer-events-none" />
+          {/* Description */}
+          <p style={{ fontFamily: 'monospace', fontSize: 13, color: D, lineHeight: 1.9, maxWidth: 520, marginBottom: 28, borderLeft: `2px solid ${G}40`, paddingLeft: 18 }}>
+            Infraestructura analítica de nivel institucional — modelos ML validados out-of-sample, datos de mercado reales y planificación FIRE integrada. Sin conflictos de interés.
+          </p>
 
-                <span className="terminal-text text-xs text-gold border border-gold/18 group-hover:border-gold/40 px-2 py-0.5 self-start transition-colors duration-200">
-                  {t.tag}
-                </span>
-                <h3 className="display-heading text-2xl text-text group-hover:text-gold transition-colors duration-200">
-                  {t.name}
-                </h3>
-                <p className="terminal-text text-sm text-text-dim leading-relaxed flex-1">{t.desc}</p>
-                <div className="flex justify-end">
-                  <span className="terminal-text text-[9px] tracking-[0.35em] text-gold/0 group-hover:text-gold/35 transition-colors duration-300">
-                    EXPLORAR →
-                  </span>
+          {/* Terminal attribute readout */}
+          <div style={{ marginBottom: 36, border: `1px solid ${B}`, background: 'rgba(11,13,20,0.65)', maxWidth: 460, backdropFilter: 'blur(4px)', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}40, transparent)` }} />
+            {([
+              { k: 'MERCADOS',     v: 'BTC · ETH · SOL · BNB · XAU',  accent: false, dot: false },
+              { k: 'ESTRATEGIAS',  v: '70+ validadas · walk-forward OOS', accent: false, dot: false },
+              { k: 'CAPITAL FIRE', v: fire ? `$${Math.round(fire.current_equity).toLocaleString('es-CL')}  ·  +${returnPct}%` : `$11.319  ·  +${returnPct}%`, accent: true, dot: false },
+              { k: 'ESTADO',       v: `LIVE · ${regime}`, accent: true, dot: true },
+            ] as Array<{ k: string; v: string; accent: boolean; dot: boolean }>).map(
+              ({ k, v, accent, dot }, idx, arr) => (
+                <div key={k} style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 20, borderBottom: idx < arr.length - 1 ? `1px solid ${B}` : 'none' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.28em', width: 86, flexShrink: 0 }}>{k}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {dot && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', flexShrink: 0 }} />}
+                    <span style={{ fontFamily: 'monospace', fontSize: 10, color: accent ? '#34d399' : '#b0b1c0', fontWeight: accent ? 600 : 400 }}>{v}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
-          <div className="mt-8 flex justify-end">
-            <Link
-              href="/recursos"
-              className="group section-label text-sm text-gold border border-gold/20 px-6 py-2.5 hover:bg-gold hover:text-bg transition-all duration-200 relative overflow-hidden"
-            >
-              VER TODOS LOS RECURSOS →
+
+          {/* CTAs */}
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 48 }}>
+            <Link href="/registro" style={{
+              background: `linear-gradient(135deg, ${G}, #c9a227)`,
+              color: BG, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em',
+              padding: '15px 40px', textDecoration: 'none', display: 'inline-block',
+              boxShadow: `0 0 32px rgba(212,175,55,0.28)`,
+            }}>
+              CREAR CUENTA GRATIS
+            </Link>
+            <Link href="/login" style={{
+              border: `1px solid ${B}`, color: D,
+              fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em',
+              padding: '15px 28px', textDecoration: 'none', display: 'inline-block',
+              background: 'rgba(255,255,255,0.02)',
+            }}>
+              INICIAR SESIÓN →
             </Link>
           </div>
+
+          {/* Trust bullets */}
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            {[
+              { dot: '#34d399', text: 'Sin tarjeta de crédito' },
+              { dot: G,         text: 'Comunidad de traders'   },
+              { dot: '#60a5fa', text: 'Datos Binance en vivo'  },
+            ].map(b => (
+              <div key={b.text} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: b.dot, flexShrink: 0 }} />
+                <span style={{ fontFamily: 'monospace', fontSize: 10, color: M, letterSpacing: '0.08em' }}>{b.text}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ══ 4. EQUITY CURVE ══════════════════════════════════════════════════ */}
-      <section
-        className="py-20 px-6 border-y border-border"
-        style={{ background: 'linear-gradient(180deg, #04050b 0%, #03040a 100%)' }}
-      >
-        <div className="max-w-7xl mx-auto">
-          <SectionRule label="// PAPER TRADING EN PRODUCCIÓN" />
+      {/* ══ 2. STATS — 4 columnas con datos reales ═══════════════════════════ */}
+      <section style={{ borderBottom: `1px solid ${B}` }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', background: B, gap: 1 }}>
+            {[
+              { value: metrics?.wr     ? `${metrics.wr.toFixed(1)}%`    : '68%',   label: 'Win Rate',      detail: 'backtesting out-of-sample' },
+              { value: metrics?.pf     ? `${metrics.pf.toFixed(2)}×`    : '1.70×', label: 'Profit Factor', detail: 'PRO · SIGMA ENGINE'        },
+              { value: metrics?.calmar ? `${metrics.calmar.toFixed(2)}`  : '1.61',  label: 'Calmar Ratio',  detail: '12M rolling'               },
+              { value: `${(backtests / 1_000_000).toFixed(1)}M`,                   label: 'Backtests',     detail: 'escenarios validados'      },
+            ].map(s => (
+              <div key={s.label} style={{ background: BG, padding: '44px 32px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G}, transparent)` }} />
+                <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.28em', color: M, textTransform: 'uppercase', marginBottom: 16 }}>{s.label}</div>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 58, color: G, lineHeight: 1, letterSpacing: '0.02em', marginBottom: 8, textShadow: `0 0 30px rgba(212,175,55,0.2)` }}>{s.value}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.1em' }}>{s.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mt-14 mb-10">
+      {/* ══ 3. HERRAMIENTAS — cards con borde superior por color ═════════════ */}
+      <section style={{ padding: '112px 32px', borderBottom: `1px solid ${B}` }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56, gap: 24, flexWrap: 'wrap' }}>
             <div>
-              <h2 className="display-heading text-4xl sm:text-6xl text-text">
-                SIGMA ENGINE<br />
-                <span style={goldMetal}>
-                  DESDE {fire?.baseline_date
-                    ? new Date(fire.baseline_date).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-                    : '12 MAY 2026'}
-                </span>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 14 }}>{'// PLATAFORMA · 6 HERRAMIENTAS'}</div>
+              <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(48px, 7vw, 88px)', color: T, lineHeight: 0.92, margin: 0 }}>
+                TODO LO QUE UN<br />
+                <span style={gMetal}>QUANT NECESITA</span>
               </h2>
             </div>
-            <div className="text-right shrink-0">
-              <div
-                className="num text-5xl sm:text-6xl font-bold text-emerald-400 tabular-nums leading-none"
-                style={{ textShadow: '0 0 40px rgba(52,211,153,0.28)' }}
-              >
+            <Link href="/recursos" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: G, border: `1px solid rgba(212,175,55,0.25)`, padding: '10px 18px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              VER TODOS →
+            </Link>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: B }}>
+            {tools.map(t => (
+              <div key={t.id} style={{ background: S, padding: '32px 28px', position: 'relative', overflow: 'hidden' }}>
+                {/* Unique color top border per tool */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: t.col }} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 30, color: T, letterSpacing: '0.03em' }}>{t.name}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: t.col, background: `${t.col}18`, border: `1px solid ${t.col}40`, padding: '2px 8px', flexShrink: 0, marginLeft: 8 }}>{t.id}</span>
+                </div>
+                <p style={{ fontFamily: 'monospace', fontSize: 11, color: D, lineHeight: 1.8, margin: 0 }}>{t.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══ 4. EQUITY CURVE — datos reales de paper trading ══════════════════ */}
+      <section style={{ padding: '80px 32px', background: S, borderBottom: `1px solid ${B}` }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <SectionRule label="// PAPER TRADING EN PRODUCCIÓN" />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 36, flexWrap: 'wrap', gap: 20 }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(36px, 5vw, 64px)', color: T, lineHeight: 0.92, margin: 0 }}>
+              SIGMA ENGINE ·{' '}
+              <span style={gMetal}>
+                DESDE {fire?.baseline_date
+                  ? new Date(fire.baseline_date).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+                  : '12 MAY 2026'}
+              </span>
+            </h2>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#34d399', lineHeight: 1, textShadow: '0 0 40px rgba(52,211,153,0.3)' }}>
                 +{returnPct}%
               </div>
-              <div className="terminal-text text-xs text-muted mt-2 tracking-[0.15em]">RETORNO PAPER</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', marginTop: 4 }}>RETORNO PAPER</div>
             </div>
           </div>
 
-          {/* SVG panel — deep glass */}
-          <div
-            className="relative border border-gold/12 overflow-hidden"
-            style={{
-              background: 'linear-gradient(180deg, #060710 0%, #030409 100%)',
-              boxShadow: 'inset 0 1px 0 rgba(212,175,55,0.08)',
-            }}
-          >
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/35 to-transparent" />
-            <div className="px-6 pt-6 pb-2">
+          {/* Chart panel */}
+          <div style={{ background: BG, border: `1px solid ${B}`, overflow: 'hidden', position: 'relative', boxShadow: `inset 0 1px 0 rgba(212,175,55,0.08)` }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}35, transparent)` }} />
+            <div style={{ padding: '24px 24px 8px' }}>
               <EquityCurveSVG history={history} initial={fire?.starting_equity ?? 10_000} />
             </div>
-            <div className="px-6 py-3 border-t border-gold/6 flex flex-wrap items-center gap-x-6 gap-y-1">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="terminal-text text-[9px] text-muted">TP / TRAIL</span>
+            <div style={{ padding: '12px 24px', borderTop: `1px solid ${B}`, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399' }} />
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>TP / TRAIL</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-red-400" />
-                <span className="terminal-text text-[9px] text-muted">SL</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f87171' }} />
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>SL</span>
               </div>
-              <span className="terminal-text text-[9px] text-muted ml-auto">
+              <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginLeft: 'auto' }}>
                 PAPER TRADING · ALGORITMO REAL · NO SE GESTIONA CAPITAL DE TERCEROS
               </span>
             </div>
           </div>
 
           {/* Stats bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gold/5 mt-px">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: B, marginTop: 1 }}>
             {[
-              { v: `${metrics?.wr     ? metrics.wr.toFixed(0)     : '68'}%`,  l: 'Win Rate'          },
-              { v: `${metrics?.pf     ? metrics.pf.toFixed(1)     : '1.7'}x`, l: 'Profit Factor'     },
-              { v: `${metrics?.calmar ? metrics.calmar.toFixed(1) : '1.6'}x`, l: 'Calmar Ratio'      },
-              { v: `${metrics?.n_trades ?? history.length + 1}`,              l: 'Trades registrados' },
+              { v: `${metrics?.wr     ? metrics.wr.toFixed(1)     : '68'}%`,   l: 'Win Rate'          },
+              { v: `${metrics?.pf     ? metrics.pf.toFixed(2)     : '1.70'}×`, l: 'Profit Factor'     },
+              { v: `${metrics?.calmar ? metrics.calmar.toFixed(2) : '1.61'}`,  l: 'Calmar Ratio'      },
+              { v: `${metrics?.n_trades ?? history.length + 1}`,               l: 'Trades registrados' },
             ].map(({ v, l }) => (
-              <div key={l} className="bg-surface px-6 py-6 text-center group relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/12 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div
-                  className="num text-3xl font-bold text-gold mb-1 tabular-nums"
-                  style={{ textShadow: '0 0 24px rgba(212,175,55,0.18)' }}
-                >
-                  {v}
-                </div>
-                <div className="terminal-text text-[9px] text-muted tracking-[0.15em] uppercase">{l}</div>
+              <div key={l} style={{ background: BG, padding: '24px 28px', textAlign: 'center' }}>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 44, color: G, lineHeight: 1, marginBottom: 6, textShadow: `0 0 20px rgba(212,175,55,0.2)` }}>{v}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{l}</div>
               </div>
             ))}
           </div>
@@ -486,106 +421,66 @@ export default async function RootPage() {
 
       {/* ══ 5. TOP CHAMPIONS ═════════════════════════════════════════════════ */}
       {champions.length > 0 && (
-        <section className="py-20 px-6 bg-bg">
-          <div className="max-w-7xl mx-auto">
+        <section style={{ padding: '80px 32px', borderBottom: `1px solid ${B}` }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto' }}>
             <SectionRule label="// MOTOR · TOP CHAMPIONS" />
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mt-14 mb-10">
-              <div>
-                <h2 className="display-heading text-4xl sm:text-6xl text-text">
-                  MODELOS EN<br /><span style={goldMetal}>PRODUCCIÓN</span>
-                </h2>
-              </div>
-              <Link
-                href="/modelos"
-                className="section-label text-xs text-gold border border-gold/20 px-5 py-2.5 hover:bg-gold hover:text-bg transition-all duration-200 self-start md:self-auto"
-              >
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 36, flexWrap: 'wrap', gap: 16 }}>
+              <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(40px, 6vw, 72px)', color: T, lineHeight: 0.92, margin: 0 }}>
+                MODELOS EN{' '}
+                <span style={gMetal}>PRODUCCIÓN</span>
+              </h2>
+              <Link href="/modelos" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: G, border: `1px solid rgba(212,175,55,0.25)`, padding: '10px 16px', textDecoration: 'none', flexShrink: 0 }}>
                 VER TODOS →
               </Link>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-gold/5">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: B }}>
               {champions.map((c, i) => {
                 const gc = gradeColor(c.grade)
                 return (
-                  <div
-                    key={i}
-                    className="bg-surface p-6 relative overflow-hidden flex flex-col gap-4 group hover:bg-surface/70 transition-colors duration-200"
-                  >
-                    {/* Top scan on hover — colored by grade */}
-                    <div
-                      className="absolute top-0 left-0 right-0 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                      style={{ background: `linear-gradient(90deg, transparent, ${gc}45, transparent)` }}
-                    />
-                    {/* Bottom grade accent line — always visible, subtle */}
-                    <div
-                      className="absolute bottom-0 left-0 right-0 h-px pointer-events-none"
-                      style={{ background: `linear-gradient(90deg, transparent, ${gc}20, transparent)` }}
-                    />
-                    {/* Rank — engraved feel */}
-                    <div
-                      className="absolute top-4 right-4 terminal-text text-[11px] font-bold tabular-nums select-none"
-                      style={{ color: gc + '28' }}
-                    >
+                  <div key={i} style={{ background: S, padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
+                    {/* Color top border matching grade */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: gc }} />
+                    {/* Rank engraving */}
+                    <div style={{ position: 'absolute', top: 14, right: 16, fontFamily: 'monospace', fontSize: 10, color: `${gc}28`, fontWeight: 700 }}>
                       #{String(i + 1).padStart(2, '0')}
                     </div>
 
-                    {/* Grade + TF */}
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="terminal-text text-xs px-2.5 py-1 border font-bold"
-                        style={{ color: gc, borderColor: gc + '40', background: gc + '0f' }}
-                      >
-                        {c.grade}
-                      </span>
-                      <span className="terminal-text text-[9px] text-muted">{c.tf}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: gc, border: `1px solid ${gc}40`, background: `${gc}12`, padding: '2px 8px', fontWeight: 700 }}>{c.grade}</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>{c.tf}</span>
                     </div>
 
-                    {/* Symbol + direction */}
-                    <div className="flex items-baseline gap-3">
-                      <span className="display-heading text-3xl text-text">{c.sym}</span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+                      <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 36, color: T }}>{c.sym}</span>
                       {c.direction && (
-                        <span
-                          className="terminal-text text-[9px] px-1.5 py-0.5"
-                          style={{
-                            color:      c.direction === 'short' ? '#f87171' : '#34d399',
-                            background: c.direction === 'short' ? 'rgba(248,113,113,0.08)' : 'rgba(52,211,153,0.08)',
-                          }}
-                        >
+                        <span style={{
+                          fontFamily: 'monospace', fontSize: 9, padding: '2px 6px',
+                          color:      c.direction === 'short' ? '#f87171' : '#34d399',
+                          background: c.direction === 'short' ? 'rgba(248,113,113,0.08)' : 'rgba(52,211,153,0.08)',
+                        }}>
                           {c.direction.toUpperCase()}
                         </span>
                       )}
                     </div>
 
-                    {/* Strategy */}
-                    <div className="terminal-text text-[9px] text-muted tracking-[0.1em] -mt-2">
+                    <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.1em', marginBottom: 14 }}>
                       {c.strategy.replace(/_/g, ' ').toUpperCase()}
                     </div>
 
-                    {/* CAGR — big number with grade glow */}
-                    <div>
-                      <div
-                        className="num text-4xl font-bold tabular-nums leading-none"
-                        style={{ color: gc, textShadow: `0 0 28px ${gc}28` }}
-                      >
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 48, color: gc, lineHeight: 1, textShadow: `0 0 28px ${gc}28` }}>
                         {c.cagr?.toFixed(0)}%
                       </div>
-                      <div className="terminal-text text-[9px] text-muted mt-1">CAGR validado OOS</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginTop: 4 }}>CAGR validado OOS</div>
                     </div>
 
-                    {/* Win Rate bar */}
-                    <div className="flex items-center gap-3 mt-auto">
-                      <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width:      `${Math.min(c.wr, 100)}%`,
-                            background: `linear-gradient(90deg, ${gc}45, ${gc})`,
-                          }}
-                        />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, height: 2, background: B, borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min(c.wr, 100)}%`, background: `linear-gradient(90deg, ${gc}50, ${gc})` }} />
                       </div>
-                      <span className="terminal-text text-[10px] text-text tabular-nums shrink-0">
-                        {c.wr?.toFixed(1)}% WR
-                      </span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 9, color: T, flexShrink: 0 }}>{c.wr?.toFixed(1)}% WR</span>
                     </div>
                   </div>
                 )
@@ -596,77 +491,63 @@ export default async function RootPage() {
       )}
 
       {/* ══ 6. PLANES ════════════════════════════════════════════════════════ */}
-      <section
-        className="py-24 px-6 border-t border-border"
-        style={{ background: 'linear-gradient(180deg, #050609 0%, #03040a 60%)' }}
-      >
-        <div className="max-w-7xl mx-auto">
-          <SectionRule label="// PLANES DE ACCESO" />
-          <div className="mt-14 mb-16">
-            <h2 className="display-heading text-5xl sm:text-7xl text-text">
-              ELIGE TU<br /><span style={goldMetal}>PLAN</span>
-            </h2>
+      <section id="planes" style={{ padding: '112px 32px', borderBottom: `1px solid ${B}` }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56, flexWrap: 'wrap', gap: 20 }}>
+            <div>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 14 }}>{'// PLANES DE ACCESO'}</div>
+              <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(48px, 6vw, 80px)', color: T, lineHeight: 0.92, margin: 0 }}>
+                ELIGE TU{' '}
+                <span style={gMetal}>PLAN</span>
+              </h2>
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', textAlign: 'right' }}>
+              SIN PERMANENCIA<br />CANCELA CUANDO QUIERAS
+            </div>
           </div>
-          <div className="grid md:grid-cols-3 gap-px bg-gold/5">
-            {plans.map((p) => (
-              <div
-                key={p.name}
-                className="bg-surface p-8 flex flex-col gap-6 relative overflow-hidden"
-                style={p.recommended ? {
-                  boxShadow: '0 0 0 1px rgba(212,175,55,0.32), 0 0 60px rgba(212,175,55,0.06), inset 0 1px 0 rgba(212,175,55,0.07)',
-                  background: 'linear-gradient(160deg, #080a14, #060810)',
-                } : undefined}
-              >
-                {/* PRO top accent line */}
-                {p.recommended && (
-                  <div
-                    className="absolute top-0 left-0 right-0 h-px pointer-events-none"
-                    style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.55), transparent)' }}
-                  />
-                )}
-                {p.recommended && (
-                  <div
-                    className="absolute -top-3 left-6 section-label text-xs px-3 py-0.5"
-                    style={{ background: 'linear-gradient(135deg, #c09520, #d4af37)', color: '#04050a' }}
-                  >
-                    ★ RECOMENDADO
-                  </div>
-                )}
 
-                <div>
-                  <div
-                    className="section-label mb-2 text-xs tracking-[0.35em]"
-                    style={{ color: p.color + 'aa' }}
-                  >
-                    {p.name}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: B }}>
+            {plans.map(p => (
+              <div key={p.tier} style={{
+                background: p.fill ? 'linear-gradient(160deg, #080a14, #060810)' : S,
+                padding: '40px 30px', position: 'relative', display: 'flex', flexDirection: 'column',
+                boxShadow: p.fill ? `0 0 0 1px ${G}45, 0 0 60px rgba(212,175,55,0.06)` : 'none',
+              }}>
+                {p.badge && (
+                  <div style={{ position: 'absolute', top: -1, left: 22, fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.18em', background: G, color: BG, padding: '4px 12px' }}>
+                    {p.badge}
                   </div>
-                  <div className="display-heading text-5xl font-bold" style={{ color: p.color }}>{p.price}</div>
-                  <div className="terminal-text text-xs text-muted mt-1">{p.period}</div>
+                )}
+                {p.fill && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G}, #f0cc5a)` }} />
+                )}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.28em', color: `${p.col}99`, marginBottom: 12 }}>{p.tier}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 56, color: p.col, lineHeight: 1 }}>{p.price}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: M }}>{p.period}</span>
+                  </div>
                 </div>
-
-                {/* Colored separator under price */}
-                <div className="h-px" style={{ background: `linear-gradient(90deg, ${p.color}25, transparent)` }} />
-
-                <ul className="flex flex-col gap-2.5 flex-1">
-                  {p.items.map((item) => (
-                    <li key={item} className="terminal-text text-sm text-text-dim flex items-start gap-2.5">
-                      <span className="mt-0.5 shrink-0" style={{ color: p.color + 'aa' }}>→</span>
-                      {item}
-                    </li>
+                {/* Colored separator */}
+                <div style={{ height: 1, background: `linear-gradient(90deg, ${p.col}25, transparent)`, marginBottom: 22 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+                  {p.items.map(item => (
+                    <div key={item} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                      <span style={{ color: p.col, fontFamily: 'monospace', fontSize: 13, flexShrink: 0, marginTop: 1 }}>✓</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 11, color: D, lineHeight: 1.5 }}>{item}</span>
+                    </div>
                   ))}
-                </ul>
-
-                <Link
-                  href={p.href}
-                  className="section-label text-sm text-center py-3 transition-all duration-200 relative overflow-hidden"
-                  style={{
-                    background:  p.recommended ? 'linear-gradient(135deg, #c09520, #d4af37)' : 'transparent',
-                    color:       p.recommended ? '#04050a' : p.color,
-                    border:      `1px solid ${p.color}38`,
-                    boxShadow:   p.recommended ? '0 2px 16px rgba(212,175,55,0.18)' : undefined,
-                  }}
-                >
-                  <span className="relative z-10">{p.cta}</span>
+                </div>
+                <Link href={p.href} style={{
+                  display: 'block', textAlign: 'center', padding: '14px',
+                  fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em',
+                  textDecoration: 'none',
+                  background: p.fill ? `linear-gradient(135deg, ${G}, #c9a227)` : 'transparent',
+                  color: p.fill ? BG : p.col,
+                  border: `1px solid ${p.col}40`,
+                  boxShadow: p.fill ? '0 0 24px rgba(212,175,55,0.22)' : 'none',
+                }}>
+                  {p.cta}
                 </Link>
               </div>
             ))}
@@ -674,60 +555,52 @@ export default async function RootPage() {
         </div>
       </section>
 
-      {/* ══ 7. CTA FINAL + LEGAL ═════════════════════════════════════════════ */}
-      <section className="py-24 px-6 bg-bg border-t border-border relative overflow-hidden">
-        {/* Radial gold breath from top */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212,175,55,0.05) 0%, transparent 70%)' }}
-        />
-
-        <div className="max-w-2xl mx-auto text-center flex flex-col items-center gap-8 mb-20 relative">
-          <div className="terminal-text text-[9px] text-gold/30 tracking-[0.6em]">{'// EMPIEZA HOY'}</div>
-          <h2 className="display-heading text-5xl sm:text-7xl text-text leading-[0.9]">
-            OPERA CON<br />
-            <span style={goldMetal}>VENTAJA</span>
-            <br />REAL
+      {/* ══ 7. CTA FINAL ═════════════════════════════════════════════════════ */}
+      <section style={{ padding: '112px 32px 80px', background: S, borderBottom: `1px solid ${B}`, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212,175,55,0.05) 0%, transparent 70%)` }} />
+        <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 18 }}>{'// EMPIEZA HOY'}</div>
+          <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", lineHeight: 0.88, margin: '0 0 24px' }}>
+            <span style={{ display: 'block', fontSize: 'clamp(56px, 9vw, 120px)', color: T }}>OPERA CON</span>
+            <span style={{ display: 'block', fontSize: 'clamp(56px, 9vw, 120px)', ...gMetal }}>VENTAJA REAL</span>
           </h2>
-          <p className="terminal-text text-text-dim leading-relaxed max-w-sm">
-            Crea tu cuenta gratuita en segundos. Sin tarjeta de crédito.<br />
-            Acceso inmediato al terminal y la calculadora FIRE.
+          <p style={{ fontFamily: 'monospace', fontSize: 12, color: D, lineHeight: 1.9, marginBottom: 40 }}>
+            Cuenta gratuita en 30 segundos. Sin tarjeta de crédito.<br />
+            Acceso inmediato a todas las herramientas del dashboard.
           </p>
-          <Link
-            href="/registro"
-            className="section-label px-12 py-4 relative overflow-hidden transition-all duration-300"
-            style={{
-              background: 'linear-gradient(135deg, #c09520, #d4af37, #e5c848)',
-              color: '#04050a',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.18) inset, 0 8px 36px rgba(212,175,55,0.22)',
-            }}
-          >
-            <span className="absolute inset-0 bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
-            <span className="relative z-10">CREAR CUENTA GRATIS</span>
-          </Link>
-          <div className="terminal-text text-xs text-text-dim">
-            ¿Ya tienes cuenta?{' '}
-            <Link href="/login" className="text-gold/50 hover:text-gold transition-colors duration-200">
-              Iniciar sesión →
+          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 56 }}>
+            <Link href="/registro" style={{
+              background: `linear-gradient(135deg, ${G}, #c9a227)`,
+              color: BG, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em',
+              padding: '16px 44px', textDecoration: 'none',
+              boxShadow: '0 0 40px rgba(212,175,55,0.3)',
+            }}>
+              CREAR CUENTA GRATIS
+            </Link>
+            <Link href="/login" style={{
+              border: `1px solid ${B}`, color: D, background: 'rgba(255,255,255,0.02)',
+              fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em',
+              padding: '16px 28px', textDecoration: 'none',
+            }}>
+              ¿YA TIENES CUENTA? →
             </Link>
           </div>
-        </div>
 
-        {/* Legal footer */}
-        <div className="max-w-7xl mx-auto border-t border-gold/6 pt-10">
-          <div className="flex flex-wrap justify-center gap-x-8 gap-y-3">
-            {legalLinks.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="terminal-text text-xs text-muted/70 hover:text-gold/50 transition-colors duration-200 tracking-[0.2em] uppercase"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
-          <div className="terminal-text text-[10px] text-muted/35 text-center mt-6 tracking-[0.35em]">
-            © {new Date().getFullYear()} SQUANT DESK · TODOS LOS DERECHOS RESERVADOS
+          {/* Legal */}
+          <div style={{ borderTop: `1px solid ${B}`, paddingTop: 24 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px 28px', marginBottom: 20 }}>
+              {legalLinks.map(l => (
+                <Link key={l.href} href={l.href} style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.18em', textDecoration: 'none', textTransform: 'uppercase' }}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+            <p style={{ fontFamily: 'monospace', fontSize: 9, color: '#3a3d50', letterSpacing: '0.06em', lineHeight: 1.8, maxWidth: 600, margin: '0 auto 16px' }}>
+              AVISO LEGAL: SQuant Desk es una plataforma de herramientas analíticas y no constituye asesoramiento financiero ni de inversión. Modelos, señales y análisis son solo informativos. Resultados pasados no garantizan retornos futuros.
+            </p>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#3a3d50', letterSpacing: '0.3em' }}>
+              © {new Date().getFullYear()} SQUANT DESK · TODOS LOS DERECHOS RESERVADOS
+            </div>
           </div>
         </div>
       </section>
