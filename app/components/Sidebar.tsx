@@ -3,6 +3,96 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+
+// ─── Motor open trades ────────────────────────────────────────────────────────
+interface OpenTrade {
+  sym?: string; tf?: string; direction?: string
+  entry?: number; sl?: number; tp?: number
+  kelly_pct?: number; sl_dist_pct_at_open?: number
+  strategy?: string; grade?: string; opened_at?: string
+}
+
+function useOpenTrades() {
+  const [trades, setTrades] = useState<OpenTrade[]>([])
+  useEffect(() => {
+    async function load() {
+      try {
+        const r = await fetch('/api/vps/motor-api/trades', { cache: 'no-store' })
+        if (!r.ok) return
+        const d = await r.json()
+        setTrades(d?.open ?? [])
+      } catch {}
+    }
+    load()
+    const id = setInterval(load, 60000)
+    return () => clearInterval(id)
+  }, [])
+  return trades
+}
+
+function gradeColor(g?: string) {
+  if (g === 'A+') return '#ffd700'
+  if (g === 'A')  return '#00e676'
+  if (g === 'B')  return '#4a9eff'
+  return '#555'
+}
+
+function SetupCard({ t, collapsed }: { t: OpenTrade; collapsed: boolean }) {
+  const isLong = (t.direction ?? '') !== 'short'
+  const dirColor = isLong ? '#00e676' : '#f44336'
+  const sym = t.sym ?? '?'
+  const tf  = t.tf?.toUpperCase() ?? ''
+
+  if (collapsed) {
+    return (
+      <div title={`${isLong ? '▲' : '▼'} ${sym} ${tf} — Grade ${t.grade}`}
+        style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          padding: '6px 0', cursor: 'default',
+        }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: dirColor,
+          fontFamily: 'monospace',
+        }}>
+          {isLong ? '▲' : '▼'}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      background: isLong ? 'rgba(0,230,118,0.04)' : 'rgba(244,67,54,0.04)',
+      border: `1px solid ${isLong ? 'rgba(0,230,118,0.15)' : 'rgba(244,67,54,0.15)'}`,
+      borderLeft: `3px solid ${dirColor}`,
+      borderRadius: 6,
+      padding: '6px 8px',
+      marginBottom: 4,
+      cursor: 'default',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: dirColor }}>
+          {isLong ? '▲' : '▼'} {sym}
+        </span>
+        <span style={{
+          fontSize: 9, fontWeight: 700, color: gradeColor(t.grade),
+          border: `1px solid ${gradeColor(t.grade)}40`,
+          borderRadius: 3, padding: '1px 5px', fontFamily: 'monospace',
+        }}>
+          {t.grade ?? '?'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#555' }}>
+          {tf} · {t.strategy?.slice(0, 12)}
+        </span>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#7a8db5' }}>
+          @{t.entry?.toFixed(0)}
+        </span>
+      </div>
+    </div>
+  )
+}
 import {
   Home,
   Activity,
@@ -14,7 +104,6 @@ import {
   BrainCircuit,
   Stethoscope,
   Coins,
-  Receipt,
   PieChart,
   FileText,
   User,
@@ -27,7 +116,7 @@ import {
   Bell,
   Landmark,
   Zap,
-  Download,
+  Radio,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,9 +143,9 @@ const navItems = [
   { label: 'LP DeFi',        href: '/lp-defi',          icon: Layers          },
   { label: 'Modelos',        href: '/modelos',          icon: BrainCircuit    },
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
-  { label: 'Tax Chile',      href: '/tax',              icon: Receipt         },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
   { label: 'Motor',          href: '/motor-decision',   icon: Zap             },
+  { label: 'SIGMA Live',     href: '/sigma-live',       icon: Radio           },
 ]
 
 const comparadorItems = [
@@ -90,17 +179,17 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/lp-defi',          label: 'LP DeFi',        href: '/lp-defi',          category: 'Página', icon: Layers          },
   { id: '/modelos',          label: 'Modelos',        href: '/modelos',          category: 'Página', icon: BrainCircuit    },
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
-  { id: '/tax',              label: 'Tax Chile',      href: '/tax',              category: 'Página', icon: Receipt         },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
+  { id: '/sigma-live',               label: 'SIGMA Live',     href: '/sigma-live',               category: 'Página',      icon: Radio,           keywords: ['sigma','live','vivo','engine','paper','trading','champions','btc','eth','sol'] },
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
   { id: '/comparador/renta-fija',     label: 'Renta Fija',     href: '/comparador/renta-fija',    category: 'Comparador',  icon: Landmark        },
   { id: '/comparador/fondos-mutuos',  label: 'Fondos Mutuos',  href: '/comparador/fondos-mutuos', category: 'Comparador',  icon: TrendingUp      },
   { id: '/comparador/etfs',           label: 'ETFs',           href: '/comparador/etfs',          category: 'Comparador',  icon: TrendingUp      },
   // Tickers
   ...TICKER_LIST.map(t => ({
-    id: `ticker-${t}`, label: `Ver ${t} en HUD`, href: `/hud`,
-    category: 'HUD', keywords: [t.toLowerCase(), t],
+    id: `ticker-${t}`, label: `Ver ${t} en Terminal`, href: `/terminal?symbol=${t}`,
+    category: 'Terminal', keywords: [t.toLowerCase(), t],
   })),
   // Config
   { id: 'cfg-api',  label: 'API Key Binance',    href: '/perfil#binance-keys',  category: 'Configuración', icon: Settings, keywords: ['api','key','binance','secret','api key'] },
@@ -108,10 +197,10 @@ const ALL_ITEMS: SearchItem[] = [
   { id: 'cfg-name', label: 'Editar nombre',       href: '/perfil#editar-nombre', category: 'Configuración', icon: Settings, keywords: ['nombre','editar','username','perfil'] },
   { id: 'cfg-plan', label: 'Plan / Reportes',     href: '/mis-reportes',         category: 'Configuración', icon: Settings, keywords: ['plan','reportes','upgrade','suscripcion'] },
   // Alert
-  { id: 'alert-new', label: '+ Nueva alerta', href: '/hud', category: 'Alerta', icon: Bell, keywords: ['alerta','crear alerta','nueva alerta','nueva','alert'] },
+  { id: 'alert-new', label: '+ Nueva alerta', href: '/terminal', category: 'Alerta', icon: Bell, keywords: ['alerta','crear alerta','nueva alerta','nueva','alert'] },
 ]
 
-const QUICK_IDS = ['/hud', '/portafolio', '/mis-reportes', 'alert-new']
+const QUICK_IDS = ['/terminal', '/hud', '/mis-reportes', 'alert-new']
 const QUICK_ACCESS = ALL_ITEMS.filter(i => QUICK_IDS.includes(i.id))
 
 function searchItems(query: string): SearchItem[] {
@@ -341,84 +430,11 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname  = usePathname()
-  const [collapsed,    setCollapsed]    = useState(true)
-  const [isMobile,     setIsMobile]     = useState(false)
-  const [userName,     setUserName]     = useState('')
-  const [userPlan,     setUserPlan]     = useState<'free' | 'pro'>('free')
-  const [initials,     setInitials]     = useState('?')
-  const [installReady, setInstallReady] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const installPromptRef = useRef<any>(null)
-
-  // Responsive: desktop expande, mobile oculta
-  useEffect(() => {
-    const update = () => {
-      const mobile = window.innerWidth < 768
-      setIsMobile(mobile)
-      setCollapsed(window.innerWidth < 900)
-    }
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [])
-
-  // Escuchar toggle desde fuera (hamburger button en header mobile)
-  useEffect(() => {
-    const handler = () => setCollapsed(c => !c)
-    window.addEventListener('sigma-toggle-sidebar', handler)
-    // Cerrar al cambiar de ruta en mobile
-    return () => window.removeEventListener('sigma-toggle-sidebar', handler)
-  }, [])
-
-  // Cerrar sidebar al navegar en mobile
-  useEffect(() => {
-    if (isMobile) setCollapsed(true)
-  }, [pathname, isMobile])
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return
-      const nombre = (data.user.user_metadata?.nombre as string) ?? data.user.email?.split('@')[0] ?? ''
-      const plan   = (data.user.app_metadata?.plan as string) ?? 'free'
-      setUserName(nombre)
-      setUserPlan(plan === 'pro' ? 'pro' : 'free')
-      setInitials(nombre ? nombre.slice(0, 2).toUpperCase() : (data.user.email?.slice(0, 2).toUpperCase() ?? '?'))
-    })
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (window.matchMedia('(display-mode: standalone)').matches) return
-    const mobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent)
-    if (mobile) setInstallReady(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handler = (e: any) => { e.preventDefault(); installPromptRef.current = e }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
-  async function handleInstallApp() {
-    if (installPromptRef.current) {
-      await installPromptRef.current.prompt()
-      const { outcome } = await installPromptRef.current.userChoice
-      if (outcome === 'accepted') { setInstallReady(false); return }
-      installPromptRef.current = null
-    }
-    // Sin prompt nativo: disparar el banner/guía de PwaRegister via custom event
-    window.dispatchEvent(new CustomEvent('sigma-pwa-show-guide'))
-  }
+  const [collapsed, setCollapsed] = useState(false)
+  const openTrades = useOpenTrades()
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    // Limpiar localStorage al cerrar sesión para evitar que datos de un usuario
-    // aparezcan al iniciar sesión con otra cuenta en el mismo dispositivo
-    const SIGMA_KEYS = [
-      'sigma_portfolio','sigma_positions','sigma_trades','sigma_fire_target',
-      'sigma_montecarlo','sigma_activity','sigma_portfolio_total','sigma_setups',
-      'sigma_alerts','sigma_lp_capital','sigma_fire_gasto','sigma_fire_ahorro','sigma_fire_edad',
-      'sigma_motor_profile','sigma_portfolio_saved_at',
-    ]
-    SIGMA_KEYS.forEach(k => { try { localStorage.removeItem(k) } catch {} })
     window.location.href = '/'
   }
 
@@ -426,46 +442,31 @@ export default function Sidebar() {
     display: 'flex',
     alignItems: 'center',
     gap: collapsed ? 0 : 12,
-    padding: collapsed ? '9px 0' : '9px 12px 9px 10px',
-    borderRadius: 6,
+    padding: '9px 12px',
+    borderRadius: 8,
     minHeight: 38,
     textDecoration: 'none',
     fontFamily: MONO,
     fontSize: 13,
     letterSpacing: '0.01em',
-    transition: 'color 0.15s, background 0.15s, border-color 0.15s',
+    transition: 'color 0.15s, background 0.15s',
     width: '100%',
     justifyContent: collapsed ? 'center' : 'flex-start',
-    borderLeft: '2px solid transparent',
   }
 
   return (
-    <>
-      {/* Backdrop en mobile cuando está abierto */}
-      {isMobile && !collapsed && (
-        <div
-          onClick={() => setCollapsed(true)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9994,
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(2px)',
-          }}
-        />
-      )}
     <aside
       style={{
-        position: isMobile ? 'fixed' : 'sticky',
+        position: 'sticky',
         top: 0,
-        left: 0,
-        zIndex: isMobile ? 9995 : 'auto', // por encima de modales del dashboard (9990/9991)
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
         height: '100vh',
-        width: isMobile ? (collapsed ? 0 : 260) : (collapsed ? 64 : 220),
+        width: collapsed ? 64 : 220,
         background: '#0b0d14',
-        borderRight: isMobile && collapsed ? 'none' : `1px solid ${BORDER}`,
-        transition: 'width 0.3s ease',
+        borderRight: `1px solid ${BORDER}`,
+        transition: 'width 0.3s',
         overflow: 'hidden',
       }}
     >
@@ -480,7 +481,7 @@ export default function Sidebar() {
         <Sigma size={24} style={{ color: GOLD, flexShrink: 0 }} />
         {!collapsed && (
           <span style={{ color: GOLD, fontFamily: 'var(--font-bebas)', fontSize: '1.1rem', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 700 }}>
-            Sigma
+            SQuant
           </span>
         )}
       </div>
@@ -506,14 +507,13 @@ export default function Sidebar() {
               title={collapsed ? label : undefined}
               style={{
                 ...navLinkBase,
-                color:       active ? GOLD  : MUTED,
-                background:  active ? 'rgba(212,175,55,0.07)' : 'transparent',
-                borderLeft:  active ? `2px solid ${GOLD}` : '2px solid transparent',
+                color:      active ? GOLD  : MUTED,
+                background: active ? 'rgba(212,175,55,0.08)' : 'transparent',
               }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#e8e9f0'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = MUTED }}
             >
-              <Icon size={17} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
+              <Icon size={18} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
               {!collapsed && <span>{label}</span>}
             </Link>
           )
@@ -524,8 +524,7 @@ export default function Sidebar() {
         {!collapsed && (
           <div style={{
             padding: '0 4px 4px', fontFamily: MONO, fontSize: 9,
-            letterSpacing: '0.22em', textTransform: 'uppercase',
-            color: pathname.startsWith('/comparador') ? GOLD : MUTED,
+            letterSpacing: '0.22em', color: MUTED, textTransform: 'uppercase',
           }}>
             Comparador
           </div>
@@ -540,140 +539,60 @@ export default function Sidebar() {
               style={{
                 ...navLinkBase,
                 color:      active ? GOLD  : MUTED,
-                background: active ? 'rgba(212,175,55,0.07)' : 'transparent',
-                borderLeft: active ? `2px solid ${GOLD}` : '2px solid transparent',
+                background: active ? 'rgba(212,175,55,0.08)' : 'transparent',
               }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#e8e9f0'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = MUTED }}
             >
-              <Icon size={17} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
+              <Icon size={18} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
               {!collapsed && <span>{label}</span>}
             </Link>
           )
         })}
       </nav>
 
-      {/* Bottom: user card + logout */}
-      <div style={{ borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
-
-        {/* User card */}
+      {/* Bottom: profile + logout */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 8px 16px', borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
         <Link
           href="/perfil"
           title={collapsed ? 'Perfil' : undefined}
           style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: collapsed ? '12px 0' : '12px 12px',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            textDecoration: 'none',
-            transition: 'background 0.15s',
-            borderBottom: `1px solid ${BORDER}`,
+            ...navLinkBase,
+            color:      pathname === '/perfil' ? GOLD  : MUTED,
+            background: pathname === '/perfil' ? 'rgba(212,175,55,0.08)' : 'transparent',
           }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+          onMouseEnter={e => { if (pathname !== '/perfil') (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
+          onMouseLeave={e => { if (pathname !== '/perfil') (e.currentTarget as HTMLElement).style.color = MUTED }}
         >
-          {/* Avatar */}
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-            background: `rgba(212,175,55,0.12)`,
-            border: `1px solid rgba(212,175,55,0.3)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ fontFamily: 'var(--font-bebas)', fontSize: 13, color: GOLD, letterSpacing: '0.05em' }}>
-              {initials}
-            </span>
-          </div>
-
-          {/* Name + plan */}
-          {!collapsed && (
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: '#e8e9f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {userName || 'Trader'}
-              </div>
-              <div style={{
-                display: 'inline-block',
-                fontFamily: MONO, fontSize: 9, letterSpacing: '0.12em',
-                padding: '1px 6px', marginTop: 2, borderRadius: 3,
-                background: userPlan === 'pro' ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.06)',
-                color:      userPlan === 'pro' ? GOLD : MUTED,
-                border:     userPlan === 'pro' ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.1)',
-              }}>
-                {userPlan === 'pro' ? '★ PRO' : 'FREE'}
-              </div>
-            </div>
-          )}
+          <User size={18} style={{ flexShrink: 0 }} />
+          {!collapsed && <span>Perfil</span>}
         </Link>
 
-        {/* Install App */}
-        {installReady && (
-          <button
-            onClick={handleInstallApp}
-            title={collapsed ? 'Instalar App' : undefined}
-            style={{
-              ...navLinkBase, background: 'rgba(212,175,55,0.08)',
-              border: '1px solid rgba(212,175,55,0.25)',
-              cursor: 'pointer', color: GOLD,
-              padding: collapsed ? '10px 0' : '9px 12px',
-              margin: '4px 8px 0', width: 'calc(100% - 16px)',
-            }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(212,175,55,0.15)'}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(212,175,55,0.08)'}
-          >
-            <Download size={16} style={{ flexShrink: 0 }} />
-            {!collapsed && <span style={{ fontSize: 12, letterSpacing: '0.08em' }}>Instalar App</span>}
-          </button>
-        )}
-
-        {/* Logout */}
         <button
           onClick={handleLogout}
           title={collapsed ? 'Salir' : undefined}
-          style={{
-            ...navLinkBase, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED,
-            padding: collapsed ? '10px 0' : '10px 12px', margin: '4px 8px 8px', width: 'calc(100% - 16px)',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(248,113,113,0.06)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+          style={{ ...navLinkBase, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED }}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#e8e9f0')}
+          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = MUTED)}
         >
-          <LogOut size={16} style={{ flexShrink: 0 }} />
-          {!collapsed && <span style={{ fontSize: 12 }}>Cerrar sesión</span>}
+          <LogOut size={18} style={{ flexShrink: 0 }} />
+          {!collapsed && <span>Salir</span>}
         </button>
       </div>
 
-      {/* Collapse toggle — solo en desktop */}
-      {!isMobile && (
-        <button
-          onClick={() => setCollapsed(c => !c)}
-          style={{
-            position: 'absolute', right: -12, top: 24,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 24, height: 24, borderRadius: '50%',
-            background: '#1a1d2e', border: '1px solid #2a2d3e',
-            color: MUTED, cursor: 'pointer', zIndex: 10,
-          }}
-        >
-          {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-        </button>
-      )}
-    </aside>
-
-    {/* Hamburger flotante en mobile (solo cuando sidebar está cerrado) */}
-    {isMobile && collapsed && (
+      {/* Collapse toggle */}
       <button
-        onClick={() => setCollapsed(false)}
+        onClick={() => setCollapsed(c => !c)}
         style={{
-          position: 'fixed', top: 12, left: 12, zIndex: 48,
-          width: 40, height: 40, borderRadius: 8,
-          background: '#0b0d14', border: `1px solid ${BORDER}`,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', gap: 5, cursor: 'pointer',
+          position: 'absolute', right: -12, top: 24,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 24, height: 24, borderRadius: '50%',
+          background: '#1a1d2e', border: '1px solid #2a2d3e',
+          color: MUTED, cursor: 'pointer', zIndex: 10,
         }}
-        aria-label="Abrir menú"
       >
-        <span style={{ width: 18, height: 1.5, background: GOLD, borderRadius: 1 }} />
-        <span style={{ width: 18, height: 1.5, background: GOLD, borderRadius: 1 }} />
-        <span style={{ width: 12, height: 1.5, background: GOLD, borderRadius: 1 }} />
+        {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>
-    )}
-    </>
+    </aside>
   )
 }

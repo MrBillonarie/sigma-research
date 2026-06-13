@@ -3,6 +3,38 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/app/lib/supabase'
 import { C as T } from '@/app/lib/constants'
 
+// ─── Motor open trades ────────────────────────────────────────────────────────
+interface OpenTrade {
+  sym?: string; tf?: string; direction?: string
+  entry?: number; sl?: number; tp?: number
+  kelly_pct?: number; strategy?: string; grade?: string
+}
+
+function useOpenTrades() {
+  const [trades, setTrades] = useState<OpenTrade[]>([])
+  useEffect(() => {
+    async function load() {
+      try {
+        const r = await fetch('/api/vps/motor-api/trades', { cache: 'no-store' })
+        if (!r.ok) return
+        const d = await r.json()
+        setTrades(d?.open ?? [])
+      } catch {}
+    }
+    load()
+    const id = setInterval(load, 60_000)
+    return () => clearInterval(id)
+  }, [])
+  return trades
+}
+
+function gradeColor(g?: string) {
+  if (g === 'A+') return '#ffd700'
+  if (g === 'A')  return '#00e676'
+  if (g === 'B')  return '#4a9eff'
+  return '#555'
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 const SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB'] as const
 type Sym = typeof SYMBOLS[number]
@@ -137,6 +169,7 @@ export default function RightBar() {
   const [setupsOwn,    setSetupsOwn]    = useState<Setup[]>([])
   const [showSetupForm,setShowSetupForm]= useState(false)
   const [setupForm,    setSetupForm]    = useState<SetupDraft>(EMPTY_SETUP)
+  const openTrades = useOpenTrades()
 
   const wsRef       = useRef<WebSocket | null>(null)
   const reconnRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -574,6 +607,44 @@ export default function RightBar() {
                 : <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.dimText, marginTop: 2 }}>dist: {alertDist(a)}</div>}
             </div>
           ))
+        }
+
+        {/* ══ SETUPS ACTIVOS (motor) ══ */}
+        <Section label="SETUPS ACTIVOS" />
+        {openTrades.length === 0
+          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin posiciones abiertas</div>
+          : openTrades.map((t, i) => {
+              const isLong  = (t.direction ?? '') !== 'short'
+              const dirColor = isLong ? '#00e676' : '#f44336'
+              return (
+                <div key={i} style={{
+                  margin: '4px 8px',
+                  background: isLong ? 'rgba(0,230,118,0.04)' : 'rgba(244,67,54,0.04)',
+                  border: `1px solid ${isLong ? 'rgba(0,230,118,0.15)' : 'rgba(244,67,54,0.15)'}`,
+                  borderLeft: `3px solid ${dirColor}`,
+                  padding: '6px 8px',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: dirColor }}>
+                      {isLong ? '▲' : '▼'} {t.sym ?? '?'}
+                    </span>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, color: gradeColor(t.grade),
+                      border: `1px solid ${gradeColor(t.grade)}40`,
+                      padding: '1px 5px', fontFamily: 'monospace',
+                    }}>{t.grade ?? '?'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#555' }}>
+                      {t.tf?.toUpperCase()} · {t.strategy?.slice(0, 12)}
+                    </span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#7a8db5' }}>
+                      @{t.entry?.toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })
         }
 
         {/* ══ SETUPS (propio) ══ */}
