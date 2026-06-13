@@ -96,12 +96,12 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
 
   // Logo área
   setFont(9, 'normal', GRAY)
-  doc.text('// SIGMA RESEARCH · ANÁLISIS PERSONAL', 20, 30)
+  doc.text('// SQUANT DESK · ANÁLISIS PERSONAL', 20, 30)
 
   setFont(52, 'bold', GOLD)
-  doc.text('SIGMA', 20, 58)
+  doc.text('SQUANT', 20, 58)
   setFont(52, 'bold', WHITE)
-  doc.text('RESEARCH', 20, 78)
+  doc.text('DESK', 20, 78)
 
   line(20, 88, W - 20, 88, GOLD, 0.5)
 
@@ -143,7 +143,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   // Footer p1
   line(20, 280, W - 20, 280, '#1a1d2e', 0.3)
   setFont(7, 'normal', GRAY)
-  doc.text('SIGMA RESEARCH · sigma-research.io · Uso exclusivo del titular de la cuenta', 20, 287)
+  doc.text('SQUANT DESK · squantdesk.com · Uso exclusivo del titular de la cuenta', 20, 287)
   doc.text('1', W - 20, 287, { align: 'right' })
 
   // ── PAGE 2: PORTAFOLIO ────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   // Header
   fillRect(0, 14, W, 18, '#0f1118')
   setFont(7, 'normal', GRAY)
-  doc.text('// SIGMA RESEARCH · ANÁLISIS PERSONAL', 20, 21)
+  doc.text('// SQUANT DESK · ANÁLISIS PERSONAL', 20, 21)
   setFont(7, 'normal', GRAY)
   doc.text(`${dateStr} · ${userEmail}`, W - 20, 21, { align: 'right' })
   line(0, 32, W, 32, '#1a1d2e', 0.3)
@@ -228,7 +228,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   // Footer p2
   line(20, 280, W - 20, 280, '#1a1d2e', 0.3)
   setFont(7, 'normal', GRAY)
-  doc.text('SIGMA RESEARCH · sigma-research.io', 20, 287)
+  doc.text('SQUANT DESK · squantdesk.com', 20, 287)
   doc.text('2', W - 20, 287, { align: 'right' })
 
   // ── PAGES 3-8: SECCIONES ──────────────────────────────────────────────────
@@ -240,7 +240,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
     // Header
     fillRect(0, 14, W, 18, '#0f1118')
     setFont(7, 'normal', GRAY)
-    doc.text('// SIGMA RESEARCH · ANÁLISIS PERSONAL', 20, 21)
+    doc.text('// SQUANT DESK · ANÁLISIS PERSONAL', 20, 21)
     setFont(7, 'normal', GRAY)
     doc.text(`${dateStr} · ${userEmail}`, W - 20, 21, { align: 'right' })
     line(0, 32, W, 32, '#1a1d2e', 0.3)
@@ -277,7 +277,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
     doc.text('Datos actualizados disponibles en la plataforma en tiempo real.', W / 2, sy + 36, { align: 'center' })
     doc.text('Accede al dashboard para ver las métricas completas.', W / 2, sy + 46, { align: 'center' })
     setFont(8, 'normal', GOLD)
-    doc.text('sigma-research.io/home', W / 2, sy + 58, { align: 'center' })
+    doc.text('squantdesk.com/home', W / 2, sy + 58, { align: 'center' })
 
     // Section note
     sy += 92
@@ -291,7 +291,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
     // Footer
     line(20, 280, W - 20, 280, '#1a1d2e', 0.3)
     setFont(7, 'normal', GRAY)
-    doc.text('SIGMA RESEARCH · sigma-research.io', 20, 287)
+    doc.text('SQUANT DESK · squantdesk.com', 20, 287)
     doc.text(String(idx + 3), W - 20, 287, { align: 'right' })
   })
 
@@ -305,7 +305,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
   line(20, 55, W - 20, 55, GOLD, 0.4)
 
   const disclaimer = [
-    'Este reporte ha sido generado automáticamente a partir de los datos registrados en la plataforma Sigma Research.',
+    'Este reporte ha sido generado automáticamente a partir de los datos registrados en la plataforma SQuant Desk.',
     '',
     'El contenido de este documento tiene carácter exclusivamente informativo y educativo. No constituye asesoramiento',
     'financiero, recomendación de inversión, ni oferta de compra o venta de activos financieros.',
@@ -313,7 +313,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
     'Los modelos cuantitativos y señales presentados son el resultado de análisis estadísticos históricos. El rendimiento',
     'pasado no garantiza resultados futuros. Toda inversión conlleva riesgos, incluyendo la posible pérdida del capital.',
     '',
-    'El usuario es el único responsable de sus decisiones de inversión. Sigma Research no asume responsabilidad por',
+    'El usuario es el único responsable de sus decisiones de inversión. SQuant Desk no asume responsabilidad por',
     'pérdidas derivadas del uso de la información contenida en este reporte.',
     '',
     'Documento generado para uso exclusivo del titular de la cuenta. Prohibida su distribución sin autorización.',
@@ -328,7 +328,7 @@ async function generatePDF(userEmail: string, portfolio: PortfolioRow | null) {
 
   line(20, 280, W - 20, 280, '#1a1d2e', 0.3)
   setFont(7, 'normal', GRAY)
-  doc.text('© SIGMA RESEARCH · sigma-research.io · Todos los derechos reservados', 20, 287)
+  doc.text('© SQUANT DESK · squantdesk.com · Todos los derechos reservados', 20, 287)
   doc.text(String(CONTENT.length + 3), W - 20, 287, { align: 'right' })
 
   doc.save(`SIGMA_Analisis_Personal_${fileMonth}.pdf`)
@@ -383,7 +383,7 @@ export default function MisReportesPage() {
         <div style={{ marginBottom: 40, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 10 }}>
-              {'// SIGMA RESEARCH · REPORTE MENSUAL'}
+              {'// SQUANT DESK · REPORTE MENSUAL'}
             </div>
             <h1 style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 'clamp(44px,6vw,80px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
               <span style={{ color: C.text }}>MIS</span>{' '}
@@ -406,7 +406,7 @@ export default function MisReportesPage() {
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.8 }}>
                 Genera un PDF personalizado con tus datos de portfolio registrados, distribución de capital por plataforma
-                y las 6 secciones de análisis de Sigma Research. Se descarga directamente en tu dispositivo.
+                y las 6 secciones de análisis de SQuant Desk. Se descarga directamente en tu dispositivo.
               </div>
               <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
                 {['Portafolio multi-plataforma', 'Distribución de capital', '6 secciones de análisis', 'Descarga instantánea'].map(tag => (

@@ -172,7 +172,7 @@ export default function TaxChilePage() {
   // ─── Export ──────────────────────────────────────────────────────────────────
   function handleExport() {
     const lines = [
-      `SIGMA RESEARCH — RESUMEN TRIBUTARIO CHILE AT${anio}`,
+      `SQUANT DESK — RESUMEN TRIBUTARIO CHILE AT${anio}`,
       `Generado: ${new Date().toLocaleDateString('es-CL')}`,
       '━'.repeat(50),
       `TRM utilizado: $${trmVal} CLP/USD`,

@@ -40,20 +40,7 @@ interface TicketRow {
   created_at: string
 }
 
-const mockModelos = [
-  { tag: 'HMM-01',   name: 'REGIME DETECTOR',  status: 'PRODUCCIÓN', accuracy: '91.2%', metric: 'Accuracy',        activo: true  },
-  { tag: 'GARCH-02', name: 'VOL FORECASTER',   status: 'PRODUCCIÓN', accuracy: '0.031', metric: 'MAE 30D',         activo: true  },
-  { tag: 'XGB-03',   name: 'MOMENTUM SCORE',   status: 'BETA',       accuracy: '2.41',  metric: 'Sharpe OOS',      activo: true  },
-  { tag: 'NLP-04',   name: 'SENTIMENT ALPHA',  status: 'BETA',       accuracy: '73.8%', metric: 'F1-Score',        activo: false },
-  { tag: 'STAT-05',  name: 'PAIRS TRADING',    status: 'PRODUCCIÓN', accuracy: '1.87',  metric: 'Sharpe OOS',      activo: true  },
-  { tag: 'VAR-06',   name: 'MACRO REGIME',     status: 'PRODUCCIÓN', accuracy: '84.1%', metric: 'Directional Acc', activo: true  },
-]
-
-const mockSolicitudes = [
-  { id: 1, nombre: 'Pedro Gutiérrez', empresa: 'Fondo Sur Capital', email: 'pgutierrez@fsc.cl',       motivo: 'Plan Institutional — solicitud de acceso', estado: 'PENDIENTE',  fecha: '2025-04-10' },
-  { id: 2, nombre: 'Ana Hernández',   empresa: '',                  email: 'ahernan@gmail.com',        motivo: 'Demo personalizada',                      estado: 'RESPONDIDA', fecha: '2025-04-08' },
-  { id: 3, nombre: 'Luis Mora',       empresa: 'Asesores RM',       email: 'luis.mora@asesorerm.cl',   motivo: 'Integración API',                         estado: 'PENDIENTE',  fecha: '2025-04-12' },
-]
+const mockModelos: { tag: string; name: string; status: string; accuracy: string; metric: string; activo: boolean }[] = []
 
 type Tab = 'resumen' | 'usuarios' | 'solicitudes' | 'modelos' | 'reportes' | 'tasas' | 'sync' | 'soporte'
 
@@ -305,7 +292,7 @@ export default function AdminDashboard() {
             <span className="section-label text-gold ml-1">ADMIN</span>
           </div>
           <span className="hidden sm:block terminal-text text-xs text-muted border-l border-border pl-4">
-            admin@sigma.cl
+            alonsomoyanoreyes@gmail.com
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -459,21 +446,21 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Estado modelos */}
+              {/* Estado modelos → link a sigma-live */}
               <div className="bg-surface p-6">
-                <div className="section-label text-gold mb-4">ESTADO DE MODELOS</div>
-                <div className="grid md:grid-cols-3 gap-px bg-border">
-                  {modelos.map(m => (
-                    <div key={m.tag} className="bg-bg p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${m.activo ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                        <span className="terminal-text text-xs text-text">{m.name}</span>
-                      </div>
-                      <span className={`section-label text-xs ${m.activo ? 'text-emerald-400' : 'text-muted'}`}>
-                        {m.activo ? 'ON' : 'OFF'}
-                      </span>
-                    </div>
-                  ))}
+                <div className="section-label text-gold mb-4">SIGMA ENGINE</div>
+                <div className="flex flex-col gap-3">
+                  <p className="terminal-text text-xs text-text-dim">
+                    Champions y señales gestionados en el VPS. Ver estado en tiempo real:
+                  </p>
+                  <div className="flex gap-3">
+                    <a href="/sigma-live" className="section-label text-xs text-gold border border-gold/30 px-3 py-1.5 hover:bg-gold/5 transition-colors">
+                      SIGMA LIVE →
+                    </a>
+                    <a href="/modelos" className="section-label text-xs text-text-dim border border-border px-3 py-1.5 hover:border-gold hover:text-gold transition-colors">
+                      CHAMPIONS →
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -547,33 +534,23 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ── SOLICITUDES ── */}
+          {/* ── SOLICITUDES → redirige a soporte (tickets reales) ── */}
           {tab === 'solicitudes' && (
             <div className="flex flex-col gap-6">
               <div>
                 <div className="section-label text-gold mb-1">{'// CONTACTO'}</div>
                 <h2 className="display-heading text-4xl text-text">SOLICITUDES</h2>
               </div>
-
-              <div className="flex flex-col gap-px bg-border">
-                {mockSolicitudes.map(s => (
-                  <div key={s.id} className="bg-surface p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="terminal-text text-sm text-text">{s.nombre}</span>
-                        {s.empresa && <span className="terminal-text text-xs text-text-dim">· {s.empresa}</span>}
-                      </div>
-                      <span className="terminal-text text-xs text-text-dim">{s.email}</span>
-                      <span className="terminal-text text-xs text-gold mt-1">{s.motivo}</span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="terminal-text text-xs text-muted num">{s.fecha}</span>
-                      <span className={`section-label text-xs ${s.estado === 'PENDIENTE' ? 'text-yellow-400' : 'text-emerald-400'}`}>
-                        {s.estado}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="bg-surface border border-border p-8 text-center flex flex-col gap-4 items-center">
+                <p className="terminal-text text-sm text-text-dim">
+                  Las solicitudes de contacto se gestionan en la pestaña <span className="text-gold">SOPORTE</span> con datos reales de la base de datos.
+                </p>
+                <button
+                  onClick={() => setTab('soporte')}
+                  className="section-label text-xs text-gold border border-gold/30 px-4 py-2 hover:bg-gold/5 transition-colors"
+                >
+                  IR A SOPORTE →
+                </button>
               </div>
             </div>
           )}
@@ -585,33 +562,26 @@ export default function AdminDashboard() {
                 <div className="section-label text-gold mb-1">{'// INFRAESTRUCTURA'}</div>
                 <h2 className="display-heading text-4xl text-text">MODELOS ML</h2>
               </div>
-
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
-                {modelos.map(m => (
-                  <div key={m.tag} className="bg-surface p-5 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5">{m.tag}</span>
-                      <span className={`section-label text-xs ${m.status === 'PRODUCCIÓN' ? 'text-emerald-400' : 'text-yellow-400'}`}>
-                        {m.status}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="display-heading text-2xl text-text">{m.name}</div>
-                      <div className="terminal-text text-xs text-text-dim mt-1 num tabular-nums">
-                        {m.accuracy} · {m.metric}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => toggleModelo(m.tag)}
-                      className={`flex items-center gap-2 self-start section-label text-xs transition-colors ${m.activo ? 'text-emerald-400' : 'text-muted'}`}
-                    >
-                      <div className={`w-8 h-4 rounded-full transition-colors relative ${m.activo ? 'bg-emerald-400/30' : 'bg-border'}`}>
-                        <div className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${m.activo ? 'left-4 bg-emerald-400' : 'left-0.5 bg-muted'}`} />
-                      </div>
-                      {m.activo ? 'ACTIVO' : 'INACTIVO'}
-                    </button>
-                  </div>
-                ))}
+              <div className="bg-surface border border-border p-8 flex flex-col gap-4">
+                <p className="terminal-text text-sm text-text-dim leading-relaxed">
+                  Los champions y modelos del SIGMA ENGINE se gestionan directamente en el VPS.
+                  Usa <span className="text-gold">/sigma-live</span> para ver el estado en tiempo real
+                  (grades, CAGR, WR, equity curves).
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <a
+                    href="/sigma-live"
+                    className="section-label text-xs text-gold border border-gold/30 px-4 py-2 hover:bg-gold/5 transition-colors self-start"
+                  >
+                    VER SIGMA LIVE →
+                  </a>
+                  <a
+                    href="/modelos"
+                    className="section-label text-xs text-text-dim border border-border px-4 py-2 hover:border-gold hover:text-gold transition-colors self-start"
+                  >
+                    VER CHAMPIONS →
+                  </a>
+                </div>
               </div>
             </div>
           )}

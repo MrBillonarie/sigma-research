@@ -145,7 +145,7 @@ export default function HudPage() {
         {/* ── Header ────────────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>
-            {'// HUD · SEÑALES EN VIVO · SIGMA RESEARCH'}
+            {'// HUD · SEÑALES EN VIVO · SQUANT DESK'}
           </div>
           <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,72px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
             <span style={{ color: C.text }}>SIGNAL</span>{' '}

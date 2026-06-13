@@ -75,7 +75,7 @@ export default function Hero() {
             className="section-label text-gold mb-4 animate-fade-up"
             style={{ animationDelay: '0ms' }}
           >
-            {'// SIGMA RESEARCH v2.4.1'}
+            {'// SQUANT DESK v2.4.1'}
           </div>
           <h1 className="display-heading text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[9rem] 2xl:text-[10rem] leading-none mb-4 overflow-hidden">
             <span

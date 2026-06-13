@@ -354,7 +354,7 @@ export default function DashboardHome() {
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:32 }}>
             <div>
               <div style={{ fontFamily:'monospace', fontSize:11, letterSpacing:'0.3em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>
-                {'// SIGMA RESEARCH · MORNING BRIEFING'}
+                {'// SQUANT DESK · MORNING BRIEFING'}
               </div>
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(32px,5vw,60px)', lineHeight:0.95, letterSpacing:'0.04em', marginBottom:8 }}>
                 <span style={{ background:`linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>

@@ -171,7 +171,7 @@ export default function LpSignalPage() {
   const summaryText = useMemo(() => {
     if (!signal || !calc) return ''
     const hyp = HYP[signal.hyp]?.label ?? signal.hyp
-    return `SIGMA RESEARCH — LP SIGNAL
+    return `SQUANT DESK — LP SIGNAL
 ─────────────────────────
 Pool:          ${signal.pool} ${(signal.fee_tier * 100).toFixed(2)}% (PancakeSwap v3)
 Hipótesis:     ${hyp}

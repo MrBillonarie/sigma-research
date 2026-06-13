@@ -7,16 +7,20 @@ const faqs = [
     category: 'PLATAFORMA',
     items: [
       {
-        q: '¿Qué es Sigma Research?',
-        a: 'Sigma Research es una plataforma de análisis cuantitativo que pone al alcance de inversores independientes herramientas de grado institucional: modelos de régimen de mercado, forecasting de volatilidad, screeners con señales ML y la calculadora FIRE.',
+        q: '¿Qué es SQuant Desk?',
+        a: 'SQuant Desk es una plataforma de análisis cuantitativo especializada en cripto-futuros (Binance Futures). El núcleo es el SIGMA ENGINE: un motor de trading cuantitativo que corre 24/7 con 70+ estrategias optimizadas sobre BTC, ETH, SOL, BNB, LTC y XAU. Incluye backtesting real, paper trading en vivo, dashboard de monitoreo y señales validadas.',
       },
       {
         q: '¿Es necesario tener conocimientos de programación?',
-        a: 'No. La plataforma está diseñada para ser usada directamente desde el navegador. Los modelos corren en nuestra infraestructura y los resultados se presentan en dashboards listos para interpretar. Si quieres acceso API para integrar en tu propio código, está disponible en el plan Institutional.',
+        a: 'No. La plataforma está diseñada para ser usada directamente desde el navegador. Los modelos corren en nuestra infraestructura VPS y los resultados se presentan en dashboards listos para interpretar. Si quieres acceso API para integrar en tu propio código, está disponible en el plan Institutional.',
       },
       {
-        q: '¿Con qué mercados y activos trabaja Sigma Research?',
-        a: 'Actualmente cubrimos renta variable estadounidense (S&P 500, Russell 1000, Nasdaq 100), ETFs sectoriales y principales pares de divisas. La cobertura de cripto y renta fija está en roadmap para Q3 2025.',
+        q: '¿Con qué mercados y activos trabaja SQuant Desk?',
+        a: 'El universo está cerrado en 6 activos sobre Binance Futures: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, LTC/USDT y XAU/USD. Esta decisión es intencional — más activos diluyen la optimización. Múltiples timeframes: 5m, 15m, 1h, 4h y 1d.',
+      },
+      {
+        q: '¿En qué se diferencia de otras plataformas de señales cripto?',
+        a: 'La diferencia clave es el rigor estadístico. Cada modelo pasa por walk-forward out-of-sample testing, robustness gates (multi-seed, multi-periodo) y Kelly sizing adaptativo antes de entrar a paper trading. No mostramos el mejor backtest posible — mostramos el resultado honesto con comisiones y slippage real.',
       },
     ],
   },
@@ -24,16 +28,20 @@ const faqs = [
     category: 'MODELOS Y SEÑALES',
     items: [
       {
-        q: '¿Cómo se validan los modelos?',
-        a: 'Todos los modelos pasan por walk-forward out-of-sample testing con ventanas de entrenamiento y validación estrictamente separadas. Publicamos las métricas completas (accuracy, Sharpe OOS, MAE) y los periodos de backtest en la documentación de cada modelo.',
+        q: '¿Cómo se validan los modelos del SIGMA ENGINE?',
+        a: 'Todos los modelos pasan por un pipeline de 3 capas: (1) Backtest con Optuna Bayesian Search sobre datos históricos, (2) Walk-Forward OOS testing con ventanas de entrenamiento y validación estrictamente separadas, (3) Robustness Gate que verifica que el modelo funcione en múltiples seeds y periodos de mercado diferentes. Solo los modelos que pasan los 3 filtros entran a paper trading.',
       },
       {
         q: '¿Las señales garantizan rentabilidad?',
-        a: 'No. Ninguna señal cuantitativa garantiza resultados futuros. Los modelos estadísticos tienen edge probabilístico, no certeza. Sigma Research provee herramientas analíticas; la decisión de inversión y la gestión del riesgo son siempre responsabilidad del usuario.',
+        a: 'No. Ninguna señal cuantitativa garantiza resultados futuros. Los modelos tienen edge estadístico en backtesting y paper trading, pero el mercado puede cambiar. SQuant Desk provee herramientas de análisis; la decisión de inversión y la gestión del riesgo son siempre responsabilidad del usuario.',
       },
       {
-        q: '¿Con qué frecuencia se actualizan las señales?',
-        a: 'Depende del modelo. El Regime Detector y el Macro Regime se actualizan diariamente al cierre de mercado. El Momentum Score se recalcula semanalmente. El Vol Forecaster emite predicciones a 1, 5 y 30 días en tiempo real durante la sesión.',
+        q: '¿Con qué frecuencia se actualizan los modelos?',
+        a: 'El motor corre 24/7 evaluando señales en cada cierre de vela (5m, 15m, 1h, 4h, 1d). Los modelos champions se re-optimizan periódicamente con Optuna Bayesian Search. El dashboard se actualiza en tiempo real y las señales activas se notifican vía Telegram y Discord.',
+      },
+      {
+        q: '¿Qué es el paper trading y por qué no ejecutan live todavía?',
+        a: 'El paper trading simula ejecuciones reales (con entry/SL/TP) sin poner capital real en riesgo. Antes de activar ejecución real en Binance requerimos un mínimo de 30 trades en paper trading con win rate y PF verificados en condiciones de mercado live. Esta barrera protege el capital real de modelos que podrían tener overfitting.',
       },
     ],
   },
@@ -42,15 +50,15 @@ const faqs = [
     items: [
       {
         q: '¿Existe un plan gratuito?',
-        a: 'Sí. El plan Terminal es completamente gratuito e incluye el screener con 12 filtros, datos diferidos 15 min, la calculadora FIRE básica y hasta 3 alertas diarias. No se requiere tarjeta de crédito para registrarse.',
+        a: 'Sí. El plan Terminal es completamente gratuito e incluye el dashboard de portfolio, el journal de trades, la calculadora FIRE básica y el calendario macro. No se requiere tarjeta de crédito para registrarse.',
+      },
+      {
+        q: '¿Qué incluye el plan PRO?',
+        a: 'El plan PRO ($29/mes USD) agrega: acceso completo a los modelos ML y champions del SIGMA ENGINE, señales en vivo BTC/ETH/SOL/BNB/XAU, motor de decisión cross-market (ETFs + fondos + cripto), Monte Carlo avanzado, LP DeFi cuantitativo, reporte mensual PDF y soporte prioritario.',
       },
       {
         q: '¿Puedo cancelar mi suscripción en cualquier momento?',
-        a: 'Sí. Las suscripciones Pro son mensuales y se pueden cancelar en cualquier momento desde el panel de cuenta. No hay penalizaciones ni periodos mínimos de permanencia.',
-      },
-      {
-        q: '¿Ofrecéis descuentos para equipos o universidades?',
-        a: 'Sí. Contamos con precios especiales para equipos de más de 3 personas, departamentos de finanzas universitarios y programas de investigación. Escríbenos a contacto@sigma-research.io para más detalles.',
+        a: 'Sí. Las suscripciones son mensuales y se pueden cancelar en cualquier momento desde el panel de cuenta. No hay penalizaciones ni periodos mínimos de permanencia.',
       },
     ],
   },
@@ -58,12 +66,16 @@ const faqs = [
     category: 'DATOS Y PRIVACIDAD',
     items: [
       {
-        q: '¿De dónde provienen los datos de mercado?',
-        a: 'Trabajamos con proveedores de datos institucionales de primer nivel. Los datos históricos cubren 25+ años para la mayoría de activos. No utilizamos datos sintéticos ni proxies.',
+        q: '¿De dónde provienen los datos del SIGMA ENGINE?',
+        a: 'Los datos de mercado vienen directamente de Binance (precios OHLCV, open interest, long/short ratio) y Yahoo Finance (ETFs, índices, materias primas). Los backtests usan datos históricos reales con hasta 3+ años de historia según el activo y timeframe.',
       },
       {
-        q: '¿Cómo protegéis mis datos personales?',
-        a: 'Almacenamos únicamente los datos necesarios para la operación del servicio (email, preferencias, historial de alertas). No vendemos datos a terceros. Puedes solicitar la eliminación de tu cuenta y todos tus datos en cualquier momento. Consulta nuestra Política de Privacidad para los detalles completos.',
+        q: '¿Cómo protegen mis datos personales?',
+        a: 'Almacenamos únicamente los datos necesarios para la operación del servicio (email, preferencias, historial de alertas). No vendemos datos a terceros. Puedes solicitar la eliminación de tu cuenta y todos tus datos en cualquier momento desde el panel de perfil.',
+      },
+      {
+        q: '¿Dónde corre la infraestructura del motor?',
+        a: 'El SIGMA ENGINE corre en un VPS dedicado con monitoreo 24/7. El motor de optimización puede completar 89,000+ trials por hora con hasta 10 procesos paralelos. El dashboard de estado está disponible en tiempo real para usuarios PRO.',
       },
     ],
   },
@@ -88,7 +100,7 @@ export default function FaqPage() {
             <span className="gold-text">FRECUENTES</span>
           </h1>
           <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-xl">
-            Todo lo que necesitas saber sobre la plataforma, los modelos y los planes de acceso.
+            Todo lo que necesitas saber sobre la plataforma, el SIGMA ENGINE y los planes de acceso.
           </p>
         </div>
       </section>
@@ -138,21 +150,15 @@ export default function FaqPage() {
         <div className="max-w-2xl mx-auto text-center flex flex-col items-center gap-6">
           <div className="section-label text-gold">{'// ¿TIENES MÁS PREGUNTAS?'}</div>
           <p className="terminal-text text-text-dim">
-            Si no encontraste lo que buscabas, escríbenos directamente.
+            Únete a la comunidad o escríbenos directamente.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
-            <Link
-              href="/registro"
-              className="bg-gold text-bg section-label px-8 py-3 hover:bg-gold-glow transition-colors duration-200"
-            >
+            <Link href="/registro" className="bg-gold text-bg section-label px-8 py-3 hover:bg-gold-glow transition-colors duration-200">
               CREAR CUENTA
             </Link>
-            <a
-              href="mailto:contacto@sigma-research.io"
-              className="border border-border text-text-dim section-label px-8 py-3 hover:border-gold hover:text-gold transition-colors duration-200"
-            >
+            <Link href="/contacto" className="border border-border text-text-dim section-label px-8 py-3 hover:border-gold hover:text-gold transition-colors duration-200">
               CONTACTAR
-            </a>
+            </Link>
           </div>
         </div>
       </section>

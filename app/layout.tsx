@@ -19,32 +19,32 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Sigma Research — Inteligencia Cuantitativa',
-    template: '%s — Sigma Research',
+    default: 'SQuant Desk — Inteligencia Cuantitativa',
+    template: '%s — SQuant Desk',
   },
   description:
     'Herramientas cuantitativas de grado institucional para inversores independientes: calculadora FIRE, señales algorítmicas y análisis de mercado con ML.',
   keywords: ['quant finance', 'FIRE calculator', 'trading algorítmico', 'machine learning', 'análisis de mercado', 'inversión cuantitativa'],
-  metadataBase: new URL('https://sigma-research.io'),
+  metadataBase: new URL('https://squantdesk.com'),
   openGraph: {
-    title: 'Sigma Research — Inteligencia Cuantitativa',
+    title: 'SQuant Desk — Inteligencia Cuantitativa',
     description: 'Herramientas cuantitativas de grado institucional para inversores independientes.',
     type: 'website',
-    url: 'https://sigma-research.io',
-    siteName: 'Sigma Research',
+    url: 'https://squantdesk.com',
+    siteName: 'SQuant Desk',
     locale: 'es_ES',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Sigma Research — Inteligencia Cuantitativa',
+        alt: 'SQuant Desk — Inteligencia Cuantitativa',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Sigma Research — Inteligencia Cuantitativa',
+    title: 'SQuant Desk — Inteligencia Cuantitativa',
     description: 'Herramientas cuantitativas de grado institucional para inversores independientes.',
     images: ['/og-image.png'],
   },

@@ -3,26 +3,86 @@ import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface Champion {
+  sym: string
+  tf: string
+  strategy: string
+  grade: string
+  wr: number
+  cagr: number
+  direction?: string
+}
+
+function gradeColor(grade: string) {
+  if (grade === 'A+') return '#d4af37'
+  if (grade === 'A')  return '#4a9eff'
+  if (grade === 'B')  return '#8b8fa8'
+  return '#ff6b6b'
+}
+
+// ─── Métricas reales del VPS (con fallback) ───────────────────────────────────
+const METRICS_FALLBACK = [
+  { value: '68%',    label: 'Win Rate validado' },
+  { value: '78%',    label: 'CAGR champions' },
+  { value: '1.7x',   label: 'Profit Factor' },
+  { value: '1.460+', label: 'Trades backtested' },
+]
+
+async function getEngineMetrics() {
+  const VPS = process.env.VPS_URL ?? 'http://178.104.10.97:8080'
+  try {
+    const res = await fetch(`${VPS}/api/v2/engine_status`, {
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) return METRICS_FALLBACK
+    const d = await res.json()
+    const p = d?.portfolio
+    if (!p) return METRICS_FALLBACK
+    const wr   = p.wr   !== undefined ? (p.wr <= 1 ? p.wr * 100 : p.wr) : null
+    const cagr = p.cagr_weighted ?? p.cagr_pass_live ?? p.cagr ?? null
+    const pf   = p.pf   !== undefined ? p.pf   : null
+    const n    = p.n_trades ?? p.trades_total ?? null
+    return [
+      { value: wr   !== null ? `${wr.toFixed(0)}%`   : METRICS_FALLBACK[0].value, label: 'Win Rate validado'  },
+      { value: cagr !== null ? `${cagr.toFixed(0)}%` : METRICS_FALLBACK[1].value, label: 'CAGR champions'     },
+      { value: pf   !== null ? `${pf.toFixed(1)}x`   : METRICS_FALLBACK[2].value, label: 'Profit Factor'      },
+      { value: n    !== null ? `${Number(n).toLocaleString('es-CL')}+` : METRICS_FALLBACK[3].value, label: 'Trades backtested' },
+    ]
+  } catch {
+    return METRICS_FALLBACK
+  }
+}
+
+async function getTopChampions(): Promise<Champion[]> {
+  const VPS = process.env.VPS_URL ?? 'http://178.104.10.97:8080'
+  try {
+    const res = await fetch(`${VPS}/api/public`, {
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) return []
+    const d = await res.json()
+    return (d?.top_models ?? []).slice(0, 6) as Champion[]
+  } catch {
+    return []
+  }
+}
+
 export const metadata: Metadata = {
-  title: 'Sigma Research — Infraestructura Cuantitativa LATAM',
+  title: 'SQuant Desk — Infraestructura Cuantitativa LATAM',
   description:
     'Infraestructura cuantitativa institucional para inversores independientes en LATAM. Terminal en vivo, modelos ML, simulador FIRE y más.',
 }
 
 const tools = [
-  { tag: 'T-01', name: 'SIGMA TERMINAL',   desc: 'Dashboard de trading en vivo. Portafolio multi-broker, balances Binance Spot & Futures, P&L consolidado y posiciones abiertas en tiempo real.' },
-  { tag: 'T-02', name: 'MODELOS ML',        desc: 'Señales cuantitativas de régimen de mercado, volatilidad, momentum y análisis macro. Validadas con walk-forward out-of-sample.' },
-  { tag: 'T-03', name: 'MONTE CARLO',       desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
-  { tag: 'T-04', name: 'REPORTE MENSUAL',   desc: 'Análisis de rendimiento, Sharpe, Sortino, max drawdown y comparación contra benchmarks. Exportable en PDF incluido en plan PRO.' },
+  { tag: 'T-01', name: 'SIGMA ENGINE',      desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre BTC/ETH/SOL/BNB/LTC/XAU con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
+  { tag: 'T-02', name: 'MODELOS ML',        desc: 'Champions cuantitativos con grades A+/A/B/C. Cada modelo valida con robustness gate, OOS gate y Kelly sizing antes de activarse.' },
+  { tag: 'T-03', name: 'MOTOR DE DECISIÓN', desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre ETFs, fondos mutuos, cripto y renta fija. Ajustado por régimen de mercado (risk-on/off).' },
+  { tag: 'T-04', name: 'MONTE CARLO',       desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
   { tag: 'T-05', name: 'SIMULADOR FIRE',    desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
-  { tag: 'T-06', name: 'SEÑALES LP',        desc: 'Motor cuantitativo automático para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado.' },
-]
-
-const metrics = [
-  { value: '85.2%', label: 'Win Rate verificado' },
-  { value: '4.16x', label: 'Profit Factor' },
-  { value: '10.25', label: 'Sharpe Ratio' },
-  { value: '122',   label: 'Trades Feb–Abr 2026' },
+  { tag: 'T-06', name: 'SEÑALES LP',        desc: 'Motor cuantitativo para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado por par.' },
 ]
 
 const plans = [
@@ -74,6 +134,11 @@ export default async function RootPage() {
     redirect('/home')
   }
 
+  const [metrics, champions] = await Promise.all([
+    getEngineMetrics(),
+    getTopChampions(),
+  ])
+
   return (
     <main className="bg-bg min-h-screen">
 
@@ -81,11 +146,11 @@ export default async function RootPage() {
       <section className="pt-40 pb-28 px-6 bg-grid-pattern bg-grid relative overflow-hidden">
         <div className="absolute inset-0 bg-radial-gold pointer-events-none" />
         <div className="max-w-7xl mx-auto relative">
-          <div className="section-label text-gold mb-6">{'// SIGMA RESEARCH · LATAM'}</div>
+          <div className="section-label text-gold mb-6">{'// SQUANT DESK · LATAM'}</div>
           <h1 className="display-heading text-6xl sm:text-8xl lg:text-[9rem] text-text leading-none mb-8">
-            SIGMA
+            SQUANT
             <br />
-            <span className="gold-text">RESEARCH</span>
+            <span className="gold-text">DESK</span>
           </h1>
           <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-2xl mb-10">
             Infraestructura cuantitativa institucional para inversores independientes en LATAM.
@@ -138,7 +203,7 @@ export default async function RootPage() {
       <section className="py-20 px-6 bg-surface border-y border-border">
         <div className="max-w-7xl mx-auto">
           <div className="section-label text-gold mb-10 text-center">
-            {'// TRACK RECORD VERIFICADO · FEB–ABR 2026'}
+            {'// SIGMA ENGINE · CHAMPIONS EN PRODUCCIÓN · BTC/ETH/SOL/BNB/LTC/XAU'}
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
             {metrics.map((m) => (
@@ -151,8 +216,64 @@ export default async function RootPage() {
         </div>
       </section>
 
-      {/* ── 4. PLANES/PRICING ───────────────────────────────────────────────── */}
-      <section className="py-24 px-6 bg-bg">
+      {/* ── 4. TOP CHAMPIONS (live del motor) ───────────────────────────────── */}
+      {champions.length > 0 && (
+        <section className="py-20 px-6 bg-bg">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+              <div>
+                <div className="section-label text-gold mb-4">{'// MOTOR · TOP CHAMPIONS'}</div>
+                <h2 className="display-heading text-4xl sm:text-6xl text-text">
+                  MODELOS EN
+                  <br />
+                  <span className="gold-text">PRODUCCIÓN</span>
+                </h2>
+              </div>
+              <Link href="/modelos" className="section-label text-xs text-gold border border-gold/30 px-5 py-2.5 hover:bg-gold hover:text-bg transition-all self-start md:self-auto">
+                VER TODOS →
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full terminal-text text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="pb-3 text-left text-text-dim tracking-widest text-xs font-normal">GRADE</th>
+                    <th className="pb-3 text-left text-text-dim tracking-widest text-xs font-normal">ACTIVO</th>
+                    <th className="pb-3 text-left text-text-dim tracking-widest text-xs font-normal">TF</th>
+                    <th className="pb-3 text-left text-text-dim tracking-widest text-xs font-normal hidden md:table-cell">ESTRATEGIA</th>
+                    <th className="pb-3 text-right text-text-dim tracking-widest text-xs font-normal">WIN RATE</th>
+                    <th className="pb-3 text-right text-text-dim tracking-widest text-xs font-normal">CAGR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {champions.map((c, i) => (
+                    <tr key={i} className="border-b border-border/40 hover:bg-surface/50 transition-colors">
+                      <td className="py-3.5 pr-4">
+                        <span
+                          className="terminal-text text-xs px-2 py-0.5 border"
+                          style={{ color: gradeColor(c.grade), borderColor: gradeColor(c.grade) + '40' }}
+                        >
+                          {c.grade}
+                        </span>
+                      </td>
+                      <td className="py-3.5 pr-4 text-text">{c.sym}</td>
+                      <td className="py-3.5 pr-4 text-text-dim">{c.tf}</td>
+                      <td className="py-3.5 pr-4 text-text-dim text-xs hidden md:table-cell">
+                        {c.strategy?.replace(/_/g, ' ')}
+                      </td>
+                      <td className="py-3.5 text-right text-text">{c.wr?.toFixed(1)}%</td>
+                      <td className="py-3.5 text-right gold-text font-bold">{c.cagr?.toFixed(0)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── 5. PLANES/PRICING ───────────────────────────────────────────────── */}
+      <section className="py-24 px-6 bg-surface border-t border-border">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16">
             <div className="section-label text-gold mb-4">{'// PLANES'}</div>
@@ -206,8 +327,8 @@ export default async function RootPage() {
         </div>
       </section>
 
-      {/* ── 5. CTA FINAL + LINKS LEGALES ────────────────────────────────────── */}
-      <section className="py-24 px-6 bg-surface border-t border-border">
+      {/* ── 6. CTA FINAL + LINKS LEGALES ────────────────────────────────────── */}
+      <section className="py-24 px-6 bg-bg border-t border-border">
         <div className="max-w-2xl mx-auto text-center flex flex-col items-center gap-8 mb-20">
           <div className="section-label text-gold">{'// EMPIEZA HOY'}</div>
           <h2 className="display-heading text-5xl sm:text-7xl text-text">
@@ -244,7 +365,7 @@ export default async function RootPage() {
             ))}
           </div>
           <div className="terminal-text text-xs text-text-dim text-center mt-6 tracking-widest">
-            © {new Date().getFullYear()} SIGMA RESEARCH · TODOS LOS DERECHOS RESERVADOS
+            © {new Date().getFullYear()} SQUANT DESK · TODOS LOS DERECHOS RESERVADOS
           </div>
         </div>
       </section>

@@ -65,7 +65,7 @@ export default function RegistroPage() {
             <span className="display-heading text-gold text-sm leading-none">Σ</span>
           </div>
           <Link href="/" className="display-heading text-xl tracking-widest text-text">
-            SIGMA RESEARCH
+            SQUANT DESK
           </Link>
         </div>
 

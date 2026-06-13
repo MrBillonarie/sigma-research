@@ -127,7 +127,7 @@ export default function Navbar() {
           <div className="w-7 h-7 border border-gold flex items-center justify-center">
             <span className="display-heading text-gold text-sm leading-none">Σ</span>
           </div>
-          <span className="display-heading text-xl tracking-widest text-text">SIGMA RESEARCH</span>
+          <span className="display-heading text-xl tracking-widest text-text">SQUANT DESK</span>
         </Link>
 
         {/* ── Desktop nav ──────────────────────────────────────────────────── */}

@@ -87,7 +87,7 @@ export default function ReportesPage() {
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '100px 24px 0' }}>
         <div style={{ textAlign: 'center', marginBottom: 64 }}>
           <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 12 }}>
-            {'// SIGMA RESEARCH · REPORTE MENSUAL'}
+            {'// SQUANT DESK · REPORTE MENSUAL'}
           </div>
           <h1 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(52px, 8vw, 100px)', lineHeight: 0.92, letterSpacing: '0.03em', margin: '0 0 20px' }}>
             <span style={{ color: C.text }}>INTELIGENCIA</span><br />

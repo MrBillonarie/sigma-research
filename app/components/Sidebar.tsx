@@ -14,7 +14,6 @@ import {
   BrainCircuit,
   Stethoscope,
   Coins,
-  Receipt,
   PieChart,
   FileText,
   User,
@@ -27,6 +26,7 @@ import {
   Bell,
   Landmark,
   Zap,
+  Radio,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,9 +53,9 @@ const navItems = [
   { label: 'LP DeFi',        href: '/lp-defi',          icon: Layers          },
   { label: 'Modelos',        href: '/modelos',          icon: BrainCircuit    },
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
-  { label: 'Tax Chile',      href: '/tax',              icon: Receipt         },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
   { label: 'Motor',          href: '/motor-decision',   icon: Zap             },
+  { label: 'SIGMA Live',     href: '/sigma-live',       icon: Radio           },
 ]
 
 const comparadorItems = [
@@ -89,9 +89,9 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/lp-defi',          label: 'LP DeFi',        href: '/lp-defi',          category: 'Página', icon: Layers          },
   { id: '/modelos',          label: 'Modelos',        href: '/modelos',          category: 'Página', icon: BrainCircuit    },
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
-  { id: '/tax',              label: 'Tax Chile',      href: '/tax',              category: 'Página', icon: Receipt         },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
+  { id: '/sigma-live',               label: 'SIGMA Live',     href: '/sigma-live',               category: 'Página',      icon: Radio,           keywords: ['sigma','live','vivo','engine','paper','trading','champions','btc','eth','sol'] },
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
   { id: '/comparador/renta-fija',     label: 'Renta Fija',     href: '/comparador/renta-fija',    category: 'Comparador',  icon: Landmark        },
   { id: '/comparador/fondos-mutuos',  label: 'Fondos Mutuos',  href: '/comparador/fondos-mutuos', category: 'Comparador',  icon: TrendingUp      },
@@ -390,7 +390,7 @@ export default function Sidebar() {
         <Sigma size={24} style={{ color: GOLD, flexShrink: 0 }} />
         {!collapsed && (
           <span style={{ color: GOLD, fontFamily: 'var(--font-bebas)', fontSize: '1.1rem', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 700 }}>
-            Sigma
+            SQuant
           </span>
         )}
       </div>

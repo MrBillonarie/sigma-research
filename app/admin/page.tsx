@@ -70,7 +70,7 @@ export default function AdminLogin() {
                 required
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="admin@sigma.cl"
+                placeholder="alonsomoyanoreyes@gmail.com"
                 className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors"
               />
             </div>

@@ -61,7 +61,7 @@ export default function Footer() {
               <div className="w-7 h-7 border border-gold flex items-center justify-center">
                 <span className="display-heading text-gold text-sm leading-none">Σ</span>
               </div>
-              <span className="display-heading text-xl tracking-widest text-text">SIGMA RESEARCH</span>
+              <span className="display-heading text-xl tracking-widest text-text">SQUANT DESK</span>
             </Link>
             <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-xs">
               Inteligencia cuantitativa de grado institucional. Construido sobre datos reales,
@@ -116,7 +116,7 @@ export default function Footer() {
         {/* Bottom */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-border">
           <span className="terminal-text text-xs text-muted" suppressHydrationWarning>
-            © {year} Sigma Research. Todos los derechos reservados.
+            © {year} SQuant Desk. Todos los derechos reservados.
           </span>
           <span className="terminal-text text-xs text-muted">
             Solo informativo. No constituye asesoramiento financiero.

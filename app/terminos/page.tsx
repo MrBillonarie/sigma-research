@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Términos y Condiciones — Sigma Research',
-  description: 'Términos y condiciones de uso de la plataforma Sigma Research.',
+  title: 'Términos y Condiciones — SQuant Desk',
+  description: 'Términos y condiciones de uso de la plataforma SQuant Desk.',
 }
 
 const sections = [
@@ -11,16 +11,16 @@ const sections = [
     id: '1',
     title: '1. ACEPTACIÓN DE LOS TÉRMINOS',
     body: [
-      'Al acceder o utilizar la plataforma Sigma Research ("la Plataforma"), aceptas quedar vinculado por estos Términos y Condiciones ("Términos"). Si no estás de acuerdo con alguna parte de estos Términos, no debes utilizar la Plataforma.',
-      'Sigma Research se reserva el derecho de modificar estos Términos en cualquier momento. Los cambios entrarán en vigor en el momento de su publicación en la Plataforma. El uso continuado de la Plataforma tras la publicación de cambios constituye tu aceptación de los nuevos Términos.',
+      'Al acceder o utilizar la plataforma SQuant Desk ("la Plataforma"), aceptas quedar vinculado por estos Términos y Condiciones ("Términos"). Si no estás de acuerdo con alguna parte de estos Términos, no debes utilizar la Plataforma.',
+      'SQuant Desk se reserva el derecho de modificar estos Términos en cualquier momento. Los cambios entrarán en vigor en el momento de su publicación en la Plataforma. El uso continuado de la Plataforma tras la publicación de cambios constituye tu aceptación de los nuevos Términos.',
     ],
   },
   {
     id: '2',
     title: '2. DESCRIPCIÓN DEL SERVICIO',
     body: [
-      'Sigma Research provee herramientas de análisis cuantitativo de mercados financieros, incluyendo pero no limitándose a: modelos estadísticos de régimen de mercado, forecasting de volatilidad, screeners de activos, señales algorítmicas y calculadoras de planificación financiera.',
-      'El servicio se presta "tal cual" ("as-is") y está sujeto a disponibilidad. Sigma Research no garantiza un tiempo de actividad (uptime) determinado, aunque nos esforzamos por mantener una disponibilidad del 99,5% mensual.',
+      'SQuant Desk provee herramientas de análisis cuantitativo de mercados financieros, incluyendo pero no limitándose a: modelos estadísticos de régimen de mercado, forecasting de volatilidad, screeners de activos, señales algorítmicas y calculadoras de planificación financiera.',
+      'El servicio se presta "tal cual" ("as-is") y está sujeto a disponibilidad. SQuant Desk no garantiza un tiempo de actividad (uptime) determinado, aunque nos esforzamos por mantener una disponibilidad del 99,5% mensual.',
     ],
   },
   {
@@ -35,8 +35,8 @@ const sections = [
     id: '4',
     title: '4. INFORMACIÓN FINANCIERA Y DESCARGO DE RESPONSABILIDAD',
     body: [
-      'El contenido de Sigma Research tiene carácter exclusivamente informativo y educativo. Nada de lo publicado en la Plataforma constituye asesoramiento financiero, de inversión, legal o fiscal. Los modelos y señales son herramientas analíticas basadas en datos históricos y estadísticos; el rendimiento pasado no garantiza resultados futuros.',
-      'Sigma Research no es una empresa de inversión registrada ni un asesor de inversiones regulado. Las decisiones de inversión son responsabilidad exclusiva del usuario. Sigma Research no será responsable de ninguna pérdida financiera derivada del uso, directo o indirecto, de la información proporcionada en la Plataforma.',
+      'El contenido de SQuant Desk tiene carácter exclusivamente informativo y educativo. Nada de lo publicado en la Plataforma constituye asesoramiento financiero, de inversión, legal o fiscal. Los modelos y señales son herramientas analíticas basadas en datos históricos y estadísticos; el rendimiento pasado no garantiza resultados futuros.',
+      'SQuant Desk no es una empresa de inversión registrada ni un asesor de inversiones regulado. Las decisiones de inversión son responsabilidad exclusiva del usuario. SQuant Desk no será responsable de ninguna pérdida financiera derivada del uso, directo o indirecto, de la información proporcionada en la Plataforma.',
     ],
   },
   {
@@ -44,7 +44,7 @@ const sections = [
     title: '5. CUENTAS DE USUARIO',
     body: [
       'Para acceder a las funcionalidades de la Plataforma debes crear una cuenta con un email válido y una contraseña segura. Eres responsable de mantener la confidencialidad de tus credenciales y de todas las actividades que ocurran bajo tu cuenta.',
-      'Sigma Research se reserva el derecho de suspender o cancelar cuentas que violen estos Términos, que muestren actividad fraudulenta o que hayan estado inactivas por más de 24 meses consecutivos.',
+      'SQuant Desk se reserva el derecho de suspender o cancelar cuentas que violen estos Términos, que muestren actividad fraudulenta o que hayan estado inactivas por más de 24 meses consecutivos.',
     ],
   },
   {
@@ -59,7 +59,7 @@ const sections = [
     id: '7',
     title: '7. PROPIEDAD INTELECTUAL',
     body: [
-      'Todos los contenidos de la Plataforma —incluyendo modelos, algoritmos, código, textos, gráficos, marcas y logotipos— son propiedad de Sigma Research o de sus licenciantes y están protegidos por la legislación de propiedad intelectual aplicable.',
+      'Todos los contenidos de la Plataforma —incluyendo modelos, algoritmos, código, textos, gráficos, marcas y logotipos— son propiedad de SQuant Desk o de sus licenciantes y están protegidos por la legislación de propiedad intelectual aplicable.',
       'Se te concede una licencia limitada, no exclusiva, no transferible y revocable para acceder y utilizar la Plataforma únicamente para los fines previstos en estos Términos.',
     ],
   },
@@ -67,22 +67,22 @@ const sections = [
     id: '8',
     title: '8. LIMITACIÓN DE RESPONSABILIDAD',
     body: [
-      'En la máxima medida permitida por la ley, Sigma Research no será responsable de daños indirectos, incidentales, especiales, consecuentes o punitivos, ni de pérdida de beneficios o ingresos, tanto si han sido advertidos como si no, derivados del uso o la imposibilidad de uso de la Plataforma.',
-      'La responsabilidad total de Sigma Research ante el usuario, por cualquier causa y bajo cualquier teoría legal, no superará el importe abonado por el usuario en los 3 meses anteriores al evento que originó la reclamación.',
+      'En la máxima medida permitida por la ley, SQuant Desk no será responsable de daños indirectos, incidentales, especiales, consecuentes o punitivos, ni de pérdida de beneficios o ingresos, tanto si han sido advertidos como si no, derivados del uso o la imposibilidad de uso de la Plataforma.',
+      'La responsabilidad total de SQuant Desk ante el usuario, por cualquier causa y bajo cualquier teoría legal, no superará el importe abonado por el usuario en los 3 meses anteriores al evento que originó la reclamación.',
     ],
   },
   {
     id: '9',
     title: '9. LEY APLICABLE',
     body: [
-      'Estos Términos se rigen por las leyes españolas. Cualquier disputa que no pueda resolverse amistosamente se someterá a la jurisdicción exclusiva de los tribunales de Madrid, España.',
+      'Estos Términos se rigen por las leyes de la República de Chile. Cualquier disputa que no pueda resolverse amistosamente se someterá a la jurisdicción exclusiva de los tribunales ordinarios de justicia de Santiago, Chile.',
     ],
   },
   {
     id: '10',
     title: '10. CONTACTO',
     body: [
-      'Para cualquier consulta relativa a estos Términos, puedes contactarnos en: legal@sigma-research.io',
+      'Para cualquier consulta relativa a estos Términos, puedes contactarnos en: alonsomoyanoreyes@gmail.com',
     ],
   },
 ]
@@ -102,7 +102,7 @@ export default function TerminosPage() {
             <span className="gold-text">CONDICIONES</span>
           </h1>
           <p className="terminal-text text-text-dim text-xs">
-            Última actualización: enero 2025
+            Última actualización: junio 2026
           </p>
         </div>
       </section>

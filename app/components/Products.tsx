@@ -191,7 +191,7 @@ export default function Products() {
               <span className="w-3 h-3 rounded-full bg-red-500/60" />
               <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
               <span className="w-3 h-3 rounded-full bg-green-500/60" />
-              <span className="ml-4 terminal-text text-text-dim text-xs">sigma-research/{p.id}</span>
+              <span className="ml-4 terminal-text text-text-dim text-xs">squantdesk/{p.id}</span>
             </div>
             <div className="space-y-2">
               {p.preview.map((line, i) => (
