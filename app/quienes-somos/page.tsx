@@ -121,9 +121,8 @@ export default function QuienesSomosPage() {
             </h1>
 
             <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-2xl mb-10">
-              Un equipo de cuantitativos e ingenieros de datos con una convicción simple:
-              el análisis institucional no debería estar reservado a quienes tienen un equipo
-              de cuarenta quants detrás.
+              Investigación cuantitativa aplicada. Modelos de régimen, tick data y señales
+              en vivo para 11 activos — al alcance del inversor independiente.
             </p>
           </FadeIn>
 
