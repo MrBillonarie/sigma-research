@@ -28,7 +28,7 @@ import {
   Bell,
   Landmark,
   Zap,
-  Radio,
+
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,7 +57,7 @@ const navItems = [
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
   { label: 'Motor',          href: '/motor-decision',   icon: Zap             },
-  { label: 'SIGMA Live',     href: '/sigma-live',       icon: Radio           },
+
 ]
 
 const comparadorItems = [
@@ -93,7 +93,7 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
-  { id: '/sigma-live',               label: 'SIGMA Live',     href: '/sigma-live',               category: 'Página',      icon: Radio,           keywords: ['sigma','live','vivo','engine','paper','trading','champions','btc','eth','sol'] },
+
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
   { id: '/comparador/renta-fija',     label: 'Renta Fija',     href: '/comparador/renta-fija',    category: 'Comparador',  icon: Landmark        },
   { id: '/comparador/fondos-mutuos',  label: 'Fondos Mutuos',  href: '/comparador/fondos-mutuos', category: 'Comparador',  icon: TrendingUp      },
