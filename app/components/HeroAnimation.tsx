@@ -25,33 +25,61 @@ const PATH_D    = pointsToPath(POINTS)
 const LAST_PT   = POINTS[POINTS.length - 1]
 const FILL_PATH = PATH_D + ` L ${LAST_PT[0]} 380 L 0 380 Z`
 
-const TICKERS = [
-  { sym: 'BTC', price: '84,210', change: '+2.4%', up: true  },
-  { sym: 'ETH', price: '3,182',  change: '+1.8%', up: true  },
-  { sym: 'SOL', price: '147.5',  change: '-0.6%', up: false },
-  { sym: 'SPX', price: '5,621',  change: '+0.9%', up: true  },
-  { sym: 'DXY', price: '104.2',  change: '-0.3%', up: false },
-  { sym: 'BNB', price: '594.0',  change: '+1.1%', up: true  },
+const SYMBOLS = ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT']
+const SYM_LABEL: Record<string, string> = { BTCUSDT:'BTC', ETHUSDT:'ETH', SOLUSDT:'SOL', BNBUSDT:'BNB' }
+const FALLBACK = [
+  { sym: 'BTC', price: '—', change: '…', up: true  },
+  { sym: 'ETH', price: '—', change: '…', up: true  },
+  { sym: 'SOL', price: '—', change: '…', up: false },
+  { sym: 'BNB', price: '—', change: '…', up: true  },
 ]
+
+interface Ticker { sym: string; price: string; change: string; up: boolean }
 
 export default function HeroAnimation() {
   const [drawn,   setDrawn]   = useState(false)
   const [visible, setVisible] = useState(false)
   const [tick,    setTick]    = useState(0)
+  const [tickers, setTickers] = useState<Ticker[]>(FALLBACK)
   const svgRef = useRef<SVGPathElement>(null)
 
   useEffect(() => {
-    // Arranca la animación tras montaje
     const t1 = setTimeout(() => setVisible(true), 100)
     const t2 = setTimeout(() => setDrawn(true), 200)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
-  // Pulso de ticker cada 3s
+  // Fetch precios en vivo desde Binance (público, sin API key)
   useEffect(() => {
-    const id = setInterval(() => setTick(n => (n + 1) % TICKERS.length), 3000)
+    async function fetchPrices() {
+      try {
+        const url = `https://api.binance.com/api/v3/ticker/24hr?symbols=${JSON.stringify(SYMBOLS)}`
+        const res  = await fetch(url, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json() as Array<{ symbol: string; lastPrice: string; priceChangePercent: string }>
+        const mapped = data.map(d => {
+          const pct = parseFloat(d.priceChangePercent)
+          const px  = parseFloat(d.lastPrice)
+          return {
+            sym:    SYM_LABEL[d.symbol] ?? d.symbol,
+            price:  px >= 1000 ? px.toLocaleString('en-US', { maximumFractionDigits: 0 }) : px.toFixed(2),
+            change: `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`,
+            up:     pct >= 0,
+          }
+        })
+        setTickers(mapped)
+      } catch { /* silently keep fallback */ }
+    }
+    fetchPrices()
+    const id = setInterval(fetchPrices, 30_000)
     return () => clearInterval(id)
   }, [])
+
+  // Pulso de ticker cada 3s
+  useEffect(() => {
+    const id = setInterval(() => setTick(n => (n + 1) % tickers.length), 3000)
+    return () => clearInterval(id)
+  }, [tickers.length])
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
@@ -115,7 +143,7 @@ export default function HeroAnimation() {
         className="absolute bottom-8 left-0 right-0 flex items-center gap-6 px-8 transition-opacity duration-700"
         style={{ opacity: drawn ? 0.6 : 0 }}
       >
-        {TICKERS.map((t, i) => (
+        {tickers.map((t, i) => (
           <div
             key={t.sym}
             className="flex items-center gap-2 transition-all duration-500"

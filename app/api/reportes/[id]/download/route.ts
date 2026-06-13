@@ -79,14 +79,15 @@ export async function GET(
     return NextResponse.json({ error: 'Error al obtener el PDF.' }, { status: 502 })
   }
 
-  const num      = String(reporte.numero).padStart(3, '0')
-  const mes      = reporte.fecha?.slice(0, 7) ?? ''
-  const fileName = `SIGMA_Reporte_Mensual_#${num}_${mes}.pdf`
+  const fileName = `reporte-${params.id.slice(0, 8)}.pdf`
 
   return new NextResponse(pdfRes.body, {
     headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Content-Type':              'application/pdf',
+      'Content-Disposition':       `attachment; filename="${fileName}"`,
+      'X-Content-Type-Options':    'nosniff',
+      'Cache-Control':             'private, no-cache, no-store',
+      'Content-Security-Policy':   "default-src 'none'",
     },
   })
 }

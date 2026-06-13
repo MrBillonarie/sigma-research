@@ -50,10 +50,12 @@ function escapeLike(s: string): string {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
+  const VALID_TIPOS = new Set(['renta fija', 'conservador', 'moderado', 'agresivo', 'etf', 'todos'])
   const search = escapeLike((searchParams.get('search') ?? '').trim().slice(0, 100))
   const agf    = (searchParams.get('agf')    ?? '').trim().slice(0, 100)
-  const tipo   = (searchParams.get('tipo')   ?? '').trim()
-  const page   = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
+  const tipoRaw = (searchParams.get('tipo') ?? '').trim().toLowerCase()
+  const tipo   = VALID_TIPOS.has(tipoRaw) ? tipoRaw : ''
+  const page   = Math.max(1, Math.min(parseInt(searchParams.get('page') ?? '1'), 10000))
   const sortKey     = searchParams.get('sort') ?? 'r12m'
   const sortDir     = searchParams.get('dir')  === 'asc'
   const exportAll   = searchParams.get('export') === 'csv'

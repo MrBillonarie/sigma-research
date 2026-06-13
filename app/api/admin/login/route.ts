@@ -62,7 +62,7 @@ async function resetLoginRateLimit(ip: string, sb: ReturnType<typeof makeSb>): P
 // Genera token de sesión firmado con HMAC — nunca expone ADMIN_SECRET en la cookie
 function createSessionCookie(secret: string): string {
   const id      = crypto.randomBytes(16).toString('hex')
-  const expires = Date.now() + 8 * 60 * 60_000
+  const expires = Date.now() + 2 * 60 * 60_000  // 2 horas máximo
   const payload = `${id}:${expires}`
   const sig     = crypto.createHmac('sha256', secret).update(payload).digest('hex')
   return `${payload}.${sig}`
@@ -105,16 +105,16 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true })
   res.cookies.set('sigma_admin_session', sessionToken, {
     httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
+    secure:   true,
     sameSite: 'strict',
     path:     '/',
-    maxAge:   8 * 60 * 60,
+    maxAge:   2 * 60 * 60,
   })
   return res
 }
 
 // ─── DELETE /api/admin/login ──────────────────────────────────────────────────
-export async function DELETE(_req: NextRequest) {
+export async function DELETE() {
   const res = NextResponse.json({ ok: true })
   res.cookies.delete('sigma_admin')
   res.cookies.delete('sigma_admin_session')

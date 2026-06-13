@@ -59,10 +59,22 @@ function signalLabel(s: string) {
 
 function classLabel(c: string) {
   if (c === 'crypto')     return 'CRYPTO'
+  if (c === 'metals')     return 'METALES'
   if (c === 'etfs')       return 'ETF'
   if (c === 'fondos')     return 'FONDO'
   if (c === 'renta_fija') return 'RENTA FIJA'
   return c.toUpperCase()
+}
+
+const METAL_TICKERS = new Set(['GLD','SLV','IAU','SGOL','PPLT','PALL','GDX','GDXJ','SIVR','XAUUSD','XAGUSD','XAU','XAG'])
+const METAL_NAMES   = ['oro','plata','gold','silver','metal','palladium','platinum','xau','xag']
+
+function isMetalAsset(a: { ticker?: string; name?: string; category?: string }): boolean {
+  if (a.ticker && METAL_TICKERS.has(a.ticker.toUpperCase())) return true
+  const name = (a.name ?? '').toLowerCase()
+  if (METAL_NAMES.some(m => name.includes(m))) return true
+  const cat = (a.category ?? '').toLowerCase()
+  return cat.includes('commodit') || cat.includes('metal') || cat.includes('precious')
 }
 
 const REFRESH_MS = 30 * 60 * 1000 // 30 min
@@ -78,7 +90,7 @@ export default function HudPage() {
   const [connected,  setConnected]  = useState(false)
   const [search,     setSearch]     = useState('')
   const [sigFilter,  setSigFilter]  = useState<'ALL' | 'comprar' | 'reducir'>('ALL')
-  const [classFilter,setClassFilter]= useState<'ALL' | string>('ALL')
+  const [classFilter,setClassFilter]= useState<'ALL' | 'metals' | string>('ALL')
 
   // ── Leer perfil del usuario ──────────────────────────────────────────────
   useEffect(() => {
@@ -152,7 +164,6 @@ export default function HudPage() {
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const signals    = motor?.signals ?? []
-  const classes    = Array.from(new Set(signals.map(s => s.assetClass))).sort()
   const longCount  = motor?.buyCount  ?? 0
   const shortCount = motor?.sellCount ?? 0
   const bias       = longCount + shortCount > 0
@@ -161,13 +172,27 @@ export default function HudPage() {
   const avgConf = signals.length
     ? Math.round(signals.reduce((a, s) => a + s.confidence, 0) / signals.length) : 0
 
-  const visible = signals.filter(s => {
+  // Enrich signals with effective assetClass (metals get their own group)
+  const enriched = signals.map(s => ({
+    ...s,
+    _effectiveClass: isMetalAsset(s) ? 'metals' : s.assetClass,
+  }))
+
+  const visible = enriched.filter(s => {
     if (search    && !s.name.toLowerCase().includes(search.toLowerCase()) &&
                      !s.ticker?.toLowerCase().includes(search.toLowerCase())) return false
     if (sigFilter   !== 'ALL' && s.signal !== sigFilter)    return false
-    if (classFilter !== 'ALL' && s.assetClass !== classFilter) return false
+    if (classFilter !== 'ALL' && s._effectiveClass !== classFilter) return false
     return true
   })
+
+  // Build effective classes for filter buttons (metals separate from etfs)
+  const effectiveClasses = Array.from(new Set(enriched.map(s => s._effectiveClass))).sort(
+    (a, b) => {
+      const order = ['crypto','metals','etfs','fondos','renta_fija']
+      return (order.indexOf(a) ?? 99) - (order.indexOf(b) ?? 99)
+    }
+  )
 
   const regime      = motor?.regime ?? 'neutral'
   const regimeLabel = motor?.regimeLabel ?? '—'
@@ -304,11 +329,12 @@ export default function HudPage() {
                 </button>
               ))}
 
-              {classes.map(cl => (
+              {effectiveClasses.map(cl => (
                 <button key={cl} onClick={() => setClassFilter(classFilter === cl ? 'ALL' : cl)}
                   style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.12em', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                    background: classFilter === cl ? C.gold : C.surface,
-                    color:      classFilter === cl ? C.bg : C.muted,
+                    background: classFilter === cl ? (cl === 'metals' ? '#f0cc5a' : cl === 'crypto' ? '#a78bfa' : C.gold) : C.surface,
+                    color:      classFilter === cl ? C.bg : cl === 'metals' ? '#f0cc5a' : cl === 'crypto' ? '#a78bfa' : C.muted,
+                    borderLeft: cl === 'metals' ? `2px solid #f0cc5a44` : cl === 'crypto' ? `2px solid #a78bfa44` : 'none',
                   }}>
                   {classLabel(cl)}
                 </button>
@@ -363,7 +389,30 @@ export default function HudPage() {
                       const ret30Col = (s.return30d ?? 0) >= 0 ? C.green : C.red
                       const evCol    = (s.evNeto ?? 0) > 0 ? C.green : (s.evNeto ?? 0) < 0 ? C.red : C.dimText
 
+                      // Section divider when category changes
+                      const prevClass = i > 0 ? visible[i - 1]._effectiveClass : null
+                      const showDivider = i > 0 && s._effectiveClass !== prevClass
+
+                      const sectionColors: Record<string, string> = {
+                        crypto: '#a78bfa', metals: '#f0cc5a', etfs: C.gold,
+                        fondos: '#60a5fa', renta_fija: '#34d399',
+                      }
+                      const sectionLabels: Record<string, string> = {
+                        crypto: '⬡ CRYPTO', metals: '◈ METALES & COMMODITIES',
+                        etfs: '◎ ETFs', fondos: '▣ FONDOS MUTUOS', renta_fija: '▦ RENTA FIJA',
+                      }
+
                       return (
+                        <>
+                          {showDivider && (
+                            <tr key={`div-${i}`}>
+                              <td colSpan={9} style={{ padding: '6px 14px', background: `${sectionColors[s._effectiveClass] ?? C.gold}0d`, borderTop: `1px solid ${sectionColors[s._effectiveClass] ?? C.gold}30` }}>
+                                <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: sectionColors[s._effectiveClass] ?? C.gold }}>
+                                  {sectionLabels[s._effectiveClass] ?? classLabel(s._effectiveClass)}
+                                </span>
+                              </td>
+                            </tr>
+                          )}
                         <tr key={s.id} style={{
                           borderBottom: `1px solid ${C.border}`,
                           background: i === 0 && (isBuy || isSell) ? `${sc}08` : 'transparent',
@@ -374,8 +423,12 @@ export default function HudPage() {
                             {s.ticker && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{s.ticker}</div>}
                           </td>
                           <td style={{ padding: '11px 14px' }}>
-                            <span style={{ fontSize: 9, letterSpacing: '0.1em', color: C.dimText, background: `${C.border}`, padding: '2px 6px' }}>
-                              {classLabel(s.assetClass)}
+                            <span style={{ fontSize: 9, letterSpacing: '0.1em', padding: '2px 6px',
+                              color:       s._effectiveClass === 'metals' ? '#f0cc5a' : s._effectiveClass === 'crypto' ? '#a78bfa' : C.dimText,
+                              background:  s._effectiveClass === 'metals' ? '#f0cc5a18' : s._effectiveClass === 'crypto' ? '#a78bfa18' : C.border,
+                              border:      s._effectiveClass === 'metals' ? '1px solid #f0cc5a30' : s._effectiveClass === 'crypto' ? '1px solid #a78bfa30' : 'none',
+                            }}>
+                              {classLabel(s._effectiveClass)}
                             </span>
                           </td>
                           <td style={{ padding: '11px 14px' }}>
@@ -408,6 +461,7 @@ export default function HudPage() {
                             {motor?.generatedAt ? timeAgo(motor.generatedAt) : '—'}
                           </td>
                         </tr>
+                        </>
                       )
                     })}
                   </tbody>

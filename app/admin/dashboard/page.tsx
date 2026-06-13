@@ -133,6 +133,11 @@ export default function AdminDashboard() {
   const [campañas,    setCampañas]    = useState<CampañaRow[]>([])
   const [loadingCamp, setLoadingCamp] = useState(false)
 
+  // ── Pine Scripts ─────────────────────────────────────────────────────────────
+  const [pineDownloading, setPineDownloading] = useState<string | null>(null)
+  const [pineValidating,  setPineValidating]  = useState(false)
+  const [pineValidResult, setPineValidResult] = useState<{ total_errors: number; validated_at: string; motors: { motor: number; total_errors: number; total_warns: number }[] } | null>(null)
+
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY) !== 'true') {
       router.replace('/admin')
@@ -980,6 +985,109 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 ))}
+              </div>
+
+              {/* ── PINE SCRIPTS ───────────────────────────────────────────── */}
+              <div>
+                <div className="section-label text-gold mb-1">{'// PINE SCRIPTS'}</div>
+                <h2 className="display-heading text-3xl text-text mb-4">DESCARGAR MOTORES</h2>
+
+                <div className="grid md:grid-cols-2 gap-px bg-border mb-4">
+                  {/* Motor 1 */}
+                  <div className="bg-surface p-6 flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5">MOTOR 1</span>
+                      <span className="section-label text-xs text-emerald-400">PRODUCCIÓN</span>
+                    </div>
+                    <div>
+                      <div className="display-heading text-xl text-text">SIGMA K1</div>
+                      <div className="terminal-text text-xs text-text-dim mt-1">Multi-TF · 1m / 5m / 15m / 1h / 4h — estrategias por timeframe</div>
+                    </div>
+                    <button
+                      disabled={pineDownloading === 'motor1'}
+                      onClick={async () => {
+                        setPineDownloading('motor1')
+                        try {
+                          const res = await fetch('/api/admin/pine?motor=1&action=download', { headers: ADMIN_HEADERS })
+                          if (!res.ok) throw new Error(await res.text())
+                          const blob = await res.blob()
+                          const url  = URL.createObjectURL(blob)
+                          const a    = document.createElement('a')
+                          a.href = url; a.download = 'SIGMA_K1_MOTOR1.pine'; a.click()
+                          URL.revokeObjectURL(url)
+                        } catch { alert('Error descargando Motor 1') }
+                        finally { setPineDownloading(null) }
+                      }}
+                      className="self-start flex items-center gap-2 section-label text-xs px-4 py-2.5 bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-colors disabled:opacity-50"
+                    >
+                      {pineDownloading === 'motor1' ? '⟳ DESCARGANDO...' : '↓ DESCARGAR MOTOR 1'}
+                    </button>
+                  </div>
+
+                  {/* Motor 2 */}
+                  <div className="bg-surface p-6 flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5">MOTOR 2</span>
+                      <span className="section-label text-xs text-emerald-400">PRODUCCIÓN</span>
+                    </div>
+                    <div>
+                      <div className="display-heading text-xl text-text">SIGMA v13 COMPLETO</div>
+                      <div className="terminal-text text-xs text-text-dim mt-1">Multi-activo · 20 modelos · BTC / ETH / SOL / XAU / ETFs</div>
+                    </div>
+                    <button
+                      disabled={pineDownloading === 'motor2'}
+                      onClick={async () => {
+                        setPineDownloading('motor2')
+                        try {
+                          const res = await fetch('/api/admin/pine?motor=2&action=download', { headers: ADMIN_HEADERS })
+                          if (!res.ok) throw new Error(await res.text())
+                          const blob = await res.blob()
+                          const url  = URL.createObjectURL(blob)
+                          const a    = document.createElement('a')
+                          a.href = url; a.download = 'SIGMA_v13_COMPLETO.pine'; a.click()
+                          URL.revokeObjectURL(url)
+                        } catch { alert('Error descargando Motor 2') }
+                        finally { setPineDownloading(null) }
+                      }}
+                      className="self-start flex items-center gap-2 section-label text-xs px-4 py-2.5 bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-colors disabled:opacity-50"
+                    >
+                      {pineDownloading === 'motor2' ? '⟳ DESCARGANDO...' : '↓ DESCARGAR MOTOR 2'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Validation panel */}
+                <div className="bg-surface border border-border p-5 flex items-center gap-6">
+                  <div className="flex-1">
+                    <div className="section-label text-xs text-text-dim mb-1">VALIDACIÓN ESTÁTICA</div>
+                    {pineValidResult ? (
+                      <div className={`terminal-text text-sm num ${pineValidResult.total_errors === 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {pineValidResult.total_errors === 0
+                          ? `✓ Sin errores críticos — validado ${pineValidResult.validated_at}`
+                          : `✗ ${pineValidResult.total_errors} errores detectados — ver consola`}
+                        {' '}{pineValidResult.motors.map(m =>
+                          <span key={m.motor} className="text-text-dim text-xs ml-2">M{m.motor}: {m.total_errors}E/{m.total_warns}W</span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="terminal-text text-xs text-muted">Ejecuta validación para detectar errores CE/CW antes de publicar</div>
+                    )}
+                  </div>
+                  <button
+                    disabled={pineValidating}
+                    onClick={async () => {
+                      setPineValidating(true)
+                      try {
+                        const res = await fetch('/api/admin/pine', { method: 'POST', headers: ADMIN_HEADERS })
+                        if (res.ok) setPineValidResult(await res.json())
+                      } catch { /* silently fail */ }
+                      finally { setPineValidating(false) }
+                    }}
+                    className="section-label text-xs px-4 py-2.5 border border-border hover:border-gold/40 text-text-dim hover:text-gold transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {pineValidating ? '⟳ VALIDANDO...' : 'VALIDAR AHORA'}
+                  </button>
+                </div>
               </div>
             </div>
           )}

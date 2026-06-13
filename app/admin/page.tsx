@@ -9,12 +9,12 @@ const MAX_ATTEMPTS = 5
 const LOCKOUT_MS   = 15 * 60 * 1000 // 15 minutos
 
 function getLockoutRemaining(): number {
-  const until = parseInt(localStorage.getItem(LOCKOUT_KEY) ?? '0', 10)
+  const until = parseInt(sessionStorage.getItem(LOCKOUT_KEY) ?? '0', 10)
   return Math.max(0, until - Date.now())
 }
 
 function getAttempts(): number {
-  return parseInt(localStorage.getItem(ATTEMPTS_KEY) ?? '0', 10)
+  return parseInt(sessionStorage.getItem(ATTEMPTS_KEY) ?? '0', 10)
 }
 
 export default function AdminLogin() {
@@ -46,8 +46,8 @@ export default function AdminLogin() {
       const rem = getLockoutRemaining()
       setRemaining(rem)
       if (rem <= 0) {
-        localStorage.removeItem(LOCKOUT_KEY)
-        localStorage.removeItem(ATTEMPTS_KEY)
+        sessionStorage.removeItem(LOCKOUT_KEY)
+        sessionStorage.removeItem(ATTEMPTS_KEY)
         setAttempts(0)
         setError('')
       }
@@ -72,12 +72,12 @@ export default function AdminLogin() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         const next = getAttempts() + 1
-        localStorage.setItem(ATTEMPTS_KEY, String(next))
+        sessionStorage.setItem(ATTEMPTS_KEY, String(next))
         setAttempts(next)
 
         if (next >= MAX_ATTEMPTS) {
           const until = Date.now() + LOCKOUT_MS
-          localStorage.setItem(LOCKOUT_KEY, String(until))
+          sessionStorage.setItem(LOCKOUT_KEY, String(until))
           setRemaining(LOCKOUT_MS)
           setError(`Cuenta bloqueada por ${MAX_ATTEMPTS} intentos fallidos. Intenta en 15 minutos.`)
         } else {
@@ -87,8 +87,8 @@ export default function AdminLogin() {
       }
 
       // Éxito — limpiar contadores
-      localStorage.removeItem(ATTEMPTS_KEY)
-      localStorage.removeItem(LOCKOUT_KEY)
+      sessionStorage.removeItem(ATTEMPTS_KEY)
+      sessionStorage.removeItem(LOCKOUT_KEY)
       sessionStorage.setItem(SESSION_KEY, 'true')
       router.push('/admin/dashboard')
     } catch {
@@ -163,7 +163,7 @@ export default function AdminLogin() {
                   autoComplete="username"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="admin@sigma.cl"
+                  placeholder="admin@ejemplo.com"
                   className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors"
                 />
               </div>

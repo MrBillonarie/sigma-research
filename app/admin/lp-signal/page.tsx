@@ -88,10 +88,7 @@ export default function AdminLpSignal() {
     try {
       const res = await fetch('/api/lp-signal/approve', {
         method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          Authorization:   `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET ?? 'adminsigma'}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signalId }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -108,10 +105,7 @@ export default function AdminLpSignal() {
     try {
       const res = await fetch('/api/lp-signal/reject', {
         method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          Authorization:   `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET ?? 'adminsigma'}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signalId }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)

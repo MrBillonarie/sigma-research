@@ -19,23 +19,14 @@ function verifySessionToken(cookieValue: string, secret: string): boolean {
   return !isNaN(expires) && expires > Date.now()
 }
 
-// ─── Admin auth — constant-time, HMAC-signed session token, no raw secret ─────
+// ─── Admin auth — solo session tokens HMAC-firmados, sin raw secrets ──────────
 export function checkAdminAuth(req: NextRequest): boolean {
   const secret = process.env.ADMIN_SECRET
   if (!secret) return false
 
-  // HMAC-signed session token (browser sessions via /api/admin/login)
+  // Solo acepta sesiones firmadas generadas por /api/admin/login
   const sessionCookie = req.cookies.get('sigma_admin_session')?.value
   if (sessionCookie && verifySessionToken(sessionCookie, secret)) return true
-
-  // Authorization: Bearer <secret> — programmatic access (cron jobs, scripts)
-  const header = req.headers.get('authorization') ?? ''
-  const bearer = header.startsWith('Bearer ') ? header.slice(7) : ''
-  if (bearer.length > 0 && safeEqual(bearer, secret)) return true
-
-  // x-admin-secret header (used by marketing and direct email routes)
-  const xSecret = req.headers.get('x-admin-secret') ?? ''
-  if (xSecret && safeEqual(xSecret, secret)) return true
 
   return false
 }
