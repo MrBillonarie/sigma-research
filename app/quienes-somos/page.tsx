@@ -175,31 +175,76 @@ export default function QuienesSomosPage() {
       </section>
 
       {/* ── CTA PRINCIPAL ───────────────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-bg border-t border-gold/10">
-        <div className="max-w-2xl mx-auto text-center flex flex-col items-center gap-6">
+      <section className="px-6 py-16 bg-bg border-t border-gold/10">
+        <div className="max-w-5xl mx-auto">
           <FadeIn>
-            <div className="section-label text-gold mb-2">{'// ACCEDE AL MOTOR'}</div>
+            <div className="relative bg-surface border border-gold/25 overflow-hidden">
 
-            <h2 className="display-heading text-[clamp(2.8rem,7vw,5.5rem)] text-text leading-[0.93] mb-4">
-              EMPIEZA HOY.<br />
-              <span className="gold-text">ES GRATIS.</span>
-            </h2>
+              {/* Top scan line */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
 
-            <p className="terminal-text text-sm text-text-dim leading-relaxed max-w-md mb-6">
-              Dashboard completo, modelos de régimen de mercado y señales en tiempo real
-              para 11 activos — sin coste.
-            </p>
+              {/* Corner brackets */}
+              <div className="absolute top-0    left-0  w-5 h-5 pointer-events-none" style={{ borderTop: '2px solid rgba(212,175,55,0.5)', borderLeft: '2px solid rgba(212,175,55,0.5)' }} />
+              <div className="absolute top-0    right-0 w-5 h-5 pointer-events-none" style={{ borderTop: '2px solid rgba(212,175,55,0.5)', borderRight: '2px solid rgba(212,175,55,0.5)' }} />
+              <div className="absolute bottom-0 left-0  w-5 h-5 pointer-events-none" style={{ borderBottom: '2px solid rgba(212,175,55,0.5)', borderLeft: '2px solid rgba(212,175,55,0.5)' }} />
+              <div className="absolute bottom-0 right-0 w-5 h-5 pointer-events-none" style={{ borderBottom: '2px solid rgba(212,175,55,0.5)', borderRight: '2px solid rgba(212,175,55,0.5)' }} />
 
-            <Link
-              href="/registro"
-              className="bg-gold text-bg section-label px-10 py-4 hover:bg-gold-glow transition-colors duration-200 text-center text-base"
-            >
-              CREAR CUENTA GRATIS
-            </Link>
+              {/* Header bar */}
+              <div className="flex items-center justify-between px-6 py-3 border-b border-gold/10">
+                <span className="terminal-text text-xs text-gold tracking-[0.3em] uppercase">{'// Accede al Motor'}</span>
+                <span className="terminal-text text-[10px] text-muted tracking-widest">PLAN GRATUITO · PERMANENTE</span>
+              </div>
 
-            <p className="terminal-text text-[11px] text-muted mt-2">
-              Sin tarjeta de crédito · Plan gratuito permanente · Cancela cuando quieras
-            </p>
+              {/* Body — 2 columns */}
+              <div className="grid lg:grid-cols-2 gap-px bg-gold/8">
+
+                {/* Left — headline */}
+                <div className="bg-surface px-8 py-10 flex flex-col justify-center gap-5">
+                  <h2 className="display-heading text-[clamp(2.6rem,4.5vw,4.5rem)] text-text leading-[0.93]">
+                    EMPIEZA HOY.<br />
+                    <span className="gold-text">ES GRATIS.</span>
+                  </h2>
+                  <p className="terminal-text text-sm text-text-dim leading-relaxed max-w-sm">
+                    Dashboard completo, modelos de régimen de mercado y señales
+                    en tiempo real para 11 activos — sin coste.
+                  </p>
+                </div>
+
+                {/* Right — CTA + trust */}
+                <div className="bg-surface px-8 py-10 flex flex-col justify-between gap-6">
+
+                  <Link
+                    href="/registro"
+                    className="bg-gold text-bg section-label px-8 py-4 hover:bg-gold-glow transition-colors duration-200 text-center block w-full"
+                  >
+                    CREAR CUENTA GRATIS
+                  </Link>
+
+                  <p className="terminal-text text-[11px] text-muted text-center tracking-wide">
+                    Sin tarjeta de crédito · Cancela cuando quieras
+                  </p>
+
+                  {/* Trust stats */}
+                  <div className="grid grid-cols-3 gap-px bg-gold/8">
+                    {[
+                      { v: '11',   l: 'Activos' },
+                      { v: '16M+', l: 'Backtests' },
+                      { v: '0',    l: 'Comisiones' },
+                    ].map(({ v, l }) => (
+                      <div key={l} className="bg-surface px-4 py-3 text-center">
+                        <div className="num text-lg font-bold text-gold tabular-nums">{v}</div>
+                        <div className="terminal-text text-[10px] text-muted mt-0.5 tracking-widest">{l}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Bottom accent */}
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
+
+            </div>
           </FadeIn>
         </div>
       </section>
