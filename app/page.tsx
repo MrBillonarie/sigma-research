@@ -184,7 +184,7 @@ export default async function RootPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (user) redirect('/home')
 
-  const { metrics, fire, coverage, backtests, regime, champions, history } = await getPageData()
+  const { metrics, fire, backtests, regime, champions, history } = await getPageData()
 
   const returnPct = fire
     ? (((fire.current_equity - fire.starting_equity) / fire.starting_equity) * 100).toFixed(2)
