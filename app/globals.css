@@ -2,61 +2,141 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════
+   SQUANT DESK — Design System v2
+   Única fuente de verdad para colores, tipografía y componentes.
+   Cualquier página/componente debe usar estas variables.
+═══════════════════════════════════════════════════════════════════ */
+
 :root {
-  --background: #04050a;
-  --foreground: #e8e9f0;
+  /* ── Core ──────────────────────────────────────────────────────── */
+  --bg:          #04050a;
+  --surface:     #0b0d14;
+  --surface-2:   #0e1019;
+  --border:      #1a1d2e;
+  --border-2:    #252840;
+
+  /* ── Gold ──────────────────────────────────────────────────────── */
+  --gold:        #d4af37;
+  --gold-dim:    #a88c25;
+  --gold-glow:   #f0cc5a;
+
+  /* ── Text ──────────────────────────────────────────────────────── */
+  --text:        #e8e9f0;
+  --text-dim:    #7a7f9a;
+  --text-muted:  #3a3f55;
+
+  /* ── Semantic ──────────────────────────────────────────────────── */
+  --green:       #1D9E75;
+  --green-dim:   #155f47;
+  --red:         #f87171;
+  --red-dim:     #7f1d1d;
+  --amber:       #f59e0b;
+  --blue:        #378ADD;
+
+  /* ── Fonts ─────────────────────────────────────────────────────── */
+  --font-display: var(--font-bebas), Impact, sans-serif;
+  --font-data:    var(--font-dm-mono), 'Courier New', monospace;
 }
 
-* {
+/* ── Reset ───────────────────────────────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  margin: 0; padding: 0;
   -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
 }
 
-html, .dash-scroll {
-  scroll-behavior: smooth;
-}
-
-/* Focus outline consistente en todos los inputs del dashboard */
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 1.5px solid #d4af37;
-  outline-offset: 2px;
-}
-
-section[id] {
-  scroll-margin-top: 80px;
-}
+html { scroll-behavior: smooth; }
 
 body {
-  background: #04050a;
-  color: #e8e9f0;
-  font-family: var(--font-dm-mono), 'Courier New', monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-data);
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: rgba(212, 175, 55, 0.3);
-  color: #f0cc5a;
+  background: rgba(212, 175, 55, 0.25);
+  color: var(--gold-glow);
 }
 
-::-webkit-scrollbar {
-  width: 4px;
+/* ── Scrollbar ───────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+/* ── Focus ───────────────────────────────────────────────────────── */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 1.5px solid var(--gold);
+  outline-offset: 2px;
 }
 
-::-webkit-scrollbar-track {
-  background: #04050a;
+button:focus-visible {
+  outline: 1.5px solid var(--gold);
+  outline-offset: 2px;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #d4af37;
-  border-radius: 2px;
-}
+section[id] { scroll-margin-top: 80px; }
 
+/* ═══════════════════════════════════════════════════════════════════
+   COMPONENT LAYER — clases reutilizables para todas las páginas
+═══════════════════════════════════════════════════════════════════ */
 @layer components {
+
+  /* ── Typography ──────────────────────────────────────────────── */
+
+  /* Grandes títulos de sección / página */
+  .display-heading {
+    font-family: var(--font-display);
+    letter-spacing: 0.04em;
+    line-height: 0.93;
+  }
+
+  /* Etiquetas de sección UPPERCASE — pequeñas, espaciadas */
+  .label {
+    font-family: var(--font-data);
+    font-size: 0.625rem;         /* 10px */
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  /* Comentario estilo código // */
+  .code-comment {
+    font-family: var(--font-data);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    color: var(--text-muted);
+  }
+
+  /* Texto mono para datos / terminales */
+  .terminal-text {
+    font-family: var(--font-data);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+  }
+
+  /* Número financiero — tabular, sin kerning */
+  .num {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Valor de métrica grande (Bebas) */
+  .metric-value {
+    font-family: var(--font-display);
+    line-height: 1;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Gold text gradient ──────────────────────────────────────── */
   .gold-text {
     background: linear-gradient(135deg, #d4af37 0%, #f0cc5a 50%, #a88c25 100%);
     -webkit-background-clip: text;
@@ -65,57 +145,173 @@ body {
   }
 
   .gold-border {
-    border: 1px solid rgba(212, 175, 55, 0.3);
+    border: 1px solid rgba(212, 175, 55, 0.28);
   }
 
+  /* ── Cards / Surfaces ────────────────────────────────────────── */
+
+  /* Card base — superficie elevada */
+  .sq-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* Card con acento superior */
+  .sq-card-gold {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--gold);
+    overflow: hidden;
+  }
+
+  /* Panel de estadísticas — borde izquierdo de color */
+  .sq-stat-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+  }
+
+  /* Glass card para overlays */
   .glass-card {
-    background: rgba(11, 13, 20, 0.8);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(212, 175, 55, 0.12);
+    background: rgba(11, 13, 20, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(212, 175, 55, 0.10);
   }
 
-  .terminal-text {
-    font-family: var(--font-dm-mono), 'Courier New', monospace;
-    font-size: 0.8rem;
-    line-height: 1.6;
-  }
+  /* ── Data grid ───────────────────────────────────────────────── */
 
-  .section-label {
-    font-family: var(--font-dm-mono), monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.3em;
+  /* Fila de tabla con hover */
+  .sq-row {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .sq-row:hover { background: rgba(255, 255, 255, 0.02); }
+
+  /* Cabecera de tabla */
+  .sq-th {
+    font-family: var(--font-data);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: #d4af37;
+    color: var(--text-dim);
+    font-weight: 400;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
   }
 
-  .display-heading {
-    font-family: var(--font-bebas), Impact, sans-serif;
-    letter-spacing: 0.04em;
-    line-height: 0.95;
+  /* Celda de tabla */
+  .sq-td {
+    font-family: var(--font-data);
+    font-size: 0.75rem;
+    padding: 9px 14px;
+    color: var(--text);
   }
 
-  /* Financial numbers — tabular, no kerning drift */
-  .num {
-    font-family: var(--font-dm-mono), 'Courier New', monospace;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
+  /* ── Badges / Tags ───────────────────────────────────────────── */
+  .sq-badge {
+    font-family: var(--font-data);
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    padding: 2px 7px;
+    border: 1px solid currentColor;
+    opacity: 0.9;
+  }
+
+  /* ── Status indicators ───────────────────────────────────────── */
+  .sq-dot-live {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse-dot 2s ease-in-out infinite;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* ── Botones ─────────────────────────────────────────────────── */
+  .sq-btn {
+    font-family: var(--font-display);
+    letter-spacing: 0.1em;
+    padding: 10px 24px;
+    font-size: 1rem;
+    transition: all 0.15s;
+    cursor: pointer;
+    border: none;
+  }
+
+  .sq-btn-gold {
+    background: var(--gold);
+    color: var(--bg);
+  }
+  .sq-btn-gold:hover { background: var(--gold-glow); }
+
+  .sq-btn-outline {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid rgba(212,175,55,0.4);
+  }
+  .sq-btn-outline:hover { background: rgba(212,175,55,0.08); border-color: var(--gold); }
+
+  /* ── Page shell ──────────────────────────────────────────────── */
+
+  /* Wrapper de contenido de página dashboard */
+  .dash-content {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 88px 24px 64px;
+  }
+
+  /* Header de sección (título + subtítulo) */
+  .sq-page-header {
+    margin-bottom: 28px;
+  }
+
+  /* ── Deprecated alias (mantener compatibilidad) ──────────────── */
+  .section-label {
+    font-family: var(--font-data);
+    font-size: 0.625rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* Divider horizontal */
+  .sq-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════════════════════════════ */
+
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(28px); }
+  from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes flash-green {
   0%, 100% { background: transparent; }
-  30%       { background: rgba(52, 211, 153, 0.15); }
+  30%       { background: rgba(29, 158, 117, 0.12); }
 }
 
 @keyframes flash-red {
   0%, 100% { background: transparent; }
-  30%       { background: rgba(248, 113, 113, 0.15); }
+  30%       { background: rgba(248, 113, 113, 0.12); }
 }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 5px var(--green); }
+  50%       { opacity: 0.5; box-shadow: 0 0 12px var(--green); }
+}
+
+@keyframes sigma-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.sigma-blink { animation: sigma-blink 2s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -125,128 +321,55 @@ body {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════════════ */
+
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+  .text-balance   { text-wrap: balance; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar   { -ms-overflow-style: none; scrollbar-width: none; }
+  .tabular        { font-variant-numeric: tabular-nums; }
 }
 
-@keyframes sigma-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-.sigma-blink { animation: sigma-blink 2s ease-in-out infinite; }
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE — Dashboard
+═══════════════════════════════════════════════════════════════════ */
 
-/* ── Mobile responsive fixes ──────────────────────────────────────────────── */
 @media (max-width: 768px) {
-
-  /* Home — KPI bar: 5 columnas → 2 columnas */
-  .sp-kpi-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  /* Home — Tool cards: 3 cols → 2 cols */
-  .sp-tool-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  /* Home — Quick summary bar: 3 → 1 */
-  .sp-summary-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Home — bottom 3-col grid (portafolio+trades+eventos) → 1 col */
-  .sp-bottom-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Journal — form grid */
-  .journal-form-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Journal / HUD — tabla horizontal scroll */
-  .mobile-scroll {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* HUD — split layout: 1fr 340px → 1fr */
-  .hud-main-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Portafolio — 4 KPIs → 2 columnas */
-  .port-kpi-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  /* Portafolio — ocultar columnas secundarias en mobile */
-  .mobile-hide { display: none !important; }
-
-  /* Padding reducido en mobile */
-  .mobile-px { padding-left: 12px !important; padding-right: 12px !important; }
-
-  /* Padding-top reducido en todas las páginas del dashboard */
-  /* Las páginas usan padding: '88px 24px' diseñado para top-navbar que ya no existe */
   .dash-content {
     padding-top: 56px !important;
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
-
-  /* Hamburger space: evitar que contenido quede bajo el botón hamburger */
-  .dash-content-inner {
-    padding-top: 56px !important;
-  }
+  .dash-content-inner  { padding-top: 56px !important; }
+  .sp-kpi-grid         { grid-template-columns: repeat(2, 1fr) !important; }
+  .sp-tool-grid        { grid-template-columns: repeat(2, 1fr) !important; }
+  .sp-summary-grid     { grid-template-columns: 1fr !important; }
+  .sp-bottom-grid      { grid-template-columns: 1fr !important; }
+  .journal-form-grid   { grid-template-columns: 1fr !important; }
+  .mobile-scroll       { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .hud-main-grid       { grid-template-columns: 1fr !important; }
+  .port-kpi-grid       { grid-template-columns: repeat(2, 1fr) !important; }
+  .mobile-hide         { display: none !important; }
+  .mobile-px           { padding-left: 12px !important; padding-right: 12px !important; }
+  .landing-cap-grid    { grid-template-columns: 1fr !important; }
+  .landing-mod-grid    { grid-template-columns: 1fr !important; gap: 40px !important; }
+  .landing-stats-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+  .landing-plans-grid  { grid-template-columns: 1fr !important; }
+  h1                   { font-size: clamp(36px, 10vw, 64px) !important; }
 }
 
-/* ── Tablet 768–900px: sp-bottom-grid y tool-grid ───────────────────────── */
-@media (min-width: 769px) and (max-width: 900px) {
-  .sp-bottom-grid  { grid-template-columns: 1fr 1fr !important; }
-  .sp-tool-grid    { grid-template-columns: repeat(2, 1fr) !important; }
-}
-
-/* ── Landing page responsive ──────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  /* Capabilities 3-col → 1-col */
-  .landing-cap-grid  { grid-template-columns: 1fr !important; }
-  /* Models 2-col → 1-col */
-  .landing-mod-grid  { grid-template-columns: 1fr !important; gap: 40px !important; }
-  /* Stats 4-col → 2-col */
-  .landing-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  /* Plans 3-col → 1-col */
-  .landing-plans-grid { grid-template-columns: 1fr !important; }
-}
-
-/* ── Zona ciega tablet 768–900px ──────────────────────────────────────────── */
 @media (min-width: 769px) and (max-width: 900px) {
   .sp-kpi-grid      { grid-template-columns: repeat(3, 1fr) !important; }
   .sp-bottom-grid   { grid-template-columns: 1fr 1fr !important; }
+  .sp-tool-grid     { grid-template-columns: repeat(2, 1fr) !important; }
   .dash-content     { padding-top: 32px !important; padding-left: 18px !important; padding-right: 18px !important; }
 }
 
-/* ── Grids extra responsive ───────────────────────────────────────────────── */
 @media (max-width: 640px) {
-
-  /* Comparadores — top cards 4 cols → 2 cols */
   .comp-top-cards  { grid-template-columns: repeat(2, 1fr) !important; }
-
-  /* Motor / Montecarlo — 4 stat cards → 2 cols */
   .stats-4-grid    { grid-template-columns: repeat(2, 1fr) !important; }
-
-  /* FIRE — 3 modos → 1 col */
   .fire-modes-grid { grid-template-columns: 1fr !important; }
-
-  /* LP DeFi — 3 pools → 1 col */
   .lp-pools-grid   { grid-template-columns: 1fr !important; }
-
-  /* Textos grandes — clamp más agresivo en mobile pequeño */
-  h1 { font-size: clamp(36px, 10vw, 64px) !important; }
 }
