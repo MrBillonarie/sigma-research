@@ -3,19 +3,36 @@ import { NextResponse } from 'next/server'
 const VPS = process.env.VPS_URL ?? 'http://178.104.10.97:8080'
 
 export async function GET() {
+  // Primary: /api/v2/champions — full champion list with all metrics
+  // Fallback: /api/public top_models — always available
   try {
-    const res = await fetch(`${VPS}/api/v2/champions`, {
+    const r1 = await fetch(`${VPS}/api/v2/champions`, {
+      signal: AbortSignal.timeout(6000),
+    })
+    if (r1.ok) {
+      const data = await r1.json()
+      const list = Array.isArray(data) ? data : Object.values(data as Record<string, unknown>)
+      if (list.length > 0) {
+        return NextResponse.json(list, {
+          headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=30' },
+        })
+      }
+    }
+  } catch { /* fall through */ }
+
+  // Fallback: public endpoint top_models
+  try {
+    const r2 = await fetch(`${VPS}/api/public`, {
       signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) throw new Error(`VPS ${res.status}`)
-    const data = await res.json()
-    return NextResponse.json(data, {
-      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=60' },
-    })
-  } catch (e) {
-    return NextResponse.json(
-      { error: 'VPS no disponible', details: String(e) },
-      { status: 503 }
-    )
-  }
+    if (r2.ok) {
+      const d = await r2.json()
+      const list = d?.top_models ?? []
+      return NextResponse.json(list, {
+        headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=30' },
+      })
+    }
+  } catch { /* fall through */ }
+
+  return NextResponse.json([], { status: 200 })
 }
