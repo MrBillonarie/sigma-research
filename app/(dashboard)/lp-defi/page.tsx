@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { C } from '@/app/lib/constants'
+import { supabase } from '@/app/lib/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Kline { open: number; high: number; low: number; close: number }
@@ -247,11 +248,15 @@ function BtcPriceTicker({ onPriceUpdate }: { onPriceUpdate: (p: number) => void 
     function connect() {
       ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@miniTicker')
       ws.onmessage = (e: MessageEvent) => {
-        const p = parseFloat((JSON.parse(e.data as string) as { c: string }).c)
-        if (prevRef.current > 0) setChange(((p - prevRef.current) / prevRef.current) * 100)
-        prevRef.current = p
-        setPrice(p)
-        onPriceUpdate(p)
+        try {
+          const p = parseFloat((JSON.parse(e.data as string) as { c: string }).c)
+          if (!isNaN(p) && p > 0) {
+            if (prevRef.current > 0) setChange(((p - prevRef.current) / prevRef.current) * 100)
+            prevRef.current = p
+            setPrice(p)
+            onPriceUpdate(p)
+          }
+        } catch { /* mensaje inesperado de Binance */ }
       }
       ws.onclose = () => setTimeout(connect, 5000)
     }
@@ -277,15 +282,17 @@ export default function LpSignalPage() {
 
   const [capitalUSD, setCapitalUSD] = useState(0)
 
-  // Read capital on mount: sigma_portfolio_total (Terminal) → sigma_lp_capital (manual fallback)
+  // Read capital on mount: sigma_portfolio_total → sigma_lp_capital_<uid> (user-specific)
   useEffect(() => {
-    try {
-      const keys = ['sigma_portfolio_total', 'sigma_lp_capital']
-      for (const key of keys) {
-        const n = Number(localStorage.getItem(key))
-        if (n > 0) { setCapitalUSD(n); return }
-      }
-    } catch {}
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? 'anon'
+      try {
+        const pt = Number(localStorage.getItem('sigma_portfolio_total'))
+        if (pt > 0) { setCapitalUSD(pt); return }
+        const lp = Number(localStorage.getItem(`sigma_lp_capital_${uid}`))
+        if (lp > 0) { setCapitalUSD(lp); return }
+      } catch {}
+    })
   }, [])
 
   const [bnbPrice,   setBnbPrice]   = useState(0)
@@ -454,11 +461,11 @@ export default function LpSignalPage() {
                 <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 700, color: C.gold, lineHeight: 1 }}>
                   {usd(capitalUSD)}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dimText, marginTop: 4 }}>base Kelly · desde Terminal</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dimText, marginTop: 4 }}>base Kelly · desde Portafolio</div>
               </>
             ) : (
-              <a href="/terminal" style={{ fontFamily: MONO, fontSize: 10, color: C.gold, textDecoration: 'none', letterSpacing: '0.06em', lineHeight: 1.5 }}>
-                Ve al Terminal para registrar tu patrimonio →
+              <a href="/portafolio" style={{ fontFamily: MONO, fontSize: 10, color: C.gold, textDecoration: 'none', letterSpacing: '0.06em', lineHeight: 1.5 }}>
+                Ve a Portafolio para registrar tu patrimonio →
               </a>
             )}
           </TopCell>
@@ -473,27 +480,50 @@ export default function LpSignalPage() {
           </TopCell>
         </div>
 
-        {/* BUG 2 fix: warning banner above pool cards when no capital */}
+        {/* Warning: proyecciones sobre capital de referencia */}
         {capitalUSD === 0 && (
           <div style={{
-            background: C.gold, color: '#1a1200',
-            padding: '10px 16px', marginBottom: 16,
-            fontFamily: MONO, fontSize: 11, fontWeight: 700,
-            width: '100%', boxSizing: 'border-box', letterSpacing: '0.05em',
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            background: 'rgba(212,175,55,0.08)', border: `1px solid ${C.gold}50`,
+            padding: '12px 16px', marginBottom: 16,
           }}>
-            ⚠️ Ve al Terminal a registrar tu patrimonio para ver proyecciones reales en $
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: 'rgba(212,175,55,0.15)', padding: '3px 8px', flexShrink: 0 }}>
+              CAPITAL DE REFERENCIA
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.dimText, lineHeight: 1.5 }}>
+              Proyecciones calculadas sobre <strong style={{ color: C.gold }}>$1.000</strong> de referencia. Configura tu portafolio para ver proyecciones reales.
+            </span>
+            <a href="/portafolio" style={{ fontFamily: MONO, fontSize: 10, color: C.gold, textDecoration: 'none', border: `1px solid ${C.gold}44`, padding: '4px 10px', flexShrink: 0 }}>
+              IR A PORTAFOLIO →
+            </a>
+          </div>
+        )}
+
+        {/* ── Banner datos de referencia ── */}
+        {!loading && engine.pools.length > 0 && engine.pools.every(p => p.apiFailed) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            background: 'rgba(212,175,55,0.06)', border: `1px solid ${C.gold}50`,
+            padding: '12px 18px', marginBottom: 16,
+          }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: 'rgba(212,175,55,0.15)', padding: '3px 8px', flexShrink: 0 }}>
+              DATOS DE REFERENCIA
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.dimText, lineHeight: 1.5 }}>
+              No se pudo conectar a la API de PancakeSwap. Los APRs y TVL mostrados son estimaciones de referencia, no tasas en tiempo real.
+            </span>
           </div>
         )}
 
         {/* ── POOL CARDS + ANALYTICS ── */}
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+          <div className="lp-pools-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
             {[0, 1, 2].map(i => (
               <div key={i} className="animate-pulse" style={{ background: C.surface, border: `1px solid ${C.border}`, height: 400 }} />
             ))}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+          <div className="lp-pools-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
             {engine.pools.map((p, i) => (
               <div key={p.name} style={{ display: 'flex', flexDirection: 'column' }}>
                 <PoolCard pool={p} />

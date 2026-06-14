@@ -3,30 +3,34 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/app/lib/supabase'
 
-// Handles Supabase OAuth and email-confirmation redirects.
-// Supabase's detectSessionInUrl:true (default) auto-exchanges the PKCE code
-// on client init; we just wait for the SIGNED_IN event.
 export default function AuthCallback() {
   const router = useRouter()
 
   useEffect(() => {
-    // 1. If a session already exists (e.g. implicit flow already resolved), go now.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.replace('/terminal')
-        return
-      }
-    })
+    let redirected = false
 
-    // 2. Otherwise wait for the SIGNED_IN event triggered by the PKCE exchange.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        router.replace('/terminal')
+      if (redirected) return
+      if (event === 'PASSWORD_RECOVERY') {
+        redirected = true
+        subscription.unsubscribe()
+        router.replace('/nueva-contrasena')
+      } else if (event === 'SIGNED_IN' && session) {
+        redirected = true
+        subscription.unsubscribe()
+        const done = session.user?.user_metadata?.onboarding_done
+        router.replace(done ? '/home' : '/onboarding')
       }
     })
 
-    // 3. Safety fallback: if nothing resolves in 8 s, send to login.
-    const timeout = setTimeout(() => router.replace('/login'), 8_000)
+    // Safety fallback after 10 s — cleans up subscription before redirecting
+    const timeout = setTimeout(() => {
+      if (!redirected) {
+        redirected = true
+        subscription.unsubscribe()
+        router.replace('/login')
+      }
+    }, 10_000)
 
     return () => {
       subscription.unsubscribe()

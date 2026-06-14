@@ -93,9 +93,9 @@ export default function ReportePage() {
   }
 
   return (
-    <div style={{
+    <div className="dash-content" style={{
       minHeight: '100vh', background: '#04050a',
-      padding: '88px 24px 64px', maxWidth: 900, margin: '0 auto',
+      paddingBottom: '64px', maxWidth: 900, margin: '0 auto', width: '100%',
     }}>
       {/* Breadcrumb */}
       <div style={{

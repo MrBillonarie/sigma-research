@@ -11,10 +11,20 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
-html {
+html, .dash-scroll {
   scroll-behavior: smooth;
+}
+
+/* Focus outline consistente en todos los inputs del dashboard */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 1.5px solid #d4af37;
+  outline-offset: 2px;
 }
 
 section[id] {
@@ -132,3 +142,111 @@ body {
 
 @keyframes sigma-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 .sigma-blink { animation: sigma-blink 2s ease-in-out infinite; }
+
+/* ── Mobile responsive fixes ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Home — KPI bar: 5 columnas → 2 columnas */
+  .sp-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Home — Tool cards: 3 cols → 2 cols */
+  .sp-tool-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Home — Quick summary bar: 3 → 1 */
+  .sp-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Home — bottom 3-col grid (portafolio+trades+eventos) → 1 col */
+  .sp-bottom-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Journal — form grid */
+  .journal-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Journal / HUD — tabla horizontal scroll */
+  .mobile-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* HUD — split layout: 1fr 340px → 1fr */
+  .hud-main-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Portafolio — 4 KPIs → 2 columnas */
+  .port-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Portafolio — ocultar columnas secundarias en mobile */
+  .mobile-hide { display: none !important; }
+
+  /* Padding reducido en mobile */
+  .mobile-px { padding-left: 12px !important; padding-right: 12px !important; }
+
+  /* Padding-top reducido en todas las páginas del dashboard */
+  /* Las páginas usan padding: '88px 24px' diseñado para top-navbar que ya no existe */
+  .dash-content {
+    padding-top: 56px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Hamburger space: evitar que contenido quede bajo el botón hamburger */
+  .dash-content-inner {
+    padding-top: 56px !important;
+  }
+}
+
+/* ── Tablet 768–900px: sp-bottom-grid y tool-grid ───────────────────────── */
+@media (min-width: 769px) and (max-width: 900px) {
+  .sp-bottom-grid  { grid-template-columns: 1fr 1fr !important; }
+  .sp-tool-grid    { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ── Landing page responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Capabilities 3-col → 1-col */
+  .landing-cap-grid  { grid-template-columns: 1fr !important; }
+  /* Models 2-col → 1-col */
+  .landing-mod-grid  { grid-template-columns: 1fr !important; gap: 40px !important; }
+  /* Stats 4-col → 2-col */
+  .landing-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  /* Plans 3-col → 1-col */
+  .landing-plans-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── Zona ciega tablet 768–900px ──────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 900px) {
+  .sp-kpi-grid      { grid-template-columns: repeat(3, 1fr) !important; }
+  .sp-bottom-grid   { grid-template-columns: 1fr 1fr !important; }
+  .dash-content     { padding-top: 32px !important; padding-left: 18px !important; padding-right: 18px !important; }
+}
+
+/* ── Grids extra responsive ───────────────────────────────────────────────── */
+@media (max-width: 640px) {
+
+  /* Comparadores — top cards 4 cols → 2 cols */
+  .comp-top-cards  { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Motor / Montecarlo — 4 stat cards → 2 cols */
+  .stats-4-grid    { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* FIRE — 3 modos → 1 col */
+  .fire-modes-grid { grid-template-columns: 1fr !important; }
+
+  /* LP DeFi — 3 pools → 1 col */
+  .lp-pools-grid   { grid-template-columns: 1fr !important; }
+
+  /* Textos grandes — clamp más agresivo en mobile pequeño */
+  h1 { font-size: clamp(36px, 10vw, 64px) !important; }
+}

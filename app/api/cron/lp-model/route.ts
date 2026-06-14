@@ -1,22 +1,26 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { runAutoModel } from '@/lib/lp-auto-model'
 
-// GET /api/cron/lp-model — dry-run for debugging, no DB writes
-export async function GET() {
+function checkCron(req: Request | NextRequest): boolean {
+  const CRON_SECRET = process.env.CRON_SECRET
+  return !!CRON_SECRET && req.headers.get('authorization') === `Bearer ${CRON_SECRET}`
+}
+
+// GET /api/cron/lp-model — dry-run for debugging
+export async function GET(req: NextRequest) {
+  if (!checkCron(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const result = await runAutoModel()
     return NextResponse.json({ ok: true, result })
   } catch (e: unknown) {
-    const msg   = e instanceof Error ? e.message : String(e)
-    const stack = e instanceof Error ? e.stack   : undefined
-    return NextResponse.json({ ok: false, error: msg, stack }, { status: 500 })
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
-  const auth = req.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!checkCron(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -87,9 +91,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ action: 'signal_pending', signalId: data.id })
   } catch (e: unknown) {
-    const msg   = e instanceof Error ? e.message : String(e)
-    const stack = e instanceof Error ? e.stack   : undefined
-    console.error('[cron/lp-model]', msg, stack)
-    return NextResponse.json({ error: msg, stack }, { status: 500 })
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[cron/lp-model]', msg)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

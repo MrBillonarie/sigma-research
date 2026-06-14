@@ -161,6 +161,7 @@ export default function PortfolioPage() {
   const [positions,    setPositions]    = useState<PassivePosition[]>([])
   const [storedTotal,  setStoredTotal]  = useState(0)
   const [loading,      setLoading]      = useState(true)
+  const [lastSaved,    setLastSaved]    = useState<string | null>(null)
   const [trm,          setTrm]          = useState('950')
   const [trmLive,      setTrmLive]      = useState(false)
   const [monthlySav,   setMonthlySav]   = useState('500')
@@ -210,6 +211,7 @@ export default function PortfolioPage() {
         const vals: PortfolioRow = {}
         PLATFORM_META.forEach(p => { vals[p.id] = data[p.id] ?? 0 })
         setPortfolio(vals)
+        try { localStorage.setItem('sigma_portfolio', JSON.stringify(vals)) } catch {}
       }
       setLoading(false)
     }
@@ -223,27 +225,30 @@ export default function PortfolioPage() {
     return () => document.removeEventListener('keydown', fn)
   }, [])
 
-  // ─── Fetch Binance live data ──────────────────���───────────────────────────
+  // ─── Fetch Binance live data (parallel) ──────────────────────────────────
   useEffect(() => {
     async function fetchBinance() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { setLoadingBinanceFutures(false); setLoadingBinanceSpot(false); return }
       const headers = { Authorization: `Bearer ${session.access_token}` }
 
-      try {
-        const res = await fetch('/api/binance/positions', { headers })
-        const json = await res.json()
+      const [futuresResult, spotResult] = await Promise.allSettled([
+        fetch('/api/binance/positions', { headers }).then(r => r.json()),
+        fetch('/api/binance/spot',      { headers }).then(r => r.json()),
+      ])
+
+      if (futuresResult.status === 'fulfilled') {
+        const json = futuresResult.value
         if (json.error) setErrorBinanceFutures(json.error)
         else setBinanceFutures(json.positions ?? [])
-      } catch { setErrorBinanceFutures('Error al conectar.') }
+      } else { setErrorBinanceFutures('Error al conectar.') }
       setLoadingBinanceFutures(false)
 
-      try {
-        const res = await fetch('/api/binance/spot', { headers })
-        const json = await res.json()
+      if (spotResult.status === 'fulfilled') {
+        const json = spotResult.value
         if (json.error) setErrorBinanceSpot(json.error)
         else setBinanceSpot(json.balances ?? [])
-      } catch { setErrorBinanceSpot('Error al conectar.') }
+      } else { setErrorBinanceSpot('Error al conectar.') }
       setLoadingBinanceSpot(false)
     }
     fetchBinance()
@@ -263,7 +268,11 @@ export default function PortfolioPage() {
       const { data } = await supabase.from('portfolio').insert(payload).select().single()
       if (data) setDbId(data.id)
     }
+    const savedAt = new Date().toISOString()
     setPortfolio({ ...draftForm })
+    setLastSaved(savedAt)
+    try { localStorage.setItem('sigma_portfolio', JSON.stringify(draftForm)) } catch {}
+    try { localStorage.setItem('sigma_portfolio_saved_at', savedAt) } catch {}
     setSaving(false)
     setModalOpen(false)
   }
@@ -417,7 +426,7 @@ export default function PortfolioPage() {
   // ─── Render ──────────────────────────────────────────────────────���────────
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
+      <div className="dash-content" style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* ── HEADER ── */}
         <div style={{ marginBottom: 36, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
@@ -443,14 +452,39 @@ export default function PortfolioPage() {
                 style={{ width: 80, background: C.bg, border: `1px solid ${C.gold}44`, color: C.gold, fontFamily: 'monospace', fontSize: 13, padding: '4px 8px', outline: 'none', textAlign: 'right' }}
               />
             </div>
-            <button onClick={openModal} style={{ padding: '10px 22px', border: `1px solid ${C.gold}`, background: 'transparent', color: C.gold, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', cursor: 'pointer' }}>
-              EDITAR PORTAFOLIO
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+              {lastSaved && (
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.muted, letterSpacing: '0.1em' }}>
+                  Guardado {new Date(lastSaved).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <button onClick={openModal} style={{ padding: '10px 22px', border: `1px solid ${C.gold}`, background: 'transparent', color: C.gold, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', cursor: 'pointer' }}>
+                EDITAR PORTAFOLIO
+              </button>
+            </div>
           </div>
         </div>
 
         {loading ? (
-          <div style={{ padding: '80px', textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: C.muted }}>Cargando portafolio…</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <style>{`@keyframes sk{0%{background-position:-200% 0}100%{background-position:200% 0}}.sk-pulse{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:sk 1.4s ease infinite;border-radius:2px}`}</style>
+            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border }}>
+              {[1,2,3,4].map(i => (
+                <div key={i} style={{ background: C.surface, padding: '20px 18px' }}>
+                  <div className="sk-pulse" style={{ width: '60%', height: 10, marginBottom: 12 }} />
+                  <div className="sk-pulse" style={{ width: '80%', height: 28 }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: C.border }}>
+              {[1,2].map(i => (
+                <div key={i} style={{ background: C.surface, padding: '24px' }}>
+                  <div className="sk-pulse" style={{ width: '40%', height: 10, marginBottom: 16 }} />
+                  <div className="sk-pulse" style={{ width: '100%', height: 200 }} />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : !hasSavedData ? (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '48px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginBottom: 20 }}>No tienes datos de portafolio guardados todavía.</div>
@@ -461,7 +495,7 @@ export default function PortfolioPage() {
         ) : (
           <>
             {/* ── 1. KPI CARDS ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
+            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
               {[
                 { label: 'Total Patrimonio', value: fmtUSD(D.totalUSD),  sub: 'USD equiv.',       color: C.gold },
                 { label: 'Rentabilidad YTD', value: `${ytdReturn > 0 ? '+' : ''}${ytdReturn.toFixed(2)}%`, sub: 'vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red },
@@ -480,13 +514,13 @@ export default function PortfolioPage() {
             <div style={{ background: C.surface, marginBottom: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>EVOLUCIÓN DE CAPITAL · 24 MESES</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>base: USD equiv.</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>base: USD equiv. · curva estimada hasta sync</span>
               </div>
               <TerminalChart labels={MONTHS.slice(0, 24)} total={totalHistory} platforms={platformHistories} />
             </div>
 
             {/* ── 3. KPIs × 4 (portfolio totals) ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border, marginBottom: 40 }}>
+            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border, marginBottom: 40 }}>
               {[
                 { label: 'Patrimonio Total USD', value: fmtUSD(D.totalUSD),       color: C.text  },
                 { label: 'Patrimonio Total CLP', value: fmtCLP(D.totalCLP),       color: C.text  },
@@ -527,6 +561,7 @@ export default function PortfolioPage() {
             </div>
 
             {/* ── 5. BINANCE FUTURES POSITIONS ── */}
+            <style>{`@keyframes skp{0%{background-position:-200% 0}100%{background-position:200% 0}}.skp{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:skp 1.4s ease infinite;border-radius:2px}`}</style>
             <div style={{ marginBottom: 24 }}>
               <div style={{ background: C.surface, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
@@ -534,7 +569,16 @@ export default function PortfolioPage() {
               </div>
               <div style={{ background: C.bg, padding: '16px 18px' }}>
                 {loadingBinanceFutures ? (
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted }}>Cargando posiciones…</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {[1,2,3].map(i => (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, padding: '10px 12px', borderBottom: `1px solid ${C.border}` }}>
+                        <div className="skp" style={{ height: 12 }} />
+                        <div className="skp" style={{ height: 12, width: '60%' }} />
+                        <div className="skp" style={{ height: 12, width: '70%' }} />
+                        <div className="skp" style={{ height: 12, width: '50%' }} />
+                      </div>
+                    ))}
+                  </div>
                 ) : errorBinanceFutures ? (
                   <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.red }}>{errorBinanceFutures}</div>
                 ) : binanceFutures.length === 0 ? (
@@ -576,7 +620,14 @@ export default function PortfolioPage() {
               </div>
               <div style={{ background: C.bg, padding: '16px 18px' }}>
                 {loadingBinanceSpot ? (
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted }}>Cargando balances…</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 1, background: C.border }}>
+                    {[1,2,3,4,5,6].map(i => (
+                      <div key={i} style={{ background: C.bg, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="skp" style={{ height: 12, width: 50 }} />
+                        <div className="skp" style={{ height: 12, width: 70 }} />
+                      </div>
+                    ))}
+                  </div>
                 ) : errorBinanceSpot ? (
                   <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.red }}>{errorBinanceSpot}</div>
                 ) : binanceSpot.length === 0 ? (
@@ -909,7 +960,10 @@ export default function PortfolioPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={e => { if (e.target === e.currentTarget) setModalOpen(false) }}>
           <div ref={modalRef} style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 32, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 20 }}>{'// EDITAR PORTAFOLIO'}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold }}>{'// EDITAR PORTAFOLIO'}</div>
+              <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.muted }}>ESC para cerrar</span>
+            </div>
             <p style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginBottom: 24, lineHeight: 1.6 }}>
               Introduce el valor actual en USD de cada plataforma. Los datos se guardan en tu cuenta.
             </p>

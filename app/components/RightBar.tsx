@@ -22,6 +22,38 @@ type Sym = typeof SYMBOLS[number]
 
 const SYM_LABEL: Record<Sym, string> = { BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', BNB: 'BNB' }
 
+// ─── Motor live trades ────────────────────────────────────────────────────────
+interface OpenTrade {
+  sym?: string; tf?: string; direction?: string
+  entry?: number; sl?: number; tp?: number
+  strategy?: string; grade?: string; opened_at?: string
+}
+
+function useOpenTrades() {
+  const [trades, setTrades] = useState<OpenTrade[]>([])
+  useEffect(() => {
+    async function load() {
+      try {
+        const r = await fetch('/api/vps/motor-api/trades', { cache: 'no-store' })
+        if (!r.ok) return
+        const d = await r.json()
+        setTrades(d?.open ?? [])
+      } catch {}
+    }
+    load()
+    const id = setInterval(load, 60000)
+    return () => clearInterval(id)
+  }, [])
+  return trades
+}
+
+function motorGradeColor(g?: string) {
+  if (g === 'A+') return '#ffd700'
+  if (g === 'A')  return '#34d399'
+  if (g === 'B')  return '#60a5fa'
+  return '#3a3f55'
+}
+
 interface Ticker { price: number; change24h: number; flash: 'up' | 'down' | null }
 interface ExtTicker { price: number; change24h: number; marketOpen: boolean }
 
@@ -149,6 +181,7 @@ export default function RightBar() {
   const [utcNow,     setUtcNow]     = useState(new Date())
   const [community,  setCommunity]  = useState<CommunitySetup[]>([])
   const [userVotes,  setUserVotes]  = useState<Record<string, 'up' | 'down'>>({})
+  const motorTrades = useOpenTrades()
 
   const wsRef       = useRef<WebSocket | null>(null)
   const reconnRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -531,11 +564,11 @@ export default function RightBar() {
           ))
         }
 
-        {/* ══ SETUPS (propio) ══ */}
+        {/* ══ SETUPS (motor live) ══ */}
         <Section label="SETUPS" />
-        {SETUPS.length === 0
-          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin setups activos</div>
-          : SETUPS.map(s => <SetupCard key={s.id} s={s} price={tickers[symFromPar(s.par)]?.price ?? 0} />)
+        {motorTrades.length === 0
+          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin posiciones abiertas</div>
+          : motorTrades.map((t, i) => <MotorSetupCard key={i} t={t} />)
         }
 
         {/* ══ COMUNIDAD ══ */}
@@ -738,6 +771,42 @@ function CommunityCard({
             padding: '2px 6px', cursor: 'pointer',
           }}
         >▼ {cs.votos_down}</button>
+      </div>
+    </div>
+  )
+}
+
+// ─── MotorSetupCard: live open trades from the motor ─────────────────────────
+function MotorSetupCard({ t }: { t: OpenTrade }) {
+  const isLong   = (t.direction ?? '') !== 'short'
+  const dirColor = isLong ? T.green : T.red
+  const sym      = t.sym ?? '?'
+  const tf       = t.tf?.toUpperCase() ?? ''
+  const gc       = motorGradeColor(t.grade)
+
+  return (
+    <div style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 9, color: dirColor, background: dirColor + '1a', padding: '1px 5px', letterSpacing: '0.08em' }}>
+            {isLong ? 'LONG' : 'SHORT'}
+          </span>
+          <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>{tf}</span>
+        </div>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: gc, background: gc + '20', border: `1px solid ${gc}40`, padding: '1px 5px' }}>
+          {t.grade ?? '?'}
+        </span>
+      </div>
+      <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.text, marginBottom: 4 }}>{sym}</div>
+      {t.strategy && (
+        <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.gold, letterSpacing: '0.05em', marginBottom: 4 }}>
+          {t.strategy.slice(0, 20)}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {t.entry != null && <Row l="E"  v={t.entry} c={T.dimText} />}
+        {t.sl    != null && <Row l="SL" v={t.sl}    c={T.red + 'cc'} />}
+        {t.tp    != null && <Row l="TP" v={t.tp}    c={T.green + 'cc'} />}
       </div>
     </div>
   )

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { fmt, fmtK } from '@/app/lib/format'
 import FireChallenges from './FireChallenges'
 import { usePortfolio } from '@/app/lib/usePortfolio'
+import { supabase } from '@/app/lib/supabase'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
@@ -100,12 +101,40 @@ export default function FirePage() {
   const [edad,    setEdad]    = useState(29)
   const [gasto,   setGasto]   = useState(MODES[1].defaultGasto)
 
+  // Restaurar parámetros FIRE vinculados al user_id (evita mezcla entre cuentas)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? 'anon'
+      try {
+        const g = localStorage.getItem(`sigma_fire_gasto_${uid}`)
+        if (g && Number(g) > 0) setGasto(Number(g))
+        const a = localStorage.getItem(`sigma_fire_ahorro_${uid}`)
+        if (a && Number(a) > 0) setAhorro(Number(a))
+        const e = localStorage.getItem(`sigma_fire_edad_${uid}`)
+        if (e && Number(e) > 0) setEdad(Number(e))
+      } catch {}
+    })
+  }, [])
+
   const m = MODES[mode]
 
   const { data, target, fireYear } = useMemo(
     () => project(capital, ahorro, retorno, gasto),
     [capital, ahorro, retorno, gasto]
   )
+
+  // Persistir parámetros FIRE vinculados al user_id
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? 'anon'
+      try {
+        localStorage.setItem('sigma_fire_target', String(target))
+        localStorage.setItem(`sigma_fire_gasto_${uid}`, String(gasto))
+        localStorage.setItem(`sigma_fire_ahorro_${uid}`, String(ahorro))
+        localStorage.setItem(`sigma_fire_edad_${uid}`, String(edad))
+      } catch {}
+    })
+  }, [target, gasto, ahorro, edad])
 
   const years = data.length - 1
   const labels = Array.from({ length: years + 1 }, (_, i) => String(i))
@@ -115,7 +144,7 @@ export default function FirePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
+      <div className="dash-content" style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}
         <div style={{ marginBottom: 36 }}>

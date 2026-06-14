@@ -628,12 +628,12 @@ export default function CalendarioPage() {
               </h1>
               <div style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:6 }}>
                 {usingMock && (
-                  <span style={{ fontSize:9, letterSpacing:'0.15em', color:C.yellow,
-                    background:C.yellow+'14', padding:'3px 8px', border:`1px solid ${C.yellow}33` }}>
-                    MODO DEMO
+                  <span style={{ fontSize:9, letterSpacing:'0.15em', color:C.dimText,
+                    background:C.border, padding:'3px 8px' }}>
+                    DATOS DE REFERENCIA
                   </span>
                 )}
-                {error && (
+                {error && !usingMock && (
                   <span style={{ fontSize:9, color:C.red, background:C.red+'12', padding:'3px 8px' }}>
                     {error}
                   </span>

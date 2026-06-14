@@ -89,19 +89,19 @@ export default function AccuracyPage() {
   }, [])
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#04050a', padding: '100px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="dash-content" style={{ minHeight: '100vh', background: '#04050a', padding: '100px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span style={{ color: '#7a7f9a', fontFamily: MONO, fontSize: 13 }}>Midiendo outcomes pendientes…</span>
     </div>
   )
 
   if (error) return (
-    <div style={{ minHeight: '100vh', background: '#04050a', padding: '100px 24px' }}>
+    <div className="dash-content" style={{ minHeight: '100vh', background: '#04050a', padding: '100px 24px' }}>
       <div style={{ color: '#f87171', fontFamily: MONO }}>{error}</div>
     </div>
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#04050a', padding: '88px 24px 64px', maxWidth: 1200, margin: '0 auto' }}>
+    <div className="dash-content" style={{ minHeight: '100vh', background: '#04050a', padding: '88px 24px 64px', maxWidth: 1200, margin: '0 auto' }}>
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>

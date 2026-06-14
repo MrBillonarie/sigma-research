@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { C } from '@/app/lib/constants'
 import { supabase } from '@/app/lib/supabase'
+import { useCalendarEvents } from '@/app/hooks/useCalendarEvents'
 
 // ─── Platform config ──────────────────────────────────────────────────────────
 const PLATFORMS = [
@@ -15,36 +16,10 @@ const PLATFORMS = [
   { id: 'cash',            name: 'Cash',            color: '#6b7280', isCLP: false },
 ]
 
-const MACRO_EVENTS = [
-  { date: '2026-06-17', time: '18:00 UTC', title: 'FOMC Decision — Junio' },
-  { date: '2026-06-26', time: '08:30 UTC', title: 'PCE Price Index — Junio' },
-  { date: '2026-07-03', time: '08:30 UTC', title: 'NFP (Non-Farm Payrolls) — Julio' },
-  { date: '2026-07-14', time: '08:30 UTC', title: 'CPI (YoY) — Julio' },
-  { date: '2026-07-29', time: '18:00 UTC', title: 'FOMC Decision — Julio' },
-  { date: '2026-07-30', time: '12:30 UTC', title: 'GDP Q2 2026 (Avance)' },
-  { date: '2026-08-07', time: '08:30 UTC', title: 'NFP — Agosto' },
-  { date: '2026-08-12', time: '08:30 UTC', title: 'CPI (YoY) — Agosto' },
-  { date: '2026-08-28', time: '12:30 UTC', title: 'PCE Price Index — Agosto' },
-  { date: '2026-09-04', time: '08:30 UTC', title: 'NFP — Septiembre' },
-  { date: '2026-09-10', time: '08:30 UTC', title: 'CPI (YoY) — Septiembre' },
-  { date: '2026-09-16', time: '18:00 UTC', title: 'FOMC Decision — Septiembre' },
-  { date: '2026-09-25', time: '12:30 UTC', title: 'PCE Price Index — Septiembre' },
-  { date: '2026-10-02', time: '08:30 UTC', title: 'NFP — Octubre' },
-  { date: '2026-10-14', time: '08:30 UTC', title: 'CPI (YoY) — Octubre' },
-  { date: '2026-10-29', time: '12:30 UTC', title: 'GDP Q3 2026 (Avance)' },
-  { date: '2026-11-04', time: '18:00 UTC', title: 'FOMC Decision — Noviembre' },
-  { date: '2026-11-06', time: '08:30 UTC', title: 'NFP — Noviembre' },
-  { date: '2026-11-12', time: '08:30 UTC', title: 'CPI (YoY) — Noviembre' },
-  { date: '2026-11-25', time: '13:30 UTC', title: 'PCE Price Index — Noviembre' },
-  { date: '2026-12-04', time: '08:30 UTC', title: 'NFP — Diciembre' },
-  { date: '2026-12-10', time: '08:30 UTC', title: 'CPI (YoY) — Diciembre' },
-  { date: '2026-12-16', time: '18:00 UTC', title: 'FOMC Decision — Diciembre' },
-  { date: '2026-12-23', time: '13:30 UTC', title: 'PCE Price Index — Diciembre' },
-]
 
 const TOOL_LIST = [
   { id: 'hud',        href: '/hud',        label: 'HUD',         sub: 'Vista operativa live',      key: 'H', isLive: true  },
-  { id: 'terminal',   href: '/terminal',   label: 'TERMINAL',    sub: 'Posiciones y órdenes',       key: 'T', isLive: true  },
+  { id: 'terminal',   href: '/portafolio', label: 'PORTAFOLIO',  sub: 'Posiciones y plataformas',   key: 'T', isLive: true  },
   { id: 'journal',    href: '/journal',    label: 'JOURNAL',     sub: 'Registro de operaciones',    key: 'J', isLive: false },
   { id: 'montecarlo', href: '/montecarlo', label: 'MONTE CARLO', sub: 'Simulación de riesgo',       key: 'M', isLive: false },
   { id: 'fire',       href: '/fire',       label: 'FIRE',        sub: 'Libertad financiera',        key: 'F', isLive: false },
@@ -97,6 +72,21 @@ function Sparkline({ data, w = 64, h = 22 }: { data: number[]; w?: number; h?: n
   )
 }
 
+// ─── Mini bar chart (últimos N resultados) ────────────────────────────────────
+function MiniBarChart({ data, w = 48, h = 20 }: { data: number[]; w?: number; h?: number }) {
+  if (!data.length) return null
+  const bw = Math.max(2, (w / data.length) - 1)
+  return (
+    <svg width={w} height={h} style={{ display: 'block', flexShrink: 0 }}>
+      {data.map((v, i) => {
+        const barH  = Math.max(2, v * (h - 2))
+        const color = v === 1 ? C.green : v === 0.5 ? C.yellow : C.red
+        return <rect key={i} x={i * (bw + 1)} y={h - barH} width={bw} height={barH} fill={color} rx="1" />
+      })}
+    </svg>
+  )
+}
+
 // ─── Pulsing live dot ─────────────────────────────────────────────────────────
 function LiveDot({ size = 8 }: { size?: number }) {
   return (
@@ -115,6 +105,7 @@ function Sk({ w, h }: { w: number | string; h: number }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DashboardHome() {
   const router = useRouter()
+  const { events: calendarEvents } = useCalendarEvents()
 
   const [portfolio,       setPortfolio]       = useState<PortfolioRow>({})
   const [positions,       setPositions]       = useState<PassivePos[]>([])
@@ -124,13 +115,15 @@ export default function DashboardHome() {
   const [activity,        setActivity]        = useState<Record<string, number>>({})
   const [storedTotal,     setStoredTotal]     = useState(0)
   const [username,        setUsername]        = useState('TRADER')
+  const [perfil,          setPerfil]          = useState<'retail' | 'trader' | 'institucional'>('trader')
   const [loading,         setLoading]         = useState(true)
   const [now,             setNow]             = useState(new Date())
   const [spotlight,       setSpotlight]       = useState(false)
   const [spotQuery,       setSpotQuery]       = useState('')
   const [spotIdx,         setSpotIdx]         = useState(0)
+  const [showShortcuts,   setShowShortcuts]   = useState(false)
   const [trm,             setTrm]             = useState(TRM_DEFAULT)
-  const [engineRegime,    setEngineRegime]    = useState<string | null>(null)
+  const [trmLive,         setTrmLive]         = useState(false)
 
   // Clock
   useEffect(() => {
@@ -138,19 +131,11 @@ export default function DashboardHome() {
     return () => clearInterval(id)
   }, [])
 
-  // TRM dinámico desde mindicador.cl
+  // TRM en vivo
   useEffect(() => {
-    fetch('https://mindicador.cl/api/dolar')
+    fetch('/api/trm')
       .then(r => r.json())
-      .then(d => { const v = d?.series?.[0]?.valor; if (v && v > 0) setTrm(v) })
-      .catch(() => {})
-  }, [])
-
-  // Régimen del motor desde VPS
-  useEffect(() => {
-    fetch('/api/vps/signals')
-      .then(r => r.json())
-      .then(d => { if (d?.regime && d.regime !== 'UNKNOWN') setEngineRegime(d.regime) })
+      .then(j => { if (j.clpPerUsd > 0) { setTrm(j.clpPerUsd); setTrmLive(true) } })
       .catch(() => {})
   }, [])
 
@@ -166,17 +151,47 @@ export default function DashboardHome() {
     setLoading(false)
   }, [])
 
-  // Auth user
+  // Auth + Supabase fallback sync
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', data.user.id)
-        .maybeSingle()
+      const uid = data.user.id
+
+      // Nombre
+      const { data: prof } = await supabase.from('profiles').select('username').eq('id', uid).maybeSingle()
       const name = prof?.username || data.user.user_metadata?.nombre || 'TRADER'
       setUsername(name.toUpperCase())
+      const p = data.user.user_metadata?.perfil_trader
+      if (p === 'retail' || p === 'institucional') setPerfil(p)
+
+      // Trades: si localStorage vacío, leer desde Supabase
+      try {
+        const cached = localStorage.getItem('sigma_trades')
+        if (!cached || JSON.parse(cached).length === 0) {
+          const { data: rows } = await supabase
+            .from('trades').select('fecha,pnl_usd,resultado,par,lado').eq('user_id', uid).order('fecha', { ascending: false }).limit(100)
+          if (rows?.length) {
+            setTrades(rows as Trade[])
+            try { localStorage.setItem('sigma_trades', JSON.stringify(rows)) } catch {}
+          }
+        }
+      } catch {}
+
+      // Portfolio: si localStorage vacío, leer desde Supabase
+      try {
+        const cached = localStorage.getItem('sigma_portfolio')
+        if (!cached) {
+          const { data: port } = await supabase.from('portfolio').select('*').eq('user_id', uid).maybeSingle()
+          if (port) {
+            const vals: PortfolioRow = {}
+            ;['ibkr','binance_spot','binance_futures','fintual','santander','cash'].forEach((k: string) => {
+              vals[k as keyof PortfolioRow] = (port as Record<string, number>)[k] ?? 0
+            })
+            setPortfolio(vals)
+            try { localStorage.setItem('sigma_portfolio', JSON.stringify(vals)) } catch {}
+          }
+        }
+      } catch {}
     })
   }, [])
 
@@ -196,7 +211,8 @@ export default function DashboardHome() {
         e.preventDefault()
         setSpotlight(v => !v); setSpotQuery(''); setSpotIdx(0); return
       }
-      if (e.key === 'Escape') { setSpotlight(false); setSpotQuery(''); return }
+      if (e.key === 'Escape') { setSpotlight(false); setSpotQuery(''); setShowShortcuts(false); return }
+      if (e.key === '?') { setShowShortcuts(v => !v); return }
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
       if (!spotlight && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const tool = TOOL_LIST.find(t => t.key?.toLowerCase() === e.key.toLowerCase())
@@ -257,16 +273,38 @@ export default function DashboardHome() {
     }
 
     const todayDate = now.toISOString().split('T')[0]
-    const upcoming  = MACRO_EVENTS.filter(e => e.date >= todayDate)
-    const nextEvent = upcoming[0] ?? null
+    // Normalizar eventos del hook al shape { date, time, title, impact }
+    const mappedEvents = calendarEvents
+      .filter(e => e.impact === 'HIGH')          // solo HIGH impact en home
+      .map(e => ({ date: e.event_date, time: e.event_time + ' ET', title: e.title, impact: e.impact }))
+    const upcoming    = mappedEvents.filter(e => e.date >= todayDate)
+    const nextRaw     = upcoming[0] ?? null
+    const nextEvent   = nextRaw ? {
+      ...nextRaw,
+      daysUntil: Math.max(0, Math.round((new Date(nextRaw.date).getTime() - new Date(todayDate).getTime()) / 86400000)),
+    } : null
+
+    // Sparkline PnL del mes (acumulado día a día)
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    let cumMonth = 0
+    const sparkMonthCum = Array.from({ length: Math.min(now.getDate(), daysInMonth) }, (_, i) => {
+      const d = `${ym}-${String(i + 1).padStart(2, '0')}`
+      cumMonth += trades.filter(t => t.fecha?.startsWith(d)).reduce((s, t) => s + (t.pnl_usd ?? 0), 0)
+      return cumMonth
+    })
+
+    // Mini barras de últimos 10 resultados (para Win Rate)
+    const last10Results = sorted.slice(0, 10).reverse().map(t =>
+      t.resultado === 'WIN' ? 1 : t.resultado === 'BREAKEVEN' ? 0.5 : 0
+    )
 
     return {
       totalUSD, segments, monthlyPassive, monthPnL, winRate, dailyPnL, dailyPct,
-      weekPnL, weekCount, sparkCum, streak, bestTrade, last5,
+      weekPnL, weekCount, sparkCum, sparkMonthCum, last10Results, streak, bestTrade, last5,
       firePct, FIRE_TARGET, fireYears, nextEvent, upcoming: upcoming.slice(0, 5),
       monthTradesCount: monthTrades.length, totalTrades: trades.length,
     }
-  }, [portfolio, positions, trades, fireTarget, now, storedTotal, trm])
+  }, [portfolio, positions, trades, fireTarget, now, storedTotal, trm, calendarEvents])
 
   // Spotlight results
   const spotResults = useMemo(() => {
@@ -274,15 +312,30 @@ export default function DashboardHome() {
     return q ? TOOL_LIST.filter(t => t.label.toLowerCase().includes(q) || t.sub.toLowerCase().includes(q)) : TOOL_LIST
   }, [spotQuery])
 
-  // Tools sorted by last activity
-  const sortedTools = useMemo(
-    () => [...TOOL_LIST].sort((a, b) => (activity[b.id] ?? 0) - (activity[a.id] ?? 0)),
-    [activity]
-  )
+  // Prioridad por perfil: si el usuario no ha usado nada aún, mostrar según su perfil
+  const PROFILE_PRIORITY = useMemo<Record<string, string[]>>(() => ({
+    retail:       ['fire', 'montecarlo', 'terminal', 'calendar', 'hud', 'journal', 'lp-defi', 'reportes', 'modelos'],
+    trader:       ['hud', 'journal', 'terminal', 'montecarlo', 'fire', 'calendario', 'lp-defi', 'modelos', 'reportes'],
+    institucional:['motor', 'hud', 'terminal', 'journal', 'montecarlo', 'fire', 'modelos', 'reportes', 'lp-defi'],
+  }), [])
+
+  const sortedTools = useMemo(() => {
+    const hasActivity = Object.keys(activity).length > 0
+    if (hasActivity) {
+      return [...TOOL_LIST].sort((a, b) => (activity[b.id] ?? 0) - (activity[a.id] ?? 0))
+    }
+    // Sin actividad: ordenar por perfil del usuario
+    const priority = PROFILE_PRIORITY[perfil] ?? PROFILE_PRIORITY.trader
+    return [...TOOL_LIST].sort((a, b) => {
+      const ai = priority.indexOf(a.id)
+      const bi = priority.indexOf(b.id)
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
+  }, [activity, perfil, PROFILE_PRIORITY])
 
   function getToolBadge(id: string): string | null {
     switch (id) {
-      case 'hud':        return engineRegime ? `Régimen: ${engineRegime}` : 'Régimen: cargando…'
+      case 'hud':        return 'Régimen: —'
       case 'terminal':   return D.totalUSD > 0 ? 'Live: BTC · ETH · SOL' : 'Sin posiciones abiertas'
       case 'journal':    return D.weekCount > 0 ? `${D.weekCount} trades esta semana` : 'Sin trades esta semana'
       case 'montecarlo': return fireProbability !== null ? `${fireProbability}% prob. FIRE` : 'Sin simulación reciente'
@@ -316,85 +369,44 @@ export default function DashboardHome() {
         .tool-card:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,.55) }
       `}</style>
 
-      {/* ── Spotlight ── */}
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+
       {spotlight && (
-        <div
-          onClick={() => { setSpotlight(false); setSpotQuery('') }}
-          style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(4,5,10,.88)', backdropFilter:'blur(6px)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'14vh' }}
-        >
-          <div onClick={e => e.stopPropagation()} style={{ width:520, background:C.surface, border:`1px solid ${C.border}`, boxShadow:`0 24px 80px rgba(0,0,0,.65),0 0 0 1px ${C.gold}22` }}>
-            {/* Input */}
-            <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderBottom:`1px solid ${C.border}` }}>
-              <span style={{ fontFamily:'monospace', fontSize:14, color:C.dimText }}>⌘</span>
-              <input
-                autoFocus
-                value={spotQuery}
-                onChange={e => { setSpotQuery(e.target.value); setSpotIdx(0) }}
-                onKeyDown={e => {
-                  if (e.key === 'ArrowDown') { e.preventDefault(); setSpotIdx(i => Math.min(i+1, spotResults.length-1)) }
-                  if (e.key === 'ArrowUp')   { e.preventDefault(); setSpotIdx(i => Math.max(i-1, 0)) }
-                  if (e.key === 'Enter' && spotResults[spotIdx]) {
-                    const t = spotResults[spotIdx]
-                    trackActivity(t.id); router.push(t.href); setSpotlight(false); setSpotQuery('')
-                  }
-                }}
-                placeholder="Buscar herramienta…"
-                style={{ flex:1, background:'transparent', border:'none', fontFamily:'monospace', fontSize:14, color:C.text, outline:'none', caretColor:C.gold }}
-              />
-              <kbd style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, background:C.border, padding:'2px 6px' }}>ESC</kbd>
-            </div>
-            {/* Results */}
-            <div style={{ maxHeight:320, overflowY:'auto' }}>
-              {spotResults.map((t, i) => (
-                <div
-                  key={t.id}
-                  onMouseEnter={() => setSpotIdx(i)}
-                  onClick={() => { trackActivity(t.id); router.push(t.href); setSpotlight(false); setSpotQuery('') }}
-                  style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', cursor:'pointer', background:i===spotIdx ? C.gold+'12' : 'transparent', borderLeft:`2px solid ${i===spotIdx ? C.gold : 'transparent'}`, transition:'background .1s' }}
-                >
-                  <div>
-                    <div style={{ fontFamily:'monospace', fontSize:12, color:C.text, marginBottom:2 }}>{t.label}</div>
-                    <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{t.sub}</div>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    {t.isLive && <LiveDot size={6} />}
-                    {t.key && <kbd style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, background:C.border, padding:'2px 5px' }}>{t.key}</kbd>}
-                  </div>
-                </div>
-              ))}
-              {spotResults.length === 0 && (
-                <div style={{ padding:'20px 16px', fontFamily:'monospace', fontSize:12, color:C.muted, textAlign:'center' }}>Sin resultados</div>
-              )}
-            </div>
-            {/* Footer hints */}
-            <div style={{ padding:'8px 16px', borderTop:`1px solid ${C.border}`, display:'flex', gap:16 }}>
-              {[['↵','Abrir'],['↑↓','Navegar'],['ESC','Cerrar']].map(([k,v]) => (
-                <span key={k} style={{ fontFamily:'monospace', fontSize:9, color:C.muted }}>
-                  <kbd style={{ background:C.border, padding:'1px 4px', marginRight:4 }}>{k}</kbd>{v}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <SpotlightModal
+          query={spotQuery}
+          setQuery={q => { setSpotQuery(q); setSpotIdx(0) }}
+          results={spotResults}
+          activeIdx={spotIdx}
+          setActiveIdx={setSpotIdx}
+          onClose={() => { setSpotlight(false); setSpotQuery('') }}
+          onSelect={t => { trackActivity(t.id); router.push(t.href); setSpotlight(false); setSpotQuery('') }}
+        />
       )}
 
       {/* ── Page ── */}
       <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"var(--font-dm-mono,'DM Mono',monospace)" }}>
-        <div style={{ maxWidth:1280, margin:'0 auto', padding:'72px 24px 56px' }}>
+        <div className="dash-content" style={{ maxWidth:1280, margin:'0 auto', padding:'72px 24px 56px' }}>
 
           {/* ══ HEADER ══ */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:32 }}>
             <div>
               <div style={{ fontFamily:'monospace', fontSize:11, letterSpacing:'0.3em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>
-                {'// SQUANT DESK · MORNING BRIEFING'}
+                {'// SIGMA RESEARCH · MORNING BRIEFING'}
               </div>
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(32px,5vw,60px)', lineHeight:0.95, letterSpacing:'0.04em', marginBottom:8 }}>
                 <span style={{ background:`linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
                   {greeting}
                 </span>
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
                 <span style={{ fontFamily:'monospace', fontSize:12, color:C.dimText, letterSpacing:'0.12em' }}>{dateStr}</span>
+                <span style={{ color:C.border }}>·</span>
+                {/* TRM badge */}
+                <span style={{ display:'flex', alignItems:'center', gap:5, fontFamily:'monospace', fontSize:10, color: trmLive ? C.green : C.dimText, background: trmLive ? 'rgba(52,211,153,0.08)' : 'transparent', border:`1px solid ${trmLive ? 'rgba(52,211,153,0.25)' : C.border}`, padding:'2px 8px' }}>
+                  {trmLive && <span style={{ width:5, height:5, borderRadius:'50%', background:C.green, display:'inline-block', animation:'sp-ping 1.5s infinite' }} />}
+                  USD/CLP {trm.toLocaleString('es-CL')}
+                  {trmLive ? ' · live' : ' · est.'}
+                </span>
                 <span style={{ color:C.border }}>·</span>
                 <button
                   onClick={() => { setSpotlight(true); setSpotQuery(''); setSpotIdx(0) }}
@@ -413,8 +425,45 @@ export default function DashboardHome() {
             </div>
           </div>
 
+          {/* ══ GETTING STARTED BANNER ══ */}
+          {!loading && D.totalUSD === 0 && (
+            <div style={{ marginBottom:16, border:`1px solid ${C.gold}30`, background:`${C.gold}06`, padding:'20px 24px' }}>
+              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
+                <div>
+                  <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.25em', color:C.gold, marginBottom:8 }}>
+                    {'// PRIMEROS PASOS · CONFIGURA TU CUENTA'}
+                  </div>
+                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color:C.text, marginBottom:12 }}>
+                    BIENVENIDO A SIGMA RESEARCH
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {[
+                      { n:'01', label:'Configura tu portafolio',  href:'/portafolio',  done: false, desc:'Registra tus plataformas: IBKR, Binance, Fintual, Santander' },
+                      { n:'02', label:'Añade un trade al journal', href:'/journal',     done: trades.length > 0, desc:'Importa CSV de Binance o agrega trades manualmente' },
+                      { n:'03', label:'Configura tu objetivo FIRE', href:'/fire',       done: !!fireTarget, desc:'Define tu meta de independencia financiera' },
+                    ].map(step => (
+                      <a key={step.n} href={step.href} style={{ display:'flex', alignItems:'center', gap:12, textDecoration:'none', padding:'8px 12px', background: step.done ? 'rgba(52,211,153,0.06)' : 'rgba(255,255,255,0.03)', border:`1px solid ${step.done ? 'rgba(52,211,153,0.2)' : C.border}`, transition:'border-color 0.15s' }}>
+                        <div style={{ width:22, height:22, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', background: step.done ? 'rgba(52,211,153,0.15)' : `${C.gold}15`, border:`1px solid ${step.done ? 'rgba(52,211,153,0.4)' : `${C.gold}40`}` }}>
+                          <span style={{ fontFamily:'monospace', fontSize:9, color: step.done ? C.green : C.gold }}>{step.done ? '✓' : step.n}</span>
+                        </div>
+                        <div>
+                          <div style={{ fontFamily:'monospace', fontSize:12, color: step.done ? C.green : C.text }}>{step.label}</div>
+                          <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{step.desc}</div>
+                        </div>
+                        {!step.done && <span style={{ marginLeft:'auto', fontFamily:'monospace', fontSize:11, color:C.gold }}>→</span>}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontFamily:'monospace', fontSize:10, color:C.muted, flexShrink:0 }}>
+                  Presiona <kbd style={{ background:C.border, padding:'2px 6px', fontFamily:'monospace' }}>?</kbd> para ver todos los atajos
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ══ KPI BAR ══ */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:1, background:C.border, marginBottom:1 }}>
+          <div className="sp-kpi-grid" style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:1, background:C.border, marginBottom:1 }}>
 
             {/* Patrimonio */}
             <div className="sp-fadein" style={{ background:C.surface, padding:'16px 18px', animationDelay:'0ms' }}>
@@ -431,14 +480,20 @@ export default function DashboardHome() {
             {/* PnL Mes */}
             <div className="sp-fadein" style={{ background:C.surface, padding:'16px 18px', animationDelay:'50ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PNL DEL MES</div>
-              {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.monthPnL >= 0 ? C.green : C.red, lineHeight:1, marginBottom:6 }}>{fmtDiff(D.monthPnL)}</div>}
-              <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{D.monthTradesCount} trades</div>
+              <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
+                {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.monthPnL >= 0 ? C.green : C.red, lineHeight:1 }}>{fmtDiff(D.monthPnL)}</div>}
+                {!loading && D.sparkMonthCum.length > 1 && <Sparkline data={D.sparkMonthCum} w={56} h={22} />}
+              </div>
+              <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{D.monthTradesCount} trades este mes</div>
             </div>
 
             {/* Win Rate */}
             <div className="sp-fadein" style={{ background:C.surface, padding:'16px 18px', animationDelay:'100ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>WIN RATE MES</div>
-              {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.winRate >= 50 ? C.green : C.red, lineHeight:1, marginBottom:6 }}>{pct(D.winRate)}</div>}
+              <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
+                {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.winRate >= 50 ? C.green : C.red, lineHeight:1 }}>{pct(D.winRate)}</div>}
+                {!loading && D.last10Results.length > 0 && <MiniBarChart data={D.last10Results} w={52} h={22} />}
+              </div>
               {D.streak > 1 && !loading && <div style={{ fontFamily:'monospace', fontSize:10, color:C.green }}>🔥 {D.streak}W STREAK</div>}
             </div>
 
@@ -473,7 +528,7 @@ export default function DashboardHome() {
           </div>
 
           {/* ══ QUICK SUMMARY BAR ══ */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:C.border, marginBottom:40 }}>
+          <div className="sp-summary-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:C.border, marginBottom:40 }}>
 
             <div style={{ background:C.bg, padding:'13px 18px', display:'flex', alignItems:'center', gap:14 }}>
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.gold, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>★</div>
@@ -504,13 +559,29 @@ export default function DashboardHome() {
             </div>
 
             <div style={{ background:C.bg, padding:'13px 18px', display:'flex', alignItems:'center', gap:14 }}>
-              <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.red, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>!</div>
-              <div>
-                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>PRÓXIMO EVENTO</div>
+              <div style={{ flexShrink:0 }}>
+                {D.nextEvent ? (
+                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, lineHeight:1, textAlign:'center', width:20,
+                    color: D.nextEvent.daysUntil === 0 ? C.red : D.nextEvent.daysUntil === 1 ? C.yellow : C.dimText }}>
+                    {D.nextEvent.daysUntil === 0 ? '!' : D.nextEvent.daysUntil <= 2 ? '⚡' : '◎'}
+                  </div>
+                ) : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.dimText, width:20 }}>◎</div>}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>PRÓXIMO EVENTO HIGH</div>
                 {D.nextEvent ? (
                   <div>
-                    <div style={{ fontFamily:'monospace', fontSize:11, color:C.text, marginBottom:2 }}>{D.nextEvent.title}</div>
-                    <div style={{ fontFamily:'monospace', fontSize:9, color:C.dimText }}>{D.nextEvent.date} · {D.nextEvent.time}</div>
+                    <div style={{ fontFamily:'monospace', fontSize:11, color:C.text, marginBottom:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{D.nextEvent.title}</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontFamily:'monospace', fontSize:9, color:C.dimText }}>{D.nextEvent.date} · {D.nextEvent.time}</span>
+                      <span style={{ fontFamily:'monospace', fontSize:9, fontWeight:700, padding:'1px 6px',
+                        color:   D.nextEvent.daysUntil === 0 ? C.red : D.nextEvent.daysUntil === 1 ? C.yellow : C.gold,
+                        background: D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.12)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.12)' : 'rgba(212,175,55,0.08)',
+                        border: `1px solid ${D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.3)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.3)' : 'rgba(212,175,55,0.2)'}`,
+                      }}>
+                        {D.nextEvent.daysUntil === 0 ? 'HOY' : D.nextEvent.daysUntil === 1 ? 'MAÑANA' : `en ${D.nextEvent.daysUntil}d`}
+                      </span>
+                    </div>
                   </div>
                 ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin eventos próximos</span>}
               </div>
@@ -525,7 +596,7 @@ export default function DashboardHome() {
           </div>
 
           {/* ══ TOOL CARDS (3×3) ══ */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:C.border, marginBottom:40 }}>
+          <div className="sp-tool-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, background:C.border, marginBottom:40 }}>
             {sortedTools.map(tool => {
               const badge    = getToolBadge(tool.id)
               const lastSeen = activity[tool.id]
@@ -580,13 +651,13 @@ export default function DashboardHome() {
           </div>
 
           {/* ══ TRES COLUMNAS — DATA ══ */}
-          <div style={{ display:'grid', gridTemplateColumns:'35% 35% 30%', gap:1, background:C.border, marginBottom:32, alignItems:'start' }}>
+          <div className="sp-bottom-grid" style={{ display:'grid', gridTemplateColumns:'35% 35% 30%', gap:1, background:C.border, marginBottom:32, alignItems:'start' }}>
 
             {/* Portfolio snapshot */}
             <div style={{ background:C.surface, padding:'20px 20px', display:'flex', flexDirection:'column', gap:14 }}>
               <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText }}>PORTAFOLIO SNAPSHOT</div>
               {D.segments.length === 0 ? (
-                <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin datos — carga en Terminal</div>
+                <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin datos — <a href="/portafolio" style={{ color:C.gold, textDecoration:'none' }}>configura tu portafolio →</a></div>
               ) : (
                 <>
                   <div style={{ display:'flex', height:8, borderRadius:2, overflow:'hidden', background:C.border }}>
@@ -634,7 +705,7 @@ export default function DashboardHome() {
                 )}
               </div>
               {D.last5.length === 0 ? (
-                <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin trades — carga en Journal</div>
+                <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin trades — <a href="/journal" style={{ color:C.gold, textDecoration:'none' }}>registra tu primer trade →</a></div>
               ) : (
                 <table style={{ width:'100%', borderCollapse:'collapse' }}>
                   <thead>
@@ -700,13 +771,120 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          {/* ══ TAGLINE ══ */}
-          <div style={{ textAlign:'center', fontFamily:'monospace', fontSize:11, letterSpacing:'0.35em', textTransform:'uppercase', color:C.gold+'aa' }}>
-            SURVIVE FIRST · WIN AFTER
-          </div>
-
         </div>
       </div>
     </>
+  )
+}
+
+// ─── ShortcutsModal ───────────────────────────────────────────────────────────
+const SHORTCUTS = [
+  { key: '?',   desc: 'Abrir/cerrar este panel' },
+  { key: '⌘K',  desc: 'Búsqueda rápida de herramientas' },
+  { key: 'H',   desc: 'Ir al HUD — señales en vivo' },
+  { key: 'T',   desc: 'Ir al Portafolio' },
+  { key: 'J',   desc: 'Ir al Journal de trades' },
+  { key: 'M',   desc: 'Ir a Monte Carlo' },
+  { key: 'F',   desc: 'Ir a la calculadora FIRE' },
+  { key: 'L',   desc: 'Ir a LP DeFi' },
+  { key: 'C',   desc: 'Ir al Calendario macro' },
+  { key: 'ESC', desc: 'Cerrar modales' },
+]
+
+function ShortcutsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(4,5,10,.85)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center' }}
+    >
+      <div onClick={e => e.stopPropagation()}
+        style={{ width:480, background:C.surface, border:`1px solid ${C.gold}33`, boxShadow:'0 24px 80px rgba(0,0,0,.65)', padding:'28px 32px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.28em', color:C.gold }}>{'// ATAJOS DE TECLADO'}</div>
+          <kbd style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, background:C.border, padding:'2px 8px' }}>ESC para cerrar</kbd>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+          {SHORTCUTS.map(s => (
+            <div key={s.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 0', borderBottom:`1px solid ${C.border}20` }}>
+              <span style={{ fontFamily:'monospace', fontSize:12, color:C.dimText }}>{s.desc}</span>
+              <kbd style={{ fontFamily:'monospace', fontSize:11, color:C.gold, background:`${C.gold}12`, border:`1px solid ${C.gold}30`, padding:'3px 10px', minWidth:32, textAlign:'center' }}>{s.key}</kbd>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontFamily:'monospace', fontSize:10, color:C.muted, marginTop:16, textAlign:'center' }}>
+          Los atajos funcionan cuando no estás escribiendo en un input
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── SpotlightModal ───────────────────────────────────────────────────────────
+type ToolEntry = typeof TOOL_LIST[number]
+
+interface SpotlightProps {
+  query:        string
+  setQuery:     (q: string) => void
+  results:      ToolEntry[]
+  activeIdx:    number
+  setActiveIdx: (i: number) => void
+  onClose:      () => void
+  onSelect:     (t: ToolEntry) => void
+}
+
+function SpotlightModal({ query, setQuery, results, activeIdx, setActiveIdx, onClose, onSelect }: SpotlightProps) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(4,5,10,.88)', backdropFilter:'blur(6px)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'14vh' }}
+    >
+      <div onClick={e => e.stopPropagation()} style={{ width:520, background:C.surface, border:`1px solid ${C.border}`, boxShadow:`0 24px 80px rgba(0,0,0,.65),0 0 0 1px ${C.gold}22` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderBottom:`1px solid ${C.border}` }}>
+          <span style={{ fontFamily:'monospace', fontSize:14, color:C.dimText }}>⌘</span>
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(Math.min(activeIdx + 1, results.length - 1)) }
+              if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(Math.max(activeIdx - 1, 0)) }
+              if (e.key === 'Enter' && results[activeIdx]) onSelect(results[activeIdx])
+            }}
+            placeholder="Buscar herramienta…"
+            style={{ flex:1, background:'transparent', border:'none', fontFamily:'monospace', fontSize:14, color:C.text, outline:'none', caretColor:C.gold }}
+          />
+          <kbd style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, background:C.border, padding:'2px 6px' }}>ESC</kbd>
+        </div>
+        <div style={{ maxHeight:320, overflowY:'auto' }}>
+          {results.map((t, i) => (
+            <div
+              key={t.id}
+              onMouseEnter={() => setActiveIdx(i)}
+              onClick={() => onSelect(t)}
+              style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', cursor:'pointer', background:i === activeIdx ? C.gold+'12' : 'transparent', borderLeft:`2px solid ${i === activeIdx ? C.gold : 'transparent'}`, transition:'background .1s' }}
+            >
+              <div>
+                <div style={{ fontFamily:'monospace', fontSize:12, color:C.text, marginBottom:2 }}>{t.label}</div>
+                <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{t.sub}</div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                {t.isLive && <LiveDot size={6} />}
+                {t.key && <kbd style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, background:C.border, padding:'2px 5px' }}>{t.key}</kbd>}
+              </div>
+            </div>
+          ))}
+          {results.length === 0 && (
+            <div style={{ padding:'20px 16px', fontFamily:'monospace', fontSize:12, color:C.muted, textAlign:'center' }}>Sin resultados</div>
+          )}
+        </div>
+        <div style={{ padding:'8px 16px', borderTop:`1px solid ${C.border}`, display:'flex', gap:16 }}>
+          {[['↵','Abrir'],['↑↓','Navegar'],['ESC','Cerrar']].map(([k, v]) => (
+            <span key={k} style={{ fontFamily:'monospace', fontSize:9, color:C.muted }}>
+              <kbd style={{ background:C.border, padding:'1px 4px', marginRight:4 }}>{k}</kbd>{v}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }

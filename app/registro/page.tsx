@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/app/lib/supabase'
 
 export default function RegistroPage() {
   const [nombre,    setNombre]    = useState('')
@@ -30,27 +29,24 @@ export default function RegistroPage() {
     if (Object.keys(e).length) return
 
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { nombre },
-        emailRedirectTo: `${location.origin}/auth/callback`,
-      },
-    })
-    console.log('[Supabase signUp]', { user: data?.user?.id ?? null, error: error ? { message: error.message, status: error.status, code: (error as { code?: string }).code } : null })
-    setLoading(false)
 
-    if (error) {
-      setErrors({ form: traducirError(error.message) })
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password, nombre: nombre.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setErrors({ form: data.error ?? 'Error al crear la cuenta. Intenta nuevamente.' })
+        return
+      }
+    } catch {
+      setErrors({ form: 'Error de conexión. Intenta nuevamente.' })
       return
+    } finally {
+      setLoading(false)
     }
-
-    fetch('/api/email/welcome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, nombre }),
-    }).catch(() => {})
 
     setDone(true)
   }
@@ -75,13 +71,16 @@ export default function RegistroPage() {
 
           {done ? (
             <div className="flex flex-col gap-3 border border-gold/30 bg-gold/5 px-5 py-4">
-              <p className="section-label text-gold">REVISA TU EMAIL</p>
+              <p className="section-label text-gold">✓ CUENTA CREADA</p>
               <p className="terminal-text text-text-dim text-sm">
-                Te enviamos un enlace de confirmación a <strong className="text-text">{email}</strong>.
-                Confirma tu cuenta para empezar a operar.
+                Tu cuenta ha sido activada. Ya puedes iniciar sesión con{' '}
+                <strong className="text-text">{email}</strong>.
               </p>
-              <Link href="/login" className="terminal-text text-xs text-gold hover:text-gold-glow transition-colors mt-1">
-                ← Ir al login
+              <Link
+                href="/login"
+                className="mt-2 bg-gold text-bg section-label px-6 py-2.5 hover:bg-gold-glow transition-colors duration-200 text-center"
+              >
+                IR AL LOGIN →
               </Link>
             </div>
           ) : (
@@ -195,9 +194,3 @@ export default function RegistroPage() {
   )
 }
 
-function traducirError(msg: string): string {
-  if (msg.includes('User already registered'))  return 'Ya existe una cuenta con ese email.'
-  if (msg.includes('Password should be'))       return 'La contraseña no cumple los requisitos mínimos.'
-  if (msg.includes('Unable to validate email')) return 'Email no válido.'
-  return msg
-}

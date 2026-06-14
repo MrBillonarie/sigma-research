@@ -7,7 +7,7 @@ import { supabase } from '@/app/lib/supabase'
 // useSearchParams() requires a Suspense boundary in Next.js 14 App Router
 function LoginForm() {
   const searchParams = useSearchParams()
-  const next         = searchParams.get('next') ?? '/terminal'
+  const next         = searchParams.get('next') ?? '/home'
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -30,19 +30,18 @@ function LoginForm() {
     if (Object.keys(e).length) return
 
     setLoading(true)
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
 
     if (error) {
-      console.error('[Supabase login error]', { message: error.message, status: error.status, code: (error as { code?: string }).code })
+
       setErrors({ form: traducirError(error) })
       return
     }
 
-    console.log('[Supabase login ok] user:', data.user?.email)
     // Hard navigation so the browser sends cookies in the new request,
     // letting the middleware verify the session correctly.
-    window.location.href = next
+    window.location.href = safeRedirect(next)
   }
 
   async function handleGoogle() {
@@ -178,6 +177,17 @@ export default function LoginPage() {
             CREAR CUENTA
           </Link>
         </p>
+
+        {/* Acceso admin — discreto, solo visible para quien lo busca */}
+        <div className="mt-10 flex justify-center">
+          <Link
+            href="/admin"
+            className="terminal-text text-xs text-muted hover:text-gold transition-colors duration-300 select-none tracking-widest"
+            tabIndex={-1}
+          >
+            · · ·
+          </Link>
+        </div>
       </div>
     </main>
   )
@@ -192,6 +202,15 @@ function GoogleIcon() {
       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
     </svg>
   )
+}
+
+function safeRedirect(url: string): string {
+  try {
+    const u = new URL(url, window.location.origin)
+    return u.origin === window.location.origin ? url : '/home'
+  } catch {
+    return '/home'
+  }
 }
 
 function traducirError(error: { message: string; status?: number; code?: string }): string {

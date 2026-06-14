@@ -2,6 +2,52 @@ export const revalidate = 300
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
+
+// ─── Rate limiting distribuido via Supabase (escala entre instancias serverless)
+// Fallback a Map en memoria si Supabase no está disponible
+const _rlFallback = new Map<string, { count: number; reset: number }>()
+
+async function checkRateLimit(ip: string): Promise<boolean> {
+  const MAX = 10
+  const WINDOW_MS = 60_000
+  const key = `rl:motor:${ip}`
+  const now = Date.now()
+  const resetAt = new Date(now + WINDOW_MS).toISOString()
+
+  try {
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    )
+
+    const { data, error } = await sb
+      .from('rate_limits')
+      .select('count, reset_at')
+      .eq('id', key)
+      .maybeSingle()
+
+    if (error) throw error
+
+    if (!data || new Date(data.reset_at) < new Date(now)) {
+      await sb.from('rate_limits').upsert({ id: key, count: 1, reset_at: resetAt }, { onConflict: 'id' })
+      return true
+    }
+    if (data.count >= MAX) return false
+    await sb.from('rate_limits').update({ count: data.count + 1 }).eq('id', key)
+    return true
+  } catch {
+    // Fallback a Map en memoria si Supabase falla
+    const entry = _rlFallback.get(ip)
+    if (!entry || now > entry.reset) {
+      _rlFallback.set(ip, { count: 1, reset: now + WINDOW_MS })
+      return true
+    }
+    if (entry.count >= MAX) return false
+    entry.count++
+    return true
+  }
+}
 import {
   processAsset, applyCrossSection, applyCorrelationPenalty,
   computeFlowSignals, computeFlowScore, detectMarketRegime,
@@ -86,7 +132,7 @@ async function fetchDividendYields(tickers: string[]): Promise<Map<string, numbe
   try {
     const symbols = tickers.slice(0, 120).join(',')
     const url     = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`
-    const res     = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 } })
+    const res     = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 3600 }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) return new Map()
     const json   = await res.json()
     const result = new Map<string, number>()
@@ -104,7 +150,7 @@ async function fetchYahooData(ticker: string): Promise<YahooData> {
   const EMPTY: YahooData = { r1m: 0, r3m: 0, r1y: 0, closes60: [] }
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1y&interval=1d`
-    const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 300 } })
+    const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) return EMPTY
     const json = await res.json()
     const raw: (number | null)[] = json.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? []
@@ -222,6 +268,11 @@ async function saveSignalHistory(
 }
 
 export async function GET(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (!await checkRateLimit(ip)) {
+    return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta en un minuto.' }, { status: 429 })
+  }
+
   const { searchParams } = new URL(req.url)
   const profileType = (searchParams.get('profile') ?? 'retail') as ProfileType
   const profile     = PROFILES[profileType] ?? PROFILES.retail

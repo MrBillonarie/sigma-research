@@ -78,12 +78,13 @@ export default function NotificacionesPage() {
       if (!user) { router.replace('/login'); return }
       setUserId(user.id)
       loadNotifs(user.id)
-    })
+    }).catch(() => router.replace('/login'))
   }, [loadNotifs, router])
 
   async function markRead(id: string) {
+    if (!userId) return
     setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
   }
 
   async function markAllRead() {
@@ -93,17 +94,28 @@ export default function NotificacionesPage() {
   }
 
   async function deleteNotif(id: string) {
+    if (!userId) return
     setNotifs(prev => prev.filter(n => n.id !== id))
-    await supabase.from('notifications').delete().eq('id', id)
+    await supabase.from('notifications').delete().eq('id', id).eq('user_id', userId)
   }
 
   async function handleClick(n: Notification) {
     if (!n.read) await markRead(n.id)
-    if (n.accion_href) router.push(n.accion_href)
+    if (n.accion_href) {
+      // Solo permitir rutas internas (previene open redirect)
+      const href = n.accion_href.startsWith('/') ? n.accion_href : '/home'
+      router.push(href)
+    }
   }
 
   const filtered = filter === 'all' ? notifs : notifs.filter(n => n.type === filter)
   const unread   = notifs.filter(n => !n.read).length
+
+  if (loading && !userId) return (
+    <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.2em', color: MUTED }}>CARGANDO…</div>
+    </div>
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: MONO }}>
@@ -195,7 +207,7 @@ export default function NotificacionesPage() {
                         {fmtTime(n.created_at)}
                       </span>
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: '#3a3f55', lineHeight: 1.6, marginBottom: n.accion_label ? 10 : 0 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: n.read ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.7)', lineHeight: 1.6, marginBottom: n.accion_label ? 10 : 0 }}>
                       {n.body}
                     </div>
                     {n.accion_label && n.accion_href && (

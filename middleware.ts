@@ -18,7 +18,6 @@ const PUBLIC = new Set([
 const PROTECTED = [
   '/home',
   '/terminal',
-  '/hud',
   '/journal',
   '/calendario',
   '/modelos',
@@ -80,7 +79,6 @@ export const config = {
   matcher: [
     '/home/:path*',
     '/terminal/:path*',
-    '/hud/:path*',
     '/journal/:path*',
     '/calendario/:path*',
     '/modelos/:path*',

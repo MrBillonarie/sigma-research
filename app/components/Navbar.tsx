@@ -12,7 +12,7 @@ const GROUPS = [
     label: 'Herramientas',
     links: [
       { label: 'HUD',         href: '/hud',        desc: 'Señales en vivo' },
-      { label: 'Terminal',    href: '/terminal',   desc: 'Dashboard de portafolio' },
+      { label: 'Portafolio',  href: '/portafolio', desc: 'Dashboard de portafolio' },
       { label: 'Journal',     href: '/journal',    desc: 'Registro de trades' },
       { label: 'Calendario',  href: '/calendario', desc: 'Eventos macro' },
       { label: 'Monte Carlo', href: '/montecarlo', desc: 'Simulación de trayectorias' },
@@ -82,6 +82,8 @@ export default function Navbar() {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
+    const SIGMA_KEYS = ['sigma_portfolio','sigma_positions','sigma_trades','sigma_fire_target','sigma_montecarlo','sigma_activity','sigma_portfolio_total','sigma_setups','sigma_alerts','sigma_lp_capital','sigma_fire_gasto','sigma_fire_ahorro','sigma_fire_edad','sigma_motor_profile','sigma_portfolio_saved_at']
+    SIGMA_KEYS.forEach(k => { try { localStorage.removeItem(k) } catch {} })
     router.push('/')
   }
 
@@ -153,14 +155,26 @@ export default function Navbar() {
 
               {/* Dropdown */}
               {activeGroup === group.id && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 min-w-[200px]">
-                  <div className="bg-surface border border-border py-1">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 min-w-[220px]">
+                  <div className="bg-surface border border-gold/20 relative overflow-hidden">
+                    {/* Scan line */}
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
+
+                    {/* Header label */}
+                    <div className="px-4 pt-3 pb-2 border-b border-gold/8">
+                      <span className="terminal-text text-[9px] text-gold/50 tracking-[0.35em] uppercase">
+                        {`// ${group.label}`}
+                      </span>
+                    </div>
+
                     {group.links.map(l => (
                       <Link
                         key={l.href}
                         href={l.href}
-                        className={`flex flex-col px-4 py-2.5 transition-colors duration-200 group/item ${
-                          isActive(l.href) ? 'bg-gold/5' : 'hover:bg-gold/5'
+                        className={`flex flex-col px-4 py-2.5 transition-colors duration-150 group/item border-l-2 ${
+                          isActive(l.href)
+                            ? 'bg-gold/8 border-gold'
+                            : 'border-transparent hover:bg-gold/5 hover:border-gold/50'
                         }`}
                         onClick={() => setActiveGroup(null)}
                       >
@@ -174,11 +188,34 @@ export default function Navbar() {
                         </span>
                       </Link>
                     ))}
+
+                    {/* Bottom accent */}
+                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/15 to-transparent" />
                   </div>
                 </div>
               )}
             </div>
           ))}
+
+          {/* ── Language switcher ──────────────────────────────────────────── */}
+          <div className="flex items-center gap-1 border border-border rounded-sm overflow-hidden">
+            <Link
+              href="/"
+              className={`terminal-text text-[10px] px-2.5 py-1 transition-colors ${
+                !pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold'
+              }`}
+            >
+              ES
+            </Link>
+            <Link
+              href="/en"
+              className={`terminal-text text-[10px] px-2.5 py-1 transition-colors ${
+                pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold'
+              }`}
+            >
+              EN
+            </Link>
+          </div>
 
           {/* ── Auth buttons ───────────────────────────────────────────────── */}
           <div className="flex items-center gap-3 ml-2">
@@ -269,8 +306,15 @@ export default function Navbar() {
             </div>
           ))}
 
+          {/* Language switcher mobile */}
+          <div className="flex items-center gap-2 pt-3 mt-1 border-t border-border">
+            <span className="terminal-text text-xs text-text-dim">Idioma:</span>
+            <Link href="/" className={`section-label px-3 py-1 transition-colors ${!pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold border border-border'}`}>ES</Link>
+            <Link href="/en" className={`section-label px-3 py-1 transition-colors ${pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold border border-border'}`}>EN</Link>
+          </div>
+
           {/* Auth */}
-          <div className="flex flex-col gap-3 pt-3 mt-1 border-t border-border">
+          <div className="flex flex-col gap-3 pt-3 border-t border-border">
             {user ? (
               <>
                 <Link href="/perfil" className="section-label text-text-dim hover:text-gold transition-colors">

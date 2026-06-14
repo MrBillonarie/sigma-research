@@ -13,7 +13,10 @@ function sb() {
 export async function GET(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { data, error } = await sb().auth.admin.listUsers({ page: 1, perPage: 200 })
+  const { searchParams } = new URL(req.url)
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
+
+  const { data, error } = await sb().auth.admin.listUsers({ page, perPage: 100 })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const users = data.users.map(u => ({
@@ -26,13 +29,13 @@ export async function GET(req: NextRequest) {
     plan: (u.app_metadata?.plan as string) ?? 'free',
   }))
 
-  return NextResponse.json({ users, total: data.total })
+  return NextResponse.json({ users, total: data.total, page, perPage: 100 })
 }
 
 export async function PATCH(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { id, plan } = await req.json()
+  const { id, plan } = await req.json().catch(() => ({}))
   if (!id || !['free', 'pro'].includes(plan)) {
     return NextResponse.json({ error: 'id y plan (free|pro) requeridos' }, { status: 400 })
   }

@@ -52,7 +52,12 @@ export async function GET(req: NextRequest) {
     const positions = await response.json()
 
     if (positions.code) {
-      return NextResponse.json({ error: positions.msg ?? 'Binance error' }, { status: 400 })
+      const msg = positions.code === -2015 || positions.code === -1102
+        ? 'API key inválida o sin permisos de Futures'
+        : positions.code === -1021
+        ? 'Error de sincronización de tiempo con Binance'
+        : 'Error al consultar Binance Futures'
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
 
     const open = Array.isArray(positions)

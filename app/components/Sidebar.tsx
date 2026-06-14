@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+
 import {
   Home,
   Activity,
@@ -339,9 +340,8 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 export default function Sidebar() {
-  const pathname = usePathname()
+  const pathname  = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-
   async function handleLogout() {
     await supabase.auth.signOut()
     window.location.href = '/'

@@ -3,11 +3,19 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { ProfileType, SignalsResponse } from '@/types/decision-engine'
 import { usePortfolio } from '@/app/lib/usePortfolio'
-import ProfileSelector from './components/ProfileSelector'
-import MetricCards     from './components/MetricCards'
-import AllocationDonut from './components/AllocationDonut'
-import FlowIndicator   from './components/FlowIndicator'
-import SignalTable     from './components/SignalTable'
+import { supabase } from '@/app/lib/supabase'
+import dynamic                  from 'next/dynamic'
+import ProfileSelector          from './components/ProfileSelector'
+import MetricCards              from './components/MetricCards'
+import FlowIndicator            from './components/FlowIndicator'
+import SignalTable              from './components/SignalTable'
+import LiveRefreshIndicator     from '@/app/components/LiveRefreshIndicator'
+import PageErrorBoundary        from '@/app/components/PageErrorBoundary'
+
+const AllocationDonut = dynamic(() => import('./components/AllocationDonut'), {
+  ssr:     false,
+  loading: () => <div style={{ height:260, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'monospace', fontSize:11, color:'#7a7f9a' }}>Cargando gráfico…</div>,
+})
 
 const STORAGE_KEY   = 'sigma_motor_profile'
 const AUTO_INTERVAL = 30 * 60 * 1000
@@ -37,11 +45,17 @@ export default function MotorDecisionPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countRef    = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Prioridad: localStorage → user_metadata.perfil_trader → default 'retail'
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as ProfileType | null
-      if (saved && ['retail', 'trader', 'institucional'].includes(saved)) setProfile(saved)
+      if (saved && ['retail', 'trader', 'institucional'].includes(saved)) return
     } catch {}
+    // Si no hay preferencia guardada, usar el perfil del onboarding
+    supabase.auth.getUser().then(({ data }) => {
+      const p = data.user?.user_metadata?.perfil_trader as ProfileType | undefined
+      if (p && ['retail', 'trader', 'institucional'].includes(p)) setProfile(p)
+    })
   }, [])
 
   const fetchSignals = useCallback(async (p: ProfileType) => {
@@ -84,9 +98,10 @@ export default function MotorDecisionPage() {
   const BEBAS = "'Bebas Neue', Impact, sans-serif"
 
   return (
-    <div style={{
+    <PageErrorBoundary section="Motor de Decisión">
+    <div className="dash-content" style={{
       minHeight: '100vh', background: '#04050a',
-      padding: '88px 24px 64px', maxWidth: 1280, margin: '0 auto',
+      paddingBottom: '64px', maxWidth: 1280, margin: '0 auto', width: '100%',
     }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
@@ -98,6 +113,9 @@ export default function MotorDecisionPage() {
           }} className="sigma-blink" />
           <span style={{ fontSize: 10, color: '#1D9E75', fontFamily: MONO, letterSpacing: 1 }}>
             LIVE — MOTOR DE DECISIÓN
+          </span>
+          <span style={{ fontSize: 9, fontFamily: MONO, letterSpacing: '0.15em', color: '#d4af37', background: 'rgba(212,175,55,0.10)', border: '1px solid rgba(212,175,55,0.25)', padding: '2px 8px', borderRadius: 3 }}>
+            {profile.toUpperCase()}
           </span>
           {data && (() => {
             const rColor = data.regime === 'risk-on' ? '#1D9E75' : data.regime === 'risk-off' ? '#f87171' : '#7a7f9a'
@@ -140,10 +158,18 @@ export default function MotorDecisionPage() {
             padding: '8px 14px', color: autoRefresh ? '#1D9E75' : '#7a7f9a',
             fontSize: 11, fontFamily: MONO, cursor: 'pointer',
           }}>
-            {autoRefresh
-              ? `⏱ Auto: ${Math.ceil(nextRefresh / 60000)}m`
-              : '⏱ Auto-refresh'}
+            {autoRefresh ? '⏸ Auto-refresh' : '⏱ Auto-refresh'}
           </button>
+
+          {/* Indicador de countdown cuando auto-refresh está activo */}
+          {autoRefresh && (
+            <LiveRefreshIndicator
+              loading={loading}
+              nextRefreshMs={nextRefresh}
+              intervalMs={AUTO_INTERVAL}
+              onRefresh={() => fetchSignals(profile)}
+            />
+          )}
 
           {data && (
             <Link href="/motor-decision/reporte" style={{
@@ -290,6 +316,7 @@ export default function MotorDecisionPage() {
       ) : null}
 
     </div>
+    </PageErrorBoundary>
   )
 }
 

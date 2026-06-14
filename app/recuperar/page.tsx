@@ -1,13 +1,12 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/app/lib/supabase'
 
 export default function RecuperarPage() {
-  const [email,    setEmail]    = useState('')
-  const [error,    setError]    = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [done,     setDone]     = useState(false)
+  const [email,   setEmail]   = useState('')
+  const [error,   setError]   = useState('')
+  const [loading, setLoading] = useState(false)
+  const [done,    setDone]    = useState(false)
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
@@ -17,16 +16,20 @@ export default function RecuperarPage() {
     }
     setError('')
     setLoading(true)
-    const { error: sbError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${location.origin}/auth/callback`,
-    })
-    setLoading(false)
-
-    if (sbError) {
-      setError(sbError.message)
-      return
+    try {
+      const res  = await fetch('/api/auth/reset-password', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: email.trim().toLowerCase() }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok && data.error) { setError(data.error); return }
+      setDone(true)
+    } catch {
+      setError('Error de conexión. Intenta nuevamente.')
+    } finally {
+      setLoading(false)
     }
-    setDone(true)
   }
 
   return (
@@ -45,15 +48,18 @@ export default function RecuperarPage() {
         <div className="glass-card p-8 shadow-card">
           <h1 className="display-heading text-4xl gold-text mb-1">RECUPERAR ACCESO</h1>
           <p className="terminal-text text-text-dim mb-8">
-            Introduce tu email y te enviaremos un enlace para restablecer tu contraseña.
+            Introduce tu email y te enviaremos un enlace personalizado para restablecer tu contraseña.
           </p>
 
           {done ? (
             <div className="flex flex-col gap-3 border border-gold/30 bg-gold/5 px-5 py-4">
-              <p className="section-label text-gold">ENLACE ENVIADO</p>
+              <p className="section-label text-gold">✓ ENLACE ENVIADO</p>
               <p className="terminal-text text-text-dim text-sm">
                 Si existe una cuenta con ese email, recibirás las instrucciones en breve.
                 Revisa también tu carpeta de spam.
+              </p>
+              <p className="terminal-text text-text-dim text-xs mt-1">
+                El enlace expira en <span className="text-gold">1 hora</span>.
               </p>
               <Link href="/login" className="terminal-text text-xs text-gold hover:text-gold-glow transition-colors mt-1">
                 ← Volver al login

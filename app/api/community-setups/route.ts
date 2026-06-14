@@ -21,7 +21,7 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(20)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
 
   const filtered = (data ?? []).filter((s: { profiles?: { reputation?: number } }) => (s.profiles?.reputation ?? 0) >= MIN_REP)
   return NextResponse.json(filtered)
@@ -49,29 +49,40 @@ export async function POST(req: NextRequest) {
   const { par, tipo, entry, sl, tp, range_low, range_high, fee_tier, protocol, rr, timeframe, metodologia, nota, fecha } = body
 
   if (!par || !tipo) return NextResponse.json({ error: 'par y tipo son requeridos' }, { status: 400 })
+  if (!['LONG', 'SHORT', 'LP'].includes(tipo)) return NextResponse.json({ error: 'tipo inválido' }, { status: 400 })
+
+  // Sanitización: truncar strings para prevenir inyección y DoS
+  const clean = (s: unknown, max: number) => typeof s === 'string' ? s.trim().slice(0, max) : undefined
+  const parClean     = clean(par, 20)?.toUpperCase()
+  const metClean     = clean(metodologia, 500)
+  const notaClean    = clean(nota, 1000)
+  const feeClean     = clean(fee_tier, 10)
+  const protClean    = clean(protocol, 50)
+  const tfClean      = clean(timeframe, 10)
+  if (!parClean) return NextResponse.json({ error: 'par inválido' }, { status: 400 })
 
   const { data, error } = await sb
     .from('community_setups')
     .insert({
       user_id: user.id,
-      par, tipo,
-      entry:       tipo !== 'LP' ? (entry || null)     : null,
-      sl:          tipo !== 'LP' ? (sl || null)         : null,
-      tp:          tipo !== 'LP' ? (tp || null)         : null,
-      range_low:   tipo === 'LP' ? (range_low || null)  : null,
-      range_high:  tipo === 'LP' ? (range_high || null) : null,
-      fee_tier:    tipo === 'LP' ? (fee_tier || null)   : null,
-      protocol:    tipo === 'LP' ? (protocol || null)   : null,
-      rr:          tipo !== 'LP' ? (rr || null)         : null,
-      timeframe:   timeframe || null,
-      metodologia: metodologia || null,
-      nota:        nota || null,
+      par: parClean, tipo,
+      entry:       tipo !== 'LP' ? (Number(entry) || null)      : null,
+      sl:          tipo !== 'LP' ? (Number(sl) || null)          : null,
+      tp:          tipo !== 'LP' ? (Number(tp) || null)          : null,
+      range_low:   tipo === 'LP' ? (Number(range_low) || null)   : null,
+      range_high:  tipo === 'LP' ? (Number(range_high) || null)  : null,
+      fee_tier:    tipo === 'LP' ? (feeClean || null)            : null,
+      protocol:    tipo === 'LP' ? (protClean || null)           : null,
+      rr:          tipo !== 'LP' ? (Number(rr) || null)          : null,
+      timeframe:   tfClean || null,
+      metodologia: metClean || null,
+      nota:        notaClean || null,
       fecha:       fecha ?? new Date().toISOString().split('T')[0],
     })
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
 }
 
@@ -91,6 +102,6 @@ export async function PATCH(req: NextRequest) {
     .from('setup_votes')
     .upsert({ user_id: user.id, setup_id, vote_type }, { onConflict: 'user_id,setup_id' })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

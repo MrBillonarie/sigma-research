@@ -114,7 +114,7 @@ export default function RentaFijaPage() {
   })
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
+    <div className="dash-content" style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
 
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
@@ -159,7 +159,7 @@ export default function RentaFijaPage() {
 
       {/* Top por plazo */}
       {bancos.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
+        <div className="comp-top-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
           {topBancos.map(t => (
             <div key={t.label} style={{
               background: C.surface, border: `1px solid ${C.border}`,
@@ -278,7 +278,8 @@ export default function RentaFijaPage() {
                         )}
                       </td>
                       {PLAZOS.map(p => {
-                        const val      = p.days === 30 ? banco.d30 : null
+                        const keyMap: Record<number, keyof BancoRow> = { 7: 'd7', 14: 'd14', 30: 'd30', 60: 'd60', 90: 'd90', 180: 'd180', 360: 'd360' }
+                        const val      = banco[keyMap[p.days]] as number | null ?? null
                         const isActive = plazo === p.days
                         return (
                           <td key={p.days} style={{
@@ -364,7 +365,7 @@ export default function RentaFijaPage() {
 
       {/* Footer */}
       <div style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.dimText, fontFamily: MONO, letterSpacing: '0.02em' }}>
-        Tasas verificadas manualmente · Fuente: sitios oficiales de cada banco · Actualizado Abril 2026
+        Tasas verificadas manualmente · Fuente: sitios oficiales de cada banco · Actualizado {new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}
       </div>
     </div>
   )

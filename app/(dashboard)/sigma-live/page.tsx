@@ -67,6 +67,7 @@ function usd(n: number | undefined) {
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function num(n: number | undefined, d = 2) {
   if (n === undefined || n === null) return '—'
   return n.toFixed(d)

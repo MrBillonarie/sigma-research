@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { supabase } from '@/app/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
@@ -83,11 +84,36 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
+interface TradeStats {
+  total: number; wins: number; winRate: number; pnl: number
+  best: number; worst: number; streak: number
+}
+
+function calcTradeStats(): TradeStats | null {
+  try {
+    const raw = localStorage.getItem('sigma_trades')
+    if (!raw) return null
+    const trades: { pnl_usd: number; resultado: string }[] = JSON.parse(raw)
+    if (!trades.length) return null
+    const wins = trades.filter(t => t.resultado === 'WIN').length
+    const pnls = trades.map(t => t.pnl_usd)
+    let streak = 0
+    for (const t of trades) { if (t.resultado === 'WIN') streak++; else break }
+    return {
+      total: trades.length, wins,
+      winRate: Math.round((wins / trades.length) * 100),
+      pnl: pnls.reduce((a, b) => a + b, 0),
+      best: Math.max(...pnls), worst: Math.min(...pnls), streak,
+    }
+  } catch { return null }
+}
+
 export default function PerfilPage() {
   const router = useRouter()
   const [user,        setUser]        = useState<User | null>(null)
   const [profile,     setProfile]     = useState<Profile | null>(null)
   const [loading,     setLoading]     = useState(true)
+  const [tradeStats,  setTradeStats]  = useState<TradeStats | null>(null)
   const [nombre,      setNombre]      = useState('')
   const [savingName,  setSavingName]  = useState(false)
   const [nameMsg,     setNameMsg]     = useState('')
@@ -104,6 +130,12 @@ export default function PerfilPage() {
   const [binanceMsg,    setBinanceMsg]    = useState('')
   const [binanceError,  setBinanceError]  = useState('')
   const [showSecret,    setShowSecret]    = useState(false)
+  const [showKey,       setShowKey]       = useState(false)
+
+  const [avatarUrl,     setAvatarUrl]     = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarMsg,     setAvatarMsg]     = useState('')
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const emptySetup = { par: '', tipo: 'LONG' as SetupTipo, entry: '', sl: '', tp: '', rangeLow: '', rangeHigh: '', feeTier: '', protocol: '', rr: '', timeframe: '4H', metodologia: '', nota: '' }
   const [setupForm,       setSetupForm]       = useState(emptySetup)
@@ -116,6 +148,9 @@ export default function PerfilPage() {
       if (!data.user) { router.replace('/login'); return }
       setUser(data.user)
       setNombre(data.user.user_metadata?.nombre ?? '')
+      // Cargar avatar si existe
+      const avatarMeta = data.user.user_metadata?.avatar_url as string | undefined
+      if (avatarMeta) setAvatarUrl(avatarMeta)
 
       const { data: prof } = await supabase
         .from('profiles')
@@ -143,6 +178,7 @@ export default function PerfilPage() {
       }
 
       setLoading(false)
+      setTradeStats(calcTradeStats())
     })
   }, [router])
 
@@ -196,6 +232,30 @@ export default function PerfilPage() {
     }
   }
 
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    if (file.size > 2 * 1024 * 1024) { setAvatarMsg('Máximo 2MB'); return }
+    setUploadingAvatar(true); setAvatarMsg('')
+    try {
+      const ext  = file.name.split('.').pop()
+      const path = `avatars/${user.id}.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+      const url = urlData.publicUrl
+      await supabase.auth.updateUser({ data: { avatar_url: url } })
+      setAvatarUrl(url)
+      setAvatarMsg('Foto actualizada.')
+    } catch (err) {
+      setAvatarMsg(`Error: ${err instanceof Error ? err.message : 'No se pudo subir la imagen'}`)
+    }
+    setUploadingAvatar(false)
+    setTimeout(() => setAvatarMsg(''), 3000)
+  }
+
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault()
     setPwdMsg(''); setPwdError('')
@@ -225,6 +285,8 @@ export default function PerfilPage() {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
+    const SIGMA_KEYS = ['sigma_portfolio','sigma_positions','sigma_trades','sigma_fire_target','sigma_montecarlo','sigma_activity','sigma_portfolio_total','sigma_setups','sigma_alerts','sigma_lp_capital','sigma_fire_gasto','sigma_fire_ahorro','sigma_fire_edad']
+    SIGMA_KEYS.forEach(k => { try { localStorage.removeItem(k) } catch {} })
     router.push('/')
   }
 
@@ -237,8 +299,12 @@ export default function PerfilPage() {
   const email    = user?.email ?? ''
   const provider = user?.app_metadata?.provider ?? 'email'
   const isOAuth  = provider !== 'email'
+  const plan     = (user?.app_metadata?.plan as string) ?? 'free'
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—'
+  const lastLogin = user?.last_sign_in_at
+    ? new Date(user.last_sign_in_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—'
 
   const displayName = nombre || profile?.username || email.split('@')[0] || 'TRADER'
@@ -294,10 +360,27 @@ export default function PerfilPage() {
           <div className="perfil-sidebar" style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 0, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
             {/* Avatar + info */}
             <div style={{ padding: '28px 24px 20px', borderBottom: `1px solid ${BORDER}` }}>
-              {/* Avatar */}
-              <div style={{ width: 72, height: 72, borderRadius: '50%', background: `rgba(245,200,66,0.1)`, border: `2px solid ${GOLD}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>
+              {/* Avatar con upload */}
+              <div style={{ position: 'relative', width: 72, height: 72, marginBottom: 16 }}>
+                {avatarUrl ? (
+                  <Image src={avatarUrl} alt="avatar" width={72} height={72} style={{ borderRadius: '50%', objectFit: 'cover', border: `2px solid ${GOLD}55` }} />
+                ) : (
+                  <div style={{ width: 72, height: 72, borderRadius: '50%', background: `rgba(245,200,66,0.1)`, border: `2px solid ${GOLD}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>
+                  </div>
+                )}
+                {/* Upload overlay */}
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: '50%', background: GOLD, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}
+                  title="Cambiar foto"
+                >
+                  {uploadingAvatar ? '…' : '✎'}
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
               </div>
+              {avatarMsg && <div style={{ fontFamily: MONO, fontSize: 10, color: avatarMsg.startsWith('Error') ? '#f87171' : '#34d399', marginBottom: 8 }}>{avatarMsg}</div>}
               {/* Name */}
               <div style={{ fontFamily: MONO, fontSize: 14, color: TEXT, fontWeight: 600, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {displayName}
@@ -307,14 +390,22 @@ export default function PerfilPage() {
                 {email}
               </div>
               {/* Plan badge */}
-              <span style={{ display: 'inline-block', fontFamily: MONO, fontSize: 11, color: GOLD, fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(245,200,66,0.12)', border: '1px solid rgba(245,200,66,0.4)', borderRadius: 6, padding: '4px 12px', marginBottom: 14 }}>
-                PLAN PRO
+              <span style={{ display: 'inline-block', fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', borderRadius: 6, padding: '4px 12px', marginBottom: 14,
+                color: plan === 'pro' ? GOLD : DIM,
+                background: plan === 'pro' ? 'rgba(245,200,66,0.12)' : 'rgba(255,255,255,0.05)',
+                border: plan === 'pro' ? '1px solid rgba(245,200,66,0.4)' : '1px solid rgba(255,255,255,0.12)',
+              }}>
+                {plan === 'pro' ? 'PLAN PRO' : 'PLAN FREE'}
               </span>
               {/* Meta */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
                   <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Miembro desde</span>
                   {createdAt}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
+                  <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Último acceso</span>
+                  {lastLogin}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
                   <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Acceso via</span>
@@ -341,6 +432,30 @@ export default function PerfilPage() {
 
           {/* ── RIGHT CONTENT ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Performance Stats */}
+            {tradeStats && (
+              <Card title="// Performance de Trading">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 12 }}>
+                  {[
+                    { label: 'Total trades',  val: String(tradeStats.total),                                                              color: GOLD },
+                    { label: 'Win rate',      val: `${tradeStats.winRate}%`,                                                             color: tradeStats.winRate >= 50 ? GREEN : RED },
+                    { label: 'PnL total',     val: `${tradeStats.pnl >= 0 ? '+' : ''}$${Math.round(tradeStats.pnl).toLocaleString('es-CL')}`, color: tradeStats.pnl >= 0 ? GREEN : RED },
+                    { label: 'Mejor trade',   val: `+$${Math.round(tradeStats.best).toLocaleString('es-CL')}`,                           color: GREEN },
+                    { label: 'Peor trade',    val: `$${Math.round(tradeStats.worst).toLocaleString('es-CL')}`,                           color: RED },
+                    { label: 'Win streak',    val: `${tradeStats.streak}W`,                                                              color: tradeStats.streak >= 3 ? GOLD : DIM },
+                  ].map(({ label, val, color }) => (
+                    <div key={label} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center' }}>
+                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color, lineHeight: 1, marginBottom: 6 }}>{val}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textAlign: 'right' }}>
+                  Datos sincronizados desde Journal
+                </div>
+              </Card>
+            )}
 
             {/* Reputación */}
             {profile !== null && (
@@ -376,6 +491,7 @@ export default function PerfilPage() {
                 {[
                   { label: 'Email',          val: email },
                   { label: 'Miembro desde',  val: createdAt },
+                  { label: 'Último acceso',  val: lastLogin },
                 ].map(({ label, val }) => (
                   <div key={label} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
                     <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 6 }}>{label}</div>
@@ -384,7 +500,11 @@ export default function PerfilPage() {
                 ))}
                 <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 8 }}>Plan</div>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: GOLD, fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(245,200,66,0.12)', border: '1px solid rgba(245,200,66,0.4)', borderRadius: 6, padding: '4px 12px' }}>PLAN PRO</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', borderRadius: 6, padding: '4px 12px',
+                    color: plan === 'pro' ? GOLD : DIM,
+                    background: plan === 'pro' ? 'rgba(245,200,66,0.12)' : 'rgba(255,255,255,0.05)',
+                    border: plan === 'pro' ? '1px solid rgba(245,200,66,0.4)' : '1px solid rgba(255,255,255,0.12)',
+                  }}>{plan === 'pro' ? 'PLAN PRO' : 'PLAN FREE'}</span>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 6 }}>Proveedor</div>
@@ -422,11 +542,20 @@ export default function PerfilPage() {
               </div>
               <form onSubmit={handleSaveBinance} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <Field label="API Key">
-                  <input
-                    type="text" value={binanceKey} onChange={e => setBinanceKey(e.target.value)}
-                    placeholder="Pega tu Binance API Key aquí"
-                    className="perf-input" style={inputCss} autoComplete="off"
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={binanceKey} onChange={e => setBinanceKey(e.target.value)}
+                      placeholder="Pega tu Binance API Key aquí"
+                      className="perf-input" style={{ ...inputCss, paddingRight: 48 }} autoComplete="off"
+                    />
+                    <button
+                      type="button" onClick={() => setShowKey(s => !s)}
+                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+                    >
+                      <EyeIcon open={showKey} />
+                    </button>
+                  </div>
                 </Field>
                 <Field label="API Secret">
                   <div style={{ position: 'relative' }}>

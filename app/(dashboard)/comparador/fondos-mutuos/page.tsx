@@ -75,6 +75,7 @@ export default function FondosMutuosPage() {
   const [pages,     setPages]     = useState(0)
   const [total,     setTotal]     = useState(0)
   const [ultimaAct, setUltimaAct] = useState<string | null>(null)
+  const [isSeed,    setIsSeed]    = useState(false)
   const [topCat,    setTopCat]    = useState<TopCategoria[]>([])
   const [sortKey,   setSortKey]   = useState<SortKey>('r12m')
   const [sortDir,   setSortDir]   = useState<'asc' | 'desc'>('desc')
@@ -105,6 +106,7 @@ export default function FondosMutuosPage() {
         setTotal(json.total ?? 0)
         setPages(json.pages ?? 0)
         setUltimaAct(json.ultima_actualizacion ?? null)
+        setIsSeed(!!(json as { isSeed?: boolean }).isSeed)
         if (json.agfs?.length) setAgfs(json.agfs)
         if (json.topPorCategoria?.length) setTopCat(json.topPorCategoria)
       })
@@ -176,7 +178,7 @@ export default function FondosMutuosPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
+    <div className="dash-content" style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: MONO }}>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>
@@ -188,6 +190,10 @@ export default function FondosMutuosPage() {
             <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: C.dimText, background: C.surface, border: `1px solid ${C.border}`, padding: '3px 8px', borderRadius: 4 }}>
               CARGANDO…
             </span>
+          ) : isSeed ? (
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.15em', color: C.yellow, background: 'rgba(212,175,55,0.10)', border: `1px solid rgba(212,175,55,0.3)`, padding: '3px 8px', borderRadius: 4 }}>
+              ◈ DATOS DE REFERENCIA
+            </span>
           ) : ultimaAct ? (
             <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: C.green, background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.3)', padding: '3px 8px', borderRadius: 4 }}>
               ● LIVE · {total} fondos
@@ -197,13 +203,15 @@ export default function FondosMutuosPage() {
           )}
         </div>
         <div style={{ fontSize: 12, color: C.dimText, marginTop: 4 }}>
-          {ultimaAct ? `Fintual API · Supabase · Actualizado ${fmtDate(ultimaAct)}` : 'Ejecuta el primer sync para cargar todos los fondos'}
+          {isSeed
+            ? 'Datos de referencia — rentabilidades aproximadas fondos chilenos 2025-2026. Se actualizarán al sincronizar la base de datos.'
+            : ultimaAct ? `Fintual API · Supabase · Actualizado ${fmtDate(ultimaAct)}` : 'Ejecuta el primer sync para cargar todos los fondos'}
         </div>
       </div>
 
       {/* ── TOP POR CATEGORÍA ──────────────────────────────────────────────────── */}
       {topCat.length > 0 && filtro !== 'etf' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
+        <div className="comp-top-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
           {topCat.map(t => {
             const color = CAT_COLOR[t.categoria] ?? C.gold
             const icon  = CAT_ICON[t.categoria]  ?? '📊'

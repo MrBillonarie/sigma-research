@@ -25,8 +25,8 @@ function serviceClient() {
 }
 
 export async function POST(req: Request) {
-  const auth = req.headers.get('authorization') ?? ''
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const CRON_SECRET = process.env.CRON_SECRET
+  if (!CRON_SECRET || (req.headers.get('authorization') ?? '') !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -114,8 +114,8 @@ export async function POST(req: Request) {
           title:        `Movimiento relevante: ${asset.symbol}`,
           body:         `${asset.symbol} ${dir}${change24h.toFixed(1)}% en las últimas 24h · $${Math.round(asset.data.usd).toLocaleString()}`,
           urgente:      Math.abs(change24h) >= 5,
-          accion_label: 'Ver terminal',
-          accion_href:  '/terminal',
+          accion_label: 'Ver HUD',
+          accion_href:  '/hud',
           read:         false,
         }))
 

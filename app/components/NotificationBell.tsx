@@ -92,6 +92,12 @@ export default function NotificationBell({ collapsed }: Props) {
       if (!user) return
       setUserId(user.id)
       loadNotifs(user.id)
+      // Auto-crear notifs para eventos macro próximos
+      fetch('/api/notifications/sync-macro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      }).catch(() => {})
     })
   }, [loadNotifs])
 
@@ -153,7 +159,8 @@ export default function NotificationBell({ collapsed }: Props) {
     if (!n.read) await markRead(n.id)
     if (n.accion_href) {
       setOpen(false)
-      router.push(n.accion_href)
+      const href = n.accion_href.startsWith('/') ? n.accion_href : '/home'
+      router.push(href)
     }
   }
 
@@ -174,13 +181,13 @@ export default function NotificationBell({ collapsed }: Props) {
               style={{ width: 320, background: '#0f0f0f', border: `1px solid rgba(255,255,255,0.08)`, borderLeft: `3px solid ${borderColor}`, padding: '12px 14px', boxShadow: '0 8px 32px rgba(0,0,0,0.7)', pointerEvents: 'all' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#e8e9f0', fontWeight: 600 }}>{t.notif.title}</span>
+                <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#e8e9f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{t.notif.title}</span>
                 <button onClick={() => dismissToast(t.id)} style={{ background: 'none', border: 'none', color: '#3a3f55', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0, marginLeft: 8 }}>×</button>
               </div>
-              <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#7a7f9a', lineHeight: 1.5 }}>{t.notif.body}</div>
+              <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#7a7f9a', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>{t.notif.body}</div>
               {t.notif.accion_href && t.notif.accion_label && (
                 <button
-                  onClick={() => { dismissToast(t.id); router.push(t.notif.accion_href!) }}
+                  onClick={() => { dismissToast(t.id); const h = t.notif.accion_href!; router.push(h.startsWith('/') ? h : '/home') }}
                   style={{ marginTop: 8, fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: borderColor, background: 'none', border: `1px solid ${borderColor}44`, padding: '3px 8px', cursor: 'pointer', letterSpacing: '0.1em' }}
                 >
                   {t.notif.accion_label} →
@@ -212,9 +219,11 @@ export default function NotificationBell({ collapsed }: Props) {
             <BellIcon size={18} />
             {unread > 0 && (
               <span style={{
-                position: 'absolute', top: -5, right: -5, background: '#ef4444', color: '#fff',
-                fontSize: 9, fontWeight: 700, minWidth: 14, height: 14, borderRadius: 7,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1,
+                position: 'absolute', top: -6, right: -6,
+                background: '#ef4444', color: '#fff',
+                fontSize: 9, fontWeight: 700, minWidth: 16, height: 16, borderRadius: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1,
+                boxShadow: '0 0 0 2px #0b0d14',  // contorno oscuro para contraste sobre cualquier fondo
               }}>
                 {unread > 9 ? '9+' : unread}
               </span>
