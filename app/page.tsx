@@ -21,18 +21,18 @@ function gradeColor(grade: string) {
   return '#ff6b6b'
 }
 
-// ─── Métricas reales del VPS (con fallback) ───────────────────────────────────
+// ─── Métricas reales del VPS — paper trading desde 11 MAY 2026 ───────────────
 const METRICS_FALLBACK = [
-  { value: '68%',    label: 'Win Rate validado' },
-  { value: '78%',    label: 'CAGR champions' },
-  { value: '1.7x',   label: 'Profit Factor' },
-  { value: '1.460+', label: 'Trades backtested' },
+  { value: '68%',   label: 'Win Rate papel' },
+  { value: '+13%',  label: 'Retorno live'   },
+  { value: '1.78x', label: 'Profit Factor'  },
+  { value: '25+',   label: 'Trades papel'   },
 ]
 
 async function getEngineMetrics() {
   const VPS = process.env.VPS_URL ?? 'http://178.104.10.97:8080'
   try {
-    const res = await fetch(`${VPS}/api/v2/engine_status`, {
+    const res = await fetch(`${VPS}/api/public`, {
       next: { revalidate: 300 },
       signal: AbortSignal.timeout(5000),
     })
@@ -40,15 +40,18 @@ async function getEngineMetrics() {
     const d = await res.json()
     const p = d?.portfolio
     if (!p) return METRICS_FALLBACK
-    const wr   = p.wr   !== undefined ? (p.wr <= 1 ? p.wr * 100 : p.wr) : null
-    const cagr = p.cagr_weighted ?? p.cagr_pass_live ?? p.cagr ?? null
-    const pf   = p.pf   !== undefined ? p.pf   : null
-    const n    = p.n_trades ?? p.trades_total ?? null
+    const wr     = p.wr     != null ? (p.wr <= 1 ? p.wr * 100 : p.wr) : null
+    const retPct = p.return_pct != null ? p.return_pct : null
+    const pf     = p.pf     != null ? p.pf     : null
+    const n      = p.n_trades != null ? p.n_trades : null
+    const retStr = retPct !== null
+      ? `${retPct >= 0 ? '+' : ''}${retPct.toFixed(1)}%`
+      : METRICS_FALLBACK[1].value
     return [
-      { value: wr   !== null ? `${wr.toFixed(0)}%`   : METRICS_FALLBACK[0].value, label: 'Win Rate validado'  },
-      { value: cagr !== null ? `${cagr.toFixed(0)}%` : METRICS_FALLBACK[1].value, label: 'CAGR champions'     },
-      { value: pf   !== null ? `${pf.toFixed(1)}x`   : METRICS_FALLBACK[2].value, label: 'Profit Factor'      },
-      { value: n    !== null ? `${Number(n).toLocaleString('es-CL')}+` : METRICS_FALLBACK[3].value, label: 'Trades backtested' },
+      { value: wr !== null ? `${wr.toFixed(0)}%`  : METRICS_FALLBACK[0].value, label: 'Win Rate papel' },
+      { value: retStr,                                                            label: 'Retorno live'   },
+      { value: pf !== null ? `${pf.toFixed(2)}x`  : METRICS_FALLBACK[2].value, label: 'Profit Factor'  },
+      { value: n  !== null ? `${n}+`              : METRICS_FALLBACK[3].value, label: 'Trades papel'   },
     ]
   } catch {
     return METRICS_FALLBACK
@@ -77,7 +80,7 @@ export const metadata: Metadata = {
 }
 
 const tools = [
-  { tag: 'T-01', name: 'SIGMA ENGINE',      desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre BTC/ETH/SOL/BNB/LTC/XAU con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
+  { tag: 'T-01', name: 'SIGMA ENGINE',      desc: 'Motor de trading cuantitativo 24/7. 130+ estrategias sobre BTC/ETH/SOL/BNB/LTC/XAU con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
   { tag: 'T-02', name: 'MODELOS ML',        desc: 'Champions cuantitativos con grades A+/A/B/C. Cada modelo valida con robustness gate, OOS gate y Kelly sizing antes de activarse.' },
   { tag: 'T-03', name: 'MOTOR DE DECISIÓN', desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre ETFs, fondos mutuos, cripto y renta fija. Ajustado por régimen de mercado (risk-on/off).' },
   { tag: 'T-04', name: 'MONTE CARLO',       desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
@@ -203,7 +206,7 @@ export default async function RootPage() {
       <section className="py-20 px-6 bg-surface border-y border-border">
         <div className="max-w-7xl mx-auto">
           <div className="section-label text-gold mb-10 text-center">
-            {'// SIGMA ENGINE · CHAMPIONS EN PRODUCCIÓN · BTC/ETH/SOL/BNB/LTC/XAU'}
+            {'// PAPER TRADING · DESDE 11 MAY 2026 · BTC/ETH/SOL/BNB/LTC/XAU'}
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
             {metrics.map((m) => (
@@ -242,7 +245,7 @@ export default async function RootPage() {
                     <th className="pb-3 text-left text-text-dim tracking-widest text-xs font-normal">TF</th>
                     <th className="pb-3 text-left text-text-dim tracking-widest text-xs font-normal hidden md:table-cell">ESTRATEGIA</th>
                     <th className="pb-3 text-right text-text-dim tracking-widest text-xs font-normal">WIN RATE</th>
-                    <th className="pb-3 text-right text-text-dim tracking-widest text-xs font-normal">CAGR</th>
+                    <th className="pb-3 text-right text-text-dim tracking-widest text-xs font-normal">CAGR OOS</th>
                   </tr>
                 </thead>
                 <tbody>

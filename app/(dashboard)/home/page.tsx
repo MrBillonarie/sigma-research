@@ -16,16 +16,30 @@ const PLATFORMS = [
 ]
 
 const MACRO_EVENTS = [
-  { date: '2026-04-30', time: '08:30 UTC', title: 'PCE Price Index (YoY)' },
-  { date: '2026-05-01', time: '08:30 UTC', title: 'NFP (Non-Farm Payrolls)' },
-  { date: '2026-05-06', time: '18:00 UTC', title: 'FOMC Meeting (Día 1)' },
-  { date: '2026-05-07', time: '18:00 UTC', title: 'FOMC Decision + Press Conference' },
-  { date: '2026-05-13', time: '08:30 UTC', title: 'CPI (YoY) — Mayo' },
-  { date: '2026-05-29', time: '08:30 UTC', title: 'GDP Q1 2026 (Revisado)' },
-  { date: '2026-06-05', time: '08:30 UTC', title: 'NFP — Junio' },
-  { date: '2026-06-11', time: '08:30 UTC', title: 'CPI (YoY) — Junio' },
   { date: '2026-06-17', time: '18:00 UTC', title: 'FOMC Decision — Junio' },
   { date: '2026-06-26', time: '08:30 UTC', title: 'PCE Price Index — Junio' },
+  { date: '2026-07-03', time: '08:30 UTC', title: 'NFP (Non-Farm Payrolls) — Julio' },
+  { date: '2026-07-14', time: '08:30 UTC', title: 'CPI (YoY) — Julio' },
+  { date: '2026-07-29', time: '18:00 UTC', title: 'FOMC Decision — Julio' },
+  { date: '2026-07-30', time: '12:30 UTC', title: 'GDP Q2 2026 (Avance)' },
+  { date: '2026-08-07', time: '08:30 UTC', title: 'NFP — Agosto' },
+  { date: '2026-08-12', time: '08:30 UTC', title: 'CPI (YoY) — Agosto' },
+  { date: '2026-08-28', time: '12:30 UTC', title: 'PCE Price Index — Agosto' },
+  { date: '2026-09-04', time: '08:30 UTC', title: 'NFP — Septiembre' },
+  { date: '2026-09-10', time: '08:30 UTC', title: 'CPI (YoY) — Septiembre' },
+  { date: '2026-09-16', time: '18:00 UTC', title: 'FOMC Decision — Septiembre' },
+  { date: '2026-09-25', time: '12:30 UTC', title: 'PCE Price Index — Septiembre' },
+  { date: '2026-10-02', time: '08:30 UTC', title: 'NFP — Octubre' },
+  { date: '2026-10-14', time: '08:30 UTC', title: 'CPI (YoY) — Octubre' },
+  { date: '2026-10-29', time: '12:30 UTC', title: 'GDP Q3 2026 (Avance)' },
+  { date: '2026-11-04', time: '18:00 UTC', title: 'FOMC Decision — Noviembre' },
+  { date: '2026-11-06', time: '08:30 UTC', title: 'NFP — Noviembre' },
+  { date: '2026-11-12', time: '08:30 UTC', title: 'CPI (YoY) — Noviembre' },
+  { date: '2026-11-25', time: '13:30 UTC', title: 'PCE Price Index — Noviembre' },
+  { date: '2026-12-04', time: '08:30 UTC', title: 'NFP — Diciembre' },
+  { date: '2026-12-10', time: '08:30 UTC', title: 'CPI (YoY) — Diciembre' },
+  { date: '2026-12-16', time: '18:00 UTC', title: 'FOMC Decision — Diciembre' },
+  { date: '2026-12-23', time: '13:30 UTC', title: 'PCE Price Index — Diciembre' },
 ]
 
 const TOOL_LIST = [
@@ -42,7 +56,7 @@ const TOOL_LIST = [
 
 const DAYS_ES   = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO']
 const MONTHS_ES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE']
-const TRM = 950
+const TRM_DEFAULT = 950
 
 function fmtUSD(n: number)  { return '$' + Math.round(n).toLocaleString('es-CL') }
 function pct(n: number)     { return n.toFixed(1) + '%' }
@@ -115,11 +129,29 @@ export default function DashboardHome() {
   const [spotlight,       setSpotlight]       = useState(false)
   const [spotQuery,       setSpotQuery]       = useState('')
   const [spotIdx,         setSpotIdx]         = useState(0)
+  const [trm,             setTrm]             = useState(TRM_DEFAULT)
+  const [engineRegime,    setEngineRegime]    = useState<string | null>(null)
 
   // Clock
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
+  }, [])
+
+  // TRM dinámico desde mindicador.cl
+  useEffect(() => {
+    fetch('https://mindicador.cl/api/dolar')
+      .then(r => r.json())
+      .then(d => { const v = d?.series?.[0]?.valor; if (v && v > 0) setTrm(v) })
+      .catch(() => {})
+  }, [])
+
+  // Régimen del motor desde VPS
+  useEffect(() => {
+    fetch('/api/vps/signals')
+      .then(r => r.json())
+      .then(d => { if (d?.regime && d.regime !== 'UNKNOWN') setEngineRegime(d.regime) })
+      .catch(() => {})
   }, [])
 
   // localStorage hydration
@@ -178,7 +210,7 @@ export default function DashboardHome() {
   // ─── Derived ─────────────────────────────────────────────────────────────────
   const D = useMemo(() => {
     const FIRE_TARGET = fireTarget ?? 600_000
-    const platformTotals = PLATFORMS.map(p => { const raw = portfolio[p.id] ?? 0; return p.isCLP ? raw / TRM : raw })
+    const platformTotals = PLATFORMS.map(p => { const raw = portfolio[p.id] ?? 0; return p.isCLP ? raw / trm : raw })
     const totalUSD = platformTotals.reduce((s, v) => s + v, 0) || storedTotal
     const segments = PLATFORMS.map((p, i) => ({ ...p, usd: platformTotals[i], pct: totalUSD > 0 ? (platformTotals[i] / totalUSD) * 100 : 0 })).filter(s => s.usd > 0)
     const monthlyPassive = positions.reduce((s, p) => s + (p.ingresoMensual ?? 0), 0)
@@ -234,7 +266,7 @@ export default function DashboardHome() {
       firePct, FIRE_TARGET, fireYears, nextEvent, upcoming: upcoming.slice(0, 5),
       monthTradesCount: monthTrades.length, totalTrades: trades.length,
     }
-  }, [portfolio, positions, trades, fireTarget, now, storedTotal])
+  }, [portfolio, positions, trades, fireTarget, now, storedTotal, trm])
 
   // Spotlight results
   const spotResults = useMemo(() => {
@@ -250,7 +282,7 @@ export default function DashboardHome() {
 
   function getToolBadge(id: string): string | null {
     switch (id) {
-      case 'hud':        return 'Régimen: —'
+      case 'hud':        return engineRegime ? `Régimen: ${engineRegime}` : 'Régimen: cargando…'
       case 'terminal':   return D.totalUSD > 0 ? 'Live: BTC · ETH · SOL' : 'Sin posiciones abiertas'
       case 'journal':    return D.weekCount > 0 ? `${D.weekCount} trades esta semana` : 'Sin trades esta semana'
       case 'montecarlo': return fireProbability !== null ? `${fireProbability}% prob. FIRE` : 'Sin simulación reciente'
