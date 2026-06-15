@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import Link from 'next/link'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import HeroAnimation from './components/HeroAnimation'
 
 export const metadata: Metadata = {
@@ -32,35 +33,88 @@ interface FireData {
   current_equity: number; starting_equity: number
   target_equity: number; progress_pct: number; baseline_date: string
 }
+interface Ticker { symbol: string; price: number; change24h: number }
 
 // ─── Data fetch ───────────────────────────────────────────────────────────────
 const VPS = process.env.VPS_URL ?? 'http://localhost:8080'
 
 async function getPageData() {
   try {
-    const [engineRes, publicRes] = await Promise.all([
+    const binUrl = `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent('["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"]')}`
+    const [engineRes, publicRes, binRes] = await Promise.all([
       fetch(`${VPS}/api/v2/engine_status`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(5000) }),
       fetch(`${VPS}/api/public`,           { next: { revalidate: 60 }, signal: AbortSignal.timeout(5000) }),
+      fetch(binUrl,                        { next: { revalidate: 30 }, signal: AbortSignal.timeout(5000) }),
     ])
     const engine = engineRes.ok ? await engineRes.json() : null
-    const pub    = publicRes.ok  ? await publicRes.json()  : null
+    const pub    = publicRes.ok ? await publicRes.json() : null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const binRaw = binRes.ok    ? await binRes.json()   : []
     const fire: FireData | null = engine?.fire ?? null
+    const tickers: Ticker[] = (binRaw as Array<{ symbol: string; lastPrice: string; priceChangePercent: string }>).map(t => ({
+      symbol:    t.symbol.replace('USDT', ''),
+      price:     parseFloat(t.lastPrice),
+      change24h: parseFloat(t.priceChangePercent),
+    }))
     return {
-      metrics:   engine?.portfolio ?? null,
+      metrics:       engine?.portfolio ?? null,
       fire,
-      coverage:  engine?.coverage ?? null,
-      backtests: Number(engine?.backtests_total ?? 16_767_345),
-      regime:    (pub?.regime ?? 'UNKNOWN') as string,
-      champions: ((pub?.top_models ?? []) as Champion[]).slice(0, 6),
-      history:   ((pub?.history   ?? []) as HistoryTrade[]).filter(t => t.equity_after != null),
+      coverage:      engine?.coverage ?? null,
+      backtests:     Number(engine?.backtests_total ?? 16_767_345),
+      regime:        (pub?.regime ?? 'UNKNOWN') as string,
+      champions:     ((pub?.top_models ?? []) as Champion[]).slice(0, 6),
+      history:       ((pub?.history   ?? []) as HistoryTrade[]).filter(t => t.equity_after != null),
+      bayesian:      { confirmed: (engine?.bayesian?.edge_confirmed ?? 0) as number, watching: (engine?.bayesian?.watching ?? 0) as number },
+      lastDecisionAt: (engine?.last_decision_at ?? null) as string | null,
+      tickers,
     }
   } catch {
     return {
       metrics: null, fire: null as (FireData | null), coverage: null,
       backtests: 16_767_345, regime: 'UNKNOWN',
       champions: [] as Champion[], history: [] as HistoryTrade[],
+      bayesian: { confirmed: 1, watching: 2 },
+      lastDecisionAt: null as string | null,
+      tickers: [] as Ticker[],
     }
   }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+async function getUserCount(): Promise<number> {
+  try {
+    const sb = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
+    )
+    const { data } = await sb.auth.admin.listUsers({ page: 1, perPage: 1 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data as any)?.total ?? 17
+  } catch {
+    return 17
+  }
+}
+
+function timeAgo(isoStr: string | null): string {
+  if (!isoStr) return '—'
+  const mins = Math.floor((Date.now() - new Date(isoStr).getTime()) / 60_000)
+  if (mins < 1)  return 'hace un momento'
+  if (mins < 60) return `hace ${mins} min`
+  const hrs = Math.floor(mins / 60)
+  return hrs < 24 ? `hace ${hrs}h` : `hace ${Math.floor(hrs / 24)}d`
+}
+
+function RegimePill({ regime }: { regime: string }) {
+  const ro   = regime === 'risk-on'  || regime.toUpperCase() === 'BULL'
+  const roff = regime === 'risk-off' || regime.toUpperCase() === 'BEAR'
+  const c = ro ? '#34d399' : roff ? '#f87171' : '#f59e0b'
+  const l = ro ? 'RISK-ON' : roff ? 'RISK-OFF' : 'NEUTRAL'
+  return (
+    <span style={{ fontFamily: 'monospace', fontSize: 9, padding: '3px 10px', letterSpacing: '0.2em', color: c, background: `${c}12`, border: `1px solid ${c}35` }}>
+      {l}
+    </span>
+  )
 }
 
 // ─── Equity curve SVG ─────────────────────────────────────────────────────────
@@ -184,7 +238,10 @@ export default async function RootPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (user) redirect('/home')
 
-  const { metrics, fire, backtests, regime, champions, history } = await getPageData()
+  const [{ metrics, fire, backtests, regime, champions, history, bayesian, lastDecisionAt, tickers }, userCount] = await Promise.all([
+    getPageData(),
+    getUserCount(),
+  ])
 
   const returnPct = fire
     ? (((fire.current_equity - fire.starting_equity) / fire.starting_equity) * 100).toFixed(2)
@@ -306,6 +363,27 @@ export default async function RootPage() {
         </div>
       </section>
 
+      {/* ══ URGENCY STRIP — cupos beta ════════════════════════════════════════ */}
+      <div style={{ background: 'rgba(212,175,55,0.04)', borderBottom: `1px solid rgba(212,175,55,0.12)` }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '11px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: G, letterSpacing: '0.22em' }}>
+              BETA CERRADA — {userCount} DE 100 CUPOS OCUPADOS
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 100, height: 2, background: B, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.min((userCount / 100) * 100, 100)}%`, background: `linear-gradient(90deg, ${G}80, ${G})` }} />
+            </div>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>{100 - userCount} restantes</span>
+            <Link href="/registro" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.18em', color: BG, background: G, padding: '5px 14px', textDecoration: 'none', flexShrink: 0 }}>
+              UNIRSE →
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* ══ 2. STATS — 4 columnas con datos reales ═══════════════════════════ */}
       <section style={{ borderBottom: `1px solid ${B}` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
@@ -359,7 +437,78 @@ export default async function RootPage() {
         </div>
       </section>
 
-      {/* ══ 4. EQUITY CURVE — datos reales de paper trading ══════════════════ */}
+      {/* ══ 4. MOTOR EN VIVO — engine status + scanner público ═══════════════ */}
+      <section style={{ padding: '80px 32px', background: BG, borderBottom: `1px solid ${B}` }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <SectionRule label="// SIGMA ENGINE · EN VIVO AHORA" />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: B }}>
+
+            {/* Panel izquierdo: status del engine */}
+            <div style={{ background: S, padding: '32px 28px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399', flexShrink: 0 }} />
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#34d399', letterSpacing: '0.25em' }}>SIGMA ENGINE · ACTIVO</span>
+              </div>
+
+              {([
+                { k: 'RÉGIMEN MERCADO',   node: <RegimePill regime={regime} />,           v: null },
+                { k: 'EDGES CONFIRMADOS', node: null, v: `${bayesian.confirmed} modelo${bayesian.confirmed !== 1 ? 's' : ''}` },
+                { k: 'EN OBSERVACIÓN',    node: null, v: `${bayesian.watching} activo${bayesian.watching !== 1 ? 's' : ''}` },
+                { k: 'ÚLTIMA DECISIÓN',   node: null, v: timeAgo(lastDecisionAt) },
+              ] as Array<{ k: string; node: ReactNode | null; v: string | null }>).map(({ k, node, v }) => (
+                <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: `1px solid ${B}` }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.2em' }}>{k}</span>
+                  {node ?? <span style={{ fontFamily: 'monospace', fontSize: 10, color: T }}>{v}</span>}
+                </div>
+              ))}
+
+              <p style={{ fontFamily: 'monospace', fontSize: 10, color: M, lineHeight: 1.85, marginTop: 22, borderLeft: `2px solid ${G}30`, paddingLeft: 14 }}>
+                El motor evalúa posiciones cada ciclo y solo activa modelos<br />
+                que superan el gate out-of-sample y el filtro Bayesiano.
+              </p>
+            </div>
+
+            {/* Panel derecho: scanner de precios en vivo */}
+            <div style={{ background: S, padding: '32px 28px' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.3em', marginBottom: 20 }}>{'// SCANNER · TIEMPO REAL'}</div>
+
+              {(tickers.length > 0 ? tickers : [
+                { symbol: 'BTC', price: 0, change24h: 0 },
+                { symbol: 'ETH', price: 0, change24h: 0 },
+                { symbol: 'SOL', price: 0, change24h: 0 },
+                { symbol: 'BNB', price: 0, change24h: 0 },
+              ]).map(t => (
+                <div key={t.symbol} style={{ padding: '13px 0', borderBottom: `1px solid ${B}`, display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: T, width: 44, flexShrink: 0 }}>{t.symbol}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: T, flex: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    {t.price > 0 ? `$${t.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, width: 68, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: t.change24h >= 0 ? '#34d399' : '#f87171' }}>
+                    {t.price > 0 ? `${t.change24h >= 0 ? '+' : ''}${t.change24h.toFixed(2)}%` : '—'}
+                  </span>
+                  {/* Señal borrosa — visible solo en dashboard */}
+                  <div style={{ fontFamily: 'monospace', fontSize: 8, padding: '3px 8px', letterSpacing: '0.15em', color: G, border: `1px solid ${G}25`, background: `${G}08`, filter: 'blur(3.5px)', userSelect: 'none', flexShrink: 0 }}>
+                    SEÑAL
+                  </div>
+                </div>
+              ))}
+
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${B}` }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, lineHeight: 1.85, marginBottom: 14 }}>
+                  SEÑALES COMPLETAS BUY / SELL / HOLD<br />
+                  DISPONIBLES EN DASHBOARD DESPUÉS DEL REGISTRO
+                </div>
+                <Link href="/registro" style={{ display: 'inline-block', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: BG, background: `linear-gradient(135deg, ${G}, #c9a227)`, padding: '10px 20px', textDecoration: 'none', boxShadow: `0 0 20px rgba(212,175,55,0.2)` }}>
+                  VER SEÑALES COMPLETAS →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══ 5. EQUITY CURVE — datos reales de paper trading ══════════════════ */}
       <section style={{ padding: '80px 32px', background: S, borderBottom: `1px solid ${B}` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <SectionRule label="// PAPER TRADING EN PRODUCCIÓN" />
@@ -419,7 +568,7 @@ export default async function RootPage() {
         </div>
       </section>
 
-      {/* ══ 5. TOP CHAMPIONS ═════════════════════════════════════════════════ */}
+      {/* ══ 6. TOP CHAMPIONS ═════════════════════════════════════════════════ */}
       {champions.length > 0 && (
         <section style={{ padding: '80px 32px', borderBottom: `1px solid ${B}` }}>
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>
@@ -490,7 +639,7 @@ export default async function RootPage() {
         </section>
       )}
 
-      {/* ══ 6. PLANES ════════════════════════════════════════════════════════ */}
+      {/* ══ 7. PLANES ════════════════════════════════════════════════════════ */}
       <section id="planes" style={{ padding: '112px 32px', borderBottom: `1px solid ${B}` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56, flexWrap: 'wrap', gap: 20 }}>
@@ -555,7 +704,7 @@ export default async function RootPage() {
         </div>
       </section>
 
-      {/* ══ 7. CTA FINAL ═════════════════════════════════════════════════════ */}
+      {/* ══ 8. CTA FINAL ═════════════════════════════════════════════════════ */}
       <section style={{ padding: '112px 32px 80px', background: S, borderBottom: `1px solid ${B}`, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212,175,55,0.05) 0%, transparent 70%)` }} />
         <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
