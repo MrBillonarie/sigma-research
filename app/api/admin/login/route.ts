@@ -70,7 +70,7 @@ function createSessionCookie(secret: string): string {
 
 // ─── POST /api/admin/login ────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
 
   const { allowed, sb } = await checkLoginRateLimit(ip)
   if (!allowed) {

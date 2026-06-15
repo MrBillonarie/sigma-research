@@ -87,7 +87,7 @@ export default function OnboardingWizard() {
             <span style={{ fontSize: 22, fontFamily: MONO, color: GOLD }}>Σ</span>
             <div>
               <div style={{ fontFamily: BEBAS, fontSize: 16, letterSpacing: 2, color: '#e8e9f0' }}>
-                BIENVENIDO A SIGMA RESEARCH
+                BIENVENIDO A SQUANT DESK
               </div>
               <div style={{ fontFamily: MONO, fontSize: 10, color: '#7a7f9a', letterSpacing: 1 }}>
                 Configuración inicial — 2 minutos

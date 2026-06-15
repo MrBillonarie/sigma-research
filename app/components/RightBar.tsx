@@ -88,7 +88,8 @@ const SESSIONS = [
 ] as const
 
 // ─── Own setups (edit manually) ───────────────────────────────────────────────
-const SETUPS: Setup[] = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _SETUPS: Setup[] = [
   {
     id: '1', par: 'BTCUSDT', tipo: 'LONG',
     entry: 83500, sl: 81200, tp: 88000, rr: 2.1,
@@ -591,7 +592,8 @@ export default function RightBar() {
 }
 
 // ─── SetupCard: handles LONG / SHORT / LP ─────────────────────────────────────
-function SetupCard({ s, price }: { s: Setup; price: number }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _SetupCard({ s, price }: { s: Setup; price: number }) {
 
   if (s.tipo === 'LP') {
     const st      = resolveLpStatus(s, price)

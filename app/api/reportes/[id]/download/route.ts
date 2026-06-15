@@ -33,17 +33,9 @@ export async function GET(
 
   const service = makeServiceClient()
 
-  // Validate plan
-  const { data: sub } = await service
-    .from('subscriptions')
-    .select('plan, status')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .maybeSingle()
-
-  if (!sub) {
-    return NextResponse.json({ error: 'Sin plan activo.' }, { status: 403 })
-  }
+  // Validate plan via app_metadata
+  const { data: authUser } = await service.auth.admin.getUserById(user.id)
+  const plan = (authUser?.user?.app_metadata?.plan as string) ?? 'free'
 
   // Fetch report
   const { data: reporte } = await service
@@ -60,7 +52,7 @@ export async function GET(
   }
 
   // Plan MENSUAL: solo el más reciente; ANUAL: todos
-  if (sub.plan === 'mensual') {
+  if (plan !== 'pro' && plan !== 'anual') {
     const { data: latest } = await service
       .from('reportes')
       .select('id')

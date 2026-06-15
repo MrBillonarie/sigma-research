@@ -30,20 +30,17 @@ export async function POST(req: NextRequest) {
     .single()
   if (error) return NextResponse.json({ error }, { status: 500 })
 
-  // Notificar suscriptores activos en background
+  // Notificar a todos los usuarios con email confirmado en background
   void (async () => {
     try {
       const service = makeService()
-      const { data: subs } = await service
-        .from('subscriptions')
-        .select('user_id')
-        .eq('status', 'active')
-      if (!subs?.length) return
-      const ids = subs.map(s => s.user_id)
-      const { data: users } = await service.auth.admin.listUsers()
-      const subscribers = (users?.users ?? [])
-        .filter(u => ids.includes(u.id))
-        .map(u => ({ email: u.email!, nombre: (u.user_metadata?.nombre as string) || u.email!.split('@')[0] }))
+      const { data: authData } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      const subscribers = (authData?.users ?? [])
+        .filter(u => u.email && u.email_confirmed_at)
+        .map(u => ({
+          email:  u.email!,
+          nombre: (u.user_metadata?.nombre as string) || u.email!.split('@')[0],
+        }))
       if (subscribers.length) {
         await sendNuevoReporte(subscribers, data)
       }

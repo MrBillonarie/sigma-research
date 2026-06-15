@@ -1,52 +1,41 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Rutas que no requieren sesión — todo lo demás queda bloqueado
 const PUBLIC = new Set([
   '/',
+  '/en',
   '/login',
+  '/en/login',
   '/registro',
+  '/en/registro',
   '/recuperar',
+  '/nueva-contrasena',
   '/quienes-somos',
   '/terminos',
   '/privacidad',
   '/faq',
   '/contacto',
-  '/reportes',
+  '/en/contacto',
   '/recursos',
+  '/reportes',
+  '/offline',
+  '/demo',
+  '/sigma-live',
 ])
-
-const PROTECTED = [
-  '/home',
-  '/terminal',
-  '/journal',
-  '/calendario',
-  '/modelos',
-  '/montecarlo',
-  '/lp-defi',
-  '/lp-signal',
-  '/perfil',
-  '/portfolio',
-  '/fire',
-  '/diagnosticador',
-  '/ingresos-pasivos',
-  '/tax',
-  '/mis-reportes',
-  '/admin',
-]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow all explicitly public routes
+  // Rutas públicas: pasan siempre
   if (PUBLIC.has(pathname)) return NextResponse.next()
 
-  // Only guard protected routes
-  const isProtected = PROTECTED.some(p => pathname === p || pathname.startsWith(p + '/'))
-  if (!isProtected) return NextResponse.next()
+  // Admin: tiene su propio sistema de auth HMAC (cookie sigma_admin_session)
+  if (pathname.startsWith('/admin')) return NextResponse.next()
 
+  // Todo lo demás requiere sesión Supabase activa
   const response = NextResponse.next()
 
-  // Build a Supabase server client that reads/writes cookies on the request
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -63,12 +52,11 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getUser() refreshes the session if it's expired and verifies the JWT
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', pathname) // preserve intended destination
+    loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
@@ -77,21 +65,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/home/:path*',
-    '/terminal/:path*',
-    '/journal/:path*',
-    '/calendario/:path*',
-    '/modelos/:path*',
-    '/montecarlo/:path*',
-    '/lp-defi/:path*',
-    '/lp-signal/:path*',
-    '/perfil/:path*',
-    '/portfolio/:path*',
-    '/fire/:path*',
-    '/diagnosticador/:path*',
-    '/ingresos-pasivos/:path*',
-    '/tax/:path*',
-    '/mis-reportes/:path*',
-    '/admin/:path*',
+    // Aplica a todas las rutas excepto assets estáticos y rutas de API
+    // Las rutas /api/ manejan su propio auth internamente
+    '/((?!_next/static|_next/image|favicon\\.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?|ttf|eot|otf|map)).*)',
   ],
 }
