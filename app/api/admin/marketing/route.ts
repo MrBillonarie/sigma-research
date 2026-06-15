@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkAdminAuth } from '@/lib/adminAuth'
 import { sendMarketingEmail } from '@/lib/email'
+import { logAdminAction } from '@/lib/adminAudit'
 
 function sb() {
   return createClient(
@@ -37,5 +38,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: result.error ?? 'Error al enviar' }, { status: 500 })
   }
 
+  void logAdminAction('marketing.send', undefined, { segmento, subject, sent: emails.length })
   return NextResponse.json({ ok: true, sent: emails.length })
 }

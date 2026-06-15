@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { safeEqual } from '@/lib/crypto'
+import { logAdminAction } from '@/lib/adminAudit'
 
 function makeSb() {
   return createClient(
@@ -101,6 +102,7 @@ export async function POST(req: NextRequest) {
   await resetLoginRateLimit(ip, sb)
 
   const sessionToken = createSessionCookie(secret)
+  void logAdminAction('admin.login', undefined, { ip })
 
   const res = NextResponse.json({ ok: true })
   res.cookies.set('sigma_admin_session', sessionToken, {

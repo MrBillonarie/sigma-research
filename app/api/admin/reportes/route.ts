@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendNuevoReporte } from '@/lib/email'
 import { checkAdminAuth }  from '@/lib/adminAuth'
+import { logAdminAction }  from '@/lib/adminAudit'
 
 function makeService() {
   return createClient(
@@ -29,6 +30,8 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
   if (error) return NextResponse.json({ error }, { status: 500 })
+
+  void logAdminAction('reporte.create', data.id, { numero, titulo })
 
   // Notificar a todos los usuarios con email confirmado en background
   void (async () => {
@@ -62,6 +65,8 @@ export async function PATCH(req: NextRequest) {
     .select()
     .single()
   if (error) return NextResponse.json({ error }, { status: 500 })
+  const action = 'activo' in updates && Object.keys(updates).length === 1 ? 'reporte.toggle' : 'reporte.edit'
+  void logAdminAction(action, id, updates)
   return NextResponse.json({ reporte: data })
 }
 
@@ -70,5 +75,6 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json().catch(() => ({}))
   const { error } = await makeService().from('reportes').delete().eq('id', id)
   if (error) return NextResponse.json({ error }, { status: 500 })
+  void logAdminAction('reporte.delete', id)
   return NextResponse.json({ ok: true })
 }

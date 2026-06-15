@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkAdminAuth } from '@/lib/adminAuth'
+import { logAdminAction } from '@/lib/adminAudit'
 
 function sb() {
   return createClient(
@@ -45,5 +46,6 @@ export async function PATCH(req: NextRequest) {
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  void logAdminAction('user.plan_change', id, { plan })
   return NextResponse.json({ ok: true })
 }
