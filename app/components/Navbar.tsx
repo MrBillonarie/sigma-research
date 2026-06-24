@@ -33,6 +33,7 @@ const GROUPS = [
     label: 'Empresa',
     links: [
       { label: 'Quiénes somos', href: '/quienes-somos', desc: 'Nuestro equipo y misión' },
+      { label: 'Roadmap',       href: '/roadmap',       desc: 'Hitos y metas del motor' },
       { label: 'Contacto',      href: '/contacto',       desc: 'Habla con nosotros' },
     ],
   },
@@ -108,6 +109,12 @@ export default function Navbar() {
   // ── Close mobile menu on route change ───────────────────────────────────
   useEffect(() => { setMenuOpen(false); setMobileGroup(null) }, [pathname])
 
+  // ── Lock body scroll while mobile menu is open ──────────────────────────
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [menuOpen])
+
   const isActive      = useCallback((href: string) => pathname === href, [pathname])
   const groupIsActive = useCallback((g: typeof GROUPS[number]) =>
     g.links.some(l => pathname === l.href), [pathname])
@@ -119,7 +126,7 @@ export default function Navbar() {
     <nav
       ref={navRef}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-bg/95 backdrop-blur-md border-b border-border' : 'bg-transparent'
+        scrolled || menuOpen ? 'bg-bg/95 backdrop-blur-md border-b border-border' : 'bg-transparent'
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -129,7 +136,7 @@ export default function Navbar() {
           <div className="w-7 h-7 border border-gold flex items-center justify-center">
             <span className="display-heading text-gold text-sm leading-none">Σ</span>
           </div>
-          <span className="display-heading text-xl tracking-widest text-text">SQUANT DESK</span>
+          <span className="display-heading text-xl tracking-widest text-text">SIGMA RESEARCH</span>
         </Link>
 
         {/* ── Desktop nav ──────────────────────────────────────────────────── */}
@@ -271,8 +278,11 @@ export default function Navbar() {
       </div>
 
       {/* ── Mobile menu ──────────────────────────────────────────────────────── */}
+      {/* fixed + top-16/bottom-0: cubre TODO el alto restante de la pantalla,
+          para que el contenido de la pagina (hero, etc.) no asome debajo del
+          panel cuando este es mas corto que el viewport. */}
       {menuOpen && (
-        <div className="md:hidden bg-surface border-b border-border px-6 py-4 flex flex-col gap-1">
+        <div className="md:hidden fixed inset-x-0 top-16 h-[calc(100dvh-4rem)] bg-surface overflow-y-auto px-6 py-4 flex flex-col gap-1">
 
           {GROUPS.map(group => (
             <div key={group.id}>
@@ -331,9 +341,7 @@ export default function Navbar() {
               <>
                 <Link
                   href="/login"
-                  className={`section-label transition-colors ${
-                    isActive('/login') ? 'text-gold' : 'text-text-dim hover:text-gold'
-                  }`}
+                  className="gold-border px-5 py-2.5 section-label text-gold text-center hover:bg-gold hover:text-bg transition-all duration-200"
                 >
                   LOGIN
                 </Link>
