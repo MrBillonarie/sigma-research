@@ -93,6 +93,15 @@ const TRACKS: MilestoneTrack[] = [
     format: (n) => `${n}`,
     targets: [3, 4, 5, 6, 7],
   },
+  {
+    tag: 'M-07',
+    title: 'Departamentos / agentes operativos',
+    desc: 'Research, ejecución, riesgo, infraestructura, comunidad y más — funciones especializadas corriendo como áreas separadas (humano + agentes IA). Cada departamento nuevo existe porque cierra un vacío real, no porque "más es más".',
+    current: 5,
+    unit: 'departamentos',
+    format: (n) => `${n}`,
+    targets: [8, 10, 12, 15],
+  },
 ]
 
 function MilestoneCard({ t }: { t: MilestoneTrack }) {
@@ -324,7 +333,7 @@ export default function RoadmapPage() {
               <span className="gold-text">PROMESAS.</span>
             </h2>
             <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-2xl mb-12">
-              Seis escalones que medimos en público. Se actualizan a medida que el motor crece —
+              Siete escalones que medimos en público. Se actualizan a medida que el motor crece —
               sin maquillaje.
             </p>
           </FadeIn>
