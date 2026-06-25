@@ -87,11 +87,11 @@ const TRACKS: MilestoneTrack[] = [
   {
     tag: 'M-06',
     title: 'Motores activos',
-    desc: 'De los 5 motores de la arquitectura planeada (Cripto, Commodities, Acciones US, LATAM, Forex), cuántos están corriendo en vivo hoy.',
+    desc: 'De los 7 motores de la arquitectura planeada (Cripto, Commodities, Acciones US, Bonos & Macro, Futuros Índices, Forex & Índices Intl, LATAM), cuántos están corriendo en vivo hoy.',
     current: 2,
     unit: 'motores',
     format: (n) => `${n}`,
-    targets: [3, 4, 5],
+    targets: [3, 4, 5, 6, 7],
   },
 ]
 
@@ -230,19 +230,31 @@ const TIMELINE: { date: string; title: string; desc: string; status: Status }[] 
   {
     date: 'PRÓXIMO',
     title: 'Motor 3 — Acciones US',
-    desc: 'Extender la misma metodología de validación (walk-forward, robustness gates, Kelly sizing) al mercado de acciones estadounidense.',
+    desc: 'SPY · QQQ · IWM (S&P 500, Nasdaq 100, Russell 2000) vía ETFs, sin acciones individuales. Broker: IBKR. Misma metodología de validación que cripto y commodities.',
     status: 'next',
   },
   {
     date: 'PRÓXIMO',
-    title: 'Motor 4 — Mercados LATAM',
-    desc: 'Cobertura de activos latinoamericanos, pensado para usuarios que ya operan en mercados locales y quieren la misma rigurosidad cuantitativa.',
+    title: 'Motor 4 — Bonos & Macro',
+    desc: 'TLT · HYG · TBT · ZN · ZB — Treasury 20Y+, High Yield, notas y bonos 10Y-30Y. Estrategias de duration y crédito. Broker: IBKR.',
     status: 'next',
   },
   {
     date: 'PRÓXIMO',
-    title: 'Motor 5 — Forex',
-    desc: 'El quinto motor de la arquitectura planeada, completando la cobertura cripto + commodities + acciones + LATAM + forex bajo un solo dashboard.',
+    title: 'Motor 5 — Futuros Índices',
+    desc: 'MES · MNQ · MYM — micro-futuros de S&P 500, Nasdaq 100 y Dow Jones sobre CME. Broker: IBKR.',
+    status: 'next',
+  },
+  {
+    date: 'PRÓXIMO',
+    title: 'Motor 6 — Forex & Índices Intl',
+    desc: 'EUR/USD · GBP/USD · USD/JPY · USD/CHF vía IBKR IDEALPRO. DAX, FTSE y Nikkei en una segunda fase (requiere margen multi-moneda).',
+    status: 'next',
+  },
+  {
+    date: 'PRÓXIMO',
+    title: 'Motor 7 — LATAM',
+    desc: 'Acciones de Chile, Brasil y México — pensado para usuarios que ya operan en mercados locales y quieren la misma rigurosidad cuantitativa.',
     status: 'next',
   },
   {
