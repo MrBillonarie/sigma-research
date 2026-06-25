@@ -65,6 +65,34 @@ const TRACKS: MilestoneTrack[] = [
     targets: [10, 20, 50, 100],
     link: { href: 'https://www.binance.com/es-LA/copy-trading/lead-details/5096369356136167936', label: 'Ver perfil público en Binance' },
   },
+  {
+    tag: 'M-04',
+    title: 'AUM en Copy Trading',
+    desc: 'Capital de seguidores operando junto al capital propio, mismo motor y misma disciplina de riesgo para todos.',
+    current: 816,
+    unit: 'USD',
+    format: (n) => `$${n.toLocaleString('es-CL')}`,
+    targets: [1000, 1500, 3000, 5000],
+    link: { href: 'https://www.binance.com/es-LA/copy-trading/lead-details/5096369356136167936', label: 'Ver perfil público en Binance' },
+  },
+  {
+    tag: 'M-05',
+    title: 'Usuarios registrados',
+    desc: 'Cuentas activas en la plataforma usando el dashboard, journal, FIRE y demás herramientas — con o sin Binance conectado.',
+    current: 32,
+    unit: 'usuarios',
+    format: (n) => `${n}`,
+    targets: [50, 100, 250, 500],
+  },
+  {
+    tag: 'M-06',
+    title: 'Motores activos',
+    desc: 'De los 5 motores de la arquitectura planeada (Cripto, Commodities, Acciones US, LATAM, Forex), cuántos están corriendo en vivo hoy.',
+    current: 2,
+    unit: 'motores',
+    format: (n) => `${n}`,
+    targets: [3, 4, 5],
+  },
 ]
 
 function MilestoneCard({ t }: { t: MilestoneTrack }) {
@@ -182,6 +210,12 @@ const TIMELINE: { date: string; title: string; desc: string; status: Status }[] 
     status: 'done',
   },
   {
+    date: 'JUNIO 2026',
+    title: 'App SQuant Desk instalable',
+    desc: 'La plataforma se instala como app desde el navegador (PWA) — ícono en el celular, pantalla completa, mismo dashboard en vivo. Sin pasar por App Store ni Google Play.',
+    status: 'done',
+  },
+  {
     date: 'AHORA',
     title: 'Arquitectura multi-motor',
     desc: 'Dos motores activos (Cripto + Commodities) corriendo 24/7 bajo un mismo meta-allocator de riesgo, con circuit breakers automáticos y trazabilidad completa de cada decisión.',
@@ -215,6 +249,12 @@ const TIMELINE: { date: string; title: string; desc: string; status: Status }[] 
     date: 'PRÓXIMO',
     title: 'API institucional',
     desc: 'Acceso programático a señales y métricas para quienes quieran integrar SQuant Desk en su propio stack de trading.',
+    status: 'next',
+  },
+  {
+    date: 'PRÓXIMO',
+    title: 'Motor personalizado según tu capital',
+    desc: 'En vez de un único mix de modelos para todos, el motor ajusta la combinación de estrategias y el sizing recomendado al tamaño real de tu portafolio — no es lo mismo operar con $500 que con $50.000.',
     status: 'next',
   },
 ]
@@ -272,7 +312,7 @@ export default function RoadmapPage() {
               <span className="gold-text">PROMESAS.</span>
             </h2>
             <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-2xl mb-12">
-              Tres escalones que medimos en público. Se actualizan a medida que el motor crece —
+              Seis escalones que medimos en público. Se actualizan a medida que el motor crece —
               sin maquillaje.
             </p>
           </FadeIn>
