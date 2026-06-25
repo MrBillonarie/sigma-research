@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import FadeIn from '@/app/components/landing/FadeIn'
 import SigmaDivider from '@/app/components/landing/SigmaDivider'
+import LiveHeroCounter from '@/app/components/landing/LiveHeroCounter'
 
 export const metadata: Metadata = {
   title: 'Roadmap — SQuant Desk',
@@ -73,7 +74,15 @@ function MilestoneCard({ t }: { t: MilestoneTrack }) {
   const pct = next ? Math.min(100, Math.max(0, ((t.current - prev) / (next - prev)) * 100) ) : 100
 
   return (
-    <div className="bg-surface border border-border p-8 flex flex-col gap-6 h-full">
+    <div className="relative bg-surface border border-gold/25 p-8 flex flex-col gap-6 h-full overflow-hidden transition-colors hover:border-gold/50">
+      {/* top scan line */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/70 to-transparent" />
+      {/* corner brackets */}
+      <div className="absolute top-0 left-0 w-4 h-4 pointer-events-none"
+        style={{ borderTop: '2px solid rgba(212,175,55,0.5)', borderLeft: '2px solid rgba(212,175,55,0.5)' }} />
+      <div className="absolute bottom-0 right-0 w-4 h-4 pointer-events-none"
+        style={{ borderBottom: '2px solid rgba(212,175,55,0.5)', borderRight: '2px solid rgba(212,175,55,0.5)' }} />
+
       <div>
         <span className="terminal-text text-xs text-gold tracking-widest">{t.tag}</span>
         <h3 className="text-text text-lg font-semibold mt-2 mb-2">{t.title}</h3>
@@ -81,14 +90,23 @@ function MilestoneCard({ t }: { t: MilestoneTrack }) {
       </div>
 
       <div className="flex items-baseline gap-2">
-        <span className="num text-gold font-bold text-3xl tabular-nums">{t.format(t.current)}</span>
+        <span className="num text-gold font-bold text-4xl tabular-nums" style={{ textShadow: '0 0 18px rgba(212,175,55,0.35)' }}>
+          {t.format(t.current)}
+        </span>
         <span className="terminal-text text-text-dim text-xs">{t.unit} hoy</span>
       </div>
 
       {next !== null && (
         <div>
-          <div className="bg-bg border border-border rounded-full h-1.5 overflow-hidden mb-2">
-            <div className="bg-gold h-full rounded-full transition-all" style={{ width: `${pct}%` }} />
+          <div className="bg-bg border border-gold/10 rounded-full h-1.5 overflow-hidden mb-2">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${pct}%`,
+                background: 'linear-gradient(90deg, rgba(212,175,55,0.4) 0%, rgba(255,245,180,1) 60%, rgba(212,175,55,0.6) 100%)',
+                transition: 'width 1.2s ease',
+              }}
+            />
           </div>
           <div className="terminal-text text-[10px] text-text-dim">
             {pct.toFixed(0)}% hacia {t.format(next)}
@@ -208,6 +226,23 @@ export default function RoadmapPage() {
       {/* ── HERO ────────────────────────────────────────────────────────── */}
       <section className="pt-40 pb-24 px-6 bg-grid-pattern bg-grid relative overflow-hidden">
         <div className="absolute inset-0 bg-radial-gold pointer-events-none" />
+
+        {/* Σ watermark */}
+        <div
+          className="absolute right-0 top-1/2 -translate-y-1/2 select-none pointer-events-none"
+          aria-hidden
+          style={{
+            fontSize: 'clamp(18rem, 40vw, 38rem)',
+            lineHeight: 1,
+            color: 'rgba(212,175,55,0.03)',
+            fontFamily: 'var(--font-bebas, "Bebas Neue", sans-serif)',
+            userSelect: 'none',
+            transform: 'translateY(-50%) translateX(18%)',
+          }}
+        >
+          Σ
+        </div>
+
         <div className="max-w-7xl mx-auto relative">
           <FadeIn>
             <div className="section-label text-gold mb-6">{'// HOJA DE RUTA'}</div>
@@ -215,11 +250,14 @@ export default function RoadmapPage() {
               CONSTRUIDO EN<br />
               <span className="gold-text">PÚBLICO.</span>
             </h1>
-            <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-2xl">
+            <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-2xl mb-10">
               No prometemos nada que no podamos mostrar. Esta es la línea de tiempo real
               del SIGMA ENGINE: lo que ya está construido y operando con capital real,
               lo que está en curso, y hacia dónde va la arquitectura.
             </p>
+          </FadeIn>
+          <FadeIn delay={150}>
+            <LiveHeroCounter />
           </FadeIn>
         </div>
       </section>
@@ -258,22 +296,34 @@ export default function RoadmapPage() {
       {/* ── TIMELINE ────────────────────────────────────────────────────── */}
       <section className="py-20 px-6">
         <div className="max-w-3xl mx-auto">
+          <FadeIn>
+            <div className="section-label text-gold mb-3">{'// LÍNEA DE TIEMPO'}</div>
+            <h2 className="display-heading text-[clamp(2rem,5vw,3.5rem)] text-text leading-[0.95] mb-12">
+              CADA HITO,<br /><span className="gold-text">EN ORDEN.</span>
+            </h2>
+          </FadeIn>
           <div className="flex flex-col">
             {TIMELINE.map((item, i) => (
               <FadeIn key={i} delay={Math.min(i * 60, 360)}>
-                <div className="flex gap-6 pb-10 relative">
+                <div className="flex gap-6 pb-10 relative group">
                   {/* rail */}
                   <div className="flex flex-col items-center w-6 shrink-0">
-                    <div
-                      className={`w-2.5 h-2.5 rounded-full mt-1.5 ${
-                        item.status === 'done' ? 'bg-gold' : item.status === 'progress' ? 'bg-text' : 'bg-border'
-                      }`}
-                    />
-                    {i < TIMELINE.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
+                    <div className="relative mt-1.5">
+                      {item.status === 'progress' && (
+                        <span className="absolute inset-0 rounded-full bg-text/40 animate-ping" />
+                      )}
+                      <div
+                        className={`relative w-2.5 h-2.5 rounded-full ${
+                          item.status === 'done' ? 'bg-gold' : item.status === 'progress' ? 'bg-text' : 'bg-border'
+                        }`}
+                        style={item.status === 'done' ? { boxShadow: '0 0 8px rgba(212,175,55,0.7)' } : undefined}
+                      />
+                    </div>
+                    {i < TIMELINE.length - 1 && <div className="w-px flex-1 bg-gradient-to-b from-border to-border/30 mt-1" />}
                   </div>
 
                   {/* content */}
-                  <div className="flex-1 pb-2">
+                  <div className="flex-1 pb-2 transition-transform group-hover:translate-x-1">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <span className="terminal-text text-[10px] tracking-widest text-text-dim">{item.date}</span>
                       <span
