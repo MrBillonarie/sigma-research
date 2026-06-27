@@ -40,6 +40,10 @@ export async function GET() {
     html = html.replace(/(url|href)\s*[:=]\s*'\/api\//g, "$1: '/api/vps/motor-api/")
     html = html.replace(/(url|href)\s*[:=]\s*"\/api\//g, '$1: "/api/vps/motor-api/')
 
+    // 3b. Patch download links → proxy that streams the file (avoids 404 on squantdesk.com)
+    html = html.replace(/href="\/download\//g, 'href="/api/vps/motor-download/')
+    html = html.replace(/href='\/download\//g, "href='/api/vps/motor-download/")
+
     // 4. Also patch POST /login calls (not needed on squantdesk)
     // Strip login modal entirely — user is already authenticated via squantdesk
     html = html.replace(/id=["']auth[_-]?modal["'][^>]*>[\s\S]*?<\/div>/i, '')
