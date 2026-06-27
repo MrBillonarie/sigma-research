@@ -1,7 +1,19 @@
 import { NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
 const PASS = '0808'
+
+function makeClient() {
+  const cookieStore = cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  )
+}
 
 async function getAuthCookie(): Promise<string> {
   const res = await fetch(`${VPS}/login`, {
@@ -19,6 +31,17 @@ async function getAuthCookie(): Promise<string> {
 }
 
 export async function GET() {
+  const { data: { user } } = await makeClient().auth.getUser()
+  const engineCookie = cookies().get('sigma_engine_session')?.value
+  if (!user && !verifyEngineMonitorSession(engineCookie)) {
+    return new NextResponse(
+      `<html><body style="background:#020510;color:#c9a227;font-family:monospace;padding:40px">
+        <h2>SIGMA ENGINE — requiere sesión</h2>
+      </body></html>`,
+      { status: 401, headers: { 'Content-Type': 'text/html' } }
+    )
+  }
+
   try {
     // 1. Authenticate with motor to get session cookie
     const sessionCookie = await getAuthCookie()
