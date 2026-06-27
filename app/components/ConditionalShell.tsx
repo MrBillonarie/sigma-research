@@ -8,7 +8,7 @@ const DASHBOARD_ROUTES = [
   '/montecarlo', '/fire', '/modelos', '/mis-reportes',
   '/lp-defi', '/lp-signal', '/perfil', '/diagnosticador',
   '/ingresos-pasivos', '/portafolio', '/tax', '/notificaciones',
-  '/comparador', '/motor-decision', '/reportes',
+  '/comparador', '/motor-decision', '/reportes', '/soporte',
   '/onboarding', '/auth',
   '/motor-en-vivo',
 ]

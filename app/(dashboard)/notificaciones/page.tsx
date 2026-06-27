@@ -32,6 +32,7 @@ function TypeIcon({ type }: { type: string }) {
   if (type === 'mercado')   return <span style={{ ...base, background: 'rgba(99,179,237,0.12)', color: '#63b3ed' }}>~</span>
   if (type === 'portfolio') return <span style={{ ...base, background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>$</span>
   if (type === 'reporte')   return <span style={{ ...base, background: 'rgba(167,139,250,0.12)', color: '#a78bfa' }}>▣</span>
+  if (type === 'soporte')   return <span style={{ ...base, background: 'rgba(250,204,21,0.12)', color: '#facc15' }}>?</span>
   return <span style={{ ...base, background: 'rgba(122,127,154,0.15)', color: '#7a7f9a' }}>!</span>
 }
 
@@ -53,6 +54,7 @@ const TYPE_LABELS: Record<string, string> = {
   portfolio: 'Portafolio',
   reporte:   'Reportes',
   sistema:   'Sistema',
+  soporte:   'Soporte',
 }
 
 export default function NotificacionesPage() {

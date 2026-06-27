@@ -46,6 +46,9 @@ function TypeIcon({ type }: { type: string }) {
   if (type === 'reporte') {
     return <span style={{ ...base, background: 'rgba(167,139,250,0.12)', color: '#a78bfa' }}>▣</span>
   }
+  if (type === 'soporte') {
+    return <span style={{ ...base, background: 'rgba(250,204,21,0.12)', color: '#facc15' }}>?</span>
+  }
   // sistema / system / default
   return <span style={{ ...base, background: 'rgba(122,127,154,0.15)', color: '#7a7f9a' }}>!</span>
 }
