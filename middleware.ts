@@ -21,6 +21,7 @@ const PUBLIC = new Set([
   '/recursos',
   '/reportes',
   '/roadmap',
+  '/white-paper',
   '/offline',
   '/demo',
   '/sigma-live',

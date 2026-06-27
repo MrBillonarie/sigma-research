@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import fs from 'fs'
 import FadeIn from '@/app/components/landing/FadeIn'
 import SigmaDivider from '@/app/components/landing/SigmaDivider'
 import LiveHeroCounter from '@/app/components/landing/LiveHeroCounter'
@@ -8,6 +9,21 @@ export const metadata: Metadata = {
   title: 'Roadmap — SQuant Desk',
   description:
     'La hoja de ruta de SQuant Desk: lo que ya construimos, en qué estamos trabajando y hacia dónde va la arquitectura multi-motor.',
+}
+
+// AUM y copy traders se actualizan vía /aum N y /copytraders N en Telegram
+// (Binance no expone esos numeros por API publica) -- el roadmap los lee
+// en vivo desde estos archivos para no quedar desactualizado.
+export const revalidate = 60
+
+function readJsonNumber(filePath: string, key: string): number | null {
+  try {
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+    const value = data[key]
+    return typeof value === 'number' ? value : null
+  } catch {
+    return null
+  }
 }
 
 type Status = 'done' | 'progress' | 'next'
@@ -52,14 +68,14 @@ const TRACKS: MilestoneTrack[] = [
     desc: 'Capital propio operando en vivo (no incluye capital de seguidores de copy trading). Crece solo con profit reinvertido — sin nuevos aportes externos.',
     current: 521.51,
     unit: 'USD',
-    format: (n) => `$${n.toLocaleString('es-CL')}`,
+    format: (n) => `$${n.toLocaleString('es-CL', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`,
     targets: [1000, 2000, 5000, 10000],
   },
   {
     tag: 'M-03',
     title: 'Copy traders activos',
     desc: 'Personas siguiendo la cuenta de Lead Trader en Binance Copy Trading con capital real.',
-    current: 8,
+    current: 11,
     unit: 'traders',
     format: (n) => `${n}`,
     targets: [10, 20, 50, 100],
@@ -69,9 +85,9 @@ const TRACKS: MilestoneTrack[] = [
     tag: 'M-04',
     title: 'AUM en Copy Trading',
     desc: 'Capital de seguidores operando junto al capital propio, mismo motor y misma disciplina de riesgo para todos.',
-    current: 816,
+    current: 1873.47,
     unit: 'USD',
-    format: (n) => `$${n.toLocaleString('es-CL')}`,
+    format: (n) => `$${n.toLocaleString('es-CL', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`,
     targets: [1000, 1500, 3000, 5000],
     link: { href: 'https://www.binance.com/es-LA/copy-trading/lead-details/5096369356136167936', label: 'Ver perfil público en Binance' },
   },
@@ -281,6 +297,17 @@ const TIMELINE: { date: string; title: string; desc: string; status: Status }[] 
 ]
 
 export default function RoadmapPage() {
+  const liveAum = readJsonNumber('/opt/sigma/results/reports/aum.json', 'aum_total')
+  const liveOwnCapital = readJsonNumber('/opt/sigma/results/reports/aum.json', 'own_capital')
+  const liveCopytraders = readJsonNumber('/opt/sigma/results/reports/copytraders.json', 'copytraders_total')
+
+  const tracks = TRACKS.map((t) => {
+    if (t.tag === 'M-02' && liveOwnCapital !== null) return { ...t, current: liveOwnCapital }
+    if (t.tag === 'M-04' && liveAum !== null) return { ...t, current: liveAum }
+    if (t.tag === 'M-03' && liveCopytraders !== null) return { ...t, current: liveCopytraders }
+    return t
+  })
+
   return (
     <main className="bg-bg min-h-screen">
 
@@ -338,7 +365,7 @@ export default function RoadmapPage() {
             </p>
           </FadeIn>
           <div className="grid md:grid-cols-3 gap-6">
-            {TRACKS.map((t) => (
+            {tracks.map((t) => (
               <FadeIn key={t.tag}>
                 <MilestoneCard t={t} />
               </FadeIn>

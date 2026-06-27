@@ -34,6 +34,7 @@ const GROUPS = [
     links: [
       { label: 'Quiénes somos', href: '/quienes-somos', desc: 'Nuestro equipo y misión' },
       { label: 'Roadmap',       href: '/roadmap',       desc: 'Hitos y metas del motor' },
+      { label: 'White Paper',   href: '/white-paper',   desc: 'Metodología y track record' },
       { label: 'Contacto',      href: '/contacto',       desc: 'Habla con nosotros' },
     ],
   },
@@ -75,11 +76,19 @@ export default function Navbar() {
   // ── Auth state ───────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
+      // Si la sesión se cae a mitad de navegación (token de refresh
+      // inválido/expirado, logout en otra pestaña), antes los componentes
+      // del dashboard simplemente dejaban de cargar datos en silencio — se
+      // sentía como que "algo se rompió" en vez de un logout claro.
+      const PUBLIC_PREFIXES = ['/login', '/registro', '/recuperar', '/nueva-contrasena', '/auth/callback']
+      if (event === 'SIGNED_OUT' && !PUBLIC_PREFIXES.some(p => pathname.startsWith(p)) && pathname !== '/') {
+        router.push(`/login?next=${encodeURIComponent(pathname)}`)
+      }
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [pathname, router])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
