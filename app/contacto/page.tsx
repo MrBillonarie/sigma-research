@@ -69,9 +69,9 @@ export default function ContactoPage() {
         <div className="mb-16">
           <div className="section-label text-gold mb-4">{'// CONTACTO'}</div>
           <h1 className="display-heading text-6xl sm:text-8xl text-text leading-none mb-4">
-            HABLA CON
+            ESCRÍBEME
             <br />
-            <span className="gold-text">EL EQUIPO</span>
+            <span className="gold-text">DIRECTO</span>
           </h1>
           <p className="terminal-text text-text-dim max-w-md">
             Responderemos en menos de 24 horas en días laborables.
@@ -213,8 +213,8 @@ export default function ContactoPage() {
             </div>
             <div className="border-t border-border pt-8 flex flex-col gap-3">
               <div className="section-label text-gold mb-1">SOPORTE GENERAL</div>
-              <a href="mailto:soporte@sigma-research.io" className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
-                soporte@sigma-research.io
+              <a href="mailto:alonsomoyanoreyes@gmail.com" className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
+                alonsomoyanoreyes@gmail.com
               </a>
               <Link href="/faq" className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
                 → Ver preguntas frecuentes

@@ -95,6 +95,7 @@ function fmtDate(iso: string) {
 export default function AdminDashboard() {
   const router  = useRouter()
   const [tab,     setTab]     = useState<Tab>('resumen')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [modelos, setModelos] = useState(mockModelos)
   const [loading, setLoading] = useState(true)
 
@@ -384,6 +385,7 @@ export default function AdminDashboard() {
     router.push('/admin')
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function toggleModelo(tag: string) {
     setModelos(prev => {
       const next = prev.map(m => m.tag === tag ? { ...m, activo: !m.activo } : m)

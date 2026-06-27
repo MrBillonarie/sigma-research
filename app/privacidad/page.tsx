@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Política de Privacidad — Sigma Research',
-  description: 'Política de privacidad y protección de datos de Sigma Research.',
+  title: 'Política de Privacidad — SQuant Desk',
+  description: 'Política de privacidad y protección de datos de SQuant Desk.',
 }
 
 const sections = [
@@ -11,7 +11,7 @@ const sections = [
     id: '1',
     title: '1. RESPONSABLE DEL TRATAMIENTO',
     body: [
-      'Sigma Research ("nosotros", "la Empresa") es el responsable del tratamiento de los datos personales recabados a través de la Plataforma. Puedes contactarnos en: privacidad@sigma-research.io',
+      'SQuant Desk ("nosotros", "la Empresa") es el responsable del tratamiento de los datos personales recabados a través de la Plataforma. Puedes contactarnos en: alonsomoyanoreyes@gmail.com',
     ],
   },
   {
@@ -56,8 +56,8 @@ const sections = [
     id: '7',
     title: '7. TUS DERECHOS',
     body: [
-      'De acuerdo con la Ley N° 19.628 sobre Protección de la Vida Privada de Chile y normativa aplicable, tienes derecho a: acceder a tus datos personales, rectificarlos, cancelarlos y oponerte a su tratamiento (derechos ARCO).',
-      'Para ejercer cualquiera de estos derechos, escríbenos a privacidad@sigma-research.io adjuntando una copia de tu documento de identidad. Responderemos en un plazo máximo de 30 días.',
+      'De acuerdo con la Ley N° 19.628 sobre Protección de la Vida Privada (Chile) y normativa aplicable, tienes derecho a: acceder a tus datos, rectificarlos, cancelarlos y oponerte a su tratamiento.',
+      'Para ejercer cualquiera de estos derechos, escríbenos a alonsomoyanoreyes@gmail.com indicando tu solicitud y email de cuenta. Responderemos en un plazo máximo de 30 días hábiles.',
     ],
   },
   {
@@ -79,7 +79,7 @@ const sections = [
     id: '10',
     title: '10. CONTACTO Y RECLAMACIONES',
     body: [
-      'Para cualquier consulta sobre privacidad: privacidad@sigma-research.io. Si consideras que el tratamiento de tus datos vulnera la normativa chilena, puedes presentar una denuncia ante el Consejo para la Transparencia (consejotransparencia.cl) o recurrir a los tribunales civiles competentes en Chile.',
+      'Para cualquier consulta sobre privacidad: alonsomoyanoreyes@gmail.com. Si consideras que el tratamiento de tus datos vulnera la normativa, puedes consultar con el Consejo para la Transparencia de Chile (cplt.cl).',
     ],
   },
 ]
@@ -99,7 +99,7 @@ export default function PrivacidadPage() {
             <span className="gold-text">PRIVACIDAD</span>
           </h1>
           <p className="terminal-text text-text-dim text-xs">
-            Última actualización: enero 2025
+            Última actualización: junio 2026
           </p>
         </div>
       </section>

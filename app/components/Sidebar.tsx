@@ -4,7 +4,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 
-
 import {
   Home,
   Activity,
@@ -28,7 +27,6 @@ import {
   Bell,
   Landmark,
   Zap,
-
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,11 +34,13 @@ type LucideIcon = React.ForwardRefExoticComponent<any> | React.ComponentType<any
 import { supabase } from '../lib/supabase'
 import NotificationBell from './NotificationBell'
 
+import { C, F } from '../lib/constants'
+
 // ─── Constants ────────────────────────────────────────────────────────────────
-const GOLD   = '#d4af37'
-const BORDER = '#1a1d2e'
-const MUTED  = '#8b8fa8'
-const MONO   = 'var(--font-dm-mono)'
+const GOLD   = C.gold
+const BORDER = C.border
+const MUTED  = C.textDim
+const MONO   = F.mono
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 const navItems = [
@@ -57,7 +57,6 @@ const navItems = [
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
   { label: 'Motor',          href: '/motor-decision',   icon: Zap             },
-
 ]
 
 const comparadorItems = [
@@ -93,14 +92,13 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
-
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
   { id: '/comparador/renta-fija',     label: 'Renta Fija',     href: '/comparador/renta-fija',    category: 'Comparador',  icon: Landmark        },
   { id: '/comparador/fondos-mutuos',  label: 'Fondos Mutuos',  href: '/comparador/fondos-mutuos', category: 'Comparador',  icon: TrendingUp      },
   { id: '/comparador/etfs',           label: 'ETFs',           href: '/comparador/etfs',          category: 'Comparador',  icon: TrendingUp      },
   // Tickers
   ...TICKER_LIST.map(t => ({
-    id: `ticker-${t}`, label: `Ver ${t} en HUD`, href: `/hud?symbol=${t}`,
+    id: `ticker-${t}`, label: `Ver ${t} en Terminal`, href: `/terminal?symbol=${t}`,
     category: 'Terminal', keywords: [t.toLowerCase(), t],
   })),
   // Config
@@ -109,10 +107,10 @@ const ALL_ITEMS: SearchItem[] = [
   { id: 'cfg-name', label: 'Editar nombre',       href: '/perfil#editar-nombre', category: 'Configuración', icon: Settings, keywords: ['nombre','editar','username','perfil'] },
   { id: 'cfg-plan', label: 'Plan / Reportes',     href: '/mis-reportes',         category: 'Configuración', icon: Settings, keywords: ['plan','reportes','upgrade','suscripcion'] },
   // Alert
-  { id: 'alert-new', label: '+ Nueva alerta', href: '/notificaciones', category: 'Alerta', icon: Bell, keywords: ['alerta','crear alerta','nueva alerta','nueva','alert'] },
+  { id: 'alert-new', label: '+ Nueva alerta', href: '/terminal', category: 'Alerta', icon: Bell, keywords: ['alerta','crear alerta','nueva alerta','nueva','alert'] },
 ]
 
-const QUICK_IDS = ['/hud', '/mis-reportes', 'alert-new']
+const QUICK_IDS = ['/terminal', '/hud', '/mis-reportes', 'alert-new']
 const QUICK_ACCESS = ALL_ITEMS.filter(i => QUICK_IDS.includes(i.id))
 
 function searchItems(query: string): SearchItem[] {
@@ -343,7 +341,6 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 export default function Sidebar() {
   const pathname  = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-
   async function handleLogout() {
     await supabase.auth.signOut()
     window.location.href = '/'
@@ -352,17 +349,18 @@ export default function Sidebar() {
   const navLinkBase: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: collapsed ? 0 : 12,
-    padding: '9px 12px',
-    borderRadius: 8,
-    minHeight: 38,
+    gap: collapsed ? 0 : 11,
+    padding: collapsed ? '10px 0' : '9px 10px',
+    borderRadius: 6,
+    minHeight: 36,
     textDecoration: 'none',
     fontFamily: MONO,
-    fontSize: 13,
-    letterSpacing: '0.01em',
-    transition: 'color 0.15s, background 0.15s',
+    fontSize: 12,
+    letterSpacing: '0.02em',
+    transition: 'color 0.12s, background 0.12s',
     width: '100%',
     justifyContent: collapsed ? 'center' : 'flex-start',
+    border: 'none',
   }
 
   return (
@@ -374,26 +372,29 @@ export default function Sidebar() {
         flexDirection: 'column',
         flexShrink: 0,
         height: '100vh',
-        width: collapsed ? 64 : 220,
-        background: '#0b0d14',
+        width: collapsed ? 60 : 216,
+        background: C.surface,
         borderRight: `1px solid ${BORDER}`,
-        transition: 'width 0.3s',
+        transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
         overflow: 'hidden',
       }}
     >
       {/* Logo */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: collapsed ? '20px 0' : '20px 16px',
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: collapsed ? '18px 0' : '16px 14px',
         borderBottom: `1px solid ${BORDER}`,
         justifyContent: collapsed ? 'center' : 'flex-start',
         flexShrink: 0,
       }}>
-        <Sigma size={24} style={{ color: GOLD, flexShrink: 0 }} />
+        <Sigma size={22} style={{ color: GOLD, flexShrink: 0 }} />
         {!collapsed && (
-          <span style={{ color: GOLD, fontFamily: 'var(--font-bebas)', fontSize: '1.1rem', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 700 }}>
-            SQuant
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <span style={{ color: GOLD, fontFamily: 'var(--font-bebas)', fontSize: '1.05rem', letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1 }}>
+              SQuant Desk
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.muted, letterSpacing: '0.15em' }}>MOTOR CUÁNTICO</span>
+          </div>
         )}
       </div>
 
@@ -418,25 +419,24 @@ export default function Sidebar() {
               title={collapsed ? label : undefined}
               style={{
                 ...navLinkBase,
-                color:      active ? GOLD  : MUTED,
-                background: active ? 'rgba(212,175,55,0.08)' : 'transparent',
+                color:       active ? GOLD : MUTED,
+                background:  active ? 'rgba(212,175,55,0.07)' : 'transparent',
+                borderLeft:  active ? `2px solid ${GOLD}` : '2px solid transparent',
+                paddingLeft: active ? (collapsed ? undefined : 8) : undefined,
               }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = MUTED }}
+              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
             >
-              <Icon size={18} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
+              <Icon size={16} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
               {!collapsed && <span>{label}</span>}
             </Link>
           )
         })}
 
-        {/* COMPARADOR section — pegado al fondo del nav */}
+        {/* COMPARADOR section */}
         <div style={{ borderTop: `1px solid ${BORDER}`, margin: '8px 0', marginTop: 'auto' }} />
         {!collapsed && (
-          <div style={{
-            padding: '0 4px 4px', fontFamily: MONO, fontSize: 9,
-            letterSpacing: '0.22em', color: MUTED, textTransform: 'uppercase',
-          }}>
+          <div style={{ padding: '0 4px 4px', fontFamily: MONO, fontSize: 8, letterSpacing: '0.22em', color: C.muted, textTransform: 'uppercase' }}>
             Comparador
           </div>
         )}
@@ -449,13 +449,14 @@ export default function Sidebar() {
               title={collapsed ? label : undefined}
               style={{
                 ...navLinkBase,
-                color:      active ? GOLD  : MUTED,
-                background: active ? 'rgba(212,175,55,0.08)' : 'transparent',
+                color:      active ? GOLD : MUTED,
+                background: active ? 'rgba(212,175,55,0.07)' : 'transparent',
+                borderLeft: active ? `2px solid ${GOLD}` : '2px solid transparent',
               }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = MUTED }}
+              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
             >
-              <Icon size={18} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
+              <Icon size={16} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
               {!collapsed && <span>{label}</span>}
             </Link>
           )
@@ -463,30 +464,31 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom: profile + logout */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 8px 16px', borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 8px 14px', borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
         <Link
           href="/perfil"
           title={collapsed ? 'Perfil' : undefined}
           style={{
             ...navLinkBase,
-            color:      pathname === '/perfil' ? GOLD  : MUTED,
-            background: pathname === '/perfil' ? 'rgba(212,175,55,0.08)' : 'transparent',
+            color:      pathname === '/perfil' ? GOLD : MUTED,
+            background: pathname === '/perfil' ? 'rgba(212,175,55,0.07)' : 'transparent',
+            borderLeft: pathname === '/perfil' ? `2px solid ${GOLD}` : '2px solid transparent',
           }}
-          onMouseEnter={e => { if (pathname !== '/perfil') (e.currentTarget as HTMLElement).style.color = '#e8e9f0' }}
-          onMouseLeave={e => { if (pathname !== '/perfil') (e.currentTarget as HTMLElement).style.color = MUTED }}
+          onMouseEnter={e => { if (pathname !== '/perfil') { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
+          onMouseLeave={e => { if (pathname !== '/perfil') { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
         >
-          <User size={18} style={{ flexShrink: 0 }} />
+          <User size={16} style={{ flexShrink: 0 }} />
           {!collapsed && <span>Perfil</span>}
         </Link>
 
         <button
           onClick={handleLogout}
           title={collapsed ? 'Salir' : undefined}
-          style={{ ...navLinkBase, background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#e8e9f0')}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = MUTED)}
+          style={{ ...navLinkBase, background: 'transparent', cursor: 'pointer', color: MUTED }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = C.red; (e.currentTarget as HTMLElement).style.background = 'rgba(248,113,113,0.05)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
         >
-          <LogOut size={18} style={{ flexShrink: 0 }} />
+          <LogOut size={16} style={{ flexShrink: 0 }} />
           {!collapsed && <span>Salir</span>}
         </button>
       </div>
@@ -494,15 +496,18 @@ export default function Sidebar() {
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed(c => !c)}
+        title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
         style={{
-          position: 'absolute', right: -12, top: 24,
+          position: 'absolute', right: -10, top: 22,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 24, height: 24, borderRadius: '50%',
-          background: '#1a1d2e', border: '1px solid #2a2d3e',
-          color: MUTED, cursor: 'pointer', zIndex: 10,
+          width: 20, height: 20, borderRadius: '50%',
+          background: C.border2, border: `1px solid ${C.border}`,
+          color: MUTED, cursor: 'pointer', zIndex: 10, transition: 'background 0.15s',
         }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.border; (e.currentTarget as HTMLElement).style.color = GOLD }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.border2; (e.currentTarget as HTMLElement).style.color = MUTED }}
       >
-        {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        {collapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
       </button>
     </aside>
   )

@@ -1,13 +1,32 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/app/lib/supabase'
-import { C as T } from '@/app/lib/constants'
 
-// ─── Motor open trades ────────────────────────────────────────────────────────
+const T = {
+  bg:      '#04050a',
+  surface: '#0b0d14',
+  border:  '#1a1d2e',
+  gold:    '#d4af37',
+  green:   '#34d399',
+  red:     '#f87171',
+  text:    '#e8e9f0',
+  dimText: '#7a7f9a',
+  muted:   '#3a3f55',
+  violet:  '#a78bfa',
+  blue:    '#60a5fa',
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+const SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB'] as const
+type Sym = typeof SYMBOLS[number]
+
+const SYM_LABEL: Record<Sym, string> = { BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', BNB: 'BNB' }
+
+// ─── Motor live trades ────────────────────────────────────────────────────────
 interface OpenTrade {
   sym?: string; tf?: string; direction?: string
   entry?: number; sl?: number; tp?: number
-  kelly_pct?: number; strategy?: string; grade?: string
+  strategy?: string; grade?: string; opened_at?: string
 }
 
 function useOpenTrades() {
@@ -22,24 +41,18 @@ function useOpenTrades() {
       } catch {}
     }
     load()
-    const id = setInterval(load, 60_000)
+    const id = setInterval(load, 60000)
     return () => clearInterval(id)
   }, [])
   return trades
 }
 
-function gradeColor(g?: string) {
+function motorGradeColor(g?: string) {
   if (g === 'A+') return '#ffd700'
-  if (g === 'A')  return '#00e676'
-  if (g === 'B')  return '#4a9eff'
-  return '#555'
+  if (g === 'A')  return '#34d399'
+  if (g === 'B')  return '#60a5fa'
+  return '#3a3f55'
 }
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-const SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB'] as const
-type Sym = typeof SYMBOLS[number]
-
-const SYM_LABEL: Record<Sym, string> = { BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', BNB: 'BNB' }
 
 interface Ticker { price: number; change24h: number; flash: 'up' | 'down' | null }
 interface ExtTicker { price: number; change24h: number; marketOpen: boolean }
@@ -74,20 +87,23 @@ const SESSIONS = [
   { name: 'NEW YORK', from: 13, to: 22, color: T.green,  tz: 'America/New_York', label: 'NY'     },
 ] as const
 
-const TF_OPTIONS = ['1m','5m','15m','1H','4H','1D','1W'] as const
-
-type SetupDraft = {
-  par: string; tipo: Setup['tipo']
-  entry: string; sl: string; tp: string; rr: string
-  rangeLow: string; rangeHigh: string; feeTier: string; protocol: string
-  timeframe: string; metodologia: string; nota: string
-}
-const EMPTY_SETUP: SetupDraft = {
-  par: '', tipo: 'LONG',
-  entry: '', sl: '', tp: '', rr: '',
-  rangeLow: '', rangeHigh: '', feeTier: '0.05%', protocol: 'Uniswap v3',
-  timeframe: '4H', metodologia: '', nota: '',
-}
+// ─── Own setups (edit manually) ───────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _SETUPS: Setup[] = [
+  {
+    id: '1', par: 'BTCUSDT', tipo: 'LONG',
+    entry: 83500, sl: 81200, tp: 88000, rr: 2.1,
+    timeframe: '4H', metodologia: 'OB+MACD', estado: 'ACTIVO',
+    nota: 'OB 4H respetado, MACD divergencia bull', fecha: '2026-04-18',
+  },
+  {
+    id: '2', par: 'ETH/USDC', tipo: 'LP',
+    rangeLow: 1580, rangeHigh: 1950,
+    feeTier: '0.05%', protocol: 'Uniswap v3',
+    timeframe: '—', metodologia: 'Concentrated LP', estado: 'EN_RANGO',
+    nota: 'Rango tight alrededor de precio actual', fecha: '2026-04-18',
+  },
+]
 
 const SYM_STREAM = SYMBOLS.map(s => `${s.toLowerCase()}usdt@ticker`).join('/')
 const WS_URL     = `wss://stream.binance.com:9443/stream?streams=${SYM_STREAM}`
@@ -158,18 +174,15 @@ export default function RightBar() {
   })
   const [spx, setSpx] = useState<ExtTicker | null>(null)
   const [xau, setXau] = useState<ExtTicker | null>(null)
-  const [alerts,       setAlerts]       = useState<PriceAlert[]>([])
-  const [showForm,     setShowForm]     = useState(false)
-  const [formSym,      setFormSym]      = useState<Sym>('BTC')
-  const [formCond,     setFormCond]     = useState<'ABOVE' | 'BELOW'>('ABOVE')
-  const [formPrice,    setFormPrice]    = useState('')
-  const [utcNow,       setUtcNow]       = useState(new Date())
-  const [community,    setCommunity]    = useState<CommunitySetup[]>([])
-  const [userVotes,    setUserVotes]    = useState<Record<string, 'up' | 'down'>>({})
-  const [setupsOwn,    setSetupsOwn]    = useState<Setup[]>([])
-  const [showSetupForm,setShowSetupForm]= useState(false)
-  const [setupForm,    setSetupForm]    = useState<SetupDraft>(EMPTY_SETUP)
-  const openTrades = useOpenTrades()
+  const [alerts,     setAlerts]     = useState<PriceAlert[]>([])
+  const [showForm,   setShowForm]   = useState(false)
+  const [formSym,    setFormSym]    = useState<Sym>('BTC')
+  const [formCond,   setFormCond]   = useState<'ABOVE' | 'BELOW'>('ABOVE')
+  const [formPrice,  setFormPrice]  = useState('')
+  const [utcNow,     setUtcNow]     = useState(new Date())
+  const [community,  setCommunity]  = useState<CommunitySetup[]>([])
+  const [userVotes,  setUserVotes]  = useState<Record<string, 'up' | 'down'>>({})
+  const motorTrades = useOpenTrades()
 
   const wsRef       = useRef<WebSocket | null>(null)
   const reconnRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -178,9 +191,9 @@ export default function RightBar() {
   const alertsRef   = useRef<PriceAlert[]>([])
   alertsRef.current = alerts
 
-  // Visible solo en pantallas >= 1024px (evita solapamiento con sidebar en tablet)
+  // Mobile visibility
   useEffect(() => {
-    const check = () => setVisible(window.innerWidth >= 1024)
+    const check = () => setVisible(window.innerWidth >= 768)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
@@ -200,14 +213,6 @@ export default function RightBar() {
     } catch {}
   }, [])
 
-  // Load own setups from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('sigma_setups')
-      if (raw) setSetupsOwn(JSON.parse(raw))
-    } catch {}
-  }, [])
-
   // Fetch community setups
   useEffect(() => {
     fetch('/api/community-setups')
@@ -219,37 +224,6 @@ export default function RightBar() {
   function saveAlerts(next: PriceAlert[]) {
     setAlerts(next)
     try { localStorage.setItem('sigma_alerts', JSON.stringify(next)) } catch {}
-  }
-
-  function saveSetups(next: Setup[]) {
-    setSetupsOwn(next)
-    try { localStorage.setItem('sigma_setups', JSON.stringify(next)) } catch {}
-  }
-
-  function addSetup() {
-    const f = setupForm
-    if (!f.par.trim() || !f.metodologia.trim()) return
-    const s: Setup = {
-      id: Date.now().toString(),
-      par: f.par.toUpperCase().trim(),
-      tipo: f.tipo,
-      timeframe: f.timeframe,
-      metodologia: f.metodologia.trim(),
-      estado: f.tipo === 'LP' ? 'EN_RANGO' : 'ACTIVO',
-      nota: f.nota.trim(),
-      fecha: new Date().toISOString().split('T')[0],
-      ...(f.tipo === 'LP'
-        ? { rangeLow: parseFloat(f.rangeLow) || undefined, rangeHigh: parseFloat(f.rangeHigh) || undefined, feeTier: f.feeTier, protocol: f.protocol }
-        : { entry: parseFloat(f.entry) || undefined, sl: parseFloat(f.sl) || undefined, tp: parseFloat(f.tp) || undefined, rr: parseFloat(f.rr) || undefined }
-      ),
-    }
-    saveSetups([...setupsOwn, s])
-    setSetupForm(EMPTY_SETUP)
-    setShowSetupForm(false)
-  }
-
-  function deleteSetup(id: string) {
-    saveSetups(setupsOwn.filter(s => s.id !== id))
   }
 
   // WebSocket
@@ -297,24 +271,6 @@ export default function RightBar() {
           alertsRef.current = next
           setAlerts(next)
           try { localStorage.setItem('sigma_alerts', JSON.stringify(next)) } catch {}
-          // Persist triggered alerts as Supabase notifications
-          const triggered = next.filter((a, i) => a.triggered && !cur[i]?.triggered)
-          if (triggered.length) {
-            const priceNow = newPrice
-            supabase.auth.getUser().then(({ data: { user } }) => {
-              if (!user) return
-              supabase.from('notifications').insert(
-                triggered.map(a => ({
-                  user_id: user.id,
-                  title:   `Alerta ${a.symbol} disparada`,
-                  body:    `${a.symbol} ${a.condition === 'ABOVE' ? 'superó' : 'bajó de'} $${a.price.toLocaleString('en-US')}. Precio actual: $${priceNow.toLocaleString('en-US')}`,
-                  type:    'mercado',
-                  urgente: true,
-                  read:    false,
-                }))
-              ).then(() => {})
-            })
-          }
         }
       } catch {}
     }
@@ -609,99 +565,11 @@ export default function RightBar() {
           ))
         }
 
-        {/* ══ SETUPS ACTIVOS (motor) ══ */}
-        <Section label="SETUPS ACTIVOS" />
-        {openTrades.length === 0
-          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin posiciones abiertas</div>
-          : openTrades.map((t, i) => {
-              const isLong  = (t.direction ?? '') !== 'short'
-              const dirColor = isLong ? '#00e676' : '#f44336'
-              return (
-                <div key={i} style={{
-                  margin: '4px 8px',
-                  background: isLong ? 'rgba(0,230,118,0.04)' : 'rgba(244,67,54,0.04)',
-                  border: `1px solid ${isLong ? 'rgba(0,230,118,0.15)' : 'rgba(244,67,54,0.15)'}`,
-                  borderLeft: `3px solid ${dirColor}`,
-                  padding: '6px 8px',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: dirColor }}>
-                      {isLong ? '▲' : '▼'} {t.sym ?? '?'}
-                    </span>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, color: gradeColor(t.grade),
-                      border: `1px solid ${gradeColor(t.grade)}40`,
-                      padding: '1px 5px', fontFamily: 'monospace',
-                    }}>{t.grade ?? '?'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#555' }}>
-                      {t.tf?.toUpperCase()} · {t.strategy?.slice(0, 12)}
-                    </span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#7a8db5' }}>
-                      @{t.entry?.toFixed(0)}
-                    </span>
-                  </div>
-                </div>
-              )
-            })
-        }
-
-        {/* ══ SETUPS (propio) ══ */}
+        {/* ══ SETUPS (motor live) ══ */}
         <Section label="SETUPS" />
-        <div style={{ padding: '8px 12px', borderBottom: `1px solid ${T.border}` }}>
-          <button onClick={() => setShowSetupForm(v => !v)} style={{
-            width: '100%', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.12em',
-            color: T.gold, background: T.gold + '14', border: `1px solid ${T.gold}44`,
-            padding: '5px', cursor: 'pointer',
-          }}>
-            {showSetupForm ? '✕ CANCELAR' : '+ SETUP'}
-          </button>
-
-          {showSetupForm && (
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <input
-                placeholder="Par (ej: BTCUSDT)"
-                value={setupForm.par}
-                onChange={e => setSetupForm(f => ({ ...f, par: e.target.value }))}
-                style={inputStyle}
-              />
-              <select value={setupForm.tipo} onChange={e => setSetupForm(f => ({ ...f, tipo: e.target.value as Setup['tipo'] }))} style={selStyle}>
-                <option value="LONG">LONG ▲</option>
-                <option value="SHORT">SHORT ▼</option>
-                <option value="LP">LP ◈</option>
-              </select>
-              <select value={setupForm.timeframe} onChange={e => setSetupForm(f => ({ ...f, timeframe: e.target.value }))} style={selStyle}>
-                {TF_OPTIONS.map(tf => <option key={tf}>{tf}</option>)}
-              </select>
-
-              {setupForm.tipo !== 'LP' ? (<>
-                <input placeholder="Entry" type="number" value={setupForm.entry} onChange={e => setSetupForm(f => ({ ...f, entry: e.target.value }))} style={inputStyle} />
-                <input placeholder="Stop Loss" type="number" value={setupForm.sl} onChange={e => setSetupForm(f => ({ ...f, sl: e.target.value }))} style={inputStyle} />
-                <input placeholder="Take Profit" type="number" value={setupForm.tp} onChange={e => setSetupForm(f => ({ ...f, tp: e.target.value }))} style={inputStyle} />
-                <input placeholder="R/R (ej: 2.5)" type="number" value={setupForm.rr} onChange={e => setSetupForm(f => ({ ...f, rr: e.target.value }))} style={inputStyle} />
-              </>) : (<>
-                <input placeholder="Range Low" type="number" value={setupForm.rangeLow} onChange={e => setSetupForm(f => ({ ...f, rangeLow: e.target.value }))} style={inputStyle} />
-                <input placeholder="Range High" type="number" value={setupForm.rangeHigh} onChange={e => setSetupForm(f => ({ ...f, rangeHigh: e.target.value }))} style={inputStyle} />
-                <input placeholder="Fee Tier (ej: 0.05%)" value={setupForm.feeTier} onChange={e => setSetupForm(f => ({ ...f, feeTier: e.target.value }))} style={inputStyle} />
-                <input placeholder="Protocolo (ej: Uniswap v3)" value={setupForm.protocol} onChange={e => setSetupForm(f => ({ ...f, protocol: e.target.value }))} style={inputStyle} />
-              </>)}
-
-              <input placeholder="Metodología (ej: OB+MACD)" value={setupForm.metodologia} onChange={e => setSetupForm(f => ({ ...f, metodologia: e.target.value }))} style={inputStyle} />
-              <input placeholder="Nota (opcional)" value={setupForm.nota} onChange={e => setSetupForm(f => ({ ...f, nota: e.target.value }))} style={inputStyle} />
-              <button onClick={addSetup} style={{
-                fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em',
-                color: T.bg, background: T.gold, border: 'none', padding: '5px', cursor: 'pointer',
-              }}>GUARDAR SETUP</button>
-            </div>
-          )}
-        </div>
-
-        {setupsOwn.length === 0 && !showSetupForm
-          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin setups activos</div>
-          : setupsOwn.map(s => (
-              <SetupCard key={s.id} s={s} price={tickers[symFromPar(s.par)]?.price ?? 0} onDelete={deleteSetup} />
-            ))
+        {motorTrades.length === 0
+          ? <div style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 10, color: T.muted }}>Sin posiciones abiertas</div>
+          : motorTrades.map((t, i) => <MotorSetupCard key={i} t={t} />)
         }
 
         {/* ══ COMUNIDAD ══ */}
@@ -724,7 +592,8 @@ export default function RightBar() {
 }
 
 // ─── SetupCard: handles LONG / SHORT / LP ─────────────────────────────────────
-function SetupCard({ s, price, onDelete }: { s: Setup; price: number; onDelete?: (id: string) => void }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _SetupCard({ s, price }: { s: Setup; price: number }) {
 
   if (s.tipo === 'LP') {
     const st      = resolveLpStatus(s, price)
@@ -737,10 +606,7 @@ function SetupCard({ s, price, onDelete }: { s: Setup; price: number; onDelete?:
       <div style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
           <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.violet, background: T.violet + '20', padding: '1px 5px', letterSpacing: '0.08em' }}>LP</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: inRange ? T.green : T.red, background: (inRange ? T.green : T.red) + '18', padding: '1px 5px' }}>{st}</span>
-            {onDelete && <button onClick={() => onDelete(s.id)} style={{ background: 'transparent', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 11, padding: 0 }}>✕</button>}
-          </div>
+          <span style={{ fontFamily: 'monospace', fontSize: 9, color: inRange ? T.green : T.red, background: (inRange ? T.green : T.red) + '18', padding: '1px 5px' }}>{st}</span>
         </div>
         <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.text, marginBottom: 4 }}>{s.par}</div>
         {s.protocol && (
@@ -781,10 +647,7 @@ function SetupCard({ s, price, onDelete }: { s: Setup; price: number; onDelete?:
           <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.08em', color: badgeColor, background: badgeColor + '20', padding: '1px 5px' }}>{s.tipo}</span>
           <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.dimText }}>{s.timeframe}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: stColor, background: stColor + '18', padding: '1px 5px', letterSpacing: '0.1em' }}>{st}</span>
-          {onDelete && <button onClick={() => onDelete(s.id)} style={{ background: 'transparent', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 11, padding: 0 }}>✕</button>}
-        </div>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, color: stColor, background: stColor + '18', padding: '1px 5px', letterSpacing: '0.1em' }}>{st}</span>
       </div>
       <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.text, marginBottom: 4 }}>{s.par}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
@@ -910,6 +773,42 @@ function CommunityCard({
             padding: '2px 6px', cursor: 'pointer',
           }}
         >▼ {cs.votos_down}</button>
+      </div>
+    </div>
+  )
+}
+
+// ─── MotorSetupCard: live open trades from the motor ─────────────────────────
+function MotorSetupCard({ t }: { t: OpenTrade }) {
+  const isLong   = (t.direction ?? '') !== 'short'
+  const dirColor = isLong ? T.green : T.red
+  const sym      = t.sym ?? '?'
+  const tf       = t.tf?.toUpperCase() ?? ''
+  const gc       = motorGradeColor(t.grade)
+
+  return (
+    <div style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 9, color: dirColor, background: dirColor + '1a', padding: '1px 5px', letterSpacing: '0.08em' }}>
+            {isLong ? 'LONG' : 'SHORT'}
+          </span>
+          <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>{tf}</span>
+        </div>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: gc, background: gc + '20', border: `1px solid ${gc}40`, padding: '1px 5px' }}>
+          {t.grade ?? '?'}
+        </span>
+      </div>
+      <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.text, marginBottom: 4 }}>{sym}</div>
+      {t.strategy && (
+        <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.gold, letterSpacing: '0.05em', marginBottom: 4 }}>
+          {t.strategy.slice(0, 20)}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {t.entry != null && <Row l="E"  v={t.entry} c={T.dimText} />}
+        {t.sl    != null && <Row l="SL" v={t.sl}    c={T.red + 'cc'} />}
+        {t.tp    != null && <Row l="TP" v={t.tp}    c={T.green + 'cc'} />}
       </div>
     </div>
   )

@@ -1,59 +1,48 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-const stats = [
-  { label: 'Años de datos',        value: 25,     suffix: '+',  decimals: 0 },
-  { label: 'Tickers cubiertos',    value: 3500,   suffix: '+',  decimals: 0 },
-  { label: 'Modelos en producción',value: 4,      suffix: '',   decimals: 0 },
-  { label: 'Sharpe OOS promedio',  value: 2.17,   suffix: '',   decimals: 2 },
-  { label: 'Uptime plataforma',    value: 99.7,   suffix: '%',  decimals: 1 },
-  { label: 'Simulaciones MC',      value: 2000,   suffix: '',   decimals: 0 },
-]
-
-function Counter({ target, decimals, suffix }: { target: number; decimals: number; suffix: string }) {
-  const [val, setVal] = useState(0)
-  const ref = useRef<HTMLSpanElement>(null)
-  const started = useRef(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started.current) {
-        started.current = true
-        const duration = 1600
-        const start = Date.now()
-        const tick = () => {
-          const p = Math.min((Date.now() - start) / duration, 1)
-          const eased = 1 - Math.pow(1 - p, 3)
-          setVal(parseFloat((eased * target).toFixed(decimals)))
-          if (p < 1) requestAnimationFrame(tick)
-        }
-        requestAnimationFrame(tick)
-        observer.disconnect()
-      }
-    }, { threshold: 0.3 })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [target, decimals])
-
-  return (
-    <span ref={ref} className="tabular-nums">
-      {val.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}
-    </span>
-  )
+interface Stats {
+  wr?: number; pf?: number; n_trades?: number; return_pct?: number; regime?: string
 }
 
 export default function StatBar() {
+  const [stats, setStats] = useState<Stats>({})
+
+  useEffect(() => {
+    fetch('/api/vps/signals')
+      .then(r => r.json())
+      .then((d: { portfolio?: { wr?: number; pf?: number; n_trades?: number; return_pct?: number }; regime?: string }) => {
+        const p = d?.portfolio ?? {}
+        setStats({
+          wr: p.wr != null ? (p.wr <= 1 ? p.wr * 100 : p.wr) : undefined,
+          pf: p.pf,
+          n_trades: p.n_trades,
+          return_pct: p.return_pct,
+          regime: d?.regime,
+        })
+      })
+      .catch(() => {})
+  }, [])
+
+  const items = [
+    { label: 'WIN RATE',     value: stats.wr !== undefined   ? `${stats.wr.toFixed(1)}%`    : '—' },
+    { label: 'PROFIT FACTOR',value: stats.pf !== undefined   ? `${stats.pf.toFixed(2)}x`    : '—' },
+    { label: 'RETORNO LIVE', value: stats.return_pct !== undefined ? `${stats.return_pct >= 0 ? '+' : ''}${stats.return_pct.toFixed(1)}%` : '—' },
+    { label: 'TRADES PAPEL', value: stats.n_trades !== undefined ? `${stats.n_trades}+`     : '—' },
+    { label: 'RÉGIMEN',      value: stats.regime ?? '…' },
+  ]
+
   return (
-    <div className="bg-surface border-y border-border">
-      <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-border">
-        {stats.map(s => (
-          <div key={s.label} className="bg-surface px-6 py-4 flex flex-col gap-1">
-            <span className="section-label text-text-dim text-xs leading-tight">{s.label}</span>
-            <span className="display-heading text-3xl text-gold">
-              <Counter target={s.value} decimals={s.decimals} suffix={s.suffix} />
-            </span>
+    <div className="bg-surface border-t border-border">
+      <div className="max-w-7xl mx-auto flex flex-wrap">
+        {items.map((item, i) => (
+          <div
+            key={item.label}
+            className="flex-1 min-w-[120px] px-5 py-3 border-r border-border last:border-r-0"
+            style={{ borderRight: i < items.length - 1 ? '1px solid var(--color-border, #1a1d2e)' : 'none' }}
+          >
+            <div className="section-label text-text-dim text-xs mb-1">{item.label}</div>
+            <div className="display-heading text-gold text-lg">{item.value}</div>
           </div>
         ))}
       </div>

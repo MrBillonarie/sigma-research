@@ -274,7 +274,7 @@ export default function DiagnosticadorPage() {
 <body>
 
 <div class="header">
-  <div class="logo">Sigma Research · Inteligencia Cuantitativa</div>
+  <div class="logo">SQuant Desk · Inteligencia Cuantitativa</div>
   <div class="title">Diagnóstico de Trading</div>
   <div class="subtitle">Generado el ${reportDate} · ${autoMode ? 'Datos automáticos desde portafolio' : 'Datos ingresados manualmente'}</div>
 </div>
@@ -355,7 +355,7 @@ ${hasRealData && dbWinRate > 0 ? `
 </div>
 
 <div class="footer">
-  Sigma Research · Diagnóstico generado el ${reportDate} · ${totalOps} operaciones mensuales · ${riskPerOp}% riesgo por operación · RR ${rr.toFixed(1)}<br>
+  SQuant Desk · Diagnóstico generado el ${reportDate} · ${totalOps} operaciones mensuales · ${riskPerOp}% riesgo por operación · RR ${rr.toFixed(1)}<br>
   Esta herramienta es solo de simulación. Los resultados son proyecciones estadísticas y no garantizan rentabilidad futura. Operar conlleva riesgo de pérdida de capital.
 </div>
 
@@ -731,7 +731,7 @@ ${hasRealData && dbWinRate > 0 ? `
       {/* ── PDF report rendered in new window via handleExportPDF ─────────────── */}
       <div id="sigma-pdf-report" style={{ display: 'none' }}>
         <div className="pdf-header">
-          <div className="pdf-logo">SIGMA RESEARCH</div>
+          <div className="pdf-logo">SQUANT DESK</div>
           <div className="pdf-title">DIAGNÓSTICO DE TRADING</div>
           <div className="pdf-date">Generado el {reportDate} · {autoMode ? 'Datos automáticos' : 'Datos manuales'}</div>
         </div>
@@ -824,7 +824,7 @@ ${hasRealData && dbWinRate > 0 ? `
         </table>
 
         <div className="pdf-footer">
-          Sigma Research · Herramienta de simulación · Los resultados son proyecciones basadas en parámetros configurados y no garantizan rentabilidad futura.
+          SQuant Desk · Herramienta de simulación · Los resultados son proyecciones basadas en parámetros configurados y no garantizan rentabilidad futura.
         </div>
       </div>
 

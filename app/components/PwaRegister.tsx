@@ -53,7 +53,7 @@ export default function PwaRegister() {
             <span style={{ color: '#d4af37', fontSize: 24, fontWeight: 700, lineHeight: 1 }}>Σ</span>
           </div>
           <div>
-            <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#e8e9f0', letterSpacing: '0.08em' }}>INSTALAR SIGMA RESEARCH</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#e8e9f0', letterSpacing: '0.08em' }}>INSTALAR SQUANT DESK</div>
             <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#7a7f9a', marginTop: 3 }}>
               {ios ? 'Instrucciones para Safari / iPhone' : 'Instrucciones para Chrome / Android'}
             </div>

@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error }, { status: 500 })
 
   void logAdminAction('reporte.create', data.id, { numero, titulo })
-
   // Notificar a todos los usuarios con email confirmado en background
   void (async () => {
     try {
