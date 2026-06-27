@@ -18,10 +18,10 @@ interface EtfRow {
   expense_ratio:  number | null
   dividend_yield: number | null
   precio:         number | null
-  rent_1m:        number | null
-  rent_3m:        number | null
-  rent_12m:       number | null
-  rent_3a:        number | null
+  r1m:            number | null
+  r3m:            number | null
+  r12m:           number | null
+  r3a:            number | null
   updated_at:     string | null
 }
 
@@ -36,10 +36,10 @@ function sb() {
 const SORT_MAP: Record<string, string> = {
   ticker:   'ticker',
   nombre:   'nombre',
-  r1m:      'rent_1m',
-  r3m:      'rent_3m',
-  r12m:     'rent_12m',
-  r3a:      'rent_3a',
+  r1m:      'r1m',
+  r3m:      'r3m',
+  r12m:     'r12m',
+  r3a:      'r3a',
   tac:      'expense_ratio',
   aum:      'aum',
   precio:   'precio',
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   const exportAll  = searchParams.get('export') === 'csv'
 
   const db  = sb()
-  const col = SORT_MAP[sortKey] ?? 'rent_12m'
+  const col = SORT_MAP[sortKey] ?? 'r12m'
 
   let q = db
     .from('etfs')
@@ -84,10 +84,10 @@ export async function GET(req: NextRequest) {
       sector:   e.sector ?? '',
       indice:   e.indice ?? '',
       precio:   e.precio ?? '',
-      r1m:      e.rent_1m  ?? '',
-      r3m:      e.rent_3m  ?? '',
-      r12m:     e.rent_12m ?? '',
-      r3a:      e.rent_3a  ?? '',
+      r1m:      e.r1m  ?? '',
+      r3m:      e.r3m  ?? '',
+      r12m:     e.r12m ?? '',
+      r3a:      e.r3a  ?? '',
       tac:      e.expense_ratio  ?? '',
       yield:    e.dividend_yield ?? '',
       aum:      e.aum ?? '',
@@ -108,14 +108,14 @@ export async function GET(req: NextRequest) {
 
   // Top por grupo de exposición (1 ETF por grupo, mejor 12M)
   const [topUSA, topGlobal, topEM, topSector] = await Promise.all([
-    db.from('etfs').select('ticker,nombre,rent_12m,exposicion,sector').eq('exposicion', 'USA').is('sector', null).not('rent_12m', 'is', null).order('rent_12m', { ascending: false }).limit(1).maybeSingle(),
-    db.from('etfs').select('ticker,nombre,rent_12m,exposicion,sector').in('exposicion', ['Global', 'Global ex USA']).is('sector', null).not('rent_12m', 'is', null).order('rent_12m', { ascending: false }).limit(1).maybeSingle(),
-    db.from('etfs').select('ticker,nombre,rent_12m,exposicion,sector').in('exposicion', ['Emergentes', 'Latam', 'Brasil', 'Chile']).not('rent_12m', 'is', null).order('rent_12m', { ascending: false }).limit(1).maybeSingle(),
-    db.from('etfs').select('ticker,nombre,rent_12m,exposicion,sector').not('sector', 'is', null).neq('sector', 'Renta Fija').not('rent_12m', 'is', null).order('rent_12m', { ascending: false }).limit(1).maybeSingle(),
+    db.from('etfs').select('ticker,nombre,r12m,exposicion,sector').eq('exposicion', 'USA').is('sector', null).not('r12m', 'is', null).order('r12m', { ascending: false }).limit(1).maybeSingle(),
+    db.from('etfs').select('ticker,nombre,r12m,exposicion,sector').in('exposicion', ['Global', 'Global ex USA']).is('sector', null).not('r12m', 'is', null).order('r12m', { ascending: false }).limit(1).maybeSingle(),
+    db.from('etfs').select('ticker,nombre,r12m,exposicion,sector').in('exposicion', ['Emergentes', 'Latam', 'Brasil', 'Chile']).not('r12m', 'is', null).order('r12m', { ascending: false }).limit(1).maybeSingle(),
+    db.from('etfs').select('ticker,nombre,r12m,exposicion,sector').not('sector', 'is', null).neq('sector', 'Renta Fija').not('r12m', 'is', null).order('r12m', { ascending: false }).limit(1).maybeSingle(),
   ])
   const toCard = (grupo: string, res: typeof topUSA) => {
-    const row = res.data as Pick<EtfRow, 'ticker' | 'nombre' | 'rent_12m' | 'exposicion' | 'sector'> | null
-    return { grupo, ticker: row?.ticker ?? null, nombre: row?.nombre ?? null, r12m: row?.rent_12m ?? null, exposicion: row?.exposicion ?? null, sector: row?.sector ?? null }
+    const row = res.data as Pick<EtfRow, 'ticker' | 'nombre' | 'r12m' | 'exposicion' | 'sector'> | null
+    return { grupo, ticker: row?.ticker ?? null, nombre: row?.nombre ?? null, r12m: row?.r12m ?? null, exposicion: row?.exposicion ?? null, sector: row?.sector ?? null }
   }
   const topCards = [
     toCard('USA',        topUSA),
@@ -151,10 +151,10 @@ export async function GET(req: NextRequest) {
     expense_ratio: e.expense_ratio,
     dividend_yield: e.dividend_yield,
     precio:        e.precio,
-    r1m:           e.rent_1m,
-    r3m:           e.rent_3m,
-    r12m:          e.rent_12m,
-    r3a:           e.rent_3a,
+    r1m:           e.r1m,
+    r3m:           e.r3m,
+    r12m:          e.r12m,
+    r3a:           e.r3a,
   }))
 
   const total = count ?? 0

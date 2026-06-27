@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { C } from '@/app/lib/constants'
+import { supabase } from '@/app/lib/supabase'
 import { useCalendarEvents } from '@/app/hooks/useCalendarEvents'
 import type { MacroEvent } from '@/app/data/mockEvents'
 
@@ -18,15 +19,21 @@ const CURRENCY_COLOR: Record<string, string> = {
 }
 
 const EMPTY_FORM = {
-  title: '', currency: 'USD', impact: 'MED' as 'HIGH'|'MED'|'LOW',
-  type: 'MACRO' as 'MACRO'|'CRYPTO', event_date: '', event_time: '08:30',
-  previous: '', forecast: '', actual: '', description: '', country: 'US',
+  title: '', task_date: '', task_time: '09:00', description: '',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getDaysInMonth(y: number, m: number)  { return new Date(y, m + 1, 0).getDate() }
 function getFirstDayOfMonth(y: number, m: number) {
   const d = new Date(y, m, 1).getDay(); return d === 0 ? 6 : d - 1
+}
+// Día calendario en hora LOCAL del navegador, no UTC — `.toISOString().slice`
+// corre el día para cualquier usuario detrás de UTC en las últimas horas del
+// día (un trade de csv_trades cerca de medianoche hora Chile podía aparecer
+// agrupado en el día siguiente, y "hoy" resaltado en el grid podía ser
+// literalmente el día de mañana en ese mismo rango horario).
+function localDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function isEventLive(e: MacroEvent, now: Date): boolean {
@@ -108,7 +115,7 @@ function SkeletonCell() {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CalendarioPage() {
-  const { events, loading, error, usingMock, createEvent, updateEvent, deleteEvent } = useCalendarEvents()
+  const { events, loading, error, usingMock, createTask, updateTask, deleteTask } = useCalendarEvents()
 
   // ── Reloj en vivo (para badge LIVE) ──
   const [now, setNow] = useState(new Date())
@@ -121,7 +128,7 @@ export default function CalendarioPage() {
   const todayMemo  = useMemo(() => new Date(), [])
   const [year,  setYear]  = useState(() => todayMemo.getFullYear())
   const [month, setMonth] = useState(() => todayMemo.getMonth())
-  const todayStr = useMemo(() => todayMemo.toISOString().slice(0, 10), [todayMemo])
+  const todayStr = useMemo(() => localDateKey(todayMemo), [todayMemo])
 
   function prevMonth() { if (month === 0) { setYear(y => y-1); setMonth(11) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 11) { setYear(y => y+1); setMonth(0)  } else setMonth(m => m+1) }
@@ -136,6 +143,35 @@ export default function CalendarioPage() {
   const [selectedDate,  setSelectedDate]  = useState<string | null>(null)
   const [detailEvent,   setDetailEvent]   = useState<MacroEvent | null>(null)
 
+  // ── P&L diario del Journal (mismo origen de datos que /tax) ──
+  const [pnlByDate, setPnlByDate] = useState<Record<string, { pnl: number; count: number }>>({})
+  useEffect(() => {
+    let active = true
+    supabase.auth.getUser().then(async ({ data }) => {
+      const user = data.user
+      if (!user) return
+      const [manualRes, csvRes] = await Promise.all([
+        supabase.from('trades').select('fecha, pnl_usd').eq('user_id', user.id),
+        supabase.from('csv_trades').select('timestamp, pnl_neto').eq('user_id', user.id),
+      ])
+      if (!active) return
+      const map: Record<string, { pnl: number; count: number }> = {}
+      for (const t of manualRes.data ?? []) {
+        if (!t.fecha) continue
+        const d = map[t.fecha] ?? (map[t.fecha] = { pnl: 0, count: 0 })
+        d.pnl += t.pnl_usd ?? 0; d.count++
+      }
+      for (const t of csvRes.data ?? []) {
+        const date = t.timestamp ? localDateKey(new Date(t.timestamp)) : undefined
+        if (!date) continue
+        const d = map[date] ?? (map[date] = { pnl: 0, count: 0 })
+        d.pnl += t.pnl_neto ?? 0; d.count++
+      }
+      setPnlByDate(map)
+    })
+    return () => { active = false }
+  }, [])
+
   // ── Modal add/edit ──
   const [showForm,     setShowForm]     = useState(false)
   const [editTarget,   setEditTarget]   = useState<MacroEvent | null>(null)
@@ -143,10 +179,6 @@ export default function CalendarioPage() {
   const [confirmDel,   setConfirmDel]   = useState(false)
   const [formError,    setFormError]    = useState<string | null>(null)
   const [formLoading,  setFormLoading]  = useState(false)
-
-  // ── Inline edición de "actual" ──
-  const [editActualId,  setEditActualId]  = useState<string | null>(null)
-  const [editActualVal, setEditActualVal] = useState('')
 
   // ─── Datos derivados ────────────────────────────────────────────────────────
 
@@ -198,31 +230,30 @@ export default function CalendarioPage() {
 
   function openAdd() {
     setEditTarget(null)
-    setForm({ ...EMPTY_FORM, event_date: selectedDate ?? '' })
+    setForm({ ...EMPTY_FORM, task_date: selectedDate ?? '' })
     setFormError(null); setConfirmDel(false)
     setShowForm(true)
   }
 
   function openEdit(e: MacroEvent) {
+    if (!e.is_task) return // las noticias reales no son editables por el usuario
     setEditTarget(e)
-    setForm({ title: e.title, currency: e.currency, impact: e.impact as typeof EMPTY_FORM.impact,
-      type: e.type as typeof EMPTY_FORM.type, event_date: e.event_date, event_time: e.event_time,
-      previous: e.previous ?? '', forecast: e.forecast ?? '', actual: e.actual ?? '',
-      description: e.description ?? '', country: e.country ?? 'US' })
+    setForm({ title: e.title, task_date: e.event_date, task_time: e.event_time,
+      description: e.description ?? '' })
     setFormError(null); setConfirmDel(false)
     setShowForm(true)
   }
 
   async function handleSubmit() {
-    if (!form.title.trim() || !form.event_date) {
+    if (!form.title.trim() || !form.task_date) {
       setFormError('Título y fecha son obligatorios.'); return
     }
     setFormLoading(true); setFormError(null)
     try {
       if (editTarget) {
-        await updateEvent(editTarget.id, { ...form })
+        await updateTask(editTarget.id, { ...form })
       } else {
-        await createEvent({ ...form, source: 'MANUAL', is_manual: true })
+        await createTask({ ...form })
       }
       setShowForm(false)
     } catch (err: unknown) {
@@ -236,7 +267,7 @@ export default function CalendarioPage() {
     if (!editTarget) return
     setFormLoading(true)
     try {
-      await deleteEvent(editTarget.id)
+      await deleteTask(editTarget.id)
       setShowForm(false); setDetailEvent(null)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Error al eliminar')
@@ -245,9 +276,11 @@ export default function CalendarioPage() {
     }
   }
 
-  async function saveActual(id: string) {
-    try { await updateEvent(id, { actual: editActualVal }) } catch {}
-    setEditActualId(null)
+  async function toggleTaskDone(e: MacroEvent) {
+    try {
+      await updateTask(e.id, { done: !e.done })
+      setDetailEvent(prev => prev && prev.id === e.id ? { ...prev, done: !e.done, actual: !e.done ? 'Hecho' : '' } : prev)
+    } catch {}
   }
 
   const closeModals = useCallback(() => {
@@ -314,11 +347,14 @@ export default function CalendarioPage() {
                 display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12 }}>
                 <div style={{ flex:1 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:6 }}>
-                    <ImpactPill impact={detailEvent.impact} />
-                    <CurrencyBadge currency={detailEvent.currency} />
-                    {detailEvent.is_manual && (
+                    {detailEvent.is_task ? (
                       <span style={{ fontFamily:'monospace', fontSize:9, color:C.gold,
-                        background:C.gold+'1a', padding:'2px 7px', letterSpacing:'0.12em' }}>MANUAL</span>
+                        background:C.gold+'1a', padding:'2px 7px', letterSpacing:'0.12em' }}>MI TAREA</span>
+                    ) : (
+                      <>
+                        <ImpactPill impact={detailEvent.impact} />
+                        <CurrencyBadge currency={detailEvent.currency} />
+                      </>
                     )}
                     {isEventLive(detailEvent, now) && <LiveBadge />}
                   </div>
@@ -371,42 +407,27 @@ export default function CalendarioPage() {
                     )}
                     <div>
                       <div style={{ ...mono, fontSize:9, color:C.dimText, letterSpacing:'0.15em',
-                        textTransform:'uppercase', marginBottom:3 }}>ACTUAL</div>
-                      {editActualId === detailEvent.id ? (
-                        <div style={{ display:'flex', gap:6 }}>
-                          <input
-                            autoFocus
-                            value={editActualVal}
-                            onChange={e => setEditActualVal(e.target.value)}
-                            onKeyDown={e => { if (e.key==='Enter') saveActual(detailEvent.id) }}
-                            style={{ ...mono, fontSize:12, background:C.surface, border:`1px solid ${C.gold}66`,
-                              color:C.text, padding:'2px 6px', width:80, outline:'none' }}
-                          />
-                          <button onClick={() => saveActual(detailEvent.id)}
-                            style={{ ...mono, fontSize:10, background:C.gold, color:'#000',
-                              border:'none', padding:'2px 8px', cursor:'pointer' }}>✓</button>
-                        </div>
-                      ) : (
-                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                          {detailEvent.actual ? (() => {
-                            const dir = compareVsForecast(detailEvent.actual, detailEvent.forecast ?? '')
-                            return (
-                              <span style={{ ...mono, fontSize:13,
-                                color: dir==='up' ? C.green : dir==='down' ? C.red : C.text }}>
-                                {dir==='up' ? '↑ ' : dir==='down' ? '↓ ' : ''}{detailEvent.actual}
-                              </span>
-                            )
-                          })() : (
-                            <span style={{ ...mono, fontSize:11, color:C.muted }}>Pendiente</span>
-                          )}
-                          <button
-                            onClick={() => { setEditActualId(detailEvent.id); setEditActualVal(detailEvent.actual ?? '') }}
-                            style={{ background:'none', border:`1px solid ${C.border}`, color:C.dimText,
-                              fontFamily:'monospace', fontSize:9, padding:'1px 6px', cursor:'pointer',
-                              letterSpacing:'0.1em' }}>
-                            EDITAR
-                          </button>
-                        </div>
+                        textTransform:'uppercase', marginBottom:3 }}>{detailEvent.is_task ? 'ESTADO' : 'ACTUAL'}</div>
+                      {detailEvent.is_task ? (
+                        <button
+                          onClick={() => toggleTaskDone(detailEvent)}
+                          style={{ ...mono, fontSize:11,
+                            background: detailEvent.done ? C.green+'1a' : 'transparent',
+                            border:`1px solid ${detailEvent.done ? C.green+'66' : C.border}`,
+                            color: detailEvent.done ? C.green : C.dimText,
+                            padding:'3px 9px', cursor:'pointer' }}>
+                          {detailEvent.done ? '✓ HECHO' : 'MARCAR COMO HECHO'}
+                        </button>
+                      ) : detailEvent.actual ? (() => {
+                        const dir = compareVsForecast(detailEvent.actual, detailEvent.forecast ?? '')
+                        return (
+                          <span style={{ ...mono, fontSize:13,
+                            color: dir==='up' ? C.green : dir==='down' ? C.red : C.text }}>
+                            {dir==='up' ? '↑ ' : dir==='down' ? '↓ ' : ''}{detailEvent.actual}
+                          </span>
+                        )
+                      })() : (
+                        <span style={{ ...mono, fontSize:11, color:C.muted }}>Pendiente</span>
                       )}
                     </div>
                   </div>
@@ -424,15 +445,15 @@ export default function CalendarioPage() {
                 )}
               </div>
 
-              {/* Footer: acciones si es manual */}
-              {detailEvent.is_manual && (
+              {/* Footer: acciones solo si es tarea propia */}
+              {detailEvent.is_task && (
                 <div style={{ padding:'12px 20px', borderTop:`1px solid ${C.border}`,
                   display:'flex', gap:8 }}>
                   <button onClick={() => { openEdit(detailEvent); setDetailEvent(null) }}
                     style={{ ...mono, fontSize:10, letterSpacing:'0.12em',
                       background:'none', border:`1px solid ${C.border}`, color:C.gold,
                       padding:'6px 14px', cursor:'pointer' }}>
-                    EDITAR EVENTO
+                    EDITAR TAREA
                   </button>
                 </div>
               )}
@@ -464,7 +485,7 @@ export default function CalendarioPage() {
                 display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <span style={{ ...mono, fontSize:10, letterSpacing:'0.25em',
                   textTransform:'uppercase', color:C.gold }}>
-                  {editTarget ? 'EDITAR EVENTO' : '+ NUEVO EVENTO'}
+                  {editTarget ? 'EDITAR TAREA' : '+ NUEVA TAREA'}
                 </span>
                 <button onClick={() => setShowForm(false)}
                   style={{ background:'none', border:'none', color:C.dimText, fontSize:18, cursor:'pointer' }}>×</button>
@@ -478,7 +499,7 @@ export default function CalendarioPage() {
                     textTransform:'uppercase', display:'block', marginBottom:5 }}>TÍTULO *</label>
                   <input className="form-input" value={form.title}
                     onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-                    placeholder="ej. FOMC Decision + Press Conference" />
+                    placeholder="ej. Revisar posiciones abiertas" />
                 </div>
 
                 {/* Fecha + Hora */}
@@ -486,63 +507,15 @@ export default function CalendarioPage() {
                   <div>
                     <label style={{ ...mono, fontSize:9, color:C.dimText, letterSpacing:'0.18em',
                       textTransform:'uppercase', display:'block', marginBottom:5 }}>FECHA *</label>
-                    <input type="date" className="form-input" value={form.event_date}
-                      onChange={e => setForm(p => ({ ...p, event_date: e.target.value }))} />
+                    <input type="date" className="form-input" value={form.task_date}
+                      onChange={e => setForm(p => ({ ...p, task_date: e.target.value }))} />
                   </div>
                   <div>
                     <label style={{ ...mono, fontSize:9, color:C.dimText, letterSpacing:'0.18em',
-                      textTransform:'uppercase', display:'block', marginBottom:5 }}>HORA (ET)</label>
-                    <input type="time" className="form-input" value={form.event_time}
-                      onChange={e => setForm(p => ({ ...p, event_time: e.target.value }))} />
+                      textTransform:'uppercase', display:'block', marginBottom:5 }}>HORA</label>
+                    <input type="time" className="form-input" value={form.task_time}
+                      onChange={e => setForm(p => ({ ...p, task_time: e.target.value }))} />
                   </div>
-                </div>
-
-                {/* Currency + Impacto + Tipo */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
-                  <div>
-                    <label style={{ ...mono, fontSize:9, color:C.dimText, letterSpacing:'0.18em',
-                      textTransform:'uppercase', display:'block', marginBottom:5 }}>DIVISA</label>
-                    <select className="form-input" value={form.currency}
-                      onChange={e => setForm(p => ({ ...p, currency: e.target.value }))}>
-                      {['USD','EUR','GBP','BTC','ETH','SOL','JPY'].map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ ...mono, fontSize:9, color:C.dimText, letterSpacing:'0.18em',
-                      textTransform:'uppercase', display:'block', marginBottom:5 }}>IMPACTO</label>
-                    <select className="form-input" value={form.impact}
-                      onChange={e => setForm(p => ({ ...p, impact: e.target.value as typeof form.impact }))}>
-                      <option value="HIGH">ALTO</option>
-                      <option value="MED">MEDIO</option>
-                      <option value="LOW">BAJO</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ ...mono, fontSize:9, color:C.dimText, letterSpacing:'0.18em',
-                      textTransform:'uppercase', display:'block', marginBottom:5 }}>TIPO</label>
-                    <select className="form-input" value={form.type}
-                      onChange={e => setForm(p => ({ ...p, type: e.target.value as typeof form.type }))}>
-                      <option value="MACRO">MACRO</option>
-                      <option value="CRYPTO">CRYPTO</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Prev / Forecast / Actual */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
-                  {(['previous','forecast','actual'] as const).map(field => (
-                    <div key={field}>
-                      <label style={{ ...mono, fontSize:9, color:C.dimText, letterSpacing:'0.18em',
-                        textTransform:'uppercase', display:'block', marginBottom:5 }}>
-                        {field === 'previous' ? 'ANTERIOR' : field === 'forecast' ? 'PRONÓST.' : 'ACTUAL'}
-                      </label>
-                      <input className="form-input" value={form[field]}
-                        onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
-                        placeholder="—" />
-                    </div>
-                  ))}
                 </div>
 
                 {/* Descripción */}
@@ -551,7 +524,7 @@ export default function CalendarioPage() {
                     textTransform:'uppercase', display:'block', marginBottom:5 }}>DESCRIPCIÓN</label>
                   <textarea className="form-input" rows={3} value={form.description}
                     onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Impacto esperado en mercados crypto..."
+                    placeholder="Notas opcionales..."
                     style={{ resize:'vertical', minHeight:68 }} />
                 </div>
 
@@ -600,7 +573,7 @@ export default function CalendarioPage() {
                     style={{ ...mono, fontSize:10, background:C.gold, color:'#000',
                       border:'none', padding:'6px 16px', cursor:formLoading?'wait':'pointer',
                       letterSpacing:'0.12em', fontWeight:700, opacity:formLoading?0.6:1 }}>
-                    {formLoading ? 'GUARDANDO...' : editTarget ? 'GUARDAR' : 'CREAR EVENTO'}
+                    {formLoading ? 'GUARDANDO...' : editTarget ? 'GUARDAR' : 'CREAR TAREA'}
                   </button>
                 </div>
               </div>
@@ -762,19 +735,20 @@ export default function CalendarioPage() {
                     const isSel   = ds === selectedDate
                     const hasHigh = evts.some(e => e.impact === 'HIGH')
                     const hasLive = evts.some(e => isEventLive(e, now))
+                    const dayPnl  = pnlByDate[ds]
 
                     return (
                       <div
                         key={day}
                         className="cal-cell"
                         onClick={() => {
-                          if (evts.length === 0) { setSelectedDate(null); return }
+                          if (evts.length === 0) { setSelectedDate(dayPnl ? (isSel ? null : ds) : null); return }
                           if (evts.length === 1) { setDetailEvent(evts[0]); setSelectedDate(ds) }
                           else setSelectedDate(isSel ? null : ds)
                         }}
                         style={{
                           background: isSel ? C.gold+'12' : isToday ? C.gold+'07' : C.bg,
-                          minHeight:80, padding:'7px 8px', cursor: evts.length ? 'pointer' : 'default',
+                          minHeight:80, padding:'7px 8px', cursor: (evts.length || dayPnl) ? 'pointer' : 'default',
                           borderRight:`1px solid ${C.border}`,
                           borderBottom:`1px solid ${C.border}`,
                           outline: isToday ? `1px solid ${C.gold}22` : 'none',
@@ -797,13 +771,14 @@ export default function CalendarioPage() {
                         {/* Event dots */}
                         <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                           {evts.slice(0, 3).map((e, idx) => {
-                            const col = IMPACT_COLOR[e.impact] ?? C.dimText
-                            const published = !!e.actual
+                            const col = e.is_task ? C.gold : (IMPACT_COLOR[e.impact] ?? C.dimText)
+                            const published = e.is_task ? !!e.done : !!e.actual
                             return (
                               <div key={idx} style={{ display:'flex', alignItems:'center', gap:4 }}>
-                                {/* Solid = publicado, outline = pendiente */}
+                                {/* Tarea = cuadrado dorado · Noticia: solid = publicado, outline = pendiente */}
                                 <span style={{
-                                  width:6, height:6, borderRadius:'50%', flexShrink:0,
+                                  width:6, height:6, flexShrink:0,
+                                  borderRadius: e.is_task ? 1 : '50%',
                                   background: published ? col : 'transparent',
                                   border: published ? 'none' : `1.5px solid ${col}`,
                                 }} />
@@ -824,6 +799,15 @@ export default function CalendarioPage() {
                         {hasHigh && !isSel && (
                           <div style={{ position:'absolute', top:0, left:0, bottom:0,
                             width:2, background:C.red+'66' }} />
+                        )}
+
+                        {/* P&L neto del día (Journal) */}
+                        {dayPnl && (
+                          <span style={{ position:'absolute', top:6, right:7,
+                            fontSize:9, fontFamily:'monospace', fontWeight:600,
+                            color: dayPnl.pnl >= 0 ? C.green : C.red }}>
+                            {dayPnl.pnl >= 0 ? '+' : '-'}${Math.round(Math.abs(dayPnl.pnl)).toLocaleString('es-CL')}
+                          </span>
                         )}
                       </div>
                     )
@@ -849,7 +833,39 @@ export default function CalendarioPage() {
                   <span style={{ width:8, height:8, borderRadius:'50%', background:C.green }} />
                   <span style={{ fontSize:10, color:C.dimText }}>En curso (LIVE)</span>
                 </div>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <span style={{ width:8, height:8, borderRadius:1, background:C.gold }} />
+                  <span style={{ fontSize:10, color:C.dimText }}>Mi tarea</span>
+                </div>
               </div>
+
+              {/* Resumen de trading del día seleccionado (Journal) */}
+              <AnimatePresence>
+                {selectedDate && pnlByDate[selectedDate] && (
+                  <motion.div
+                    initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }}
+                    exit={{ opacity:0, height:0 }} transition={{ duration:0.2 }}
+                    style={{ borderTop:`1px solid ${C.border}`, overflow:'hidden' }}
+                  >
+                    <div style={{ padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+                      <div>
+                        <span style={{ fontSize:10, letterSpacing:'0.22em', color:C.gold, textTransform:'uppercase' }}>
+                          TRADING — {selectedDate}
+                        </span>
+                        <div style={{ fontSize:12, color:C.dimText, marginTop:4 }}>
+                          {pnlByDate[selectedDate].count} trade{pnlByDate[selectedDate].count !== 1 ? 's' : ''} ·{' '}
+                          <span style={{ color: pnlByDate[selectedDate].pnl >= 0 ? C.green : C.red, fontWeight:600 }}>
+                            P&amp;L neto: {pnlByDate[selectedDate].pnl >= 0 ? '+' : '-'}${Math.round(Math.abs(pnlByDate[selectedDate].pnl)).toLocaleString('es-CL')}
+                          </span>
+                        </div>
+                      </div>
+                      <a href="/journal" style={{ fontSize:10, color:C.gold, textDecoration:'underline', fontFamily:'monospace', whiteSpace:'nowrap' }}>
+                        Ver en Journal →
+                      </a>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Panel de eventos del día seleccionado */}
               <AnimatePresence>
@@ -880,9 +896,10 @@ export default function CalendarioPage() {
                             onMouseEnter={el => (el.currentTarget as HTMLElement).style.background = C.gold+'08'}
                             onMouseLeave={el => (el.currentTarget as HTMLElement).style.background = C.surface}
                           >
-                            <span style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
-                              background: e.actual ? IMPACT_COLOR[e.impact] : 'transparent',
-                              border: e.actual ? 'none' : `1.5px solid ${IMPACT_COLOR[e.impact]}`,
+                            <span style={{ width:7, height:7, flexShrink:0,
+                              borderRadius: e.is_task ? 1 : '50%',
+                              background: (e.is_task ? e.done : e.actual) ? (e.is_task ? C.gold : IMPACT_COLOR[e.impact]) : 'transparent',
+                              border: (e.is_task ? e.done : e.actual) ? 'none' : `1.5px solid ${e.is_task ? C.gold : IMPACT_COLOR[e.impact]}`,
                               marginTop:4 }} />
                             <div style={{ flex:1 }}>
                               <div style={{ display:'flex', justifyContent:'space-between',
@@ -890,12 +907,17 @@ export default function CalendarioPage() {
                                 <span style={{ fontSize:12, color:C.text }}>{e.title}</span>
                                 <div style={{ display:'flex', gap:6, flexShrink:0 }}>
                                   {isEventLive(e, now) && <LiveBadge />}
-                                  <ImpactPill impact={e.impact} />
+                                  {e.is_task ? (
+                                    <span style={{ fontFamily:'monospace', fontSize:9, color:C.gold,
+                                      background:C.gold+'1a', padding:'1px 6px', letterSpacing:'0.1em' }}>MI TAREA</span>
+                                  ) : (
+                                    <ImpactPill impact={e.impact} />
+                                  )}
                                 </div>
                               </div>
                               <div style={{ display:'flex', gap:14 }}>
-                                <span style={{ fontSize:10, color:C.dimText }}>{e.event_time} ET</span>
-                                <CurrencyBadge currency={e.currency} />
+                                <span style={{ fontSize:10, color:C.dimText }}>{e.event_time}{e.is_task ? '' : ' ET'}</span>
+                                {!e.is_task && <CurrencyBadge currency={e.currency} />}
                                 {e.forecast && <span style={{ fontSize:10, color:C.yellow }}>Est: {e.forecast}</span>}
                                 {e.actual && <span style={{ fontSize:10, color:C.green }}>Act: {e.actual}</span>}
                               </div>
@@ -924,7 +946,7 @@ export default function CalendarioPage() {
                     style={{ fontSize:9, letterSpacing:'0.15em', fontWeight:700,
                       background:C.gold, color:'#000', border:'none',
                       padding:'5px 11px', cursor:'pointer' }}>
-                    + EVENTO
+                    + TAREA
                   </button>
                 </div>
 
@@ -977,12 +999,18 @@ export default function CalendarioPage() {
                         style={{ padding:'10px 16px', borderBottom:`1px solid ${C.border}` }}>
                         <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:4 }}>
                           <span style={{
-                            width:6, height:6, borderRadius:'50%', flexShrink:0,
-                            background: e.actual ? IMPACT_COLOR[e.impact] : 'transparent',
-                            border: e.actual ? 'none' : `1.5px solid ${IMPACT_COLOR[e.impact]}`,
+                            width:6, height:6, flexShrink:0,
+                            borderRadius: e.is_task ? 1 : '50%',
+                            background: (e.is_task ? e.done : e.actual) ? (e.is_task ? C.gold : IMPACT_COLOR[e.impact]) : 'transparent',
+                            border: (e.is_task ? e.done : e.actual) ? 'none' : `1.5px solid ${e.is_task ? C.gold : IMPACT_COLOR[e.impact]}`,
                           }} />
-                          <span style={{ fontSize:10, color:C.dimText }}>{e.event_time} ET</span>
-                          <CurrencyBadge currency={e.currency} />
+                          <span style={{ fontSize:10, color:C.dimText }}>{e.event_time}{e.is_task ? '' : ' ET'}</span>
+                          {e.is_task ? (
+                            <span style={{ fontFamily:'monospace', fontSize:9, color:C.gold,
+                              background:C.gold+'1a', padding:'1px 6px', letterSpacing:'0.1em' }}>MI TAREA</span>
+                          ) : (
+                            <CurrencyBadge currency={e.currency} />
+                          )}
                           {isEventLive(e, now) && <LiveBadge />}
                         </div>
                         <div style={{ fontSize:11, color:C.text, marginLeft:13, marginBottom:3 }}>
@@ -1002,11 +1030,6 @@ export default function CalendarioPage() {
             </div>
           </div>
 
-          {/* ── Tagline ── */}
-          <div style={{ textAlign:'center', fontSize:10, letterSpacing:'0.35em',
-            textTransform:'uppercase', color:C.gold+'66', marginTop:32 }}>
-            SURVIVE FIRST · WIN AFTER
-          </div>
         </div>
       </div>
     </>

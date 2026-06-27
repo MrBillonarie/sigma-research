@@ -66,6 +66,27 @@ export default function HUDPage() {
     return () => { cancelled = true }
   }, [])
 
+  // El dashboard del motor genera parte de su navegación (ej. "Per-Model
+  // Paper") vía JS, con hrefs absolutos como /models. /hud no tiene sub-rutas
+  // propias para servir eso, pero /motor-en-vivo sí (ya con su propio proxy
+  // y gate de contraseña) — así que cualquier link interno se redirige ahí
+  // en vez de navegar a squantdesk.com/<ruta>, que no existe.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    function onClick(e: MouseEvent) {
+      const target = e.target as HTMLElement
+      const a = target.closest('a[href^="/"]') as HTMLAnchorElement | null
+      if (!a) return
+      const href = a.getAttribute('href') ?? ''
+      if (href.startsWith('/api/') || href.startsWith('/download/') || href.startsWith('/motor-en-vivo')) return
+      e.preventDefault()
+      window.location.href = `/motor-en-vivo${href}`
+    }
+    container.addEventListener('click', onClick)
+    return () => container.removeEventListener('click', onClick)
+  }, [])
+
   return (
     <>
       {status === 'loading' && (

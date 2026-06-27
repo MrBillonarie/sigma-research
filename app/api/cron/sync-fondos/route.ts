@@ -1,6 +1,7 @@
 export const dynamic    = 'force-dynamic'
 export const maxDuration = 300 // 5 min — efectivo en Vercel Pro/Enterprise
 
+import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -102,9 +103,17 @@ function extractTac(attrs: any): number | null {
   return n < 1 ? +(n * 100).toFixed(4) : +n.toFixed(4)
 }
 
+function checkCronAuth(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return false
+  const auth = req.headers.get('authorization') ?? ''
+  const expected = `Bearer ${secret}`
+  if (auth.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
+}
+
 export async function GET(req: NextRequest) {
-  const CRON_SECRET = process.env.CRON_SECRET
-  if (!CRON_SECRET || req.headers.get('authorization') !== `Bearer ${CRON_SECRET}`) {
+  if (!checkCronAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

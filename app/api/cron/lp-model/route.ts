@@ -1,10 +1,15 @@
+import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { runAutoModel } from '@/lib/lp-auto-model'
 
 function checkCron(req: Request | NextRequest): boolean {
-  const CRON_SECRET = process.env.CRON_SECRET
-  return !!CRON_SECRET && req.headers.get('authorization') === `Bearer ${CRON_SECRET}`
+  const secret = process.env.CRON_SECRET
+  if (!secret) return false
+  const auth = req.headers.get('authorization') ?? ''
+  const expected = `Bearer ${secret}`
+  if (auth.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
 }
 
 // GET /api/cron/lp-model — dry-run for debugging

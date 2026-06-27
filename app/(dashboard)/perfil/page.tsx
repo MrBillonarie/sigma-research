@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/app/lib/supabase'
+import { usePortfolio } from '@/app/lib/usePortfolio'
+import { useFireProfile } from '@/app/lib/useFireProfile'
 import type { User } from '@supabase/supabase-js'
 
 const GOLD   = '#F5C842'
@@ -69,21 +71,6 @@ function Card({ id, title, children }: { id?: string; title: string; children: R
   )
 }
 
-// ─── Eye icon ────────────────────────────────────────────────────────────────
-function EyeIcon({ open }: { open: boolean }) {
-  return open ? (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  ) : (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
-}
-
 interface TradeStats {
   total: number; wins: number; winRate: number; pnl: number
   best: number; worst: number; streak: number
@@ -110,10 +97,13 @@ function calcTradeStats(): TradeStats | null {
 
 export default function PerfilPage() {
   const router = useRouter()
+  const { totalUSD: portfolioTotal, ready: portfolioReady } = usePortfolio()
+  const { profile: fireProfile } = useFireProfile()
   const [user,        setUser]        = useState<User | null>(null)
   const [profile,     setProfile]     = useState<Profile | null>(null)
   const [loading,     setLoading]     = useState(true)
   const [tradeStats,  setTradeStats]  = useState<TradeStats | null>(null)
+  const [copytrading, setCopytrading] = useState<{ enabled: boolean; capital: number } | null>(null)
   const [nombre,      setNombre]      = useState('')
   const [savingName,  setSavingName]  = useState(false)
   const [nameMsg,     setNameMsg]     = useState('')
@@ -124,18 +114,18 @@ export default function PerfilPage() {
   const [pwdMsg,      setPwdMsg]      = useState('')
   const [pwdError,    setPwdError]    = useState('')
 
-  const [binanceKey,    setBinanceKey]    = useState('')
-  const [binanceSecret, setBinanceSecret] = useState('')
-  const [savingBinance, setSavingBinance] = useState(false)
-  const [binanceMsg,    setBinanceMsg]    = useState('')
-  const [binanceError,  setBinanceError]  = useState('')
-  const [showSecret,    setShowSecret]    = useState(false)
-  const [showKey,       setShowKey]       = useState(false)
-
   const [avatarUrl,     setAvatarUrl]     = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarMsg,     setAvatarMsg]     = useState('')
   const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  // Credenciales de Binance/IBKR/MT5 guardadas con una versión anterior de
+  // esta página — ya no hay formularios para editarlas, pero quien las
+  // guardó antes debe poder borrarlas.
+  const [hasStoredCreds, setHasStoredCreds] = useState(false)
+  const [clearingCreds,  setClearingCreds]  = useState(false)
+  const [confirmClear,   setConfirmClear]   = useState(false)
+  const [clearMsg,       setClearMsg]       = useState('')
 
   const emptySetup = { par: '', tipo: 'LONG' as SetupTipo, entry: '', sl: '', tp: '', rangeLow: '', rangeHigh: '', feeTier: '', protocol: '', rr: '', timeframe: '4H', metodologia: '', nota: '' }
   const [setupForm,       setSetupForm]       = useState(emptySetup)
@@ -169,12 +159,16 @@ export default function PerfilPage() {
 
       const { data: config } = await supabase
         .from('user_config')
-        .select('binance_api_key, binance_api_secret')
+        .select('copytrading_enabled, copytrading_capital_usd, binance_api_key, binance_api_secret, ibkr_flex_token, ibkr_query_id, mt5_login, mt5_password, mt5_server')
         .eq('user_id', data.user.id)
         .maybeSingle()
       if (config) {
-        setBinanceKey(config.binance_api_key ?? '')
-        setBinanceSecret(config.binance_api_secret ?? '')
+        setCopytrading({ enabled: !!config.copytrading_enabled, capital: config.copytrading_capital_usd ?? 0 })
+        setHasStoredCreds(!!(
+          config.binance_api_key || config.binance_api_secret ||
+          config.ibkr_flex_token || config.ibkr_query_id ||
+          config.mt5_login || config.mt5_password || config.mt5_server
+        ))
       }
 
       setLoading(false)
@@ -268,19 +262,22 @@ export default function PerfilPage() {
     else { setPwdMsg('Contraseña actualizada.'); setPwdNew(''); setPwdConfirm('') }
   }
 
-  async function handleSaveBinance(e: React.FormEvent) {
-    e.preventDefault()
-    setBinanceMsg(''); setBinanceError('')
-    if (!binanceKey || !binanceSecret) { setBinanceError('Ambos campos son requeridos.'); return }
-    setSavingBinance(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSavingBinance(false); return }
+  async function handleClearCredentials() {
+    if (!confirmClear) { setConfirmClear(true); return }
+    setClearingCreds(true); setClearMsg('')
+    const { data: { user: u } } = await supabase.auth.getUser()
+    if (!u) { setClearingCreds(false); setConfirmClear(false); setClearMsg('Tu sesión expiró. Vuelve a iniciar sesión.'); return }
     const { error } = await supabase
       .from('user_config')
-      .upsert({ user_id: user.id, binance_api_key: binanceKey, binance_api_secret: binanceSecret }, { onConflict: 'user_id' })
-    setSavingBinance(false)
-    if (error) setBinanceError(`Error al guardar: ${error.message}`)
-    else setBinanceMsg('API Keys guardadas correctamente.')
+      .update({
+        binance_api_key: null, binance_api_secret: null,
+        ibkr_flex_token: null, ibkr_query_id: null,
+        mt5_login: null, mt5_password: null, mt5_server: null,
+      })
+      .eq('user_id', u.id)
+    setClearingCreds(false); setConfirmClear(false)
+    if (error) setClearMsg(`Error: ${error.message}`)
+    else { setClearMsg('Credenciales guardadas eliminadas.'); setHasStoredCreds(false) }
   }
 
   async function handleSignOut() {
@@ -310,9 +307,13 @@ export default function PerfilPage() {
   const displayName = nombre || profile?.username || email.split('@')[0] || 'TRADER'
   const initials    = displayName.slice(0, 2).toUpperCase()
 
+  const fireTarget = fireProfile.fire_completed && fireProfile.fire_gasto_mensual
+    ? (fireProfile.fire_gasto_mensual * 12) / 0.04
+    : null
+
   const navLinks = [
     { label: 'Editar nombre',       href: '#editar-nombre', icon: '✎' },
-    { label: 'Binance API Keys',    href: '#binance-keys',  icon: '⚿' },
+    ...(hasStoredCreds ? [{ label: 'Credenciales guardadas', href: '#credenciales-guardadas', icon: '⚿' }] : []),
     ...(!isOAuth ? [{ label: 'Cambiar contraseña', href: '#cambiar-pwd', icon: '🔒' }] : []),
     { label: 'Publicar setup',      href: '#publicar-setup', icon: '▲' },
     { label: 'Sesión',              href: '#sesion',         icon: '→' },
@@ -433,6 +434,35 @@ export default function PerfilPage() {
           {/* ── RIGHT CONTENT ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+            {/* Mi Plan Sigma — resumen consolidado */}
+            <Card title="// Mi Plan Sigma">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+                <a href="/fire" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center', display: 'block' }}>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 22, color: fireTarget ? GOLD : MUTED, lineHeight: 1, marginBottom: 6 }}>
+                    {fireTarget ? `$${Math.round(fireTarget).toLocaleString('es-CL')}` : 'Sin definir'}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Meta FIRE</div>
+                </a>
+                <a href="/portafolio" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center', display: 'block' }}>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 22, color: TEXT, lineHeight: 1, marginBottom: 6 }}>
+                    {portfolioReady ? `$${Math.round(portfolioTotal).toLocaleString('es-CL')}` : '—'}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Capital total</div>
+                </a>
+                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 22, color: copytrading?.enabled ? GREEN : MUTED, lineHeight: 1, marginBottom: 6 }}>
+                    {copytrading?.enabled ? `$${Math.round(copytrading.capital).toLocaleString('es-CL')}` : 'No inscrito'}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Copytrading</div>
+                </div>
+              </div>
+              {!fireProfile.fire_completed && (
+                <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, marginTop: 14, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, borderLeft: `2px solid ${GOLD}` }}>
+                  Aún no configuras tu plan FIRE. <a href="/fire" style={{ color: GOLD }}>Ir a /fire →</a>
+                </div>
+              )}
+            </Card>
+
             {/* Performance Stats */}
             {tradeStats && (
               <Card title="// Performance de Trading">
@@ -531,57 +561,30 @@ export default function PerfilPage() {
               {nameMsg && <div style={{ fontFamily: MONO, fontSize: 11, color: GREEN, marginTop: 12 }}>{nameMsg}</div>}
             </Card>
 
-            {/* Binance API Keys */}
-            <Card id="binance-keys" title="// Binance API Keys">
-              {/* Warning banner */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(245,200,66,0.06)', borderLeft: `3px solid ${GOLD}`, borderRadius: 6, padding: '10px 14px', marginBottom: 20 }}>
-                <span style={{ color: GOLD, fontSize: 14, flexShrink: 0, marginTop: 1 }}>⚠</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED, lineHeight: 1.6 }}>
-                  Usa keys de solo lectura. Nunca actives permisos de trading ni retiro.
-                </span>
-              </div>
-              <form onSubmit={handleSaveBinance} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <Field label="API Key">
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type={showKey ? 'text' : 'password'}
-                      value={binanceKey} onChange={e => setBinanceKey(e.target.value)}
-                      placeholder="Pega tu Binance API Key aquí"
-                      className="perf-input" style={{ ...inputCss, paddingRight: 48 }} autoComplete="off"
-                    />
-                    <button
-                      type="button" onClick={() => setShowKey(s => !s)}
-                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
-                    >
-                      <EyeIcon open={showKey} />
-                    </button>
-                  </div>
-                </Field>
-                <Field label="API Secret">
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type={showSecret ? 'text' : 'password'}
-                      value={binanceSecret} onChange={e => setBinanceSecret(e.target.value)}
-                      placeholder="Pega tu Binance API Secret aquí"
-                      className="perf-input" style={{ ...inputCss, paddingRight: 48 }} autoComplete="off"
-                    />
-                    <button
-                      type="button" onClick={() => setShowSecret(s => !s)}
-                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
-                    >
-                      <EyeIcon open={showSecret} />
-                    </button>
-                  </div>
-                </Field>
-                {binanceError && <div style={{ fontFamily: MONO, fontSize: 11, color: RED }}>{binanceError}</div>}
-                {binanceMsg   && <div style={{ fontFamily: MONO, fontSize: 11, color: GREEN }}>{binanceMsg}</div>}
-                <div>
-                  <button type="submit" disabled={savingBinance} className="btn-outline" style={{ ...btnOutline, opacity: savingBinance ? 0.6 : 1 }}>
-                    {savingBinance ? 'GUARDANDO…' : 'GUARDAR KEYS'}
+            {/* Credenciales guardadas de una versión anterior — sin formularios
+                de edición, solo la opción de borrarlas permanentemente. */}
+            {hasStoredCreds && (
+              <Card id="credenciales-guardadas" title="// Credenciales guardadas">
+                <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginBottom: 16, lineHeight: 1.6 }}>
+                  Tienes credenciales de sincronización (Binance, IBKR o MetaTrader 5) guardadas de una versión anterior de esta página. Ya no se gestionan ni se sincronizan desde aquí — puedes borrarlas de forma permanente.
+                </p>
+                {clearMsg && <div style={{ fontFamily: MONO, fontSize: 11, color: clearMsg.startsWith('Error') ? RED : GREEN, marginBottom: 12 }}>{clearMsg}</div>}
+                <button
+                  type="button" onClick={handleClearCredentials} disabled={clearingCreds}
+                  className="btn-outline" style={{ ...btnOutline, color: RED, borderColor: RED + '80', opacity: clearingCreds ? 0.6 : 1 }}
+                >
+                  {clearingCreds ? 'BORRANDO…' : confirmClear ? '¿SEGURO? CONFIRMAR BORRADO' : 'BORRAR CREDENCIALES GUARDADAS'}
+                </button>
+                {confirmClear && !clearingCreds && (
+                  <button
+                    type="button" onClick={() => setConfirmClear(false)}
+                    style={{ marginLeft: 10, padding: '12px 20px', background: 'transparent', color: MUTED, fontFamily: MONO, fontSize: 11, letterSpacing: '0.15em', border: `1px solid ${BORDER}`, borderRadius: 8, cursor: 'pointer' }}
+                  >
+                    CANCELAR
                   </button>
-                </div>
-              </form>
-            </Card>
+                )}
+              </Card>
+            )}
 
             {/* Cambiar contraseña */}
             {!isOAuth && (

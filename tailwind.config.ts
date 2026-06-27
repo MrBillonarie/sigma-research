@@ -23,8 +23,8 @@ const config: Config = {
 
         // ── Text scale ────────────────────────────────
         text:       '#e8e9f0',
-        'text-dim': '#7a7f9a',
-        muted:      '#3a3f55',
+        'text-dim': '#9298b8',
+        muted:      '#5a6078',
 
         // ── Semantic ─────────────────────────────────
         green:      '#1D9E75',
@@ -33,6 +33,15 @@ const config: Config = {
         'red-dim':  '#7f1d1d',
         amber:      '#f59e0b',
         blue:       '#378ADD',
+
+        // ── Admin panel palette (Mission Control) ──────────────────────
+        'admin-bg':      '#08060f',
+        'admin-surface': '#0f0c1a',
+        'admin-surface2':'#140f22',
+        'admin-border':  '#1e1633',
+        'admin-violet':  '#7c3aed',
+        'admin-violet2': '#8b5cf6',
+        'admin-violet3': '#6d28d9',
       },
       fontFamily: {
         display: ['var(--font-bebas)', 'Impact', 'sans-serif'],
@@ -58,10 +67,16 @@ const config: Config = {
         grid: '40px 40px',
       },
       boxShadow: {
-        gold:    '0 0 20px rgba(212,175,55,0.12), 0 0 40px rgba(212,175,55,0.04)',
-        'gold-lg':'0 0 40px rgba(212,175,55,0.25), 0 0 80px rgba(212,175,55,0.08)',
-        card:    '0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.06)',
+        gold:    '0 0 20px rgba(212,175,55,0.15), 0 0 40px rgba(212,175,55,0.05)',
+        'gold-lg':'0 0 40px rgba(212,175,55,0.3), 0 0 80px rgba(212,175,55,0.1)',
+        card:    '0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.1)',
         inset:   'inset 0 1px 0 rgba(255,255,255,0.04)',
+        // ── Admin Neon Grid glows ──────────────────────────────────────────
+        'admin-glow':        '0 0 0 1px rgba(139,92,246,0.13), 0 0 24px rgba(124,58,237,0.08)',
+        'admin-glow-lg':     '0 0 0 1px rgba(139,92,246,0.25), 0 0 40px rgba(124,58,237,0.15)',
+        'admin-glow-active': '0 0 0 1px rgba(139,92,246,0.45), 0 0 20px rgba(124,58,237,0.22)',
+        'admin-header':      '0 1px 0 rgba(139,92,246,0.28), 0 4px 24px rgba(124,58,237,0.08)',
+        'admin-sidebar':     '1px 0 0 rgba(139,92,246,0.18), 4px 0 24px rgba(124,58,237,0.06)',
       },
       animation: {
         ticker:       'ticker 35s linear infinite',

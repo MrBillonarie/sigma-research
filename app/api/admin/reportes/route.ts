@@ -32,19 +32,32 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error }, { status: 500 })
 
   void logAdminAction('reporte.create', data.id, { numero, titulo })
-  // Notificar a todos los usuarios con email confirmado en background
+
+  // Notificar a todos los usuarios — query profiles para escalar sin límite de 1000
   void (async () => {
     try {
       const service = makeService()
-      const { data: authData } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 })
-      const subscribers = (authData?.users ?? [])
-        .filter(u => u.email && u.email_confirmed_at)
-        .map(u => ({
-          email:  u.email!,
-          nombre: (u.user_metadata?.nombre as string) || u.email!.split('@')[0],
-        }))
-      if (subscribers.length) {
-        await sendNuevoReporte(subscribers, data)
+      let allSubscribers: { email: string; nombre: string }[] = []
+      let from = 0
+      const PAGE = 1000
+      while (true) {
+        const { data: rows, error } = await service
+          .from('profiles')
+          .select('email, nombre')
+          .not('email', 'is', null)
+          .range(from, from + PAGE - 1)
+        if (error || !rows?.length) break
+        allSubscribers = allSubscribers.concat(
+          rows.map((r: { email: string; nombre?: string }) => ({
+            email:  r.email,
+            nombre: r.nombre || r.email.split('@')[0],
+          }))
+        )
+        if (rows.length < PAGE) break
+        from += PAGE
+      }
+      if (allSubscribers.length) {
+        await sendNuevoReporte(allSubscribers, data)
       }
     } catch (e) {
       console.error('[reportes] notify', e)
@@ -56,7 +69,15 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   if (!checkAdminAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { id, ...updates } = await req.json().catch(() => ({}))
+  const { id, titulo, fecha, descripcion, url_pdf, activo } = await req.json().catch(() => ({}))
+  // Allowlist fields — never pass raw body to Supabase
+  const updates: Record<string, unknown> = {}
+  if (titulo     !== undefined) updates.titulo      = String(titulo).slice(0, 200)
+  if (fecha      !== undefined) updates.fecha       = String(fecha).slice(0, 20)
+  if (descripcion !== undefined) updates.descripcion = String(descripcion).slice(0, 2000)
+  if (url_pdf    !== undefined) updates.url_pdf     = String(url_pdf).slice(0, 500)
+  if (activo     !== undefined) updates.activo      = Boolean(activo)
+  if (!Object.keys(updates).length) return NextResponse.json({ error: 'Sin campos válidos' }, { status: 400 })
   const { data, error } = await makeService()
     .from('reportes')
     .update(updates)

@@ -21,10 +21,21 @@ const T   = '#e8e9f0'  // text
 const D   = '#7a7f9a'  // dim
 const M   = '#4a5068'  // muted
 
+// Gutter horizontal responsivo — antes 32px fijo, comprimía demasiado el
+// contenido contra el borde en mobile. clamp() lo angosta hasta 20px en
+// pantallas chicas sin tocar el desktop.
+const PX = 'clamp(20px, 6vw, 32px)'
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Champion {
   sym: string; tf: string; strategy: string; grade: string
-  wr: number; cagr: number; direction?: string
+  wr: number; cagr: number; dd: number; direction?: string
+}
+// Forma cruda del motor — incluye campos de robustez que NO deben llegar al
+// público (is_champion/robustness_action), usados solo para filtrar acá.
+interface RawModel {
+  sym: string; tf: string; strategy: string; grade: string; type?: string
+  wr: number; cagr: number; dd: number; is_champion?: boolean
 }
 interface HistoryTrade {
   sym: string; direction: string; status: string; equity_after?: number
@@ -36,11 +47,26 @@ interface FireData {
 interface Ticker { symbol: string; price: number; change24h: number }
 
 // ─── Data fetch ───────────────────────────────────────────────────────────────
-const VPS = process.env.VPS_URL ?? 'http://localhost:8080'
+const VPS = process.env.VPS_URL ?? ''
 
 async function getPageData() {
   try {
     const binUrl = `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent('["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"]')}`
+    if (!VPS) {
+      const binRes  = await fetch(binUrl, { next: { revalidate: 30 }, signal: AbortSignal.timeout(5000) }).catch(() => null)
+      const binRaw  = binRes?.ok ? await binRes.json() : []
+      const tickers: Ticker[] = (binRaw as Array<{ symbol: string; lastPrice: string; priceChangePercent: string }>).map(t => ({
+        symbol: t.symbol.replace('USDT', ''), price: parseFloat(t.lastPrice), change24h: parseFloat(t.priceChangePercent),
+      }))
+      return {
+        metrics: null, fire: null as (FireData | null), coverage: null,
+        backtests: 16_767_345, regime: 'UNKNOWN',
+        champions: [] as Champion[], history: [] as HistoryTrade[],
+        bayesian: { confirmed: 1, watching: 2 },
+        lastDecisionAt: null as string | null,
+        tickers,
+      }
+    }
     const [engineRes, publicRes, binRes] = await Promise.all([
       fetch(`${VPS}/api/v2/engine_status`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(5000) }),
       fetch(`${VPS}/api/public`,           { next: { revalidate: 60 }, signal: AbortSignal.timeout(5000) }),
@@ -62,7 +88,14 @@ async function getPageData() {
       coverage:      engine?.coverage ?? null,
       backtests:     Number(engine?.backtests_total ?? 16_767_345),
       regime:        (pub?.regime ?? 'UNKNOWN') as string,
-      champions:     ((pub?.top_models ?? []) as Champion[]).slice(0, 6),
+      // Solo campeones reales activados por el motor — el feed crudo incluye
+      // modelos BLOQUEADOS por su propio gate de robustez (ej. CAGR_IMPOSSIBLE,
+      // resultados de backtest estadísticamente inválidos) que no deben
+      // mostrarse en público como si fueran resultados de producción.
+      champions: ((pub?.top_models ?? []) as RawModel[])
+        .filter(m => m.is_champion)
+        .slice(0, 6)
+        .map(m => ({ sym: m.sym, tf: m.tf, strategy: m.strategy, grade: m.grade, wr: m.wr, cagr: m.cagr, dd: m.dd, direction: m.type })),
       history:       ((pub?.history   ?? []) as HistoryTrade[]).filter(t => t.equity_after != null),
       bayesian:      { confirmed: (engine?.bayesian?.edge_confirmed ?? 0) as number, watching: (engine?.bayesian?.watching ?? 0) as number },
       lastDecisionAt: (engine?.last_decision_at ?? null) as string | null,
@@ -199,14 +232,76 @@ function SectionRule({ label }: { label: string }) {
   )
 }
 
+// ─── Mini-visuales de herramientas ──────────────────────────────────────────
+// Cada herramienta tiene su propio device en miniatura — donde la página real
+// ya tiene una firma visual propia (cono Monte Carlo, sparkline FIRE, banda de
+// rango LP), se reutiliza aquí en escala pequeña, así esta sección funciona
+// como vitrina real y no como ícono genérico de marketing.
+function VizPulse({ color }: { color: string }) {
+  return (
+    <svg width="56" height="22" viewBox="0 0 56 22" fill="none">
+      <path d="M0,11 L10,11 L14,4 L18,18 L22,11 L30,11 L34,7 L38,15 L42,11 L56,11"
+        stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" opacity="0.85" fill="none" />
+    </svg>
+  )
+}
+function VizLadder({ color }: { color: string }) {
+  const heights = [6, 11, 16, 21]
+  return (
+    <svg width="56" height="22" viewBox="0 0 56 22" fill="none">
+      {heights.map((h, i) => (
+        <rect key={i} x={i * 14 + 2} y={22 - h} width="8" height={h} fill={color} opacity={0.32 + i * 0.18} rx="1" />
+      ))}
+    </svg>
+  )
+}
+function VizDial({ color }: { color: string }) {
+  return (
+    <svg width="56" height="22" viewBox="0 0 56 22" fill="none">
+      <circle cx="11" cy="11" r="8.5" stroke={color} strokeWidth="1.3" opacity="0.4" />
+      <line x1="11" y1="11" x2="16.5" y2="5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="11" cy="11" r="1.6" fill={color} />
+      <line x1="28" y1="11" x2="56" y2="11" stroke={color} strokeWidth="1" strokeDasharray="2,3" opacity="0.4" />
+    </svg>
+  )
+}
+function VizCone({ color }: { color: string }) {
+  const ends = [3, 7, 11, 15, 19]
+  return (
+    <svg width="56" height="22" viewBox="0 0 56 22" fill="none">
+      {ends.map((y, i) => (
+        <line key={i} x1="0" y1="11" x2="56" y2={y} stroke={color} strokeWidth={i === 2 ? 1.6 : 1} opacity={i === 2 ? 0.9 : 0.22} />
+      ))}
+    </svg>
+  )
+}
+function VizAscend({ color }: { color: string }) {
+  return (
+    <svg width="56" height="22" viewBox="0 0 56 22" fill="none">
+      <path d="M0,20 Q28,20 38,7" stroke={color} strokeWidth="1.6" strokeLinecap="round" fill="none" opacity="0.85" />
+      <line x1="38" y1="7" x2="38" y2="1" stroke={color} strokeWidth="1.2" opacity="0.5" />
+      <circle cx="38" cy="7" r="2.6" fill={color} />
+    </svg>
+  )
+}
+function VizRange({ color }: { color: string }) {
+  return (
+    <svg width="56" height="22" viewBox="0 0 56 22" fill="none">
+      <line x1="0" y1="11" x2="56" y2="11" stroke={color} strokeWidth="1" opacity="0.25" />
+      <rect x="16" y="8" width="24" height="6" rx="1.5" fill={color} opacity="0.18" stroke={color} strokeOpacity="0.5" strokeWidth="1" />
+      <line x1="30" y1="2" x2="30" y2="20" stroke={color} strokeWidth="1.6" opacity="0.9" />
+    </svg>
+  )
+}
+
 // ─── Static data ──────────────────────────────────────────────────────────────
 const tools = [
-  { id: '01', name: 'SIGMA ENGINE',      col: '#34d399', desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre BTC/ETH/SOL/BNB/XAU con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
-  { id: '02', name: 'MODELOS ML',        col: G,         desc: 'Champions cuantitativos con grades A+/A/B/C. Cada modelo valida con robustness gate, OOS gate y Kelly sizing antes de activarse en producción.' },
-  { id: '03', name: 'MOTOR DECISIÓN',    col: '#60a5fa', desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre ETFs, fondos mutuos, cripto y renta fija. Ajustado por régimen de mercado (risk-on/off).' },
-  { id: '04', name: 'MONTE CARLO',       col: '#a78bfa', desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
-  { id: '05', name: 'SIMULADOR FIRE',    col: '#f59e0b', desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
-  { id: '06', name: 'SEÑALES LP',        col: '#f87171', desc: 'Motor cuantitativo para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado por par.' },
+  { id: '01', name: 'SIGMA ENGINE',      col: '#34d399', viz: VizPulse,  desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre BTC/ETH/SOL/BNB/XAU con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
+  { id: '02', name: 'MODELOS ML',        col: G,         viz: VizLadder, desc: 'Champions cuantitativos con grades A+/A/B/C. Cada modelo valida con robustness gate, OOS gate y Kelly sizing antes de activarse en producción.' },
+  { id: '03', name: 'MOTOR DECISIÓN',    col: '#60a5fa', viz: VizDial,   desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre ETFs, fondos mutuos, cripto y renta fija. Ajustado por régimen de mercado (risk-on/off).' },
+  { id: '04', name: 'MONTE CARLO',       col: '#a78bfa', viz: VizCone,   desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
+  { id: '05', name: 'SIMULADOR FIRE',    col: '#f59e0b', viz: VizAscend, desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
+  { id: '06', name: 'SEÑALES LP',        col: '#f87171', viz: VizRange,  desc: 'Motor cuantitativo para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado por par.' },
 ]
 
 const plans = [
@@ -247,12 +342,23 @@ export default async function RootPage() {
     ? (((fire.current_equity - fire.starting_equity) / fire.starting_equity) * 100).toFixed(2)
     : '13.19'
 
-  // Metallic gold gradient — spread into style={{}} where needed
+  // Metallic gold gradient — spread into style={{}} where needed.
+  // textShadow funciona aunque el fill sea transparente (pinta sobre el
+  // contorno del glifo, no sobre el color) — da la sensación de relieve/grabado
+  // en vez de un degradado plano.
   const gMetal: CSSProperties = {
     background: `linear-gradient(135deg, #a07828 0%, ${G} 35%, #f5d060 52%, ${G} 68%, #9a7020 100%)`,
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
+    textShadow: '0 1px 0 rgba(255,255,255,0.2), 0 3px 10px rgba(0,0,0,0.4)',
+  }
+
+  // Entrada escalonada del hero — fade + slide-up una sola vez al cargar
+  // (no un loop). Delay creciente por elemento para que el hero entre como
+  // una sola secuencia coreografiada en vez de aparecer todo de golpe.
+  function reveal(delayMs: number): CSSProperties {
+    return { opacity: 0, animation: 'heroReveal 0.7s cubic-bezier(0.16,1,0.3,1) forwards', animationDelay: `${delayMs}ms` }
   }
 
   return (
@@ -279,10 +385,10 @@ export default async function RootPage() {
         {/* Animated equity curve + live tickers */}
         <HeroAnimation />
 
-        <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', padding: '160px 32px 80px', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', padding: `clamp(100px, 24vw, 160px) ${PX} 80px`, position: 'relative', zIndex: 1 }}>
 
           {/* Status badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 44, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 44, flexWrap: 'wrap', ...reveal(0) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', border: '1px solid rgba(52,211,153,0.25)', background: 'rgba(52,211,153,0.05)' }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399', flexShrink: 0 }} />
               <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.25em', color: '#34d399' }}>PLATAFORMA ACTIVA</span>
@@ -295,19 +401,19 @@ export default async function RootPage() {
           </div>
 
           {/* 3-line headline */}
-          <div style={{ marginBottom: 32, fontFamily: "'Bebas Neue', Impact, sans-serif", letterSpacing: '0.02em', lineHeight: 0.88 }}>
-            <div style={{ fontSize: 'clamp(72px, 12vw, 140px)', color: T }}>VENTAJA</div>
-            <div style={{ fontSize: 'clamp(72px, 12vw, 140px)', ...gMetal }}>CUANTITATIVA</div>
-            <div style={{ fontSize: 'clamp(40px, 7vw, 86px)', color: D, marginTop: 6 }}>PARA OPERADORES EN LATAM</div>
+          <div style={{ marginBottom: 32, fontFamily: "'Bebas Neue', Impact, sans-serif", letterSpacing: '0.02em', lineHeight: 0.88, ...reveal(120) }}>
+            <div style={{ fontSize: 'clamp(34px, 12vw, 140px)', color: T }}>VENTAJA</div>
+            <div style={{ fontSize: 'clamp(34px, 12vw, 140px)', ...gMetal }}>CUANTITATIVA</div>
+            <div style={{ fontSize: 'clamp(22px, 7vw, 86px)', color: D, marginTop: 6 }}>PARA OPERADORES EN LATAM</div>
           </div>
 
           {/* Description */}
-          <p style={{ fontFamily: 'monospace', fontSize: 13, color: D, lineHeight: 1.9, maxWidth: 520, marginBottom: 28, borderLeft: `2px solid ${G}40`, paddingLeft: 18 }}>
+          <p style={{ fontFamily: 'monospace', fontSize: 13, color: D, lineHeight: 1.9, maxWidth: 520, marginBottom: 28, borderLeft: `2px solid ${G}40`, paddingLeft: 18, ...reveal(320) }}>
             Infraestructura analítica de nivel institucional — modelos ML validados out-of-sample, datos de mercado reales y planificación FIRE integrada. Sin conflictos de interés.
           </p>
 
           {/* Terminal attribute readout */}
-          <div style={{ marginBottom: 36, border: `1px solid ${B}`, background: 'rgba(11,13,20,0.65)', maxWidth: 460, backdropFilter: 'blur(4px)', position: 'relative' }}>
+          <div style={{ marginBottom: 36, border: `1px solid ${B}`, background: 'rgba(11,13,20,0.65)', maxWidth: 460, backdropFilter: 'blur(4px)', position: 'relative', ...reveal(600) }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}40, transparent)` }} />
             {([
               { k: 'MERCADOS',     v: 'BTC · ETH · SOL · BNB · XAU',  accent: false, dot: false },
@@ -328,8 +434,8 @@ export default async function RootPage() {
           </div>
 
           {/* CTAs */}
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 48 }}>
-            <Link href="/registro" style={{
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 48, ...reveal(900) }}>
+            <Link href="/registro" className="gold-cta" style={{
               background: `linear-gradient(135deg, ${G}, #c9a227)`,
               color: BG, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em',
               padding: '15px 40px', textDecoration: 'none', display: 'inline-block',
@@ -337,7 +443,7 @@ export default async function RootPage() {
             }}>
               CREAR CUENTA GRATIS
             </Link>
-            <Link href="/login" style={{
+            <Link href="/login" className="outline-cta" style={{
               border: `1px solid ${B}`, color: D,
               fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em',
               padding: '15px 28px', textDecoration: 'none', display: 'inline-block',
@@ -348,7 +454,7 @@ export default async function RootPage() {
           </div>
 
           {/* Trust bullets */}
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', ...reveal(1150) }}>
             {[
               { dot: '#34d399', text: 'Sin tarjeta de crédito' },
               { dot: G,         text: 'Comunidad de traders'   },
@@ -365,7 +471,7 @@ export default async function RootPage() {
 
       {/* ══ URGENCY STRIP — cupos beta ════════════════════════════════════════ */}
       <div style={{ background: 'rgba(212,175,55,0.04)', borderBottom: `1px solid rgba(212,175,55,0.12)` }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '11px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: `11px ${PX}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b', flexShrink: 0 }} />
             <span style={{ fontFamily: 'monospace', fontSize: 9, color: G, letterSpacing: '0.22em' }}>
@@ -386,8 +492,8 @@ export default async function RootPage() {
 
       {/* ══ 2. STATS — 4 columnas con datos reales ═══════════════════════════ */}
       <section style={{ borderBottom: `1px solid ${B}` }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', background: B, gap: 1 }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: `0 ${PX}` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', background: B, gap: 1 }}>
             {[
               { value: metrics?.wr     ? `${metrics.wr.toFixed(1)}%`    : '68%',   label: 'Win Rate',      detail: 'backtesting out-of-sample' },
               { value: metrics?.pf     ? `${metrics.pf.toFixed(2)}×`    : '1.70×', label: 'Profit Factor', detail: 'PRO · SIGMA ENGINE'        },
@@ -406,8 +512,13 @@ export default async function RootPage() {
       </section>
 
       {/* ══ 3. HERRAMIENTAS — cards con borde superior por color ═════════════ */}
-      <section style={{ padding: '112px 32px', borderBottom: `1px solid ${B}` }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+      <section style={{ padding: `clamp(64px, 16vw, 112px) ${PX}`, borderBottom: `1px solid ${B}`, position: 'relative', overflow: 'hidden' }}>
+        {/* Atmósfera sutil — eco del hero, sin competir con el contenido */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: `radial-gradient(ellipse 65% 55% at 100% 0%, rgba(212,175,55,0.05) 0%, transparent 60%)`,
+        }} />
+        <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56, gap: 24, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 14 }}>{'// PLATAFORMA · 6 HERRAMIENTAS'}</div>
@@ -421,16 +532,25 @@ export default async function RootPage() {
             </Link>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: B }}>
-            {tools.map(t => (
-              <div key={t.id} style={{ background: S, padding: '32px 28px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 1, background: B }}>
+            {tools.map((t, i) => (
+              <div key={t.id} className={`tool-card tool-card-${i}`} style={{ background: S, padding: '32px 28px', position: 'relative', overflow: 'hidden' }}>
                 {/* Unique color top border per tool */}
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: t.col }} />
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 30, color: T, letterSpacing: '0.03em' }}>{t.name}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: t.col, background: `${t.col}18`, border: `1px solid ${t.col}40`, padding: '2px 8px', flexShrink: 0, marginLeft: 8 }}>{t.id}</span>
+                {/* Numeral pálido de fondo — misma firma que el ranking de /lp-defi */}
+                <span style={{
+                  position: 'absolute', top: -10, right: 6, fontFamily: "'Bebas Neue', Impact, sans-serif",
+                  fontSize: 76, lineHeight: 1, color: `${t.col}14`, userSelect: 'none', pointerEvents: 'none',
+                }}>
+                  {t.id}
+                </span>
+                <div style={{ marginBottom: 14, position: 'relative' }}>
+                  <t.viz color={t.col} />
                 </div>
-                <p style={{ fontFamily: 'monospace', fontSize: 11, color: D, lineHeight: 1.8, margin: 0 }}>{t.desc}</p>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 30, color: T, letterSpacing: '0.03em', marginBottom: 16, position: 'relative' }}>
+                  {t.name}
+                </div>
+                <p style={{ fontFamily: 'monospace', fontSize: 11, color: D, lineHeight: 1.8, margin: 0, position: 'relative' }}>{t.desc}</p>
               </div>
             ))}
           </div>
@@ -438,11 +558,16 @@ export default async function RootPage() {
       </section>
 
       {/* ══ 4. MOTOR EN VIVO — engine status + scanner público ═══════════════ */}
-      <section style={{ padding: '80px 32px', background: BG, borderBottom: `1px solid ${B}` }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+      <section style={{ padding: `clamp(56px, 12vw, 80px) ${PX}`, background: BG, borderBottom: `1px solid ${B}`, position: 'relative', overflow: 'hidden' }}>
+        {/* Atmósfera sutil — eco del hero, sin competir con el contenido */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: `radial-gradient(ellipse 60% 50% at 0% 100%, rgba(212,175,55,0.045) 0%, transparent 60%)`,
+        }} />
+        <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <SectionRule label="// SIGMA ENGINE · EN VIVO AHORA" />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: B }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: 1, background: B }}>
 
             {/* Panel izquierdo: status del engine */}
             <div style={{ background: S, padding: '32px 28px' }}>
@@ -499,7 +624,7 @@ export default async function RootPage() {
                   SEÑALES COMPLETAS BUY / SELL / HOLD<br />
                   DISPONIBLES EN DASHBOARD DESPUÉS DEL REGISTRO
                 </div>
-                <Link href="/registro" style={{ display: 'inline-block', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: BG, background: `linear-gradient(135deg, ${G}, #c9a227)`, padding: '10px 20px', textDecoration: 'none', boxShadow: `0 0 20px rgba(212,175,55,0.2)` }}>
+                <Link href="/registro" className="gold-cta" style={{ display: 'inline-block', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: BG, background: `linear-gradient(135deg, ${G}, #c9a227)`, padding: '10px 20px', textDecoration: 'none', boxShadow: `0 0 20px rgba(212,175,55,0.2)` }}>
                   VER SEÑALES COMPLETAS →
                 </Link>
               </div>
@@ -509,7 +634,7 @@ export default async function RootPage() {
       </section>
 
       {/* ══ 5. EQUITY CURVE — datos reales de paper trading ══════════════════ */}
-      <section style={{ padding: '80px 32px', background: S, borderBottom: `1px solid ${B}` }}>
+      <section style={{ padding: `clamp(56px, 12vw, 80px) ${PX}`, background: S, borderBottom: `1px solid ${B}` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <SectionRule label="// PAPER TRADING EN PRODUCCIÓN" />
 
@@ -552,7 +677,7 @@ export default async function RootPage() {
           </div>
 
           {/* Stats bar */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: B, marginTop: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1, background: B, marginTop: 1 }}>
             {[
               { v: `${metrics?.wr     ? metrics.wr.toFixed(1)     : '68'}%`,   l: 'Win Rate'          },
               { v: `${metrics?.pf     ? metrics.pf.toFixed(2)     : '1.70'}×`, l: 'Profit Factor'     },
@@ -570,7 +695,7 @@ export default async function RootPage() {
 
       {/* ══ 6. TOP CHAMPIONS ═════════════════════════════════════════════════ */}
       {champions.length > 0 && (
-        <section style={{ padding: '80px 32px', borderBottom: `1px solid ${B}` }}>
+        <section style={{ padding: `clamp(56px, 12vw, 80px) ${PX}`, borderBottom: `1px solid ${B}` }}>
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>
             <SectionRule label="// MOTOR · TOP CHAMPIONS" />
 
@@ -584,17 +709,33 @@ export default async function RootPage() {
               </Link>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: B }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 1, background: B }}>
               {champions.map((c, i) => {
                 const gc = gradeColor(c.grade)
+                const isLeader = i === 0
                 return (
-                  <div key={i} style={{ background: S, padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
+                  <div key={i} className={`champion-card champion-card-${i}`} style={{
+                    background: isLeader ? `linear-gradient(160deg, ${gc}14, ${S} 60%)` : S,
+                    boxShadow: isLeader ? `0 0 20px ${gc}22` : 'none',
+                    padding: '28px 24px', position: 'relative', overflow: 'hidden',
+                  }}>
                     {/* Color top border matching grade */}
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: gc }} />
-                    {/* Rank engraving */}
-                    <div style={{ position: 'absolute', top: 14, right: 16, fontFamily: 'monospace', fontSize: 10, color: `${gc}28`, fontWeight: 700 }}>
-                      #{String(i + 1).padStart(2, '0')}
-                    </div>
+                    {/* Filo del líder — se dibuja una sola vez al montar, igual que en /lp-defi */}
+                    {isLeader && (
+                      <div style={{
+                        position: 'absolute', top: 2, left: 0, right: 0, height: 1,
+                        background: gc, boxShadow: `0 0 6px ${gc}90`,
+                        transformOrigin: 'center', animation: 'leaderEdgeDraw 0.8s ease-out forwards',
+                      }} />
+                    )}
+                    {/* Numeral de fondo — misma firma que el ranking de /lp-defi y las cards de Herramientas */}
+                    <span style={{
+                      position: 'absolute', top: -10, right: 2, fontFamily: "'Bebas Neue', Impact, sans-serif",
+                      fontSize: 74, lineHeight: 1, color: `${gc}${isLeader ? '20' : '14'}`, userSelect: 'none', pointerEvents: 'none',
+                    }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                       <span style={{ fontFamily: 'monospace', fontSize: 10, color: gc, border: `1px solid ${gc}40`, background: `${gc}12`, padding: '2px 8px', fontWeight: 700 }}>{c.grade}</span>
@@ -618,11 +759,20 @@ export default async function RootPage() {
                       {c.strategy.replace(/_/g, ' ').toUpperCase()}
                     </div>
 
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 48, color: gc, lineHeight: 1, textShadow: `0 0 28px ${gc}28` }}>
-                        {c.cagr?.toFixed(0)}%
+                    {/* CAGR + Drawdown — el upside y el riesgo juntos, no solo el número más grande */}
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: isLeader ? 56 : 48, color: gc, lineHeight: 1, textShadow: `0 0 28px ${gc}28` }}>
+                          {c.cagr?.toFixed(0)}%
+                        </div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginTop: 4 }}>CAGR validado OOS</div>
                       </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginTop: 4 }}>CAGR validado OOS</div>
+                      <div>
+                        <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: '#f87171', lineHeight: 1 }}>
+                          {typeof c.dd === 'number' ? `${c.dd.toFixed(1)}%` : '—'}
+                        </div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginTop: 4 }}>DD MÁX</div>
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -640,7 +790,7 @@ export default async function RootPage() {
       )}
 
       {/* ══ 7. PLANES ════════════════════════════════════════════════════════ */}
-      <section id="planes" style={{ padding: '112px 32px', borderBottom: `1px solid ${B}` }}>
+      <section id="planes" style={{ padding: `clamp(64px, 16vw, 112px) ${PX}`, borderBottom: `1px solid ${B}` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56, flexWrap: 'wrap', gap: 20 }}>
             <div>
@@ -655,7 +805,7 @@ export default async function RootPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: B }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 1, background: B }}>
             {plans.map(p => (
               <div key={p.tier} style={{
                 background: p.fill ? 'linear-gradient(160deg, #080a14, #060810)' : S,
@@ -687,7 +837,7 @@ export default async function RootPage() {
                     </div>
                   ))}
                 </div>
-                <Link href={p.href} style={{
+                <Link href={p.href} className={p.fill ? 'gold-cta' : 'outline-cta'} style={{
                   display: 'block', textAlign: 'center', padding: '14px',
                   fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em',
                   textDecoration: 'none',
@@ -705,7 +855,7 @@ export default async function RootPage() {
       </section>
 
       {/* ══ 8. CTA FINAL ═════════════════════════════════════════════════════ */}
-      <section style={{ padding: '112px 32px 80px', background: S, borderBottom: `1px solid ${B}`, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: `clamp(64px, 16vw, 112px) ${PX} 80px`, background: S, borderBottom: `1px solid ${B}`, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212,175,55,0.05) 0%, transparent 70%)` }} />
         <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 18 }}>{'// EMPIEZA HOY'}</div>
@@ -718,15 +868,15 @@ export default async function RootPage() {
             Acceso inmediato a todas las herramientas del dashboard.
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 56 }}>
-            <Link href="/registro" style={{
+            <Link href="/registro" className="gold-cta" style={{
               background: `linear-gradient(135deg, ${G}, #c9a227)`,
               color: BG, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em',
               padding: '16px 44px', textDecoration: 'none',
               boxShadow: '0 0 40px rgba(212,175,55,0.3)',
             }}>
-              CREAR CUENTA GRATIS
+              ACTIVAR ACCESO GRATIS
             </Link>
-            <Link href="/login" style={{
+            <Link href="/login" className="outline-cta" style={{
               border: `1px solid ${B}`, color: D, background: 'rgba(255,255,255,0.02)',
               fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em',
               padding: '16px 28px', textDecoration: 'none',
@@ -754,6 +904,52 @@ export default async function RootPage() {
         </div>
       </section>
 
+      <style>{`
+        @keyframes heroReveal {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .gold-cta, .outline-cta {
+          position: relative;
+          overflow: hidden;
+          transition: transform 0.2s ease, filter 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+        }
+        .gold-cta:hover { transform: translateY(-2px); filter: brightness(1.08); }
+        .gold-cta::before {
+          content: '';
+          position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+          background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+          transform: skewX(-20deg);
+          transition: left 0.6s ease;
+          pointer-events: none;
+        }
+        .gold-cta:hover::before { left: 130%; }
+        .outline-cta:hover {
+          transform: translateY(-1px);
+          border-color: rgba(212,175,55,0.5) !important;
+          color: #d4af37 !important;
+          background: rgba(212,175,55,0.05) !important;
+        }
+        .tool-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        ${tools.map((t, i) => `
+        .tool-card-${i}:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 14px 30px -10px ${t.col}45, inset 0 0 0 1px ${t.col}35;
+        }`).join('')}
+        @keyframes leaderEdgeDraw {
+          from { transform: scaleX(0); opacity: 0; }
+          to   { transform: scaleX(1); opacity: 1; }
+        }
+        .champion-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        ${champions.map((c, i) => {
+          const gc = gradeColor(c.grade)
+          return `
+        .champion-card-${i}:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 14px 30px -10px ${gc}45, inset 0 0 0 1px ${gc}35;
+        }`
+        }).join('')}
+      `}</style>
     </main>
   )
 }

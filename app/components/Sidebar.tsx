@@ -25,7 +25,6 @@ import {
   Search,
   Settings,
   Bell,
-  Landmark,
   Zap,
 } from 'lucide-react'
 
@@ -60,9 +59,7 @@ const navItems = [
 ]
 
 const comparadorItems = [
-  { label: 'Renta Fija',    href: '/comparador/renta-fija',    icon: Landmark   },
-  { label: 'Fondos Mutuos', href: '/comparador/fondos-mutuos', icon: TrendingUp },
-  { label: 'ETFs',          href: '/comparador/etfs',          icon: TrendingUp },
+  { label: 'ETFs', href: '/comparador/etfs', icon: TrendingUp },
 ]
 
 // ─── Search data ──────────────────────────────────────────────────────────────
@@ -93,8 +90,6 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
-  { id: '/comparador/renta-fija',     label: 'Renta Fija',     href: '/comparador/renta-fija',    category: 'Comparador',  icon: Landmark        },
-  { id: '/comparador/fondos-mutuos',  label: 'Fondos Mutuos',  href: '/comparador/fondos-mutuos', category: 'Comparador',  icon: TrendingUp      },
   { id: '/comparador/etfs',           label: 'ETFs',           href: '/comparador/etfs',          category: 'Comparador',  icon: TrendingUp      },
   // Tickers
   ...TICKER_LIST.map(t => ({

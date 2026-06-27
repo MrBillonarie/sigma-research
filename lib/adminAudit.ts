@@ -18,6 +18,8 @@ export type AuditAction =
   | 'marketing.send'
   | 'email_directo.send'
   | 'soporte.reply'
+  | 'modelo.toggle'
+  | 'tasas_dap.update'
 
 export async function logAdminAction(
   action: AuditAction,

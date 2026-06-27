@@ -3,8 +3,10 @@ import { useState, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { fmt, fmtK } from '@/app/lib/format'
 import FireChallenges from './FireChallenges'
+import FireOnboarding from './FireOnboarding'
 import { usePortfolio } from '@/app/lib/usePortfolio'
-import { supabase } from '@/app/lib/supabase'
+import { useFireProfile } from '@/app/lib/useFireProfile'
+import { cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
@@ -18,6 +20,8 @@ const C = {
 }
 
 // ─── FIRE modes ───────────────────────────────────────────────────────────────
+// peak = altura del sparkline (0–1): la altitud de libertad que persigue cada
+// modo, no la velocidad a la que crece — Lean apunta bajo, Fat apunta alto.
 const MODES = [
   {
     id: 'lean',
@@ -25,7 +29,7 @@ const MODES = [
     color: '#f59e0b',
     description: 'Independencia financiera con estilo de vida frugal. Mínimo suficiente para cubrir necesidades básicas con margen.',
     defaultGasto: 1200,
-    icon: '⚡',
+    peak: 0.32,
   },
   {
     id: 'barista',
@@ -33,7 +37,7 @@ const MODES = [
     color: '#34d399',
     description: 'Semi-retiro. El portafolio cubre la mayoría de gastos, complementado con trabajo part-time o pasiones.',
     defaultGasto: 2500,
-    icon: '☕',
+    peak: 0.62,
   },
   {
     id: 'fat',
@@ -41,9 +45,25 @@ const MODES = [
     color: '#d4af37',
     description: 'Retiro completo con alto estándar de vida. Lujo, viajes frecuentes y sin restricciones financieras.',
     defaultGasto: 6000,
-    icon: '🏆',
+    peak: 0.95,
   },
 ]
+
+// Sparkline ascendente — la altura a la que llega representa la altitud de
+// libertad de cada modo, conectando con el lenguaje de curva del resto de
+// la página (no un ícono literal, no un emoji).
+function ModeSparkline({ color, peak }: { color: string; peak: number }) {
+  const w = 46, h = 28, padX = 3, padTop = 4, padBottom = 4
+  const x0 = padX, y0 = h - padBottom
+  const x1 = w - padX, y1 = padTop + (1 - peak) * (h - padTop - padBottom)
+  const cx = (x0 + x1) / 2
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block', flexShrink: 0 }}>
+      <path d={`M${x0},${y0} Q${cx},${y0} ${x1},${y1}`} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.85} />
+      <circle cx={x1} cy={y1} r={3} fill={color} />
+    </svg>
+  )
+}
 
 // ─── Simulation ───────────────────────────────────────────────────────────────
 function project(capital: number, ahorro: number, retorno: number, gastoFire: number, maxYears = 50) {
@@ -89,6 +109,7 @@ function Label({ text }: { text: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function FirePage() {
   const { totalUSD: portfolioTotal, ready: portfolioReady } = usePortfolio()
+  const { profile: fireProfile, loading: fireProfileLoading, needsOnboarding, saveProfile } = useFireProfile()
   const [mode,    setMode]    = useState(1)   // 0=Lean 1=Barista 2=Fat
   const [capital, setCapital] = useState(80_000)
 
@@ -100,47 +121,107 @@ export default function FirePage() {
   const [retorno, setRetorno] = useState(8)
   const [edad,    setEdad]    = useState(29)
   const [gasto,   setGasto]   = useState(MODES[1].defaultGasto)
+  const [retornoMotor, setRetornoMotor] = useState<number | null>(null)
 
-  // Restaurar parámetros FIRE vinculados al user_id (evita mezcla entre cuentas)
+  // Retorno real del motor en vivo (mismo origen de datos que el HUD/motor-en-vivo,
+  // vía la ruta ya protegida /api/vps/portfolio) — solo precarga el slider una vez,
+  // el usuario sigue pudiendo ajustarlo libremente después.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id ?? 'anon'
-      try {
-        const g = localStorage.getItem(`sigma_fire_gasto_${uid}`)
-        if (g && Number(g) > 0) setGasto(Number(g))
-        const a = localStorage.getItem(`sigma_fire_ahorro_${uid}`)
-        if (a && Number(a) > 0) setAhorro(Number(a))
-        const e = localStorage.getItem(`sigma_fire_edad_${uid}`)
-        if (e && Number(e) > 0) setEdad(Number(e))
-      } catch {}
-    })
+    fetch('/api/vps/portfolio', { cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const pct = data?.live?.return_pct
+        if (typeof pct === 'number' && pct > 0) {
+          setRetornoMotor(Math.round(pct * 10) / 10)
+          setRetorno(prev => prev === 8 ? Math.min(20, Math.round(pct * 10) / 10) : prev)
+        }
+      })
+      .catch(() => {})
   }, [])
 
+  // Hidratar edad/ahorro/gasto desde el perfil FIRE guardado en Supabase
+  // (persiste entre dispositivos, a diferencia del localStorage anterior).
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => {
+    if (fireProfileLoading || hydrated) return
+    if (fireProfile.fire_completed) {
+      if (fireProfile.fire_edad)           setEdad(fireProfile.fire_edad)
+      if (fireProfile.fire_ahorro_mensual !== null) setAhorro(fireProfile.fire_ahorro_mensual)
+      if (fireProfile.fire_gasto_mensual)  setGasto(fireProfile.fire_gasto_mensual)
+    }
+    setHydrated(true)
+  }, [fireProfileLoading, fireProfile, hydrated])
+
+  // Guardar cambios de los sliders de vuelta al perfil (debounced)
+  useEffect(() => {
+    if (!hydrated || !fireProfile.fire_completed) return
+    const t = setTimeout(() => {
+      saveProfile({ fire_edad: edad, fire_ahorro_mensual: ahorro, fire_gasto_mensual: gasto })
+    }, 800)
+    return () => clearTimeout(t)
+  }, [edad, ahorro, gasto, hydrated, fireProfile.fire_completed, saveProfile])
+
+  function handleOnboardingComplete(data: { edad: number; ahorro: number; gasto: number }) {
+    setEdad(data.edad)
+    setAhorro(data.ahorro)
+    setGasto(data.gasto)
+    setHydrated(true)
+    saveProfile({
+      fire_edad: data.edad, fire_ahorro_mensual: data.ahorro,
+      fire_gasto_mensual: data.gasto, fire_completed: true,
+    })
+  }
+
   const m = MODES[mode]
+
+  // Modo que calza con tu gasto real (perfil guardado) — un espejo de tu
+  // situación, independiente de cuál tengas seleccionado para explorar.
+  const closestModeIdx = useMemo(() => {
+    if (!fireProfile.fire_completed || !fireProfile.fire_gasto_mensual) return null
+    let best = 0, bestDiff = Infinity
+    MODES.forEach((md, i) => {
+      const diff = Math.abs(fireProfile.fire_gasto_mensual! - md.defaultGasto)
+      if (diff < bestDiff) { bestDiff = diff; best = i }
+    })
+    return best
+  }, [fireProfile])
 
   const { data, target, fireYear } = useMemo(
     () => project(capital, ahorro, retorno, gasto),
     [capital, ahorro, retorno, gasto]
   )
 
-  // Persistir parámetros FIRE vinculados al user_id
+  // sigma_fire_target sigue en localStorage sin keying por usuario: lo lee
+  // app/(dashboard)/home/page.tsx para mostrar la meta FIRE en el dashboard.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id ?? 'anon'
-      try {
-        localStorage.setItem('sigma_fire_target', String(target))
-        localStorage.setItem(`sigma_fire_gasto_${uid}`, String(gasto))
-        localStorage.setItem(`sigma_fire_ahorro_${uid}`, String(ahorro))
-        localStorage.setItem(`sigma_fire_edad_${uid}`, String(edad))
-      } catch {}
-    })
-  }, [target, gasto, ahorro, edad])
+    try { localStorage.setItem('sigma_fire_target', String(target)) } catch {}
+  }, [target])
 
   const years = data.length - 1
   const labels = Array.from({ length: years + 1 }, (_, i) => String(i))
   const progress = Math.min((capital / target) * 100, 100)
   const edadFire = fireYear !== null ? edad + fireYear : null
   const capitalFinal = data[data.length - 1]
+
+  // Tu fecha de libertad real, no solo un conteo de años abstracto.
+  const fireDateLabel = useMemo(() => {
+    if (fireYear === null) return null
+    const d = new Date()
+    d.setFullYear(d.getFullYear() + fireYear)
+    return d.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
+  }, [fireYear])
+
+  if (fireProfileLoading) {
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Cargando tu FIRE Planner…</span>
+      </div>
+    )
+  }
+
+  if (needsOnboarding) {
+    return <FireOnboarding onComplete={handleOnboardingComplete} />
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
@@ -157,36 +238,60 @@ export default function FirePage() {
           </h1>
         </div>
 
-        {/* Mode selector */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
-          {MODES.map((md, i) => (
-            <button key={md.id} onClick={() => { setMode(i); setGasto(md.defaultGasto) }} style={{
-              padding: '18px 20px', textAlign: 'left', border: 'none', cursor: 'pointer',
-              background: mode === i ? C.surface : C.bg,
-              borderBottom: mode === i ? `2px solid ${md.color}` : '2px solid transparent',
-              transition: 'background 0.2s',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>{md.icon}</span>
-                <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 24, color: mode === i ? md.color : C.text }}>{md.name}</span>
-              </div>
-              <p style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, margin: 0, lineHeight: 1.6 }}>{md.description}</p>
-            </button>
-          ))}
+        {/* Mode selector — el activo pesa más (su propio color, no el dorado
+            genérico); el que calza con tu gasto real lleva su propio badge */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+          {MODES.map((md, i) => {
+            const active = mode === i
+            const isYours = closestModeIdx === i
+            return (
+              <button key={md.id} onClick={() => { setMode(i); setGasto(md.defaultGasto) }} style={{
+                position: 'relative', padding: '18px 20px', textAlign: 'left', cursor: 'pointer',
+                borderRadius: cardStyle.borderRadius,
+                border: active ? `1px solid ${md.color}40` : cardStyle.border,
+                background: active ? `linear-gradient(160deg,${md.color}14,${C.surface} 60%)` : C.surface,
+                boxShadow: active ? `${cardStyle.boxShadow}, 0 0 18px ${md.color}22` : cardStyle.boxShadow,
+                transition: 'background 0.2s, border-color 0.2s',
+              }}>
+                {isYours && (
+                  <span style={{ position: 'absolute', top: 12, right: 14, fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.12em', color: md.color, border: `1px solid ${md.color}50`, borderRadius: 4, padding: '2px 6px' }}>
+                    TU NIVEL ACTUAL
+                  </span>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+                  <ModeSparkline color={md.color} peak={md.peak} />
+                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 24, color: active ? md.color : C.text }}>{md.name}</span>
+                </div>
+                <p style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, margin: 0, lineHeight: 1.6 }}>{md.description}</p>
+              </button>
+            )
+          })}
         </div>
 
         {/* Main grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 1, background: C.border }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20 }}>
 
           {/* Controls */}
-          <div style={{ background: C.surface, padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
+          <div style={{ ...cardStyle, background: C.surface, padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
             <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: m.color }}>
               {m.name}
             </div>
             <Slider label="Capital actual"    value={capital} min={0}      max={1_000_000} step={5_000}  display={fmt(capital)}          onChange={setCapital} />
             <Slider label="Ahorro mensual"     value={ahorro}  min={0}      max={15_000}    step={100}    display={fmt(ahorro)}            onChange={setAhorro} />
             <Slider label="Gasto mensual FIRE" value={gasto}   min={500}    max={15_000}    step={100}    display={fmt(gasto)}             onChange={setGasto} />
-            <Slider label="Retorno anual est." value={retorno} min={1}      max={20}        step={0.5}    display={`${retorno}%`}          onChange={setRetorno} />
+            <div>
+              <Slider label="Retorno anual est." value={retorno} min={1}      max={20}        step={0.5}    display={`${retorno}%`}          onChange={setRetorno} />
+              {retornoMotor !== null && (
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginTop: 4 }}>
+                  Motor en vivo: <span style={{ color: C.green }}>{retornoMotor}%</span>
+                  {retorno !== retornoMotor && (
+                    <button onClick={() => setRetorno(Math.min(20, retornoMotor))} style={{ marginLeft: 8, background: 'none', border: 'none', color: C.gold, fontFamily: 'monospace', fontSize: 9, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                      usar este valor
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <Slider label="Edad actual"        value={edad}    min={18}     max={65}        step={1}      display={`${edad} años`}         onChange={setEdad} />
 
             {/* Key derived */}
@@ -206,29 +311,29 @@ export default function FirePage() {
           </div>
 
           {/* Results */}
-          <div style={{ background: C.bg, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ ...cardStyle, background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-            {/* Big result */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: C.border, borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ background: C.surface, padding: '22px 22px' }}>
-                <Label text="Años para FIRE" />
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 56, lineHeight: 0.9, background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  {fireYear !== null ? fireYear : '50+'}
+            {/* Big result — tu fecha real, no un conteo de años abstracto */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '18px 18px 0' }}>
+              <div style={{ ...heroCardStyle, padding: '22px 22px' }}>
+                <Label text="Tu día de libertad financiera" />
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, lineHeight: 1.05, textTransform: 'capitalize', background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: numberEmboss }}>
+                  {fireDateLabel ?? 'Más de 50 años'}
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 6 }}>
-                  {edadFire ? `Edad: ${edadFire} años` : 'Aumenta ahorro / retorno'}
+                  {edadFire ? `Tendrás ${edadFire} años · en ${fireYear} ${fireYear === 1 ? 'año' : 'años'} más` : 'Aumenta ahorro / retorno'}
                 </div>
               </div>
-              <div style={{ background: C.surface, padding: '22px 22px' }}>
+              <div style={{ ...cardStyle, background: C.surface, padding: '22px 22px' }}>
                 <Label text="Capital objetivo" />
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 36, color: C.gold, lineHeight: 1 }}>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 36, color: C.gold, lineHeight: 1, textShadow: numberEmboss }}>
                   {fmtK(target)}
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 6 }}>25× gastos anuales</div>
               </div>
-              <div style={{ background: C.surface, padding: '22px 22px' }}>
+              <div style={{ ...cardStyle, background: C.surface, padding: '22px 22px' }}>
                 <Label text={`Capital en año ${Math.min(years, 50)}`} />
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 36, color: capitalFinal >= target ? C.green : C.yellow, lineHeight: 1 }}>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 36, color: capitalFinal >= target ? C.green : C.yellow, lineHeight: 1, textShadow: numberEmboss }}>
                   {fmtK(capitalFinal)}
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 6 }}>
@@ -237,26 +342,33 @@ export default function FirePage() {
               </div>
             </div>
 
-            {/* Progress */}
-            <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>PROGRESO ACTUAL</span>
+            {/* Progress — camino con hitos, no una barra de carga genérica */}
+            <div style={{ padding: '18px 18px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>TU CAMINO AL OBJETIVO</span>
                 <span style={{ fontFamily: 'monospace', fontSize: 12, color: m.color }}>{progress.toFixed(1)}%</span>
               </div>
-              <div style={{ height: 6, background: C.border, borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${progress}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.glow})`, transition: 'width 0.5s', borderRadius: 3 }} />
+              <div style={{ position: 'relative', height: 8, background: C.border, borderRadius: 4 }}>
+                <div style={{ height: '100%', width: `${progress}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.glow})`, transition: 'width 0.5s', borderRadius: 4 }} />
+                {[25, 50, 75, 100].map(milestone => (
+                  <div key={milestone} style={{
+                    position: 'absolute', top: -3, left: `${milestone}%`, transform: 'translateX(-50%)',
+                    width: 2, height: 14, borderRadius: 1,
+                    background: progress >= milestone ? C.gold : C.muted,
+                  }} />
+                ))}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 10 }}>
                 <span>{fmt(capital)}</span><span>Meta: {fmtK(target)}</span>
               </div>
             </div>
 
             {/* Chart */}
-            <div style={{ borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
               <div style={{ padding: '10px 18px', borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>PROYECCIÓN DE CAPITAL · RETORNO {retorno}% ANUAL</span>
               </div>
-              <FireChart labels={labels} acum={data} target={target} fireYear={fireYear} />
+              <FireChart labels={labels} acum={data} target={target} fireYear={fireYear} capital={capital} />
             </div>
 
             {/* Desglose anual - primeros 10 años */}
@@ -295,7 +407,7 @@ export default function FirePage() {
         </div>
 
         {/* ── Retos FIRE ── */}
-        <FireChallenges ahorro={ahorro} capital={capital} />
+        <FireChallenges ahorro={ahorro} capital={capital} retorno={retorno} target={target} />
 
       </div>
     </div>

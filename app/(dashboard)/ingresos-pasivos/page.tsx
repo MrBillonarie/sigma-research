@@ -1,9 +1,9 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
-import { C } from '@/app/lib/constants'
+import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 import {
   DEPOSITOS, STAKING, DEFI_EARN, LP_POOLS, DIV_CRYPTO, DIV_TRADFI, BOTS,
-  RISK_COLOR, CATEGORY_ICON,
+  RISK_COLOR, CATEGORY_ICON, CATEGORY_COLOR,
   type PositionCategory, type RiskLevel,
 } from './data'
 import { calcMonthlyIncome, calcCompoundGrowth, calcWeightedAPY, calcIL } from './logic'
@@ -50,6 +50,28 @@ const ALL_CATALOG = buildCatalog()
 function fmt(n: number) { return n.toLocaleString('es-CL', { maximumFractionDigits: 0 }) }
 function fmtApy(n: number) { return n.toFixed(1) + '%' }
 
+// Aclara (percent>0) u oscurece (percent<0) un color hex — usado para el
+// degradado de cada río: nace en un tono más oscuro, llega más brillante.
+function shade(hex: string, percent: number): string {
+  const n = hex.replace('#', '')
+  const r = parseInt(n.substring(0, 2), 16), g = parseInt(n.substring(2, 4), 16), b = parseInt(n.substring(4, 6), 16)
+  const t = percent < 0 ? 0 : 255
+  const p = Math.abs(percent)
+  const mix = (c: number) => Math.round((t - c) * p + c).toString(16).padStart(2, '0')
+  return `#${mix(r)}${mix(g)}${mix(b)}`
+}
+
+// Textura de fondo tipo "agua" — ondas estáticas y muy sutiles detrás del
+// diagrama de ríos, mismo principio que el ruido Box-Muller de /montecarlo
+// pero con tonos fríos, evocando el espacio donde fluyen las fuentes.
+const WATER_BG = [
+  'radial-gradient(ellipse 220px 70px at 8% 15%, rgba(47,155,246,0.045), transparent 70%)',
+  'radial-gradient(ellipse 260px 80px at 55% 80%, rgba(31,214,196,0.04), transparent 70%)',
+  'radial-gradient(ellipse 200px 65px at 90% 25%, rgba(139,111,245,0.04), transparent 70%)',
+  'radial-gradient(ellipse 240px 70px at 30% 95%, rgba(47,155,246,0.03), transparent 70%)',
+  'radial-gradient(ellipse 180px 60px at 75% 60%, rgba(236,95,176,0.03), transparent 70%)',
+].join(',')
+
 function RiskBadge({ risk }: { risk: RiskLevel }) {
   const color = RISK_COLOR[risk]
   return (
@@ -73,13 +95,180 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function CatalogRow({ cols }: { cols: (string | React.ReactNode)[] }) {
   return (
-    <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+    <tr className="ip-row" style={{ borderBottom: `1px solid ${C.border}` }}>
       {cols.map((c, i) => (
         <td key={i} style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.dimText, verticalAlign: 'middle' }}>
           {c}
         </td>
       ))}
     </tr>
+  )
+}
+
+// ─── Gauge circular — "Libertad Financiera" como anillo, no como número
+// plano + barra fina. Mismo lenguaje que /portafolio, /diagnosticador y
+// /montecarlo, pero con su propio significado: % de tu meta de ingreso. ──────
+function LibertadGauge({ value, size = 76 }: { value: number; size?: number }) {
+  const stroke = 7
+  const r = size / 2 - stroke
+  const circumference = 2 * Math.PI * r
+  const clamped = Math.min(Math.max(value, 0), 100)
+  const offset = circumference * (1 - clamped / 100)
+  const color = clamped >= 100 ? C.green : C.gold
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: size * 0.27, color, lineHeight: 1, textShadow: numberEmboss }}>
+          {clamped.toFixed(0)}%
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Ríos de Ingreso — cada categoría es un afluente cuyo ancho representa
+// cuánto aporta; los 6 convergen en un solo núcleo: tu ingreso mensual total.
+// Se dibujan una sola vez al cargar (sin loop), terminando en un brillo que
+// se enciende justo cuando "llegan" — el momento de mayor atención de la
+// página. Las categorías sin posiciones quedan como ríos secos punteados. ────
+function IncomeRivers({ breakdown, total }: {
+  breakdown: Partial<Record<PositionCategory, { capital: number; monthly: number }>>
+  total: number
+}) {
+  const W = 640, H = 210
+  const leftX = 4, rightX = W - 4
+  const midX = (leftX + rightX) / 2
+  const centerY = H / 2
+  const n = TABS.length
+  const topPad = 16, botPad = 16
+  const step = n > 1 ? (H - topPad - botPad) / (n - 1) : 0
+  const maxMonthly = Math.max(...TABS.map(c => breakdown[c]?.monthly ?? 0), 1)
+  const coreDelay = n * 70 + 550
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+      {/* Diagrama unificado — el río, su punto de origen y su etiqueta viven
+          en una sola pieza visual; sin emoji, sin columna de leyenda aparte. */}
+      <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
+          <defs>
+            {TABS.map(cat => {
+              const color = CATEGORY_COLOR[cat]
+              return (
+                <linearGradient key={cat} id={`ip-grad-${cat}`} gradientUnits="userSpaceOnUse" x1={leftX} y1={0} x2={rightX} y2={0}>
+                  <stop offset="0%" stopColor={shade(color, -0.3)} />
+                  <stop offset="100%" stopColor={shade(color, 0.25)} />
+                </linearGradient>
+              )
+            })}
+          </defs>
+
+          {TABS.map((cat, i) => {
+            const monthly = breakdown[cat]?.monthly ?? 0
+            const yCat = topPad + i * step
+            const hasFlow = monthly > 0
+            const color = CATEGORY_COLOR[cat]
+            const sw = hasFlow ? Math.max(3, Math.min(24, (monthly / maxMonthly) * 24)) : 1.5
+            const d = `M${leftX},${yCat} C${midX},${yCat} ${midX},${centerY} ${rightX},${centerY}`
+            return (
+              <path
+                key={cat}
+                d={d} fill="none" strokeLinecap="round"
+                stroke={hasFlow ? `url(#ip-grad-${cat})` : `${color}28`}
+                strokeWidth={sw}
+                strokeDasharray={hasFlow ? 900 : '3,6'}
+                opacity={hasFlow ? 0.88 : 0.65}
+                style={hasFlow ? {
+                  strokeDashoffset: 900,
+                  animation: `ipRiverDraw 1.05s cubic-bezier(.4,0,.2,1) ${i * 70}ms forwards`,
+                } : undefined}
+              />
+            )
+          })}
+          {/* Puntos de origen — cada fuente "se enciende" justo cuando su río
+              empieza a fluir, simétrico al núcleo de llegada. Tiñe su propio
+              color incluso seca, en vez de un gris anónimo. */}
+          {TABS.map((cat, i) => {
+            const monthly = breakdown[cat]?.monthly ?? 0
+            const yCat = topPad + i * step
+            const hasFlow = monthly > 0
+            const color = CATEGORY_COLOR[cat]
+            return (
+              <g key={cat + '-src'} style={{ opacity: 0, animation: `ipSourceGlow 0.4s ease-out ${i * 70}ms forwards` }}>
+                <circle cx={leftX} cy={yCat} r={9} fill={`${color}${hasFlow ? '30' : '1c'}`} />
+                <circle cx={leftX} cy={yCat} r={4} fill={hasFlow ? color : `${color}90`} />
+              </g>
+            )
+          })}
+          <g style={{ opacity: 0, animation: `ipCoreArrive 0.5s ease-out ${coreDelay}ms forwards` }}>
+            <circle cx={rightX} cy={centerY} r={20} fill={`${C.gold}${total > 0 ? '1a' : '10'}`} />
+            <circle cx={rightX} cy={centerY} r={11} fill={`${C.gold}${total > 0 ? '55' : '30'}`} />
+            <circle cx={rightX} cy={centerY} r={4} fill={total > 0 ? C.gold : `${C.gold}90`} />
+          </g>
+        </svg>
+
+        {/* Etiquetas — overlay HTML anclado al borde izquierdo (x≈0, no se
+            desplaza con el estiramiento no-uniforme del SVG), nunca dentro
+            del SVG para que el texto no se distorsione al estirarse. */}
+        {TABS.map((cat, i) => {
+          const monthly = breakdown[cat]?.monthly ?? 0
+          const yCat = topPad + i * step
+          const hasFlow = monthly > 0
+          return (
+            <div key={cat + '-label'} style={{
+              position: 'absolute', left: 14, top: `${(yCat / H) * 100}%`, transform: 'translateY(-50%)',
+              whiteSpace: 'nowrap', pointerEvents: 'none',
+              opacity: 0, animation: `ipSourceGlow 0.4s ease-out ${i * 70}ms forwards`,
+            }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.03em', color: hasFlow ? CATEGORY_COLOR[cat] : `${CATEGORY_COLOR[cat]}90` }}>
+                {cat}
+              </div>
+              {hasFlow && (
+                <div style={{ fontFamily: 'monospace', fontSize: 8.5, color: C.dimText, marginTop: 1 }}>${fmt(monthly)}/mes</div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ flexShrink: 0, textAlign: 'left', maxWidth: 170, opacity: 0, animation: `ipCoreArrive 0.5s ease-out ${coreDelay}ms forwards` }}>
+        {total > 0 ? (
+          <>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>
+              Ingreso mensual total
+            </div>
+            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.gold, lineHeight: 1, textShadow: numberEmboss }}>
+              ${fmt(total)}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.muted, marginBottom: 4 }}>
+              Aún sin ingresos
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.5 }}>
+              Tu primer río está por nacer — agrega una posición
+            </div>
+          </>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes ipRiverDraw { to { stroke-dashoffset: 0 } }
+        @keyframes ipSourceGlow { to { opacity: 1 } }
+        @keyframes ipCoreArrive { to { opacity: 1 } }
+        .ip-row:hover { background: rgba(212,175,55,0.045); }
+        tbody tr.ip-row:nth-child(even) { background: rgba(255,255,255,0.012); }
+      `}</style>
+    </div>
   )
 }
 
@@ -376,55 +565,44 @@ export default function IngresoPasivosPage() {
           </p>
         </div>
 
-        {/* ── KPIs × 5 ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
-          <div style={{ background: C.surface, padding: '20px 22px' }}>
+        {/* ── KPIs × 5 — Ingreso Mensual como protagonista (destino de los
+            ríos); Libertad Financiera como anillo, no número + barra plana ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 16, marginBottom: 32 }}>
+          <div style={{ ...cardStyle, background: C.surface, padding: '20px 22px' }}>
             <Label text="Capital Total" />
-            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.text, lineHeight: 1 }}>${fmt(totalCapital)}</div>
+            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.text, lineHeight: 1, textShadow: numberEmboss }}>${fmt(totalCapital)}</div>
           </div>
-          <div style={{ background: C.surface, padding: '20px 22px' }}>
+          <div style={{ ...heroCardStyle, padding: '20px 22px' }}>
             <Label text="Ingreso Mensual" />
-            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.green, lineHeight: 1 }}>${fmt(monthlyIncome)}</div>
+            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.green, lineHeight: 1, textShadow: numberEmboss }}>${fmt(monthlyIncome)}</div>
           </div>
-          <div style={{ background: C.surface, padding: '20px 22px' }}>
+          <div style={{ ...cardStyle, background: C.surface, padding: '20px 22px' }}>
             <Label text="Ingreso Anual" />
-            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.green, lineHeight: 1 }}>${fmt(yearlyIncome)}</div>
+            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.green, lineHeight: 1, textShadow: numberEmboss }}>${fmt(yearlyIncome)}</div>
           </div>
-          <div style={{ background: C.surface, padding: '20px 22px' }}>
+          <div style={{ ...cardStyle, background: C.surface, padding: '20px 22px' }}>
             <Label text="APY Promedio" />
-            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.gold, lineHeight: 1 }}>{fmtApy(weightedApy)}</div>
+            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: C.gold, lineHeight: 1, textShadow: numberEmboss }}>{fmtApy(weightedApy)}</div>
           </div>
-          <div style={{ background: C.surface, padding: '20px 22px' }}>
-            <Label text={`Libertad Financiera · meta $${fmt(FREEDOM_GOAL)}/mes`} />
-            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color: libertadPct >= 100 ? C.green : C.gold, lineHeight: 1 }}>
-              {libertadPct.toFixed(1)}%
-            </div>
-            <div style={{ marginTop: 8, height: 3, background: C.border, borderRadius: 2 }}>
-              <div style={{
-                width: `${libertadPct}%`, height: '100%', borderRadius: 2,
-                background: libertadPct >= 100 ? C.green : `linear-gradient(90deg, ${C.gold}, ${C.glow})`,
-                transition: 'width 0.5s ease',
-              }} />
+          <div style={{ ...cardStyle, background: C.surface, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <LibertadGauge value={libertadPct} />
+            <div>
+              <Label text="Libertad Financiera" />
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>meta ${fmt(FREEDOM_GOAL)}/mes</div>
             </div>
           </div>
         </div>
 
-        {/* ── Category breakdown ── */}
-        {Object.keys(categoryBreakdown).length > 0 && (
-          <div style={{ display: 'flex', gap: 1, background: C.border, marginBottom: 40, overflowX: 'auto' }}>
-            {(Object.entries(categoryBreakdown) as [PositionCategory, { capital: number; monthly: number }][]).map(([cat, data]) => (
-              <div key={cat} style={{ background: C.surface, padding: '16px 20px', flex: 1, minWidth: 130 }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>{CATEGORY_ICON[cat]}</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6 }}>{cat}</div>
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: C.text, lineHeight: 1 }}>${fmt(data.capital)}</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.green, marginTop: 3 }}>${fmt(data.monthly)}/mes</div>
-              </div>
-            ))}
+        {/* ── Ríos de Ingreso — cada fuente converge en tu ingreso mensual ── */}
+        <div style={{ ...cardStyle, background: C.surface, backgroundImage: WATER_BG, padding: '24px 28px', marginBottom: 40 }}>
+          <Label text="Mapa de diversificación · tus fuentes convergiendo en un solo ingreso" />
+          <div style={{ marginTop: 14 }}>
+            <IncomeRivers breakdown={categoryBreakdown} total={monthlyIncome} />
           </div>
-        )}
+        </div>
 
         {/* ── Positions table ── */}
-        <div style={{ background: C.surface, marginBottom: 40 }}>
+        <div style={{ ...cardStyle, background: C.surface, marginBottom: 40, overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
             <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>
               MIS POSICIONES ACTIVAS · {positions.length} REGISTRADAS
@@ -453,7 +631,7 @@ export default function IngresoPasivosPage() {
               </thead>
               <tbody>
                 {positions.map(p => (
-                  <tr key={p.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                  <tr key={p.id} className="ip-row" style={{ borderBottom: `1px solid ${C.border}` }}>
                     <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>
                       {CATEGORY_ICON[p.category]} {p.category}
                     </td>
@@ -507,7 +685,7 @@ export default function IngresoPasivosPage() {
         {projection12.length > 0 && (
           <div style={{ marginBottom: 40 }}>
             <SectionTitle>PROYECCIÓN A 12 MESES</SectionTitle>
-            <div style={{ background: C.surface, padding: '28px 24px' }}>
+            <div style={{ ...cardStyle, background: C.surface, padding: '28px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 200 }}>
                 {projection12.map((val, i) => {
                   const barH = Math.max((val / maxProjection) * 160, 4)
@@ -579,7 +757,7 @@ export default function IngresoPasivosPage() {
               </button>
             ))}
           </div>
-          <div style={{ background: C.surface, overflowX: 'auto' }}>
+          <div style={{ ...cardStyle, background: C.surface, overflowX: 'auto' }}>
             {catalogContent}
           </div>
         </div>
@@ -587,8 +765,8 @@ export default function IngresoPasivosPage() {
         {/* ── Compound calculator ── */}
         <div>
           <SectionTitle>CALCULADORA DE CRECIMIENTO</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: C.border }}>
-            <div style={{ background: C.surface, padding: '24px 24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ ...cardStyle, background: C.surface, padding: '24px 24px' }}>
               <Label text="Parámetros" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
                 {[
@@ -610,7 +788,7 @@ export default function IngresoPasivosPage() {
                 ))}
               </div>
             </div>
-            <div style={{ background: C.bg, padding: '24px 24px' }}>
+            <div style={{ ...cardStyle, background: C.bg, padding: '24px 24px' }}>
               <Label text="Proyección con interés compuesto" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
                 {[
@@ -656,6 +834,7 @@ function AddPositionModal({ onClose, onSave }: {
   const [vencimiento, setVencimiento] = useState('')
   const [selectedCatalog, setSelectedCatalog] = useState('')
   const [catalogUrl, setCatalogUrl]   = useState('')
+  const [error, setError]             = useState('')
 
   const catalogForCategory = ALL_CATALOG.filter(item => item.category === category)
   const liveMonthly = calcMonthlyIncome(capital, apy)
@@ -674,7 +853,11 @@ function AddPositionModal({ onClose, onSave }: {
   }
 
   function handleSave() {
-    if (!nombre.trim()) return
+    // Antes fallaba en silencio (return sin aviso) si faltaba el nombre — el
+    // usuario apretaba GUARDAR, no pasaba nada visible, sin pista de por qué.
+    if (!nombre.trim()) { setError('El nombre es requerido.'); return }
+    if (!capital || capital <= 0) { setError('El capital debe ser mayor a $0.'); return }
+    setError('')
     const ingresoMensual = calcMonthlyIncome(capital, apy)
     onSave({
       id: Date.now().toString(),
@@ -699,8 +882,8 @@ function AddPositionModal({ onClose, onSave }: {
   const selectStyle: React.CSSProperties = { ...inputStyle }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(4,5,10,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '32px', width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(4,5,10,0.88)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+      <div style={{ ...cardStyle, background: C.surface, padding: '32px', width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 26, color: C.text, marginBottom: 24 }}>NUEVA POSICIÓN</div>
 
         {/* Categoría */}
@@ -727,14 +910,20 @@ function AddPositionModal({ onClose, onSave }: {
         {/* Nombre */}
         <div style={{ marginBottom: 14 }}>
           <Label text="Nombre / Descripción" />
-          <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: USDT Binance 30d" style={inputStyle} />
+          <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: USDT Binance 30d"
+            style={{ ...inputStyle, borderColor: error && !nombre.trim() ? C.red : C.border }} />
         </div>
 
         {/* Capital */}
         <div style={{ marginBottom: 14 }}>
           <Label text="Capital (USD)" />
-          <input type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} min={1} style={inputStyle} />
+          <input type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} min={1}
+            style={{ ...inputStyle, borderColor: error && capital <= 0 ? C.red : C.border }} />
         </div>
+
+        {error && (
+          <div style={{ marginBottom: 14, fontFamily: 'monospace', fontSize: 11, color: C.red }}>⚠ {error}</div>
+        )}
 
         {/* APY */}
         <div style={{ marginBottom: 14 }}>

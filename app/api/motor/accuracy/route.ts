@@ -1,7 +1,10 @@
 export const revalidate = 0   // siempre fresco: mide outcomes en cada llamada
 
-import { NextResponse }   from 'next/server'
-import { createClient }   from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient }              from '@supabase/supabase-js'
+import { timingSafeEqual }           from 'crypto'
+import { createServerClient }        from '@supabase/ssr'
+import { cookies }                   from 'next/headers'
 
 const YAHOO_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -76,10 +79,31 @@ function stats(rows: Row[]) {
   }
 }
 
+async function isAuthorized(req: NextRequest): Promise<boolean> {
+  // Cron bypass — timing-safe
+  const cronSecret = process.env.CRON_SECRET
+  const provided   = req.headers.get('x-cron-secret') ?? ''
+  if (cronSecret && provided.length === cronSecret.length) {
+    if (timingSafeEqual(Buffer.from(provided), Buffer.from(cronSecret))) return true
+  }
+  // Regular user session
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  return !!user
+}
+
 // ─── GET /api/motor/accuracy ──────────────────────────────────────────────────
 // 1. Mide outcomes pendientes (señales > 22 días con price_at_signal, sin outcome)
 // 2. Devuelve estadísticas de accuracy históricas
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!await isAuthorized(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const db      = sb()
   const cutoff  = new Date(Date.now() - 22 * 24 * 60 * 60 * 1000).toISOString()
 

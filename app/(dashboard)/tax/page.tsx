@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 import { C } from '@/app/lib/constants'
+import { supabase } from '@/app/lib/supabase'
 
 // ─── Tramos IGC 2024 (CLP) ────────────────────────────────────────────────────
 const TRAMOS = [
@@ -56,8 +57,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-function UsdInput({ label, value, onChange, badge, badgeColor, accentBorder }:
-  { label: string; value: string; onChange: (v: string) => void; badge: string; badgeColor: string; accentBorder?: boolean }
+function UsdInput({ label, value, onChange, badge, badgeColor, accentBorder, extra }:
+  { label: string; value: string; onChange: (v: string) => void; badge: string; badgeColor: string; accentBorder?: boolean; extra?: React.ReactNode }
 ) {
   return (
     <div style={{ marginBottom: 14 }}>
@@ -75,6 +76,7 @@ function UsdInput({ label, value, onChange, badge, badgeColor, accentBorder }:
           style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: C.text, fontFamily: 'monospace', fontSize: 12, padding: '8px 10px 8px 0' }}
         />
       </div>
+      {extra}
     </div>
   )
 }
@@ -93,6 +95,7 @@ export default function TaxChilePage() {
   const [otrosIngresos,   setOtrosIngresos]   = useState('')
   const [cl365,           setCl365]           = useState(false)
   const [copied,          setCopied]          = useState(false)
+  const [journalFuturesPnl, setJournalFuturesPnl] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/trm')
@@ -101,7 +104,38 @@ export default function TaxChilePage() {
       .catch(() => {})
   }, [])
 
-  const trmVal = parseFloat(trm) || 950
+  // P&L real de futuros del Journal (trades manuales + importados de Binance)
+  // para el año tributario seleccionado — solo informativo, no sobreescribe
+  // el campo a menos que el usuario haga clic en "usar este valor".
+  useEffect(() => {
+    let active = true
+    setJournalFuturesPnl(null)
+    supabase.auth.getUser().then(async ({ data }) => {
+      const user = data.user
+      if (!user) return
+      const yStart = `${anio}-01-01`
+      const yEndExclusive = `${Number(anio) + 1}-01-01`
+      // Medianoche LOCAL del navegador, no UTC — un trade cerrado el 31 dic
+      // tarde (hora Chile) caía en el año fiscal siguiente con el límite
+      // fijo "T00:00:00Z". Sin sufijo de zona, el motor de JS interpreta la
+      // fecha-hora como local, así que esto se ajusta solo sin hardcodear
+      // un offset (y sin romperse si Chile cambia de horario de verano).
+      const yStartIso = new Date(`${yStart}T00:00:00`).toISOString()
+      const yEndIso    = new Date(`${yEndExclusive}T00:00:00`).toISOString()
+      const [manualRes, csvRes] = await Promise.all([
+        supabase.from('trades').select('pnl_usd').eq('user_id', user.id).gte('fecha', yStart).lt('fecha', yEndExclusive),
+        supabase.from('csv_trades').select('pnl_neto').eq('user_id', user.id).gte('timestamp', yStartIso).lt('timestamp', yEndIso),
+      ])
+      if (!active) return
+      const manualSum = (manualRes.data ?? []).reduce((s, t) => s + (t.pnl_usd ?? 0), 0)
+      const csvSum    = (csvRes.data ?? []).reduce((s, t) => s + (t.pnl_neto ?? 0), 0)
+      setJournalFuturesPnl(Math.round((manualSum + csvSum) * 100) / 100)
+    })
+    return () => { active = false }
+  }, [anio])
+
+  // Un TRM <= 0 invertiría el signo de todos los montos CLP calculados.
+  const trmVal = (parseFloat(trm) > 0 ? parseFloat(trm) : 950)
 
   // ─── Core calculations ───────────────────────────────────────────────────────
   const R = useMemo(() => {
@@ -268,7 +302,8 @@ export default function TaxChilePage() {
               <Label text="TRM — Tipo de cambio CLP / USD" />
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
                 <input
-                  type="number" value={trm} onChange={e => setTrm(e.target.value)} min={1}
+                  type="number" value={trm} min={1}
+                  onChange={e => setTrm(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value) || 0)))}
                   style={{ width: 110, background: C.surface, border: `1px solid ${C.gold}55`, color: C.gold, fontFamily: 'monospace', fontSize: 14, padding: '6px 10px', outline: 'none' }}
                 />
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: trmLive ? '#34d399' : C.dimText }}>
@@ -278,7 +313,22 @@ export default function TaxChilePage() {
             </div>
 
             <UsdInput label="BTC / Crypto Spot (Binance Spot)"      value={btcSpot}         onChange={setBtcSpot}         badge="Capital"        badgeColor={C.purple} />
-            <UsdInput label="Futuros Perpetuos (Binance Futures)"   value={btcFutures}      onChange={setBtcFutures}      badge="Derivados"      badgeColor={C.yellow} />
+            <UsdInput
+              label="Futuros Perpetuos (Binance Futures)" value={btcFutures} onChange={setBtcFutures}
+              badge="Derivados" badgeColor={C.yellow}
+              extra={journalFuturesPnl !== null && (
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginTop: 6 }}>
+                  Journal {anio}: <span style={{ color: journalFuturesPnl >= 0 ? C.green : C.red }}>
+                    {journalFuturesPnl >= 0 ? '+' : ''}{journalFuturesPnl.toLocaleString('es-CL', { maximumFractionDigits: 0 })} USD
+                  </span>
+                  {num(btcFutures) !== journalFuturesPnl && (
+                    <button onClick={() => setBtcFutures(String(journalFuturesPnl))} style={{ marginLeft: 8, background: 'none', border: 'none', color: C.gold, fontFamily: 'monospace', fontSize: 9, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                      usar este valor
+                    </button>
+                  )}
+                </div>
+              )}
+            />
             <UsdInput label="Acciones USA — IBKR"                   value={accionesUS}      onChange={setAccionesUS}      badge="Cap. Extranjero" badgeColor={C.gold}  />
             <UsdInput label="Ingresos Pasivos (Staking / DeFi)"     value={ingresosPasivos} onChange={setIngresosPasivos} badge="Renta Ord."     badgeColor={C.green} />
 

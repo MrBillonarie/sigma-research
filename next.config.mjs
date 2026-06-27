@@ -84,7 +84,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: blob: https://*.googleusercontent.com https://lh3.googleusercontent.com https://*.supabase.co",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.binance.com https://api3.binance.com https://api4.binance.com wss://stream.binance.com:9443 https://accounts.google.com https://oauth2.googleapis.com https://query1.finance.yahoo.com https://stooq.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.binance.com https://api3.binance.com https://api4.binance.com https://fapi.binance.com wss://stream.binance.com:9443 https://accounts.google.com https://oauth2.googleapis.com https://query1.finance.yahoo.com https://stooq.com",
               "worker-src 'self' blob:",
               "frame-src 'none'",
               "frame-ancestors 'none'",

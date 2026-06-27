@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/motor-accuracy",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/macro-calendar",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/copytrading-sync",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

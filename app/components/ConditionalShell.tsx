@@ -10,6 +10,7 @@ const DASHBOARD_ROUTES = [
   '/ingresos-pasivos', '/portafolio', '/tax', '/notificaciones',
   '/comparador', '/motor-decision', '/reportes',
   '/onboarding', '/auth',
+  '/motor-en-vivo',
 ]
 
 export default function ConditionalShell({ children }: { children: React.ReactNode }) {

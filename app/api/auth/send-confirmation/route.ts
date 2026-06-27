@@ -13,18 +13,27 @@ export async function POST(req: NextRequest) {
   )
 
   try {
-    const { userId, email, firstName } = await req.json() as { userId: string; email: string; firstName: string }
+    const { email, firstName } = await req.json() as { email: string; firstName: string }
 
-    if (!userId || !email || !firstName)
+    if (!email || !firstName)
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
-    const token   = crypto.randomUUID()
-    const expires = new Date(Date.now() + 24 * 3_600_000).toISOString()
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
 
-    await sb.from('email_tokens').insert({ user_id: userId, token, type: 'signup', expires_at: expires })
-      .then(({ error }) => { if (error) console.error('[send-confirmation] db', error) })
+    // Use magiclink for resend — user already exists, no password needed.
+    // Clicking the link confirms the email and creates a session.
+    const { data: linkData, error: linkError } = await sb.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: { redirectTo: `${appUrl}/auth/callback` },
+    })
 
-    const { success, error } = await sendConfirmationEmail(email, firstName, token)
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error('[send-confirmation] generateLink:', linkError?.message)
+      return NextResponse.json({ error: 'No se pudo generar el enlace' }, { status: 500 })
+    }
+
+    const { success, error } = await sendConfirmationEmail(email, firstName, linkData.properties.action_link)
     if (!success) return NextResponse.json({ error }, { status: 500 })
 
     return NextResponse.json({ ok: true })

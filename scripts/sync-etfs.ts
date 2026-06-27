@@ -350,7 +350,7 @@ async function main() {
         expense_ratio:  etf.expense_ratio,
         dividend_yield: etf.dividend_yield,
         precio,
-        rent_1m, rent_3m, rent_12m, rent_3a,
+        r1m: rent_1m, r3m: rent_3m, r12m: rent_12m, r3a: rent_3a,
         updated_at: new Date().toISOString(),
       }
 
@@ -363,7 +363,8 @@ async function main() {
       synced++
 
     } catch (e) {
-      process.stdout.write(`✗  ${String(e).slice(0, 70)}\n`)
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message ?? String(e)
+      process.stdout.write(`✗  ${msg.slice(0, 70)}\n`)
       errors++
     }
   }

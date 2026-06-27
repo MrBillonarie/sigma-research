@@ -85,7 +85,17 @@ export function usePortfolio() {
     return platformTotal + passiveCapital
   }, [portfolio, positions, trm])
 
-  const totalUSD = totalFromStorage > 0 ? totalFromStorage : computedTotal
+  // Una vez Supabase respondió (ready), es la fuente autoritativa — portfolio/
+  // positions ya están sobrescritos con los datos frescos y computedTotal los
+  // refleja. Antes de eso, localStorage sirve solo para el primer pintado
+  // instantáneo. El bug: comparar `totalFromStorage > 0` sin mirar `ready`
+  // hacía que un total cacheado le ganara a Supabase para siempre, incluso
+  // después de cargar — si el usuario actualizaba su capital en otro
+  // dispositivo, este navegador podía seguir mostrando el valor viejo
+  // indefinidamente.
+  const totalUSD = ready
+    ? computedTotal
+    : (totalFromStorage > 0 ? totalFromStorage : computedTotal)
 
   return { totalUSD, trm, ready }
 }

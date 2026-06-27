@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkAdminAuth } from '@/lib/adminAuth'
+import { logAdminAction } from '@/lib/adminAudit'
 
 function sb() {
   return createClient(
@@ -27,5 +28,6 @@ export async function PATCH(req: NextRequest) {
     .upsert({ tag, activo, updated_at: new Date().toISOString() }, { onConflict: 'tag' })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  void logAdminAction('modelo.toggle', tag, { activo })
   return NextResponse.json({ ok: true })
 }

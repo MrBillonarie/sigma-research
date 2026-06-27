@@ -116,12 +116,33 @@ function McChartInner({ result, capital, target, years, nSims }: Props) {
         order: 1,
       },
       ...pathDatasets,
+      {
+        // Zona de éxito — relleno invisible en el borde, solo el wash verde
+        // por encima del objetivo. Detrás del P90/P10 (order 3) para que esas
+        // líneas se vean nítidas sobre el fondo, no al revés.
+        label: '',
+        data: Array(n).fill(target),
+        borderColor: 'transparent',
+        backgroundColor: 'rgba(52,211,153,0.045)',
+        borderWidth: 0,
+        pointRadius: 0,
+        fill: 'end' as const,
+        order: 7,
+      },
     ]
   }, [result, capital, target, n])
 
   return (
-    <div style={{ height: 440, padding: '14px 14px 4px', background: BG }}>
+    <div style={{ height: 440, padding: '14px 14px 4px', background: BG, position: 'relative' }}>
+      {/* Cono de incertidumbre — resplandor estático desde el punto de partida
+          (capital hoy, t=0) que se abre hacia la derecha; visualiza que la
+          incertidumbre crece con el tiempo, sin tocar ninguna línea de datos. */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+        background: 'radial-gradient(ellipse 55% 85% at 2% 50%, rgba(212,175,55,0.10), transparent 70%)',
+      }} />
       <Line
+        style={{ position: 'relative', zIndex: 1 }}
         data={{ labels: result.labels, datasets }}
         options={{
           responsive: true,
@@ -137,7 +158,11 @@ function McChartInner({ result, capital, target, years, nSims }: Props) {
                 font: { family: 'monospace', size: 10 },
                 boxWidth: 20,
                 padding: 14,
-                filter: (item) => !!item.text && item.text !== 'Trayectorias' || item.datasetIndex === result.samplePaths.length + 5 - result.samplePaths.length,
+                // Solo el primer dataset de trayectorias trae label ('Trayectorias');
+                // el resto trae '' a propósito para no listarse 59 veces en la leyenda.
+                // Filtrar por texto no vacío basta — no depende del índice/orden de
+                // los datasets, así que no se rompe si se agrega o reordena alguno.
+                filter: (item) => !!item.text,
               },
             },
             tooltip: {

@@ -93,7 +93,7 @@ export default function HeroAnimation() {
 
       {/* ── Chart ─────────────────────────────────────────────────────────── */}
       <div
-        className="absolute right-0 top-0 h-full transition-opacity duration-1000"
+        className="absolute right-0 top-0 h-full transition-opacity duration-1000 hero-chart"
         style={{ opacity: visible ? 1 : 0, width: '55%' }}
       >
         <svg viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet" className="w-full h-full" fill="none">
@@ -172,15 +172,17 @@ export default function HeroAnimation() {
           {/* ══ E: SCANNER DOT — comet traveling the curve ═══════════════════ */}
           {scanning && (
             <>
-              {/* Comet tail — 3 fading circles lagging behind the head */}
+              {/* Comet tail — 3 fading circles lagging behind the head.
+                  Offsets escalados ×2 junto con dur, para mantener la misma
+                  distancia visual de la cola ahora que la vuelta es más lenta. */}
               {([
-                { begin: '0.18s', r: 3.5, opacity: 0.40, color: '#f2c94c' },
-                { begin: '0.35s', r: 2.5, opacity: 0.20, color: '#d4af37' },
-                { begin: '0.58s', r: 1.8, opacity: 0.09, color: '#d4af37' },
+                { begin: '0.36s', r: 3.5, opacity: 0.40, color: '#f2c94c' },
+                { begin: '0.70s', r: 2.5, opacity: 0.20, color: '#d4af37' },
+                { begin: '1.16s', r: 1.8, opacity: 0.09, color: '#d4af37' },
               ] as Array<{ begin: string; r: number; opacity: number; color: string }>).map((dot, i) => (
                 <circle key={i} r={dot.r} fill={dot.color} fillOpacity={dot.opacity}>
                   <animateMotion
-                    dur="5s"
+                    dur="10s"
                     begin={dot.begin}
                     repeatCount="indefinite"
                     path={PATH_D}
@@ -191,7 +193,7 @@ export default function HeroAnimation() {
               {/* Scanner head — bright white with golden halo */}
               <circle r="4" fill="white" fillOpacity="0.95" filter="url(#scanHalo)">
                 <animateMotion
-                  dur="5s"
+                  dur="10s"
                   begin="0s"
                   repeatCount="indefinite"
                   path={PATH_D}
@@ -200,12 +202,14 @@ export default function HeroAnimation() {
             </>
           )}
 
-          {/* Live endpoint dot (static, pings at the end of the curve) */}
+          {/* Live endpoint dot — el flash se sincroniza con la llegada real del
+              cometa (vuelta de 10s — la mitad de frecuencia que antes), en vez
+              de pulsar en su propio ciclo desconectado. */}
           {drawn && (
             <>
               <circle cx={LAST_PT[0]} cy={LAST_PT[1]} r="5"  fill="#d4af37" filter="url(#glow)" />
               <circle cx={LAST_PT[0]} cy={LAST_PT[1]} r="5"  fill="#d4af37" opacity="0.6"
-                style={{ animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite' }}
+                style={{ animation: 'ping 10s cubic-bezier(0,0,0.2,1) 10s infinite' }}
               />
             </>
           )}
@@ -235,8 +239,13 @@ export default function HeroAnimation() {
       <style>{`
         @keyframes ping {
           0%   { transform: scale(1);   opacity: 0.6; }
-          75%  { transform: scale(2.5); opacity: 0;   }
+          15%  { transform: scale(2.5); opacity: 0;   }
           100% { transform: scale(2.5); opacity: 0;   }
+        }
+        /* En mobile el headline ocupa todo el ancho — el chart se atenúa para
+           que el texto no compita visualmente contra el cometa detrás. */
+        @media (max-width: 640px) {
+          .hero-chart { opacity: 0.28 !important; width: 78% !important; }
         }
       `}</style>
     </div>

@@ -65,8 +65,20 @@ export async function GET(
     }
   }
 
+  // Validate url_pdf domain before fetching to prevent SSRF
+  let pdfUrl: URL
+  try {
+    pdfUrl = new URL(reporte.url_pdf)
+  } catch {
+    return NextResponse.json({ error: 'URL de PDF inválida.' }, { status: 500 })
+  }
+  const SUPABASE_HOST = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname
+  if (pdfUrl.hostname !== SUPABASE_HOST) {
+    return NextResponse.json({ error: 'Origen de PDF no permitido.' }, { status: 403 })
+  }
+
   // Proxy the PDF so the URL stays server-side
-  const pdfRes = await fetch(reporte.url_pdf)
+  const pdfRes = await fetch(pdfUrl.toString())
   if (!pdfRes.ok) {
     return NextResponse.json({ error: 'Error al obtener el PDF.' }, { status: 502 })
   }

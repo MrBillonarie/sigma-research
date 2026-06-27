@@ -58,7 +58,9 @@ async function checkRateLimit(email: string, ip: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
-  const ip = (req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown').slice(0, 45)
+  // Mismo orden que signup: x-real-ip primero (más confiable detrás del
+  // proxy actual), x-forwarded-for como respaldo.
+  const ip = (req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown').slice(0, 45)
 
   try {
     const { email } = await req.json() as { email: string }
@@ -79,29 +81,35 @@ export async function POST(req: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // Buscar usuario específico sin cargar toda la lista
+    // Buscar nombre en profiles sin escanear la tabla de auth completa
     let firstName = 'Trader'
     try {
-      const { data } = await adminSb.auth.admin.listUsers({ page: 1, perPage: 1000 })
-      const found = data?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
-      const nombre = found?.user_metadata?.nombre as string | undefined
+      const { data: profile } = await adminSb
+        .from('profiles')
+        .select('nombre')
+        .eq('email', email.toLowerCase().trim())
+        .maybeSingle()
+      const nombre = (profile as { nombre?: string } | null)?.nombre
       if (nombre) firstName = nombre.split(' ')[0]
     } catch { /* ignore — use default */ }
 
-    const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://squantdesk.com'}/auth/callback`
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://squantdesk.com').replace(/\/$/, '')
     const { data: linkData, error: linkErr } = await adminSb.auth.admin.generateLink({
       type:    'recovery',
       email:   email.toLowerCase().trim(),
-      options: { redirectTo },
+      options: {},
     })
 
-    if (linkErr || !linkData?.properties?.action_link) {
+    if (linkErr || !linkData?.properties?.hashed_token) {
       // Silencioso — no revelar si el email existe o no
       console.error('[reset-password] generateLink:', linkErr?.message)
       return NextResponse.json({ ok: true })
     }
 
-    await sendResetPasswordEmail(email, firstName, linkData.properties.action_link)
+    // token_hash en vez de action_link — el callback server-side (PKCE) no
+    // puede leer los tokens que action_link entrega por hash fragment.
+    const resetUrl = `${appUrl}/auth/callback?token_hash=${linkData.properties.hashed_token}&type=recovery`
+    await sendResetPasswordEmail(email, firstName, resetUrl)
 
     return NextResponse.json({ ok: true })
   } catch (e) {

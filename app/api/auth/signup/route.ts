@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sendConfirmationEmail } from '@/lib/email'
 
 // In-memory fallback only — primary rate limiting uses Supabase (escala entre procesos)
 const _rlFallback = new Map<string, { count: number; reset: number }>()
@@ -62,9 +63,8 @@ export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
 
-    // Verificar variables de entorno primero
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('[signup] Variables de Supabase no configuradas en Vercel')
+      console.error('[signup] Variables de Supabase no configuradas')
       return NextResponse.json({ error: 'Servicio no disponible. Contacta al soporte.' }, { status: 503 })
     }
 
@@ -81,15 +81,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
-    const { data, error } = await supabaseClient.auth.admin.createUser({
-      email: email.trim().toLowerCase(),
+    const normalEmail = (email as string).trim().toLowerCase()
+    const firstName   = typeof nombre === 'string' ? nombre.trim().slice(0, 100) : ''
+    const appUrl      = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
+
+    // generateLink({ type: 'signup' }) creates the user (unconfirmed) and returns
+    // a Supabase-signed action_link. Clicking it confirms the email and creates a session.
+    const { data: linkData, error } = await supabaseClient.auth.admin.generateLink({
+      type: 'signup',
+      email: normalEmail,
       password,
-      email_confirm: true,
-      user_metadata: { nombre: typeof nombre === 'string' ? nombre.trim().slice(0, 100) : '' },
+      options: {
+        data: { nombre: firstName },
+        redirectTo: `${appUrl}/auth/callback`,
+      },
     })
 
     if (error) {
-      console.error('[signup] Supabase error:', error.message, '| URL:', process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 40))
+      console.error('[signup] generateLink error:', error.message)
       if (error.message.includes('already registered') || error.message.includes('already exists') || error.status === 422) {
         return NextResponse.json({ error: 'Ya existe una cuenta con ese email.' }, { status: 409 })
       }
@@ -100,13 +109,29 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'La contraseña no cumple los requisitos.' }, { status: 400 })
       }
       if (error.message.includes('not authorized') || error.status === 401 || error.status === 403) {
-        console.error('[signup] Service role key inválida o sin permisos de admin')
         return NextResponse.json({ error: 'Error de configuración del servidor.' }, { status: 503 })
       }
       return NextResponse.json({ error: 'Error al crear la cuenta. Intenta nuevamente.' }, { status: 400 })
     }
 
-    return NextResponse.json({ ok: true, userId: data.user?.id })
+    // Usamos token_hash en vez de action_link: action_link entrega los tokens
+    // por hash fragment (flujo implícito), invisible para nuestro callback
+    // server-side (que usa PKCE). token_hash sí llega por query string y se
+    // verifica directo con verifyOtp en /auth/callback.
+    const tokenHash = linkData?.properties?.hashed_token
+    if (tokenHash) {
+      const confirmUrl = `${appUrl}/auth/callback?token_hash=${tokenHash}&type=signup`
+      const { success, error: emailError } = await sendConfirmationEmail(
+        normalEmail,
+        firstName || 'Trader',
+        confirmUrl,
+      )
+      if (!success) console.error('[signup] email send failed:', emailError)
+    } else {
+      console.error('[signup] hashed_token missing from generateLink response')
+    }
+
+    return NextResponse.json({ ok: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown'
     console.error('[signup] Exception:', msg)

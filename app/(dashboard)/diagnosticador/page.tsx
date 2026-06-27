@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/app/lib/supabase'
-import { C } from '@/app/lib/constants'
+import { C, F, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 import {
   calcRisk, scenarioReturn, cellColor, cellTextColor, fmtUSD,
   WIN_RATES, RR_VALUES,
@@ -29,10 +29,10 @@ function CalcRow({ label, value, sub, color = C.text }: { label: string; value: 
 }
 
 function NumberInput({
-  label, value, onChange, suffix = '', step = 0.1, min = 0
+  label, value, onChange, suffix = '', step = 0.1, min = 0, disabled = false
 }: {
   label: string; value: number; onChange: (v: number) => void
-  suffix?: string; step?: number; min?: number
+  suffix?: string; step?: number; min?: number; disabled?: boolean
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -42,14 +42,14 @@ function NumberInput({
           type="number" step={step} min={min}
           value={value}
           onChange={e => onChange(parseFloat(e.target.value) || 0)}
+          disabled={disabled}
+          className="diag-input"
           style={{
-            background: C.bg, border: `1px solid ${C.border}`, outline: 'none',
-            color: C.text, fontFamily: 'monospace', fontSize: 13, padding: '8px 12px',
-            fontVariantNumeric: 'tabular-nums', width: '100%',
-            transition: 'border-color 0.15s',
+            background: disabled ? C.surface : C.bg, border: `1px solid ${C.border}`, outline: 'none', borderRadius: C.radiusSm,
+            color: disabled ? C.muted : C.text, fontFamily: 'monospace', fontSize: 13, padding: '8px 12px',
+            fontVariantNumeric: 'tabular-nums', width: '100%', cursor: disabled ? 'not-allowed' : 'text',
+            transition: 'border-color 0.15s, box-shadow 0.15s',
           }}
-          onFocus={e => (e.target.style.borderColor = C.gold)}
-          onBlur={e  => (e.target.style.borderColor = C.border)}
         />
         {suffix && (
           <span style={{ position: 'absolute', right: 10, fontFamily: 'monospace', fontSize: 12, color: C.muted, pointerEvents: 'none' }}>
@@ -73,6 +73,171 @@ function CellTooltip({ content }: { content: string }) {
       pointerEvents: 'none', lineHeight: 1.5,
     }}>
       {content}
+    </div>
+  )
+}
+
+// ── Marco de esquinas técnicas — reemplaza la caja cerrada por 4 marcas en L,
+// como un visor de instrumento. Firma de los paneles de diagnóstico real
+// (hero, vitals, matriz); el resto de la página NO usa cajas. ────────────────
+function BracketFrame({
+  accent, background, padding = '24px', radius = 3, armLen = 18, stroke = 2, style, children,
+}: {
+  accent: string; background?: string; padding?: string; radius?: number; armLen?: number; stroke?: number
+  style?: React.CSSProperties; children: React.ReactNode
+}) {
+  const corner = (top: boolean, left: boolean): React.CSSProperties => ({
+    position: 'absolute',
+    width: armLen, height: armLen,
+    ...(top ? { top: -stroke } : { bottom: -stroke }),
+    ...(left ? { left: -stroke } : { right: -stroke }),
+    borderTop:    top  ? `${stroke}px solid ${accent}` : 'none',
+    borderBottom: !top ? `${stroke}px solid ${accent}` : 'none',
+    borderLeft:   left ? `${stroke}px solid ${accent}` : 'none',
+    borderRight:  !left ? `${stroke}px solid ${accent}` : 'none',
+  })
+  return (
+    <div style={{ position: 'relative', background: background ?? C.surface, borderRadius: radius, boxShadow: C.shadowCard, padding, ...style }}>
+      <div style={corner(true, true)} />
+      <div style={corner(true, false)} />
+      <div style={corner(false, true)} />
+      <div style={corner(false, false)} />
+      {children}
+    </div>
+  )
+}
+
+// ── Gauge cluster — "panel de signos vitales", agrupado en un solo
+// instrumento en vez de métricas sueltas flotando por la página. ─────────────
+function RiskGauge({ value, color, size = 84, label }: { value: number; color: string; size?: number; label?: string }) {
+  const stroke = 8
+  const r = size / 2 - stroke
+  const circumference = 2 * Math.PI * r
+  const clamped = Math.min(Math.max(value, 0), 100)
+  const offset = circumference * (1 - clamped / 100)
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: F.display, fontSize: size * 0.22, color, lineHeight: 1, textShadow: numberEmboss }}>
+          {label ?? `${Math.round(clamped)}%`}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function GaugeStat({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+      {children}
+      <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: C.dimText, textAlign: 'center', maxWidth: 100 }}>
+        {title}
+      </span>
+    </div>
+  )
+}
+
+function VitalsPanel({ minWinRate, minWinColor, riskPerOp, riskPortfolio }: {
+  minWinRate: number; minWinColor: string; riskPerOp: number; riskPortfolio: number
+}) {
+  return (
+    <BracketFrame accent={C.violet} padding="20px 22px">
+      <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.violet, marginBottom: 18 }}>
+        {'◈ PANEL DE SIGNOS VITALES'}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-around', gap: 12, flexWrap: 'wrap' }}>
+        <GaugeStat title="WR mínimo rentable">
+          <RiskGauge value={minWinRate} color={minWinColor} />
+        </GaugeStat>
+        <GaugeStat title="Riesgo / operación">
+          <RiskGauge value={Math.min((riskPerOp / 10) * 100, 100)} color={C.violet} label={`${riskPerOp}%`} />
+        </GaugeStat>
+        <GaugeStat title="Riesgo de cartera">
+          <RiskGauge value={Math.min((riskPortfolio / 10) * 100, 100)} color={C.violet} label={`${riskPortfolio}%`} />
+        </GaugeStat>
+      </div>
+    </BracketFrame>
+  )
+}
+
+// ── Barra de diagnóstico — espectro continuo rojo→ámbar→verde con una aguja
+// marcando exactamente dónde está el win rate real respecto al mínimo. ───────
+function DiagnosisSpectrum({ current, breakeven, hasData }: { current: number; breakeven: number; hasData: boolean }) {
+  const pos = (v: number) => Math.min(Math.max(v, 0), 100)
+  const curPct = pos(current)
+  const bePct = pos(breakeven)
+  const gap = current - breakeven
+
+  const verdict = !hasData ? 'SIN DATOS' : gap >= 10 ? 'APTO' : gap >= 0 ? 'AJUSTADO' : gap >= -10 ? 'EN RIESGO' : 'CRÍTICO'
+  const verdictColor = !hasData ? C.violet : gap >= 10 ? C.green : gap >= 0 ? C.gold : gap >= -10 ? C.amber : C.red
+  const symbol = !hasData ? '–' : gap >= 0 ? '✓' : gap >= -10 ? '⚠' : '✕'
+
+  return (
+    <div>
+      {/* Sello — único elemento circular no-rectangular de la página,
+          semi-superpuesto al borde superior del marco, como un certificado */}
+      <div style={{
+        position: 'absolute', top: -42, left: '50%', transform: 'translateX(-50%)',
+        width: 84, height: 84, borderRadius: '50%', background: C.bg,
+        border: `3px solid ${verdictColor}`, boxShadow: `0 0 18px ${verdictColor}80, 0 4px 10px rgba(0,0,0,0.5)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 30, fontWeight: 700, color: verdictColor,
+      }}>
+        {symbol}
+      </div>
+
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.dimText, marginBottom: 8 }}>
+          {'// DIAGNÓSTICO'}
+        </div>
+        <div style={{ fontFamily: F.display, fontSize: 'clamp(30px,4vw,46px)', color: verdictColor, lineHeight: 1, letterSpacing: '0.03em', textShadow: numberEmboss }}>
+          {verdict}
+        </div>
+        {hasData && (
+          <div style={{ fontFamily: 'monospace', fontSize: 12, color: gap >= 0 ? C.green : C.red, marginTop: 8 }}>
+            Win rate actual vs. mínimo: {gap >= 0 ? '+' : ''}{gap.toFixed(1)}pp
+          </div>
+        )}
+      </div>
+
+      <div style={{ position: 'relative', height: 12, borderRadius: 6, marginTop: 26, marginBottom: hasData ? 30 : 8,
+        background: `linear-gradient(90deg, ${C.red} 0%, ${C.red} 22%, ${C.amber} 42%, ${C.green} 68%, ${C.green} 100%)`,
+        boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.45)' }}>
+
+        {/* breakeven tick — el mínimo requerido, siempre visible */}
+        <div style={{ position: 'absolute', top: -5, bottom: -5, left: `${bePct}%`, width: 2, background: C.text, opacity: 0.75 }} />
+        <div style={{ position: 'absolute', top: -22, left: `${bePct}%`, transform: 'translateX(-50%)', fontFamily: 'monospace', fontSize: 9, color: C.textDim, whiteSpace: 'nowrap' }}>
+          mín. {breakeven.toFixed(0)}%
+        </div>
+
+        {/* tu posición — solo si hay datos reales */}
+        {hasData && (
+          <>
+            <div style={{
+              position: 'absolute', top: '50%', left: `${curPct}%`, transform: 'translate(-50%,-50%)',
+              width: 18, height: 18, borderRadius: '50%', background: C.bg,
+              border: `3px solid ${verdictColor}`, boxShadow: `0 0 12px ${verdictColor}90`,
+            }} />
+            <div style={{ position: 'absolute', top: 20, left: `${curPct}%`, transform: 'translateX(-50%)', fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: verdictColor, whiteSpace: 'nowrap' }}>
+              {current.toFixed(0)}% actual
+            </div>
+          </>
+        )}
+      </div>
+
+      {!hasData && (
+        <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginTop: 8 }}>
+          Registra operaciones en tu Journal para ver tu diagnóstico real frente al mínimo requerido.
+        </div>
+      )}
     </div>
   )
 }
@@ -129,7 +294,12 @@ export default function DiagnosticadorPage() {
           totalCount   = trades.length
           const wins   = trades.filter((t) => t.resultado === 'WIN')
           const losses = trades.filter((t) => t.resultado === 'LOSS')
-          winRate      = Math.round((wins.length / totalCount) * 100)
+          // Denominador = solo trades decisivos (WIN+LOSS), no totalCount —
+          // antes los BREAKEVEN contaban en el denominador pero no en el
+          // numerador, sesgando el win rate hacia abajo y pudiendo marcar
+          // "EN RIESGO" a alguien que en realidad no pierde plata en esos.
+          const decisive = wins.length + losses.length
+          winRate      = decisive > 0 ? Math.round((wins.length / decisive) * 100) : 0
 
           const rrFromSetup = trades
             .filter((t) => t.sl && t.tp && t.entry_price)
@@ -192,6 +362,13 @@ export default function DiagnosticadorPage() {
       RR_VALUES.map(r => scenarioReturn(wr / 100, r, totalOps, riskPerOp))
     ),
     [totalOps, riskPerOp]
+  )
+
+  // Frontera de rentabilidad — primera columna (de izquierda a derecha) donde
+  // cada fila cruza de pérdida a ganancia. Dibuja el "litoral" de la matriz.
+  const breakEvenCol = useMemo(() =>
+    tableData.map(row => row.findIndex(v => v >= 0)),
+    [tableData]
   )
 
   // ── Monthly summary for current config ───────────────────────────────────
@@ -370,8 +547,6 @@ ${hasRealData && dbWinRate > 0 ? `
     setTimeout(() => { win.print(); win.close() }, 400)
   }
 
-  const minWinFmt = calcs.minWinRate.toFixed(1)
-
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono,'DM Mono',monospace)" }}>
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '48px 24px 64px' }}>
@@ -392,11 +567,13 @@ ${hasRealData && dbWinRate > 0 ? `
             {/* Auto/Manual toggle */}
             <button
               onClick={() => setAutoMode(m => !m)}
+              className="diag-btn"
               style={{
-                padding: '9px 18px', border: `1px solid ${autoMode ? C.gold : C.border}`,
+                padding: '9px 18px', border: `1px solid ${autoMode ? C.gold : C.border}`, borderRadius: C.radiusSm,
                 background: autoMode ? `${C.gold}15` : 'transparent',
                 color: autoMode ? C.gold : C.dimText,
                 fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', cursor: 'pointer',
+                transition: 'border-color 0.15s, background 0.15s, filter 0.15s',
               }}
             >
               {autoMode ? '⚡ AUTO' : '✎ MANUAL'}
@@ -404,16 +581,23 @@ ${hasRealData && dbWinRate > 0 ? `
             {/* PDF export */}
             <button
               onClick={handleExportPDF}
+              className="diag-btn"
               style={{
-                padding: '9px 18px', border: `1px solid ${C.border}`,
+                padding: '9px 18px', border: `1px solid ${C.border}`, borderRadius: C.radiusSm,
                 background: 'transparent', color: C.dimText,
                 fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', cursor: 'pointer',
+                transition: 'border-color 0.15s, background 0.15s, filter 0.15s',
               }}
             >
               ↓ EXPORTAR PDF
             </button>
           </div>
         </div>
+
+        <style>{`
+          .diag-btn:hover { filter: brightness(1.25); border-color: ${C.gold}80 !important; }
+          .diag-input:focus { border-color: ${C.gold} !important; box-shadow: 0 0 0 1px ${C.gold}33; }
+        `}</style>
 
         {/* ── Warning badge if no real data ──────────────────────────────── */}
         {!loading && !hasRealData && (
@@ -431,26 +615,40 @@ ${hasRealData && dbWinRate > 0 ? `
           </div>
         ) : (
           <>
-            {/* ── Two-column layout ─────────────────────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px,380px) 1fr', gap: 1, background: C.border, marginBottom: 1 }}>
+            {/* ── Hero: veredicto del diagnóstico ──────────────────────── */}
+            <BracketFrame
+              accent={C.gold}
+              background={heroCardStyle.background}
+              padding="56px 32px 28px"
+              style={{ boxShadow: `${C.shadowCard}, ${C.glowGoldSm}`, marginBottom: 24 }}
+            >
+              <DiagnosisSpectrum
+                current={dbWinRate}
+                breakeven={calcs.minWinRate}
+                hasData={hasRealData && dbWinRate > 0}
+              />
+            </BracketFrame>
 
-              {/* ══ MODULE 1: LEFT PANEL ══════════════════════════════════ */}
-              <div style={{ background: C.surface, padding: '24px' }}>
+            {/* ── Inputs y métricas — fila de tarjetas a lo ancho completo,
+                liberando espacio para que la matriz de escenarios respire ──── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 20, marginBottom: 20 }}>
 
-                {/* Patrimonio inputs */}
+              <div style={{ padding: '4px 2px' }}>
+                {/* Patrimonio inputs — sin caja: solo tipografía y espaciado */}
                 <SectionLabel>PATRIMONIO</SectionLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
                     <NumberInput
-                      label={`Patrimonio en Trading${autoMode && dbPatrimonio > 0 ? ' (auto)' : ''}`}
+                      label={`Patrimonio en Trading${autoMode ? (dbPatrimonio > 0 ? ' (auto)' : ' (auto · sin datos)') : ''}`}
                       value={patrimonio}
-                      onChange={autoMode ? () => {} : setPatrimonio}
+                      onChange={setPatrimonio}
+                      disabled={autoMode}
                       suffix="USD"
                       step={100}
                     />
-                    {autoMode && dbPatrimonio > 0 && (
+                    {autoMode && (
                       <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.muted, marginTop: 3 }}>
-                        Leído desde tu portafolio (IBKR + Binance)
+                        {dbPatrimonio > 0 ? 'Leído desde tu portafolio (IBKR + Binance)' : 'Sin datos de portafolio — cambia a MANUAL para editar'}
                       </div>
                     )}
                   </div>
@@ -466,76 +664,57 @@ ${hasRealData && dbWinRate > 0 ? `
                     color={C.dimText}
                   />
                 </div>
+              </div>
 
-                {/* Risk inputs */}
+              <div style={{ padding: '4px 2px' }}>
+                {/* Risk inputs — sin caja: solo tipografía y espaciado */}
                 <SectionLabel>GESTIÓN DE RIESGO</SectionLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
                     <NumberInput
-                      label={`Relación Retorno/Riesgo${autoMode && dbRR > 0 ? ' (auto)' : ''}`}
+                      label={`Relación Retorno/Riesgo${autoMode ? (dbRR > 0 ? ' (auto)' : ' (auto · sin datos)') : ''}`}
                       value={rr}
-                      onChange={autoMode ? () => {} : setRr}
+                      onChange={setRr}
+                      disabled={autoMode}
                       suffix="RR"
                       step={0.1}
                       min={0.1}
                     />
-                    {autoMode && dbRR > 0 && (
+                    {autoMode && (
                       <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.muted, marginTop: 3 }}>
-                        Calculado desde {dbTotalOps} trades en Journal
+                        {dbRR > 0 ? `Calculado desde ${dbTotalOps} trades en Journal` : 'Sin trades suficientes — cambia a MANUAL para editar'}
                       </div>
                     )}
                   </div>
                   <NumberInput label="Riesgo por operación %" value={riskPerOp}     onChange={setRiskPerOp}     suffix="%" step={0.1} min={0.1} />
                   <NumberInput label="Riesgo de cartera %"   value={riskPortfolio} onChange={setRiskPortfolio} suffix="%" step={0.1} min={0.1} />
                 </div>
+              </div>
 
-                {/* Calculated values */}
+              {/* Panel de signos vitales — los 3 indicadores de riesgo agrupados
+                  en un solo instrumento, en vez de gauges sueltos */}
+              <VitalsPanel
+                minWinRate={calcs.minWinRate}
+                minWinColor={dbWinRate > 0 ? (dbWinRate > calcs.minWinRate ? C.green : C.red) : C.violet}
+                riskPerOp={riskPerOp}
+                riskPortfolio={riskPortfolio}
+              />
+
+              <div style={{ padding: '4px 2px' }}>
+                {/* Calculated values — sin caja: solo tipografía y espaciado */}
                 <SectionLabel>VALORES CALCULADOS</SectionLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                   <CalcRow label="Retorno que iré a buscar por op."  value={fmtUSD(calcs.retornoPorOp)}   color={C.green} />
                   <CalcRow label="Riesgo de cada operación"          value={fmtUSD(calcs.riesgoPerOp)}   color={C.red} />
                   <CalcRow label="Máx. operaciones simultáneas"      value={calcs.maxSimultaneous.toString()} sub="ops" color={C.gold} />
                   <CalcRow label="Riesgo total de cartera"           value={fmtUSD(calcs.riesgoCartera)} color={C.red} />
-                  <CalcRow
-                    label="% mín. ganadoras para ser rentable"
-                    value={`${minWinFmt}%`}
-                    color={dbWinRate > 0 && dbWinRate > calcs.minWinRate ? C.green : C.yellow}
-                  />
                 </div>
-
-                {/* Mi posición actual */}
-                {hasRealData && dbWinRate > 0 && (
-                  <div style={{ marginTop: 24, padding: '14px', background: `${C.gold}08`, border: `1px solid ${C.gold}30` }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>
-                      → MI POSICIÓN ACTUAL
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 11 }}>
-                        <span style={{ color: C.dimText }}>Win rate histórico</span>
-                        <span style={{ color: dbWinRate > calcs.minWinRate ? C.green : C.red, fontWeight: 700 }}>{dbWinRate}%</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 11 }}>
-                        <span style={{ color: C.dimText }}>RR histórico</span>
-                        <span style={{ color: C.gold }}>{dbRR.toFixed(2)}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 11 }}>
-                        <span style={{ color: C.dimText }}>Total operaciones</span>
-                        <span style={{ color: C.text }}>{dbTotalOps}</span>
-                      </div>
-                      <div style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>
-                        {dbWinRate > calcs.minWinRate
-                          ? `✓ Tu win rate supera el mínimo requerido (+${(dbWinRate - calcs.minWinRate).toFixed(1)}pp)`
-                          : `✗ Tu win rate está ${(calcs.minWinRate - dbWinRate).toFixed(1)}pp por debajo del mínimo`
-                        }
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
+            </div>
 
-              {/* ══ MODULE 2: RIGHT PANEL — SCENARIO TABLE ════════════════ */}
-              <div style={{ background: C.surface, padding: '24px', overflow: 'hidden' }}>
-                <SectionLabel>ESCENARIOS DE RENTABILIDAD MENSUAL</SectionLabel>
+            {/* ── Matriz de escenarios — a lo ancho completo de la página ──── */}
+            <BracketFrame accent={C.violet} style={{ marginBottom: 24 }}>
+              <SectionLabel>ESCENARIOS DE RENTABILIDAD MENSUAL</SectionLabel>
 
                 {/* Scenario inputs */}
                 <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -565,27 +744,31 @@ ${hasRealData && dbWinRate > 0 ? `
                     { bg: '#166534', tc: '#4ade80', label: '30% a 60%' },
                     { bg: '#052e16', tc: '#bbf7d0', label: '> 60%' },
                   ].map(({ bg, tc, label }) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ width: 12, height: 12, background: bg, border: `1px solid ${tc}30`, flexShrink: 0 }} />
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px 3px 4px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: C.radiusSm }}>
+                      <span style={{ width: 11, height: 11, background: bg, border: `1px solid ${tc}30`, borderRadius: 2, flexShrink: 0 }} />
                       <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText }}>{label}</span>
                     </div>
                   ))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px 3px 4px', background: C.bg, border: `1px solid ${C.violet}40`, borderRadius: C.radiusSm }}>
+                    <span style={{ width: 3, height: 11, background: C.violet, flexShrink: 0 }} />
+                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.violet }}>Frontera de rentabilidad</span>
+                  </div>
                   {hasRealData && dbWinRate > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ width: 12, height: 12, border: `2px solid ${C.gold}`, flexShrink: 0 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px 3px 4px', background: C.bg, border: `1px solid ${C.gold}40`, borderRadius: C.radiusSm }}>
+                      <span style={{ width: 11, height: 11, border: `2px solid ${C.gold}`, borderRadius: 2, flexShrink: 0 }} />
                       <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.gold }}>Tu posición actual</span>
                     </div>
                   )}
                 </div>
 
-                {/* Table */}
-                <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 520 }}>
+                {/* Table — sin maxHeight: la matriz completa se ve sin scroll interno */}
+                <div style={{ overflowX: 'auto' }}>
                   <table style={{ borderCollapse: 'collapse', fontSize: 11, fontFamily: 'monospace', tableLayout: 'fixed' }}>
                     <thead>
                       <tr>
-                        {/* Corner cell */}
+                        {/* Corner cell — sticky solo en horizontal, ya no hay scroll vertical interno */}
                         <th style={{
-                          position: 'sticky', left: 0, top: 0, zIndex: 20,
+                          position: 'sticky', left: 0, zIndex: 20,
                           background: C.bg, padding: '6px 10px', minWidth: 70,
                           fontFamily: 'monospace', fontSize: 9, color: C.dimText,
                           border: `1px solid ${C.border}`, textAlign: 'center', fontWeight: 400,
@@ -594,7 +777,6 @@ ${hasRealData && dbWinRate > 0 ? `
                         </th>
                         {RR_VALUES.map(r => (
                           <th key={r} style={{
-                            position: 'sticky', top: 0, zIndex: 10,
                             background: C.bg, padding: '6px 8px', minWidth: 54,
                             fontFamily: 'monospace', fontSize: 9, color: Math.abs(r - userRRCol) < 0.01 ? C.gold : C.dimText,
                             border: `1px solid ${C.border}`, textAlign: 'center', fontWeight: 400,
@@ -626,6 +808,7 @@ ${hasRealData && dbWinRate > 0 ? `
                             const tc      = cellTextColor(val)
                             const isUser  = wr === userWinRow && Math.abs(r - userRRCol) < 0.01 && hasRealData && dbWinRate > 0
                             const isHover = tooltip?.row === rowIdx && tooltip?.col === colIdx
+                            const isBreakeven = breakEvenCol[rowIdx] === colIdx
 
                             return (
                               <td
@@ -638,6 +821,7 @@ ${hasRealData && dbWinRate > 0 ? `
                                   border: isUser
                                     ? `2px solid ${C.gold}`
                                     : `1px solid ${C.border}20`,
+                                  boxShadow: isBreakeven ? `inset 3px 0 0 ${C.violet}` : undefined,
                                   position: 'relative',
                                   cursor: 'default',
                                   fontWeight: isUser ? 700 : 400,
@@ -674,18 +858,18 @@ ${hasRealData && dbWinRate > 0 ? `
                   Fórmula: (WR × RR − (1 − WR)) × {totalOps} ops × {riskPerOp}% riesgo por op
                   {hasRealData && dbWinRate > 0 && ` · ★ = tu posición histórica (${dbWinRate}% WR, RR ${dbRR.toFixed(1)})`}
                 </div>
-              </div>
-            </div>
+              </BracketFrame>
 
             {/* ── Monthly summary bar ──────────────────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1, background: C.border, marginTop: 1 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
               {[
                 {
                   label: 'Escenario conservador',
                   sub:   `Win rate mínimo (${calcs.minWinRate.toFixed(0)}%)`,
                   pct:   monthlySummary.pctMin,
                   usd:   monthlySummary.usdMin,
-                  color: monthlySummary.pctMin >= 0 ? C.yellow : C.red,
+                  color: monthlySummary.pctMin >= 0 ? C.amber : C.red,
+                  hero:  false,
                 },
                 {
                   label: 'Escenario esperado',
@@ -693,6 +877,7 @@ ${hasRealData && dbWinRate > 0 ? `
                   pct:   monthlySummary.pct,
                   usd:   monthlySummary.usd,
                   color: monthlySummary.pct >= 0 ? C.green : C.red,
+                  hero:  true,
                 },
                 {
                   label: 'Escenario optimista',
@@ -700,14 +885,15 @@ ${hasRealData && dbWinRate > 0 ? `
                   pct:   monthlySummary.pctOpt,
                   usd:   monthlySummary.usdOpt,
                   color: C.green,
+                  hero:  false,
                 },
-              ].map(({ label, sub, pct, usd, color }) => (
-                <div key={label} style={{ background: C.surface, padding: '20px 24px' }}>
+              ].map(({ label, sub, pct, usd, color, hero }) => (
+                <div key={label} style={{ ...(hero ? heroCardStyle : cardStyle), background: hero ? undefined : C.surface, padding: '20px 24px' }}>
                   <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>
                     {label}
                   </div>
                   <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted, marginBottom: 10 }}>{sub}</div>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 42, color, lineHeight: 1, marginBottom: 4 }}>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 42, color, lineHeight: 1, marginBottom: 4, textShadow: numberEmboss }}>
                     {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
                   </div>
                   <div style={{ fontFamily: 'monospace', fontSize: 13, color, opacity: 0.8 }}>

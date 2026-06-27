@@ -33,6 +33,15 @@ export const C = {
 
   // Legacy aliases (mantener compatibilidad)
   yellow:   '#f59e0b',
+
+  // Elevación — sistema de 3 niveles (base plana / card / hero)
+  radiusSm:    8,
+  radiusMd:    12,
+  radiusLg:    18,
+  shadowCard:  '0 4px 18px rgba(0,0,0,0.32)',
+  shadowHero:  '0 14px 44px rgba(0,0,0,0.5)',
+  glowGold:    '0 0 40px rgba(212,175,55,0.16)',
+  glowGoldSm:  '0 0 18px rgba(212,175,55,0.22)',
 } as const
 
 // Fuentes como strings para inline styles
@@ -40,6 +49,26 @@ export const F = {
   display: "var(--font-bebas,'Bebas Neue',Impact,sans-serif)",
   mono:    "var(--font-dm-mono,'DM Mono','Courier New',monospace)",
 } as const
+
+// ─── Sistema de elevación compartido ─────────────────────────────────────────
+// Cards con borde + radio + sombra + filo (grosor simulado), en vez de las
+// grillas "gapless" con background:C.border haciendo de línea divisoria.
+const EDGE = 'inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -2px 0 rgba(0,0,0,0.35)'
+export const cardStyle = {
+  border: `1px solid ${C.border}`,
+  borderRadius: C.radiusMd,
+  boxShadow: `${C.shadowCard}, ${EDGE}`,
+}
+export const heroCardStyle = {
+  border: `1px solid ${C.gold}40`,
+  borderRadius: C.radiusMd,
+  boxShadow: `${C.shadowCard}, ${C.glowGoldSm}, ${EDGE}`,
+  background: `linear-gradient(160deg,${C.gold}14,${C.surface} 60%)`,
+}
+
+// Sombra en capas para números grandes — efecto "grabado/en relieve" en vez
+// de texto plano con color (funciona también sobre gradient-clip text).
+export const numberEmboss = '0 2px 5px rgba(0,0,0,0.5), 0 -1px 0 rgba(255,255,255,0.1)'
 
 // Color de grado champion
 export function gradeColor(g?: string): string {

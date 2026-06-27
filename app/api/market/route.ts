@@ -63,10 +63,14 @@ async function fetchSPX(): Promise<Ticker | null> {
   return await fetchStooq('^spx')
 }
 
-// ─── XAU: spot XAUUSD from Yahoo, Stooq fallback ────────────────────────────
+// ─── XAU: spot → futures fallback (XAUUSD=X broken on Yahoo, use GC=F) ──────
 async function fetchXAU(): Promise<Ticker | null> {
-  const yahoo = await fetchYahoo('XAUUSD=X')   // spot gold forex pair
-  if (yahoo) return yahoo
+  const spot = await fetchYahoo('XAUUSD=X')
+  if (spot) return spot
+  const futures = await fetchYahoo('GC=F')     // COMEX gold futures — reliable
+  if (futures) return futures
+  const stooq = await fetchStooq('gc.f')
+  if (stooq) return stooq
   return await fetchStooq('xauusd')
 }
 

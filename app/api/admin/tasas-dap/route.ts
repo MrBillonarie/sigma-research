@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkAdminAuth } from '@/lib/adminAuth'
+import { logAdminAction } from '@/lib/adminAudit'
 
 function sb() {
   return createClient(
@@ -24,5 +25,6 @@ export async function PUT(req: NextRequest) {
     .eq('id', id)
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  void logAdminAction('tasas_dap.update', id, { d30, d60, d90, d180, d360 })
   return NextResponse.json({ ok: true })
 }

@@ -2,25 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { render } from '@react-email/render'
 import * as React from 'react'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import OnboardingCompleteEmail from '@/emails/OnboardingCompleteEmail'
-
-const _onboardingRate = new Map<string, { count: number; reset: number }>()
-function checkRate(ip: string): boolean {
-  const now = Date.now()
-  const entry = _onboardingRate.get(ip)
-  if (!entry || now > entry.reset) {
-    _onboardingRate.set(ip, { count: 1, reset: now + 60 * 60_000 })
-    return true
-  }
-  if (entry.count >= 3) return false
-  entry.count++
-  return true
-}
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-    if (!checkRate(ip)) return NextResponse.json({ ok: true })
+    // Require authenticated session — prevents unauthenticated email sending
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ ok: true }) // silencioso — no revelar estado
 
     const { email, nombre, perfil } = await req.json() as {
       email: string
@@ -29,6 +25,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (!email) return NextResponse.json({ error: 'email requerido' }, { status: 400 })
+
+    // Only allow sending to the authenticated user's own email
+    if (user.email?.toLowerCase() !== email.toLowerCase()) {
+      return NextResponse.json({ ok: true }) // silencioso
+    }
 
     const resendKey = process.env.RESEND_API_KEY
     if (!resendKey) return NextResponse.json({ ok: true }) // silencioso en dev

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Difficulty = 'FÁCIL' | 'MEDIO' | 'DIFÍCIL'
@@ -72,6 +72,20 @@ function scaleAmt(ahorro: number, base: number): number {
 
 function fmtUSD(n: number): string {
   return n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${Math.round(n)}`
+}
+
+// Meses para alcanzar target a interés mensual compuesto — resolución mensual
+// solo para este cálculo de "cuánto adelantaste tu fecha", el resto de la
+// página sigue usando project() en años, no se toca esa lógica.
+function monthsToTarget(capital: number, ahorro: number, retornoPct: number, target: number, maxMonths = 720): number | null {
+  if (capital >= target) return 0
+  const rMonthly = retornoPct / 100 / 12
+  let c = capital
+  for (let mth = 1; mth <= maxMonths; mth++) {
+    c = c * (1 + rMonthly) + ahorro
+    if (c >= target) return mth
+  }
+  return null
 }
 
 // ─── Challenge data ───────────────────────────────────────────────────────────
@@ -225,9 +239,9 @@ function ProgressBar({ value, max, color = GOLD }: { value: number; max: number;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-interface Props { ahorro: number; capital: number }
+interface Props { ahorro: number; capital: number; retorno: number; target: number }
 
-export default function FireChallenges({ ahorro, capital }: Props) {
+export default function FireChallenges({ ahorro, capital, retorno, target }: Props) {
   const [store,     setStore]     = useState<ChallengeStore>(STORE_DEFAULT)
   const [mounted,   setMounted]   = useState(false)
   const [showInput, setShowInput] = useState<string | null>(null)
@@ -249,6 +263,16 @@ export default function FireChallenges({ ahorro, capital }: Props) {
   const daily   = DAILY[dayOfWeek]
   const weeklys = WEEKLY_SETS[weekNum % WEEKLY_SETS.length]
   const amt     = scaleAmt(ahorro, daily.amountBase)
+
+  // Cuántos meses adelantaste tu fecha de libertad gracias a lo ahorrado vía
+  // retos — conecta el juego de hábitos directo con tu número personal.
+  const monthsAdvanced = useMemo(() => {
+    if (target <= 0 || store.totalSaved <= 0) return 0
+    const baseline = monthsToTarget(capital, ahorro, retorno, target)
+    const boosted  = monthsToTarget(capital + store.totalSaved, ahorro, retorno, target)
+    if (baseline === null || boosted === null) return 0
+    return Math.max(0, baseline - boosted)
+  }, [capital, ahorro, retorno, target, store.totalSaved])
 
   const streak     = computeStreak(store.completed)
   const isDailyDone = store.completed[today]?.includes(daily.id) ?? false
@@ -416,10 +440,17 @@ export default function FireChallenges({ ahorro, capital }: Props) {
             </div>
           </div>
 
-          {/* Meta amount */}
+          {/* Meta amount — calibrado a tu ahorro real, no un monto genérico */}
           {daily.amountBase > 0 && (
-            <div style={{ fontFamily: MONO, fontSize: 20, color: GOLD, fontWeight: 600 }}>
-              {daily.unitFn(amt)}
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 20, color: GOLD, fontWeight: 600 }}>
+                {daily.unitFn(amt)}
+              </div>
+              {ahorro > 0 && (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 2 }}>
+                  ≈ {((amt / ahorro) * 100).toFixed(1)}% de tu ahorro mensual
+                </div>
+              )}
             </div>
           )}
           {daily.amountBase === 0 && (
@@ -491,6 +522,11 @@ export default function FireChallenges({ ahorro, capital }: Props) {
                   <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, lineHeight: 1.6 }}>
                     {ch.desc}
                   </div>
+                  {ch.goalType === 'amount' && ahorro > 0 && (
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 4 }}>
+                      ≈ {((ch.goalMax / ahorro) * 100).toFixed(1)}% de tu ahorro mensual
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress bar */}
@@ -581,6 +617,7 @@ export default function FireChallenges({ ahorro, capital }: Props) {
           { emoji: '🏆', label: 'Mejor racha',     val: `${store.maxStreak} días`                   },
           { emoji: '✓',  label: 'Completados',     val: `${store.totalCompleted} retos`             },
           { emoji: '💰', label: 'Ahorrado via retos', val: `$${Math.round(store.totalSaved)}`      },
+          { emoji: '📅', label: 'Adelantaste tu FIRE', val: monthsAdvanced > 0 ? `${monthsAdvanced} ${monthsAdvanced === 1 ? 'mes' : 'meses'}` : '—' },
         ].map((s, i, arr) => (
           <div key={s.label} style={{
             flex: 1, minWidth: 120, textAlign: 'center',

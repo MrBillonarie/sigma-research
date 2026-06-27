@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { MOCK_EVENTS } from '@/app/data/mockEvents'
 
 // Crea notificaciones para eventos HIGH de las próximas 48h si no existen aún
 export async function POST(req: NextRequest) {
   try {
+    // Verify authenticated session
+    const cookieStore = cookies()
+    const authClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    )
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return NextResponse.json({ ok: false }, { status: 401 })
+
     const { userId } = await req.json()
     if (!userId) return NextResponse.json({ ok: false }, { status: 400 })
+
+    // Ensure the caller can only sync notifications for their own account
+    if (userId !== user.id) return NextResponse.json({ ok: false }, { status: 403 })
 
     const sb = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

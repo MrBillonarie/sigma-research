@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
-import { C } from '@/app/lib/constants'
+import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 
 const TerminalChart = dynamic(() => import('../terminal/TerminalChart'), {
   ssr: false,
@@ -30,6 +30,10 @@ const PLATFORM_META = [
 ]
 
 const CRYPTO_IDS = new Set(['binance_spot', 'binance_futures'])
+
+// Dorado se reserva para el TOTAL agregado — los Ingresos Pasivos son una
+// "parte" más del portafolio, así que llevan su propio color de identidad.
+const PASSIVE_COLOR = '#06b6d4'
 
 // ─── Risk profile data ────────────────────────────────────────────────────────
 const PROFILE_DATA = {
@@ -136,6 +140,46 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ─── Gauge circular de riesgo — firma visual propia de esta página ────────────
+function RiskGauge({ value, color, size = 84 }: { value: number; color: string; size?: number }) {
+  const stroke = 8
+  const r = size / 2 - stroke
+  const circumference = 2 * Math.PI * r
+  const clamped = Math.min(Math.max(value, 0), 100)
+  const offset = circumference * (1 - clamped / 100)
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: size * 0.24, color, lineHeight: 1, textShadow: numberEmboss }}>
+          {Math.round(clamped)}%
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Tarjeta con profundidad apilada — mismo truco del hero de /home, acá
+// aplicado a cada plataforma para que se sientan objetos reales que posees. ──
+function StackCard({ accent, children }: { accent: string; children: React.ReactNode }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, transform: 'translate(5px,6px)', background: `${accent}06`, border: `1px solid ${accent}12`, borderRadius: C.radiusMd, zIndex: -2 }} />
+      <div style={{ position: 'absolute', inset: 0, transform: 'translate(2.5px,3px)', background: `${accent}09`, border: `1px solid ${accent}1a`, borderRadius: C.radiusMd, zIndex: -1 }} />
+      <div style={{ ...cardStyle, background: C.surface, borderLeft: `3px solid ${accent}`, position: 'relative' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ─── Types ───────────────────────────────���────────────────────────────��───────
 interface PassivePosition {
   id: string
@@ -170,6 +214,7 @@ export default function PortfolioPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [draftForm, setDraftForm] = useState<PortfolioRow>({})
   const [saving,    setSaving]    = useState(false)
+  const [saveError, setSaveError] = useState('')
   const modalRef = useRef<HTMLDivElement>(null)
 
   // Binance live
@@ -187,7 +232,9 @@ export default function PortfolioPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const donutChartRef = useRef<any>(null)
 
-  const trmVal = num(trm) || 950
+  // Un TRM <= 0 invertiría el signo de todo el capital CLP→USD (Fintual/
+  // Santander) sin ningún aviso — se descarta y se usa el valor por defecto.
+  const trmVal = num(trm) > 0 ? num(trm) : 950
 
   // ─── Load: localStorage → Supabase ──────────────────────────────────────────
   useEffect(() => {
@@ -205,7 +252,7 @@ export default function PortfolioPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
-      const { data } = await supabase.from('portfolio').select('*').eq('user_id', user.id).single()
+      const { data } = await supabase.from('portfolio').select('*').eq('user_id', user.id).maybeSingle()
       if (data) {
         setDbId(data.id)
         const vals: PortfolioRow = {}
@@ -259,13 +306,20 @@ export default function PortfolioPage() {
 
   async function savePortfolio() {
     setSaving(true)
+    setSaveError('')
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSaving(false); return }
+    if (!user) { setSaving(false); setSaveError('Inicia sesión de nuevo para guardar.'); return }
     const payload = { user_id: user.id, updated_at: new Date().toISOString(), ...draftForm }
+    // Antes no se revisaba `error` — si Supabase fallaba (red, RLS), igual se
+    // mostraba "Guardado" y se sobreescribía el estado local, dejando al
+    // usuario creyendo que su capital quedó al día cuando en realidad no se
+    // guardó nada. La próxima carga traía el valor viejo y lo pisaba todo.
     if (dbId) {
-      await supabase.from('portfolio').update(payload).eq('id', dbId)
+      const { error } = await supabase.from('portfolio').update(payload).eq('id', dbId)
+      if (error) { setSaving(false); setSaveError(`No se pudo guardar: ${error.message}`); return }
     } else {
-      const { data } = await supabase.from('portfolio').insert(payload).select().single()
+      const { data, error } = await supabase.from('portfolio').insert(payload).select().single()
+      if (error) { setSaving(false); setSaveError(`No se pudo guardar: ${error.message}`); return }
       if (data) setDbId(data.id)
     }
     const savedAt = new Date().toISOString()
@@ -326,7 +380,7 @@ export default function PortfolioPage() {
         monthlyIncome: 0,
       })),
       ...(passiveCapital > 0 ? [{
-        name: 'Ingresos Pasivos', color: C.gold, usd: passiveCapital, type: 'Multi-yield',
+        name: 'Ingresos Pasivos', color: PASSIVE_COLOR, usd: passiveCapital, type: 'Multi-yield',
         pct: totalUSD > 0 ? (passiveCapital / totalUSD) * 100 : 0,
         monthlyIncome: passiveMonthly,
       }] : []),
@@ -355,7 +409,7 @@ export default function PortfolioPage() {
         pct: totalUSD > 0 ? (p.current / totalUSD) * 100 : 0,
         monthly: 0,
       })),
-      { name: 'Ingresos Pasivos', color: C.gold, type: 'Multi-yield',
+      { name: 'Ingresos Pasivos', color: PASSIVE_COLOR, type: 'Multi-yield',
         usd: passiveCapital, clp: passiveCapital * trmVal,
         pct: totalUSD > 0 ? (passiveCapital / totalUSD) * 100 : 0,
         monthly: passiveMonthly },
@@ -448,7 +502,8 @@ export default function PortfolioPage() {
                 </span>
               </div>
               <input
-                type="number" value={trm} onChange={e => { setTrm(e.target.value); setTrmLive(false) }} min={1}
+                type="number" value={trm} min={1}
+                onChange={e => { setTrm(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value) || 0))); setTrmLive(false) }}
                 style={{ width: 80, background: C.bg, border: `1px solid ${C.gold}44`, color: C.gold, fontFamily: 'monospace', fontSize: 13, padding: '4px 8px', outline: 'none', textAlign: 'right' }}
               />
             </div>
@@ -495,23 +550,62 @@ export default function PortfolioPage() {
         ) : (
           <>
             {/* ── 1. KPI CARDS ── */}
-            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: C.border, marginBottom: 1 }}>
+            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
               {[
-                { label: 'Total Patrimonio', value: fmtUSD(D.totalUSD),  sub: 'USD equiv.',       color: C.gold },
-                { label: 'Rentabilidad YTD', value: `${ytdReturn > 0 ? '+' : ''}${ytdReturn.toFixed(2)}%`, sub: 'vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red },
-                { label: 'Sharpe Ratio',     value: sharpe.toFixed(2),    sub: '12M rolling',      color: sharpe >= 1.5 ? C.green : C.gold },
-                { label: 'Max Drawdown',     value: `${(maxDD * 100).toFixed(2)}%`, sub: '24M window', color: C.red },
-              ].map(({ label, value, sub, color }) => (
-                <div key={label} style={{ background: C.surface, padding: '20px 22px' }}>
+                { label: 'Total Patrimonio', value: fmtUSD(D.totalUSD),  sub: 'USD equiv.',       color: C.gold, hero: true },
+                // No hay historial real de patrimonio guardado (solo el snapshot
+                // actual) — estos 3 se derivan de una curva simulada que ancla en
+                // tu total real de hoy. Antes se mostraban con la misma seriedad
+                // visual que el resto, sin ningún aviso de que no son datos reales.
+                { label: 'Rentabilidad YTD', value: `${ytdReturn > 0 ? '+' : ''}${ytdReturn.toFixed(2)}%`, sub: 'estimado · vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red, hero: false },
+                { label: 'Sharpe Ratio',     value: sharpe.toFixed(2),    sub: 'estimado · 12M rolling',      color: sharpe >= 1.5 ? C.green : sharpe >= 0.8 ? C.text : C.red, hero: false },
+                { label: 'Max Drawdown',     value: `${(maxDD * 100).toFixed(2)}%`, sub: 'estimado · 24M window', color: C.red, hero: false },
+              ].map(({ label, value, sub, color, hero }) => (
+                <div key={label} style={{ ...(hero ? heroCardStyle : cardStyle), background: hero ? undefined : C.surface, padding: '20px 22px' }}>
                   <Label text={label} />
-                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 38, color, lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: hero ? 40 : 38, color, lineHeight: 1, textShadow: numberEmboss,
+                    ...(hero ? { background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}) }}>
+                    {value}
+                  </div>
                   <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, marginTop: 4 }}>{sub}</div>
                 </div>
               ))}
             </div>
 
-            {/* ── 2. CAPITAL EVOLUTION CHART ── */}
-            <div style={{ background: C.surface, marginBottom: 24 }}>
+            {/* ── 2. COMPOSICIÓN — protagonista, sube antes del gráfico ── */}
+            <div style={{ marginBottom: 40 }}>
+              <SectionTitle>COMPOSICIÓN DEL PATRIMONIO</SectionTitle>
+              <div style={{ display: 'flex', height: 40, borderRadius: C.radiusSm, overflow: 'hidden', marginBottom: 18, background: C.border, boxShadow: C.shadowCard }}>
+                {D.allSegments.map(seg => seg.pct > 0 && (
+                  <div key={seg.name} title={`${seg.name}: ${pct(seg.pct)}`}
+                    style={{ width: `${seg.pct}%`, background: seg.color, transition: 'width 0.5s ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {seg.pct > 9 && (
+                      <span style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: '#04050a', letterSpacing: '0.05em' }}>{pct(seg.pct)}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 16 }}>
+                {D.allSegments.map(seg => seg.usd > 0 && (
+                  <StackCard key={seg.name} accent={seg.color}>
+                    <div style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                        <div style={{ width: 10, height: 10, background: seg.color, borderRadius: 1, flexShrink: 0 }} />
+                        <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{seg.name}</span>
+                      </div>
+                      <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, color: C.text, lineHeight: 1, textShadow: numberEmboss }}>{fmtUSD(seg.usd)}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: seg.color, marginTop: 3 }}>{pct(seg.pct)}</div>
+                      {seg.monthlyIncome > 0 && (
+                        <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.green, marginTop: 2 }}>{fmtUSD(seg.monthlyIncome)}/mes</div>
+                      )}
+                    </div>
+                  </StackCard>
+                ))}
+              </div>
+            </div>
+
+            {/* ── 3. CAPITAL EVOLUTION CHART ── */}
+            <div style={{ ...cardStyle, background: C.surface, marginBottom: 24, overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>EVOLUCIÓN DE CAPITAL · 24 MESES</span>
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>base: USD equiv. · curva estimada hasta sync</span>
@@ -519,50 +613,24 @@ export default function PortfolioPage() {
               <TerminalChart labels={MONTHS.slice(0, 24)} total={totalHistory} platforms={platformHistories} />
             </div>
 
-            {/* ── 3. KPIs × 4 (portfolio totals) ── */}
-            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, background: C.border, marginBottom: 40 }}>
+            {/* ── 4. KPIs × 4 (portfolio totals) ── */}
+            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 40 }}>
               {[
-                { label: 'Patrimonio Total USD', value: fmtUSD(D.totalUSD),       color: C.text  },
-                { label: 'Patrimonio Total CLP', value: fmtCLP(D.totalCLP),       color: C.text  },
+                { label: 'Patrimonio Total USD', value: fmtUSD(D.totalUSD),       color: C.gold  },
+                { label: 'Patrimonio Total CLP', value: fmtCLP(D.totalCLP),       color: C.gold  },
                 { label: 'Ingreso Pasivo / mes', value: fmtUSD(D.passiveMonthly), color: C.green },
-                { label: 'Yield Efectivo',       value: pct(D.yieldRatio),        color: C.gold  },
+                { label: 'Yield Efectivo',       value: pct(D.yieldRatio),        color: C.green },
               ].map(({ label, value, color }) => (
-                <div key={label} style={{ background: C.surface, padding: '20px 22px' }}>
+                <div key={label} style={{ ...cardStyle, background: C.surface, padding: '20px 22px' }}>
                   <Label text={label} />
-                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color, lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color, lineHeight: 1, textShadow: numberEmboss }}>{value}</div>
                 </div>
               ))}
             </div>
 
-            {/* ── 4. ALLOCATION BAR ── */}
-            <div style={{ marginBottom: 40 }}>
-              <SectionTitle>ALLOCATION</SectionTitle>
-              <div style={{ display: 'flex', height: 32, borderRadius: 2, overflow: 'hidden', marginBottom: 16, background: C.border }}>
-                {D.allSegments.map(seg => seg.pct > 0 && (
-                  <div key={seg.name} title={`${seg.name}: ${pct(seg.pct)}`}
-                    style={{ width: `${seg.pct}%`, background: seg.color, transition: 'width 0.5s ease' }} />
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 1, background: C.border }}>
-                {D.allSegments.map(seg => seg.usd > 0 && (
-                  <div key={seg.name} style={{ background: C.surface, padding: '12px 16px', flex: '1 1 140px', minWidth: 130 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                      <div style={{ width: 10, height: 10, background: seg.color, borderRadius: 1, flexShrink: 0 }} />
-                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{seg.name}</span>
-                    </div>
-                    <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, color: C.text, lineHeight: 1 }}>{fmtUSD(seg.usd)}</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 11, color: seg.color, marginTop: 3 }}>{pct(seg.pct)}</div>
-                    {seg.monthlyIncome > 0 && (
-                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.green, marginTop: 2 }}>{fmtUSD(seg.monthlyIncome)}/mes</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* ── 5. BINANCE FUTURES POSITIONS ── */}
             <style>{`@keyframes skp{0%{background-position:-200% 0}100%{background-position:200% 0}}.skp{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:skp 1.4s ease infinite;border-radius:2px}`}</style>
-            <div style={{ marginBottom: 24 }}>
+            <div style={{ ...cardStyle, marginBottom: 24, overflow: 'hidden' }}>
               <div style={{ background: C.surface, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>BINANCE FUTURES · POSICIONES ABIERTAS</span>
@@ -598,7 +666,9 @@ export default function PortfolioPage() {
                         const pnl   = parseFloat(String(pos.unRealizedProfit))
                         const entry = parseFloat(String(pos.entryPrice))
                         return (
-                          <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
+                          <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 1 ? C.surface2 : 'transparent', transition: 'background 0.15s' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = `${C.gold}0a`)}
+                            onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 1 ? C.surface2 : 'transparent')}>
                             <td style={{ padding: '10px 12px', color: C.text }}>{String(pos.symbol)}</td>
                             <td style={{ padding: '10px 12px', color: amt > 0 ? C.green : C.red }}>{amt > 0 ? 'LONG' : 'SHORT'}</td>
                             <td style={{ padding: '10px 12px', color: pnl >= 0 ? C.green : C.red }}>${pnl.toFixed(2)}</td>
@@ -613,7 +683,7 @@ export default function PortfolioPage() {
             </div>
 
             {/* ── 6. BINANCE SPOT BALANCES ── */}
-            <div style={{ marginBottom: 40 }}>
+            <div style={{ ...cardStyle, marginBottom: 40, overflow: 'hidden' }}>
               <div style={{ background: C.surface, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>BINANCE SPOT · BALANCES</span>
@@ -648,7 +718,7 @@ export default function PortfolioPage() {
             {/* ── 7. DETAIL TABLE ── */}
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>DETALLE POR PLATAFORMA</SectionTitle>
-              <div style={{ background: C.surface, overflowX: 'auto' }}>
+              <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden', overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -658,8 +728,10 @@ export default function PortfolioPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {D.tableRows.map(row => (
-                      <tr key={row.name} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    {D.tableRows.map((row, i) => (
+                      <tr key={row.name} style={{ borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${row.usd > 0 ? row.color : 'transparent'}`, background: i % 2 === 1 ? C.surface2 : 'transparent', transition: 'background 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = `${row.color}0c`)}
+                        onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 1 ? C.surface2 : 'transparent')}>
                         <td style={{ padding: '11px 16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 8, height: 8, background: row.color, borderRadius: 1, flexShrink: 0 }} />
@@ -696,10 +768,10 @@ export default function PortfolioPage() {
               </div>
             </div>
 
-            {/* ── 8. CONCENTRATION & RISK ── */}
+            {/* ── 8. CONCENTRATION & RISK — gauges circulares, firma propia de esta página ── */}
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>CONCENTRACIÓN Y RIESGO</SectionTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1, background: C.border }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
                 {[
                   { label: 'Concentración máxima', v: D.maxSegment.pct, sub: `Mayor posición: ${D.maxSegment.name}`,
                     level: D.maxSegment.pct > 50 ? { l: 'ALTA', c: C.red } : D.maxSegment.pct > 30 ? { l: 'MEDIA', c: C.yellow } : { l: 'BAJA', c: C.green } },
@@ -708,15 +780,12 @@ export default function PortfolioPage() {
                   { label: 'Liquidez inmediata', v: D.cashPct, sub: `Cash: ${fmtUSD(D.cashUSD)}`,
                     level: D.cashPct < 5 ? { l: 'CRÍTICA', c: C.red } : D.cashPct < 10 ? { l: 'BAJA', c: C.yellow } : { l: 'OK', c: C.green } },
                 ].map(({ label, v, sub, level }) => (
-                  <div key={label} style={{ background: C.surface, padding: '22px 20px' }}>
-                    <Label text={label} />
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-                      <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 36, color: level.c, lineHeight: 1 }}>{pct(v)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.15em', color: level.c, background: level.c + '18', padding: '2px 8px' }}>{level.l}</div>
-                    </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{sub}</div>
-                    <div style={{ marginTop: 10, height: 3, background: C.border, borderRadius: 2 }}>
-                      <div style={{ width: `${Math.min(v, 100)}%`, height: '100%', background: level.c, borderRadius: 2 }} />
+                  <div key={label} style={{ ...cardStyle, background: C.surface, padding: '20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <RiskGauge value={v} color={level.c} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Label text={label} />
+                      <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', color: level.c, background: level.c + '18', padding: '2px 8px', display: 'inline-block', marginBottom: 6 }}>{level.l}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{sub}</div>
                     </div>
                   </div>
                 ))}
@@ -726,8 +795,8 @@ export default function PortfolioPage() {
             {/* ── 9. FIRE PROGRESS ── */}
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>PROGRESO FIRE</SectionTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: C.border }}>
-                <div style={{ background: C.surface, padding: '24px 22px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ ...cardStyle, background: C.surface, padding: '24px 22px' }}>
                   <Label text={`Meta FIRE — $${D.FIRE_GOAL_MONTHLY.toLocaleString('es-CL')}/mes · Regla 4%`} />
                   <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.firePct >= 100 ? C.green : C.gold, lineHeight: 1, marginBottom: 8 }}>
                     {pct(D.firePct)}
@@ -740,7 +809,7 @@ export default function PortfolioPage() {
                     <span>Meta: <span style={{ color: C.gold }}>{fmtUSD(D.fireTarget)}</span></span>
                   </div>
                 </div>
-                <div style={{ background: C.bg, padding: '24px 22px' }}>
+                <div style={{ ...cardStyle, background: C.bg, padding: '24px 22px' }}>
                   <Label text="Años estimados para FIRE (8% retorno anual)" />
                   <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.fireYears === 0 ? C.green : C.text, lineHeight: 1, marginBottom: 12 }}>
                     {D.fireYears === 0 ? '¡YA!' : D.fireYears !== null ? `${D.fireYears} años` : '50+ años'}
@@ -761,7 +830,7 @@ export default function PortfolioPage() {
             </div>
 
             {/* ── 10. TAX MINI-CARD ── */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+            <div style={{ ...cardStyle, background: C.surface, padding: '20px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
               <div>
                 <Label text="Resumen tributario estimado" />
                 <div style={{ display: 'flex', gap: 24, alignItems: 'baseline', flexWrap: 'wrap' }}>
@@ -788,7 +857,7 @@ export default function PortfolioPage() {
 
             {quizResult === null ? (
               /* ── Quiz form ── */
-              <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '28px 24px' }}>
+              <div style={{ ...cardStyle, background: C.surface, padding: '28px 24px' }}>
                 <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginBottom: 28, lineHeight: 1.8 }}>
                   Responde 3 preguntas para recibir una recomendación de allocation personalizada según tu perfil de riesgo.
                 </div>
@@ -900,7 +969,7 @@ export default function PortfolioPage() {
                   </div>
 
                   {/* Comparison table */}
-                  <div style={{ background: C.surface }}>
+                  <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden' }}>
                     <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
                       <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>RECOMENDADO vs. TU CARTERA ACTUAL</span>
                     </div>
@@ -957,9 +1026,11 @@ export default function PortfolioPage() {
 
       {/* ── MODAL: EDITAR PORTAFOLIO ── */}
       {modalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        <>
+        <style>{'@keyframes sk-modal-in{from{opacity:0;transform:translateY(8px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}'}</style>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={e => { if (e.target === e.currentTarget) setModalOpen(false) }}>
-          <div ref={modalRef} style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 32, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
+          <div ref={modalRef} style={{ ...heroCardStyle, padding: 32, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', animation: 'sk-modal-in 0.18s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold }}>{'// EDITAR PORTAFOLIO'}</div>
               <span style={{ fontFamily: 'monospace', fontSize: 9, color: C.muted }}>ESC para cerrar</span>
@@ -977,11 +1048,16 @@ export default function PortfolioPage() {
                   </div>
                   <input type="number" step="any" min="0" placeholder="0"
                     value={draftForm[p.id] || ''}
-                    onChange={e => setDraftForm(f => ({ ...f, [p.id]: parseFloat(e.target.value) || 0 }))}
+                    onChange={e => setDraftForm(f => ({ ...f, [p.id]: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                    onFocus={e => (e.currentTarget.style.borderColor = p.color)}
+                    onBlur={e => (e.currentTarget.style.borderColor = C.border)}
                     style={inputStyle} />
                 </div>
               ))}
             </div>
+            {saveError && (
+              <div style={{ marginBottom: 16, fontFamily: 'monospace', fontSize: 11, color: C.red }}>⚠ {saveError}</div>
+            )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={savePortfolio} disabled={saving}
                 style={{ flex: 1, padding: '12px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: 'none', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
@@ -994,6 +1070,7 @@ export default function PortfolioPage() {
             </div>
           </div>
         </div>
+        </>
       )}
     </div>
   )

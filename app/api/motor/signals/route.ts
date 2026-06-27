@@ -1,7 +1,10 @@
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
+import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
+import { createServerClient }        from '@supabase/ssr'
+import { cookies }                   from 'next/headers'
 
 // ─── Rate limiting distribuido via Supabase (escala entre instancias serverless)
 // Fallback a Map en memoria si Supabase no está disponible
@@ -267,7 +270,29 @@ async function saveSignalHistory(
   }
 }
 
+async function isAuthorized(req: NextRequest): Promise<boolean> {
+  // Internal cron bypass — timing-safe comparison
+  const cronSecret = process.env.CRON_SECRET
+  const providedCronSecret = req.headers.get('x-cron-secret') ?? ''
+  if (cronSecret && providedCronSecret.length === cronSecret.length) {
+    if (timingSafeEqual(Buffer.from(providedCronSecret), Buffer.from(cronSecret))) return true
+  }
+  // Regular user session via Supabase auth
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  return !!user
+}
+
 export async function GET(req: NextRequest) {
+  if (!await isAuthorized(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
   if (!await checkRateLimit(ip)) {
     return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta en un minuto.' }, { status: 429 })

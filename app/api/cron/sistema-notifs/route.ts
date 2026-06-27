@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+import { timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -24,9 +25,17 @@ function serviceClient() {
   )
 }
 
+function checkCronAuth(req: Request): boolean {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return false
+  const auth = req.headers.get('authorization') ?? ''
+  const expected = `Bearer ${secret}`
+  if (auth.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
+}
+
 export async function POST(req: Request) {
-  const CRON_SECRET = process.env.CRON_SECRET
-  if (!CRON_SECRET || (req.headers.get('authorization') ?? '') !== `Bearer ${CRON_SECRET}`) {
+  if (!checkCronAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -128,8 +137,12 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, generated: results })
 }
 
-// GET — dry run preview (no DB writes)
-export async function GET() {
+// GET — dry run preview (no DB writes) — admin only
+export async function GET(req: Request) {
+  if (!checkCronAuth(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const now         = new Date()
   const tomorrowStr = new Date(now.getTime() + 24 * 3600 * 1000).toISOString().split('T')[0]
   const todayStr    = now.toISOString().split('T')[0]

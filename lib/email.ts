@@ -22,8 +22,8 @@ function escHtml(s: string): string {
 // ─── Client ───────────────────────────────────────────────────────────────────
 function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
-const FROM     = process.env.EMAIL_FROM     ?? 'onboarding@resend.dev'
-const ADMIN_TO = process.env.EMAIL_ADMIN_TO ?? 'alonsomoyanoreyes@gmail.com'
+const FROM     = process.env.EMAIL_FROM     ?? 'Sigma Research <noreply@squantdesk.com>'
+const ADMIN_TO = process.env.EMAIL_ADMIN_TO ?? 'sebastiangarciasilva07@gmail.com'
 
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.io'
 
@@ -44,9 +44,8 @@ export async function sendWelcome(to: string, firstName: string): Promise<SendRe
 }
 
 // ─── Confirmation ─────────────────────────────────────────────────────────────
-export async function sendConfirmationEmail(to: string, firstName: string, token: string): Promise<SendResult> {
+export async function sendConfirmationEmail(to: string, firstName: string, confirmUrl: string): Promise<SendResult> {
   try {
-    const confirmUrl = `${APP_URL}/auth/callback?token=${encodeURIComponent(token)}&type=signup`
     const html = await toHtml(React.createElement(ConfirmEmailEmail, { firstName, confirmUrl }))
     const { error } = await getResend().emails.send({ from: FROM, to, subject: 'Confirma tu cuenta en Sigma Research', html })
     if (error) { console.error('[email:confirm]', error); return { success: false, error: error.message } }
@@ -124,12 +123,12 @@ export function nuevoReporteHtml(nombre: string, r: { numero: number; titulo: st
     <tr><td style="padding:32px 32px 8px">
       <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.3em;color:#d4af37">// NUEVO REPORTE DISPONIBLE</p>
       <h1 style="margin:0 0 8px;font-size:40px;font-weight:bold;color:#d4af37">#${num}</h1>
-      <h2 style="margin:0 0 20px;font-size:20px;font-weight:bold;color:#e5e5e5">${r.titulo}</h2>
-      <p style="margin:0 0 8px;font-size:11px;color:#555;letter-spacing:0.2em">${r.fecha}</p>
-      <p style="margin:0 0 28px;font-size:13px;color:#999;line-height:1.8">${r.descripcion}</p>
+      <h2 style="margin:0 0 20px;font-size:20px;font-weight:bold;color:#e5e5e5">${escHtml(r.titulo)}</h2>
+      <p style="margin:0 0 8px;font-size:11px;color:#555;letter-spacing:0.2em">${escHtml(r.fecha)}</p>
+      <p style="margin:0 0 28px;font-size:13px;color:#999;line-height:1.8">${escHtml(r.descripcion)}</p>
       <a href="${APP_URL}/reportes" style="display:inline-block;background:#d4af37;color:#0a0a0a;padding:12px 28px;font-size:13px;letter-spacing:0.2em;text-decoration:none;font-weight:bold">VER REPORTE</a>
     </td></tr>
-    <tr><td style="padding:24px 32px 32px"><p style="margin:0;font-size:11px;color:#555">Hola ${nombre}, tienes acceso a este reporte como suscriptor activo.</p></td></tr>`)
+    <tr><td style="padding:24px 32px 32px"><p style="margin:0;font-size:11px;color:#555">Hola ${escHtml(nombre)}, tienes acceso a este reporte como suscriptor activo.</p></td></tr>`)
 }
 
 // ─── Soporte: respuesta admin → usuario ──────────────────────────────────────

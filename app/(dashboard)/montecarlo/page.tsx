@@ -2,8 +2,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/app/lib/supabase'
-import { C } from '@/app/lib/constants'
+import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 import { usePortfolio } from '@/app/lib/usePortfolio'
+import { useFireProfile } from '@/app/lib/useFireProfile'
 import type { SimResult } from './types'
 
 // Load Chart.js only on the client — prevents SSR crash (window/document undefined)
@@ -120,18 +121,82 @@ function Slider({
   )
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
+// ─── Ruido Box-Muller — textura estática de puntos dispersos, evoca la fuente
+// aleatoria del modelo sin ser literal ni animada. ────────────────────────────
+const NOISE_BG = [
+  'radial-gradient(circle at 8% 15%, rgba(212,175,55,0.055) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 22% 62%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 35% 28%, rgba(212,175,55,0.05) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 48% 78%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 58% 12%, rgba(212,175,55,0.055) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 67% 52%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 74% 88%, rgba(212,175,55,0.05) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 83% 33%, rgba(212,175,55,0.055) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 91% 68%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 14% 92%, rgba(212,175,55,0.05) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 5% 45%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 95% 8%, rgba(212,175,55,0.05) 1px, transparent 1.6px)',
+].join(',')
+
+// ─── Stat card — P50 puede pedir tratamiento hero: es el centro de la
+// campana, el escenario más probable, debe pesar más que P10/P90. ───────────
+function StatCard({ label, value, sub, color, hero = false }: { label: string; value: string; sub: string; color: string; hero?: boolean }) {
   return (
-    <div style={{ background: C.surface, padding: '18px 20px' }}>
+    <div style={{ ...(hero ? heroCardStyle : cardStyle), background: hero ? undefined : C.surface, padding: '18px 20px' }}>
       <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>
         {label}
       </div>
-      <div style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif", fontSize: 34, color, lineHeight: 1 }}>
+      <div style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif", fontSize: hero ? 40 : 34, color, lineHeight: 1, textShadow: numberEmboss }}>
         {value}
       </div>
       <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, marginTop: 4 }}>
         {sub}
+      </div>
+    </div>
+  )
+}
+
+// ─── Gauge circular de probabilidad — la prob. de alcanzar la meta FIRE es
+// literalmente una probabilidad, se lee mejor como anillo que como número
+// perdido entre 4 cards iguales. Mismo lenguaje que /portafolio y
+// /diagnosticador (firma SIGMA, no un acento nuevo). ──────────────────────────
+function ProbGauge({ value, color, size = 124 }: { value: number; color: string; size?: number }) {
+  const stroke = 10
+  const r = size / 2 - stroke
+  const circumference = 2 * Math.PI * r
+  const clamped = Math.min(Math.max(value, 0), 100)
+  const offset = circumference * (1 - clamped / 100)
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif", fontSize: size * 0.26, color, lineHeight: 1, textShadow: numberEmboss }}>
+          {Math.round(clamped)}%
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function ProbPanel({ prob, target }: { prob: number; target: number }) {
+  const color = prob >= 70 ? C.green : prob >= 40 ? C.yellow : C.red
+  return (
+    <div style={{ ...cardStyle, background: C.surface, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 22 }}>
+      <ProbGauge value={prob} color={color} />
+      <div>
+        <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 6 }}>
+          PROBABILIDAD DE ÉXITO
+        </div>
+        <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.muted, lineHeight: 1.6, maxWidth: 320 }}>
+          Fracción de las simulaciones que alcanza {fmtShort(target)} dentro del horizonte simulado.
+        </div>
       </div>
     </div>
   )
@@ -174,6 +239,7 @@ function parseBinanceCsv(text: string): CsvStats | null {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MonteCarloPage() {
   const { totalUSD: portfolioTotal, ready: portfolioReady } = usePortfolio()
+  const { profile: fireProfile } = useFireProfile()
   const [capital,  setCapital]  = useState(50_000)
   const [μPct,     setMu]       = useState(0.70)
   const [σPct,     setSigma]    = useState(4.50)
@@ -182,6 +248,15 @@ export default function MonteCarloPage() {
   const [targetM,  setTargetM]  = useState(1.0)
   const [result,   setResult]   = useState<SimResult | null>(null)
   const [running,  setRunning]  = useState(false)
+  // Parámetros que realmente generaron `result` — capturados en el momento
+  // exacto de simular. P10/P50/P90/Sharpe deben leerse siempre desde acá, no
+  // desde los sliders en vivo: si el usuario mueve "Horizonte" después de
+  // simular sin volver a presionar SIMULAR, indexar con el valor del slider
+  // contra arrays dimensionados para el horizonte viejo da `undefined` →
+  // "$NaNK" en pantalla y corrompe lo que se guarda en Supabase.
+  const [simulatedParams, setSimulatedParams] = useState<{
+    capital: number; μPct: number; σPct: number; years: number; nSims: number
+  } | null>(null)
   const [mode,      setMode]      = useState<'manual' | 'csv'>('manual')
   const [csvStats,  setCsvStats]  = useState<CsvStats | null>(null)
   const [csvError,  setCsvError]  = useState('')
@@ -213,15 +288,27 @@ export default function MonteCarloPage() {
 
   const runSim = useCallback(() => {
     setRunning(true)
+    const params = { capital, μPct, σPct, years, nSims }
     setTimeout(() => {
       try {
         const res = simulate(capital, μPct / 100, σPct / 100, years, nSims, target)
         setResult(res)
+        setSimulatedParams(params)
       } finally {
         setRunning(false)
       }
     }, 0)
   }, [capital, μPct, σPct, years, nSims, target])
+
+  // Solo capital/μ/σ/horizonte/n° simulaciones requieren volver a simular
+  // (cambian las trayectorias GBM en sí). El objetivo FIRE no — la
+  // probabilidad de alcanzarlo se recalcula en vivo más abajo sobre las
+  // mismas trayectorias ya generadas, sin necesidad de resimular.
+  const isStale = !!(result && simulatedParams && (
+    simulatedParams.capital !== capital || simulatedParams.μPct !== μPct ||
+    simulatedParams.σPct !== σPct || simulatedParams.years !== years ||
+    simulatedParams.nSims !== nSims
+  ))
 
   useEffect(() => { runSim() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -231,31 +318,51 @@ export default function MonteCarloPage() {
       setCapital(Math.round(portfolioTotal / 1000) * 1000)
   }, [portfolioReady, portfolioTotal, csvStats])
 
+  // Meta FIRE real (misma fórmula — regla del 4% — que usa /fire) en vez de
+  // un objetivo genérico de $1M: precarga el slider una vez, el usuario
+  // sigue pudiendo explorar otros escenarios libremente después.
+  const fireTargetM = useMemo(() => {
+    if (!fireProfile.fire_completed || !fireProfile.fire_gasto_mensual) return null
+    return Math.round(((fireProfile.fire_gasto_mensual * 12) / 0.04) / 1_000_000 * 10) / 10
+  }, [fireProfile])
+
+  useEffect(() => {
+    if (fireTargetM !== null) setTargetM(prev => prev === 1.0 ? fireTargetM : prev)
+  }, [fireTargetM])
+
   const stats = useMemo(() => {
-    if (!result) return null
-    const steps = years * 12
-    const annualReturn = (Math.pow(1 + μPct / 100, 12) - 1) * 100
-    const annualVol    = σPct * Math.sqrt(12)
+    if (!result || !simulatedParams) return null
+    // Último índice tomado del largo real del array simulado — nunca puede
+    // quedar fuera de rango, sin importar lo que diga el slider en vivo.
+    const lastStep = result.p10.length - 1
+    const annualReturn = (Math.pow(1 + simulatedParams.μPct / 100, 12) - 1) * 100
+    const annualVol    = simulatedParams.σPct * Math.sqrt(12)
     const sharpe       = annualVol > 0 ? (annualReturn - 4.5) / annualVol : 0
     return {
-      p10: result.p10[steps],
-      p50: result.p50[steps],
-      p90: result.p90[steps],
-      prob: result.probTarget,
+      p10: result.p10[lastStep],
+      p50: result.p50[lastStep],
+      p90: result.p90[lastStep],
       annualReturn,
       annualVol,
       sharpe,
     }
-  }, [result, years, μPct, σPct])
+  }, [result, simulatedParams])
+
+  // Probabilidad de alcanzar el objetivo — recalculada en vivo sobre los
+  // valores finales ya simulados cada vez que se mueve el slider de
+  // Objetivo FIRE, sin necesidad de resimular (cambiar el umbral no requiere
+  // nuevas trayectorias, solo recontar cuántas ya superan el nuevo target).
+  const liveProb = useMemo(() => {
+    if (!result || target <= 0) return 0
+    return (result.finalVals.filter(v => v >= target).length / result.finalVals.length) * 100
+  }, [result, target])
 
   useEffect(() => {
-    if (stats?.prob != null) {
-      try { localStorage.setItem('sigma_montecarlo', JSON.stringify({ fireProbability: Math.round(stats.prob) })) } catch {}
-    }
-  }, [stats])
+    try { localStorage.setItem('sigma_montecarlo', JSON.stringify({ fireProbability: Math.round(liveProb) })) } catch {}
+  }, [liveProb])
 
   async function saveRun() {
-    if (!stats || !result) return
+    if (!stats || !result || !simulatedParams || isStale) return
     setSaving(true); setSavedMsg('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -263,15 +370,15 @@ export default function MonteCarloPage() {
       await supabase.from('montecarlo_runs').insert({
         user_id:       user.id,
         modo:          mode,
-        capital,
+        capital:       simulatedParams.capital,
         n_trades:      csvStats?.nTrades ?? null,
-        anios:         years,
-        mu_mensual:    μPct,
-        sigma_mensual: σPct,
+        anios:         simulatedParams.years,
+        mu_mensual:    simulatedParams.μPct,
+        sigma_mensual: simulatedParams.σPct,
         sharpe:        stats.sharpe,
-        var_95:        result.p10[years * 12],
+        var_95:        result.p10[result.p10.length - 1],
         p50_final:     stats.p50,
-        prob_objetivo: stats.prob,
+        prob_objetivo: liveProb,
       })
       setSavedMsg('Simulación guardada.')
     } catch {
@@ -306,10 +413,10 @@ export default function MonteCarloPage() {
         </div>
 
         {/* Grid: controls | chart */}
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 1, background: C.border }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20 }}>
 
-          {/* ── Controls panel ── */}
-          <div style={{ background: C.surface, padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
+          {/* ── Controls panel — textura de ruido Box-Muller de fondo ── */}
+          <div style={{ ...cardStyle, background: C.surface, backgroundImage: NOISE_BG, padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
             <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold }}>
               PARÁMETROS
             </div>
@@ -361,8 +468,20 @@ export default function MonteCarloPage() {
             <Slider label="N° simulaciones" value={nSims} min={1000} max={10000} step={500}
               display={nSims.toLocaleString()} onChange={setNSims} />
 
-            <Slider label="Objetivo FIRE" value={targetM} min={0.1} max={5} step={0.1}
-              display={`$${targetM.toFixed(1)}M`} onChange={setTargetM} />
+            <div>
+              <Slider label="Objetivo FIRE" value={targetM} min={0.1} max={5} step={0.1}
+                display={`$${targetM.toFixed(1)}M`} onChange={setTargetM} />
+              {fireTargetM !== null && (
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginTop: 4 }}>
+                  Meta FIRE: <span style={{ color: C.green }}>${fireTargetM.toFixed(1)}M</span>
+                  {targetM !== fireTargetM && (
+                    <button onClick={() => setTargetM(fireTargetM)} style={{ marginLeft: 8, background: 'none', border: 'none', color: C.gold, fontFamily: 'monospace', fontSize: 9, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                      usar este valor
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Derived annuals */}
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -411,33 +530,47 @@ export default function MonteCarloPage() {
             {/* Save run */}
             {result && !running && (
               <div>
-                <button onClick={saveRun} disabled={saving}
-                  style={{ width: '100%', padding: '10px 0', background: 'transparent', color: C.gold, border: `1px solid ${C.gold}60`, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                <button onClick={saveRun} disabled={saving || isStale}
+                  style={{ width: '100%', padding: '10px 0', background: 'transparent', color: C.gold, border: `1px solid ${C.gold}60`, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', cursor: saving || isStale ? 'not-allowed' : 'pointer', opacity: saving || isStale ? 0.5 : 1 }}>
                   {saving ? 'GUARDANDO…' : 'GUARDAR SIMULACIÓN'}
                 </button>
+                {isStale && (
+                  <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.yellow, marginTop: 6 }}>
+                    Cambiaste parámetros — vuelve a presionar SIMULAR antes de guardar.
+                  </div>
+                )}
                 {savedMsg && <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.green, marginTop: 6 }}>{savedMsg}</div>}
               </div>
             )}
           </div>
 
           {/* ── Chart + stats panel ── */}
-          <div style={{ background: C.bg, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ ...cardStyle, background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {/* Chart header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}` }}>
               <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.dimText }}>
                 TRAYECTORIAS GBM
               </span>
-              {running && (
+              {running ? (
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.gold }}>
                   ⟳ EJECUTANDO {nSims.toLocaleString()} SIMULACIONES…
+                </span>
+              ) : isStale && (
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.yellow }}>
+                  ⚠ Mostrando la última simulación — cambiaste parámetros
                 </span>
               )}
             </div>
 
-            {/* Chart — dynamic loaded, no SSR */}
-            {result && !running ? (
-              <McChart result={result} capital={capital} target={target} years={years} nSims={nSims} />
+            {/* Chart — dynamic loaded, no SSR. capital/years/nSims se pasan
+                congelados (lo que de verdad se simuló), no los sliders en
+                vivo, para que las líneas de referencia del gráfico no
+                contradigan las trayectorias ya dibujadas. target sí va en
+                vivo — no requiere resimular, solo cambia dónde se dibuja la
+                línea de meta. */}
+            {result && !running && simulatedParams ? (
+              <McChart result={result} capital={simulatedParams.capital} target={target} years={simulatedParams.years} nSims={simulatedParams.nSims} />
             ) : running ? (
               <div style={{ height: 440, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: C.bg }}>
                 <div style={{ width: 48, height: 48, border: `2px solid ${C.border}`, borderTopColor: C.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -454,45 +587,51 @@ export default function MonteCarloPage() {
               </div>
             )}
 
-            {/* Stats grid */}
-            {stats && !running && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: C.border, borderTop: `1px solid ${C.border}` }}>
+            {/* Stats grid — P50 con tratamiento hero: el centro de la campana.
+                El año en el subtítulo viene de simulatedParams (lo que de
+                verdad se simuló), no del slider en vivo. */}
+            {stats && simulatedParams && !running && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '18px 18px 0' }}>
                 <StatCard
                   label="P10 · Peor escenario"
                   value={fmtShort(stats.p10)}
-                  sub={`peor 10% · año ${years}`}
+                  sub={`peor 10% · año ${simulatedParams.years}`}
                   color={C.red}
                 />
                 <StatCard
                   label="P50 · Capital mediano"
                   value={fmtShort(stats.p50)}
-                  sub={`mediana · año ${years}`}
+                  sub={`mediana · año ${simulatedParams.years}`}
                   color={C.gold}
+                  hero
                 />
                 <StatCard
                   label="P90 · Mejor escenario"
                   value={fmtShort(stats.p90)}
-                  sub={`mejor 10% · año ${years}`}
+                  sub={`mejor 10% · año ${simulatedParams.years}`}
                   color={C.green}
                 />
-                <StatCard
-                  label="Prob. Objetivo FIRE"
-                  value={`${stats.prob.toFixed(1)}%`}
-                  sub={`alcanzar ${fmtShort(target)}`}
-                  color={stats.prob >= 70 ? C.green : stats.prob >= 40 ? C.yellow : C.red}
-                />
+              </div>
+            )}
+
+            {/* Probabilidad — gauge circular propio, separado de las 3 cards de
+                escenario porque es una lectura distinta (no un monto, una chance).
+                Se recalcula en vivo (liveProb), por eso no requiere `simulatedParams`. */}
+            {result && !running && (
+              <div style={{ padding: '16px 18px 0' }}>
+                <ProbPanel prob={liveProb} target={target} />
               </div>
             )}
 
             {/* Extended stats row */}
             {stats && !running && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: C.border }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '16px 18px 18px' }}>
                 {[
                   ['Retorno anual implícito',  `${stats.annualReturn.toFixed(2)}%`],
                   ['Volatilidad anual (σ√12)', `${stats.annualVol.toFixed(2)}%`],
                   ['Sharpe ratio implícito',   stats.sharpe.toFixed(3)],
                 ].map(([k, v]) => (
-                  <div key={k} style={{ background: C.surface, padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={k} style={{ ...cardStyle, background: C.surface, padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{k}</span>
                     <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: C.gold }}>{v}</span>
                   </div>
@@ -503,7 +642,7 @@ export default function MonteCarloPage() {
             {/* Formula note */}
             <div style={{ padding: '10px 18px', borderTop: `1px solid ${C.border}` }}>
               <p style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted, margin: 0 }}>
-                GBM · drift = μ − σ²/2 · Float32Array · percentiles calculados sobre las {nSims.toLocaleString()} simulaciones completas · ~60 paths visibles
+                GBM · drift = μ − σ²/2 · Float32Array · percentiles calculados sobre las {(simulatedParams?.nSims ?? nSims).toLocaleString()} simulaciones completas · ~60 paths visibles
               </p>
             </div>
           </div>

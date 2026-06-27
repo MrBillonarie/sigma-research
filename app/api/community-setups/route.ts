@@ -2,6 +2,16 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Anon client for public reads — respects RLS
+function makeAnonSb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } }
+  )
+}
+
+// Service client for authenticated writes
 function makeSb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,7 +23,7 @@ function makeSb() {
 const MIN_REP = 10
 
 export async function GET() {
-  const sb = makeSb()
+  const sb = makeAnonSb()
   const { data, error } = await sb
     .from('community_setups')
     .select('*, profiles(username, reputation)')

@@ -93,3 +93,16 @@ export const CATEGORY_ICON: Record<PositionCategory, string> = {
   'Dividendo': '📊',
   'Bot':       '🤖',
 }
+
+// Paleta puramente categórica — identifica cada fuente de ingreso en el
+// diagrama de ríos. Deliberadamente distinta del verde/rojo/dorado
+// semánticos del resto del sitio (ganancia/pérdida/marca) para que el color
+// de categoría nunca se confunda con una señal de desempeño.
+export const CATEGORY_COLOR: Record<PositionCategory, string> = {
+  'Depósito':  '#2f9bf6',
+  'Staking':   '#8b6ff5',
+  'DeFi':      '#f5a623',
+  'LP':        '#1fd6c4',
+  'Dividendo': '#ec5fb0',
+  'Bot':       '#7c8db5',
+}

@@ -7,16 +7,18 @@ export interface MacroEvent {
   title: string
   currency: string        // USD | EUR | GBP | BTC | ETH | SOL | JPY
   impact: 'HIGH' | 'MED' | 'LOW'
-  type: 'MACRO' | 'CRYPTO'
+  type: 'MACRO' | 'CRYPTO' | 'TASK'
   event_date: string      // YYYY-MM-DD
   event_time: string      // HH:MM (ET / hora de publicación)
   previous: string
   forecast: string
   actual: string          // vacío si pendiente
   description: string
-  source: 'FRED' | 'COINMARKETCAL' | 'MANUAL' | 'MOCK'
+  source: 'FRED' | 'FINNHUB' | 'EIA' | 'COINMARKETCAL' | 'MANUAL' | 'MOCK' | 'TASK'
   is_manual: boolean
   country: string
+  is_task?: boolean        // true si es una tarea privada del usuario (no noticia real)
+  done?: boolean           // solo aplica a tareas
 }
 
 export const MOCK_EVENTS: MacroEvent[] = [

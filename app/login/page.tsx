@@ -1,5 +1,5 @@
 'use client'
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
@@ -11,10 +11,23 @@ function LoginForm() {
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [remember, setRemember] = useState(false)
   const [errors,   setErrors]   = useState<Record<string, string>>({})
   const [loading,  setLoading]  = useState(false)
   const [gLoading, setGLoading] = useState(false)
+  const [needsConfirm, setNeedsConfirm] = useState(false)
+  const [resending,    setResending]    = useState(false)
+  const [resendMsg,     setResendMsg]   = useState('')
+
+  // El link de confirmación/recuperación puede llegar acá expirado o ya
+  // usado (app/auth/callback/route.ts lo manda con ?error=...) — antes este
+  // flag se perdía en silencio, el usuario hacía clic y no entendía por qué
+  // aterrizaba en un login limpio sin ningún aviso.
+  useEffect(() => {
+    const err = searchParams.get('error')
+    if (err === 'auth_callback_error') {
+      setErrors({ form: 'El enlace ya fue usado o expiró. Si era de confirmación, puedes reenviarlo abajo; si era de recuperación, pide uno nuevo en "¿Olvidaste tu contraseña?".' })
+    }
+  }, [searchParams])
 
   function validate() {
     const e: Record<string, string> = {}
@@ -30,18 +43,55 @@ function LoginForm() {
     if (Object.keys(e).length) return
 
     setLoading(true)
+    setNeedsConfirm(false)
+    setResendMsg('')
+
+    // Pre-flight de rate limit propio — antes el login dependía 100% del
+    // límite nativo (no configurable) de Supabase contra fuerza bruta de
+    // contraseña. Si el guard falla por su cuenta, no bloquea el login (la
+    // red de seguridad nativa de Supabase sigue de fondo).
+    try {
+      const guardRes = await fetch('/api/auth/login-guard', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (guardRes.status === 429) {
+        const j = await guardRes.json().catch(() => ({}))
+        setLoading(false)
+        setErrors({ form: j.error ?? 'Demasiados intentos. Espera unos minutos.' })
+        return
+      }
+    } catch { /* si el guard no responde, seguir con el login normal */ }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
 
     if (error) {
-
       setErrors({ form: traducirError(error) })
+      if (error.message?.includes('Email not confirmed') || (error as { code?: string }).code === 'email_not_confirmed') {
+        setNeedsConfirm(true)
+      }
       return
     }
 
     // Hard navigation so the browser sends cookies in the new request,
     // letting the middleware verify the session correctly.
     window.location.href = safeRedirect(next)
+  }
+
+  async function handleResendConfirmation() {
+    if (!email) { setResendMsg('Escribe tu email arriba primero.'); return }
+    setResending(true); setResendMsg('')
+    try {
+      await fetch('/api/auth/resend-confirmation', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      setResendMsg('Si tu cuenta existe, te enviamos un nuevo enlace de confirmación.')
+    } catch {
+      setResendMsg('No se pudo enviar. Intenta de nuevo en un momento.')
+    }
+    setResending(false)
   }
 
   async function handleGoogle() {
@@ -93,17 +143,10 @@ function LoginForm() {
           {errors.password && <span className="terminal-text text-red-400 text-xs">{errors.password}</span>}
         </div>
 
-        {/* Recordarme + recuperar */}
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={e => setRemember(e.target.checked)}
-              className="w-4 h-4 accent-gold cursor-pointer"
-            />
-            <span className="terminal-text text-text-dim">Recordarme</span>
-          </label>
+        {/* Recuperar contraseña — la sesión siempre queda guardada en este
+            navegador (no hay opción real de "sesión temporal" en este
+            esquema de cookies), así que no se ofrece un toggle que no haría nada. */}
+        <div className="flex items-center justify-end">
           <Link href="/recuperar" className="terminal-text text-xs text-text-dim hover:text-gold transition-colors">
             ¿Olvidaste tu contraseña?
           </Link>
@@ -113,6 +156,21 @@ function LoginForm() {
         {errors.form && (
           <div className="border border-red-400/30 bg-red-400/5 px-4 py-2.5">
             <p className="terminal-text text-red-400 text-xs">{errors.form}</p>
+          </div>
+        )}
+
+        {/* Reenviar confirmación — antes solo un admin podía dispararlo;
+            cualquier email perdido/en spam dejaba al usuario sin salida. */}
+        {needsConfirm && (
+          <div className="border border-gold/30 bg-gold/5 px-4 py-2.5 flex flex-col gap-2">
+            <p className="terminal-text text-text-dim text-xs">¿No te llegó el correo de confirmación?</p>
+            <button
+              type="button" onClick={handleResendConfirmation} disabled={resending}
+              className="terminal-text text-xs text-gold hover:text-gold-glow transition-colors text-left disabled:opacity-50"
+            >
+              {resending ? 'Enviando…' : 'Reenviar email de confirmación'}
+            </button>
+            {resendMsg && <p className="terminal-text text-text-dim text-xs">{resendMsg}</p>}
           </div>
         )}
 

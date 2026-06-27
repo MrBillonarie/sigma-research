@@ -1,6 +1,8 @@
 export const dynamic    = 'force-dynamic'
 export const maxDuration = 60
 
+import { timingSafeEqual } from 'crypto'
+
 // Genera señales para los 3 perfiles cada día de trading.
 // Esto acumula datos en signal_history con price_at_signal, conditions_met y regime,
 // que el cron motor-accuracy usa 22+ días después para medir accuracy.
@@ -12,10 +14,17 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL
   ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
 if (!BASE_URL) throw new Error('[motor-signals] NEXT_PUBLIC_APP_URL no definida')
 
+function checkCronAuth(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return false
+  const auth = req.headers.get('authorization') ?? ''
+  const expected = `Bearer ${secret}`
+  if (auth.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
+}
+
 export async function GET(req: NextRequest) {
-  // Vercel valida esta cabecera automáticamente en Hobby/Pro
-  const CRON_SECRET = process.env.CRON_SECRET
-  if (!CRON_SECRET || req.headers.get('authorization') !== `Bearer ${CRON_SECRET}`) {
+  if (!checkCronAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -26,7 +35,10 @@ export async function GET(req: NextRequest) {
       // Llamar al endpoint principal del motor para cada perfil.
       // El handler ya llama a saveSignalHistory() internamente con precio y contexto.
       const res = await fetch(`${BASE_URL}/api/motor/signals?profile=${profile}`, {
-        headers: { 'x-cron': '1' },
+        headers: {
+          'x-cron': '1',
+          'x-cron-secret': process.env.CRON_SECRET ?? '',
+        },
         cache:   'no-store',
       })
       results[profile] = res.ok ? `ok (${res.status})` : `error (${res.status})`

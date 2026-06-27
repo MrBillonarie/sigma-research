@@ -3,6 +3,7 @@ import {
   Chart as ChartJS, LineElement, PointElement, LinearScale,
   CategoryScale, Filler, Tooltip, Legend,
 } from 'chart.js'
+import type { Chart, ScriptableLineSegmentContext } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend)
@@ -11,9 +12,9 @@ const C = { bg: '#04050a', border: '#1a1d2e', gold: '#d4af37', surface: '#0b0d14
 
 const fmt = (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
 
-interface Props { labels: string[]; acum: number[]; target: number; fireYear: number | null }
+interface Props { labels: string[]; acum: number[]; target: number; fireYear: number | null; capital: number }
 
-export default function FireChart({ labels, acum, target, fireYear }: Props) {
+export default function FireChart({ labels, acum, target, fireYear, capital }: Props) {
   const targetLine = Array(labels.length).fill(target)
 
   // Mark FIRE year point
@@ -21,6 +22,42 @@ export default function FireChart({ labels, acum, target, fireYear }: Props) {
     const yr = parseInt(labels[i])
     return fireYear !== null && yr === fireYear ? v : null
   })
+
+  // Plugins propios — el umbral del Año FIRE como compuerta vertical, y "estás
+  // aquí" en tu punto de partida. Sin librerías extra: hooks afterDraw nativos.
+  const fireThresholdPlugin = {
+    id: 'fireThreshold',
+    afterDraw(chart: Chart) {
+      if (fireYear === null) return
+      const { ctx, scales, chartArea } = chart
+      const x = scales.x.getPixelForValue(fireYear)
+      if (x < chartArea.left || x > chartArea.right) return
+      ctx.save()
+      ctx.strokeStyle = 'rgba(52,211,153,0.4)'
+      ctx.lineWidth = 1.5
+      ctx.setLineDash([4, 4])
+      ctx.beginPath()
+      ctx.moveTo(x, chartArea.top)
+      ctx.lineTo(x, chartArea.bottom)
+      ctx.stroke()
+      ctx.restore()
+    },
+  }
+
+  const todayLabelPlugin = {
+    id: 'todayLabel',
+    afterDraw(chart: Chart) {
+      const { ctx, scales, chartArea } = chart
+      const x = scales.x.getPixelForValue(0)
+      const y = scales.y.getPixelForValue(capital)
+      ctx.save()
+      ctx.fillStyle = C.gold
+      ctx.font = '600 11px monospace'
+      ctx.textAlign = 'left'
+      ctx.fillText('Estás aquí', Math.max(x + 8, chartArea.left + 8), Math.max(y - 10, chartArea.top + 12))
+      ctx.restore()
+    },
+  }
 
   const datasets = [
     {
@@ -33,6 +70,14 @@ export default function FireChart({ labels, acum, target, fireYear }: Props) {
       pointRadius: 0,
       tension: 0.3,
       order: 2,
+      // Antes de tu Año FIRE: tono contenido. Después: dorado pleno — el
+      // cruce se siente en la luz, no en un ícono.
+      segment: {
+        borderColor: (ctx: ScriptableLineSegmentContext) => {
+          if (fireYear === null) return 'rgba(212,175,55,0.55)'
+          return ctx.p0DataIndex >= fireYear ? C.gold : 'rgba(212,175,55,0.55)'
+        },
+      },
     },
     {
       label: `Meta FIRE (${fmt(target)})`,
@@ -65,6 +110,7 @@ export default function FireChart({ labels, acum, target, fireYear }: Props) {
     <div style={{ height: 320, padding: '12px 12px 4px', background: C.bg }}>
       <Line
         data={{ labels, datasets }}
+        plugins={[fireThresholdPlugin, todayLabelPlugin]}
         options={{
           responsive: true, maintainAspectRatio: false,
           animation: { duration: 500 },

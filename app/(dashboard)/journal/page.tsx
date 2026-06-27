@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '@/app/lib/supabase'
-import { C } from '@/app/lib/constants'
+import { usePortfolio } from '@/app/lib/usePortfolio'
+import { C, cardStyle, numberEmboss } from '@/app/lib/constants'
 import Papa from 'papaparse'
 import {
   Chart as ChartJS,
@@ -57,13 +58,34 @@ interface ParsedEvent {
   txid: string
 }
 
+// Trade real del motor (cerrado o abierto), tal como lo entrega
+// /api/motor/journal — pnl_pct ya es neto (descontada comisión).
+interface MotorTrade {
+  sym: string; tf: string; direction: 'long' | 'short'; strategy: string; grade: string
+  entry: number; exit_price?: number; sl: number; tp: number
+  opened_at: string; closed_at?: string; status: string; pnl_pct: number
+}
+// Trade del motor ya escalado al capital del usuario, en orden cronológico.
+interface ScaledTrade extends MotorTrade {
+  pnlUsd: number; equityBefore: number; equityAfter: number
+}
+
 type FormState = Omit<Trade, 'id' | 'pnl_usd' | 'pnl_pct' | 'resultado'>
 type MainFilter = 'ALL' | 'LONG' | 'SHORT' | 'ANÁLISIS'
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
+// `toISOString().slice(0,10)` da la fecha en UTC, no la del usuario — alguien
+// en Chile que registra un trade entre ~21:00 y 23:59 hora local vería el
+// formulario precargado con la fecha de MAÑANA, porque en ese rango horario
+// UTC ya cambió de día. Esto usa los getters locales del navegador.
+function todayLocal(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const EMPTY: FormState = {
-  fecha: new Date().toISOString().slice(0, 10),
+  fecha: todayLocal(),
   par: '', lado: 'LONG',
   entry_price: 0, exit_price: 0,
   sl: null, tp: null, size_usd: 0, notas: '',
@@ -213,7 +235,7 @@ interface Analytics {
   maxDrawdownIdx: number
   expectancy: number
   sharpe: number
-  equityCurve: { date: string; equity: number }[]
+  equityCurve: { date: string; equity: number; win: boolean }[]
   bySymbol: { symbol: string; trades: number; wins: number; pnlNeto: number }[]
   byHour: { hour: number; trades: number; wins: number }[]
   byDow: { dow: number; trades: number; wins: number; pnlNeto: number }[]
@@ -241,14 +263,14 @@ function computeAnalytics(allTrades: CsvTrade[]): Analytics {
 
   // Equity curve + max drawdown
   let equity = 0, peak = 0, maxDD = 0, maxDDIdx = 0
-  const equityCurve: { date: string; equity: number }[] = []
+  const equityCurve: { date: string; equity: number; win: boolean }[] = []
 
   for (let i = 0; i < realTrades.length; i++) {
     equity += realTrades[i].pnl_neto
     if (equity > peak) peak = equity
     const dd = peak > 0 ? ((peak - equity) / peak) * 100 : 0
     if (dd > maxDD) { maxDD = dd; maxDDIdx = i }
-    equityCurve.push({ date: realTrades[i].timestamp.slice(0, 10), equity: parseFloat(equity.toFixed(2)) })
+    equityCurve.push({ date: realTrades[i].timestamp.slice(0, 10), equity: parseFloat(equity.toFixed(2)), win: realTrades[i].pnl_neto > 0 })
   }
 
   // Sharpe (annualised, rf=0)
@@ -350,6 +372,14 @@ function fmtN(v: number): string {
 function fmt(v: number): string {
   return `${v >= 0 ? '+' : ''}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
+function elapsedSince(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (mins < 60) return `${mins}m`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ${mins % 60}m`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ${hrs % 24}h`
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -365,14 +395,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const inputStyle: React.CSSProperties = {
   background: C.surface, border: `1px solid ${C.border}`, outline: 'none',
   color: C.text, fontFamily: 'monospace', fontSize: 13, padding: '9px 12px',
-  fontVariantNumeric: 'tabular-nums', width: '100%',
+  fontVariantNumeric: 'tabular-nums', width: '100%', borderRadius: C.radiusSm,
+  transition: 'border-color 0.15s, box-shadow 0.15s',
 }
 
 function MetricCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
-    <div style={{ background: C.bg, border: `1px solid ${C.border}`, padding: '14px 16px' }}>
+    <div style={{ ...cardStyle, background: C.bg, padding: '14px 16px' }}>
       <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color: color || C.gold, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color: color || C.gold, lineHeight: 1, textShadow: numberEmboss }}>{value}</div>
       {sub && <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.muted, marginTop: 3 }}>{sub}</div>}
     </div>
   )
@@ -384,6 +415,28 @@ function SectionHeader({ children }: { children: string }) {
       {children}
     </div>
   )
+}
+
+// ─── Sección de ANÁLISIS con numeración visual — mismo lenguaje narrativo
+// que ya usamos para los motores en /modelos (número grande y pálido + título).
+function AnalysisSection({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ ...cardStyle, background: C.surface, padding: '20px 24px', display: 'flex', gap: 18 }}>
+      <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 34, color: `${C.gold}40`, lineHeight: 1, flexShrink: 0, minWidth: 30 }}>{n}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <SectionHeader>{title}</SectionHeader>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// Intensidad del acento de color por resultado — escala con la magnitud del
+// movimiento, no solo binario ganó/perdió. `magnitude` ya viene normalizado 0..1.
+function resultAccent(magnitude: number, color: string): { border: string; bg: string } {
+  const t = Math.min(Math.max(magnitude, 0), 1)
+  const alpha = Math.round(8 + t * 22).toString(16).padStart(2, '0') // 08..1e
+  return { border: color, bg: `${color}${alpha}` }
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -401,6 +454,7 @@ export default function JournalPage() {
   const [editing, setEditing] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // CSV import state
   const [csvFile, setCsvFile] = useState<File | null>(null)
@@ -414,6 +468,39 @@ export default function JournalPage() {
   // CSV trades from Supabase
   const [csvTrades, setCsvTrades] = useState<CsvTrade[]>([])
   const [csvPage, setCsvPage] = useState(0)
+
+  // Sección secundaria (manual + CSV) colapsada por defecto — la vista
+  // principal ahora es el registro del motor escalado al capital del usuario.
+  const [showManual, setShowManual] = useState(false)
+
+  // ── Motor en vivo × capital del usuario ─────────────────────────────────────
+  const { totalUSD: portfolioCapital, ready: portfolioReady } = usePortfolio()
+  const [motorClosed,  setMotorClosed]  = useState<MotorTrade[]>([])
+  const [motorOpen,    setMotorOpen]    = useState<MotorTrade[]>([])
+  const [motorLoading, setMotorLoading] = useState(true)
+  const [motorError,   setMotorError]   = useState<string | null>(null)
+  const [motorPage,    setMotorPage]    = useState(0)
+
+  const fetchMotorJournal = useCallback(async () => {
+    try {
+      const res = await fetch('/api/motor/journal', { cache: 'no-store' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json() as { closed?: MotorTrade[]; open?: MotorTrade[] }
+      setMotorClosed(data.closed ?? [])
+      setMotorOpen(data.open ?? [])
+      setMotorError(null)
+    } catch {
+      setMotorError('Sin conexión al motor. Intenta más tarde.')
+    }
+    setMotorLoading(false)
+  }, [])
+
+  // Fetch inicial + poll cada 60s para que el trade abierto se sienta en vivo
+  useEffect(() => {
+    fetchMotorJournal()
+    const id = setInterval(fetchMotorJournal, 60_000)
+    return () => clearInterval(id)
+  }, [fetchMotorJournal])
 
   // Load manual trades and sync to localStorage for dashboard
   useEffect(() => {
@@ -513,6 +600,58 @@ export default function JournalPage() {
 
   const analytics = useMemo(() => csvTrades.length ? computeAnalytics(csvTrades) : null, [csvTrades])
 
+  // ── Motor escalado al capital del usuario ───────────────────────────────────
+
+  // Capital de referencia — mismo patrón que /lp-defi: sin patrimonio
+  // registrado se usa $1.000 de demo para poder mostrar la página igual.
+  const motorCapital = portfolioCapital > 0 ? portfolioCapital : 1000
+
+  // El motor sizea cada trade con Kelly como % de SU equity en ese momento,
+  // así que pnl_pct es independiente de la base de capital — componer esa
+  // misma secuencia, en orden cronológico, sobre el capital del usuario
+  // reproduce exactamente qué le habría pasado a SU plata siguiendo al motor.
+  const scaledTrades = useMemo<ScaledTrade[]>(() => {
+    let equity = motorCapital
+    return motorClosed.map(t => {
+      const equityBefore = equity
+      // Una cuenta liquidada (equity en 0) no puede seguir operando — el %
+      // deja de aplicarse en vez de "revivir" capital de la nada, que
+      // invertiría visualmente el signo de los trades siguientes.
+      const pnlUsd = equityBefore > 0 ? equityBefore * (t.pnl_pct / 100) : 0
+      equity = Math.max(0, equityBefore + pnlUsd)
+      return { ...t, pnlUsd, equityBefore, equityAfter: equity }
+    })
+  }, [motorClosed, motorCapital])
+
+  const motorEquityFinal = scaledTrades.length ? scaledTrades[scaledTrades.length - 1].equityAfter : motorCapital
+  const motorLiquidated  = scaledTrades.some(t => t.equityAfter === 0 && t.equityBefore > 0)
+
+  // Trade(s) abiertos — P&L flotante sobre la equity actual, no realizado.
+  const scaledOpen = useMemo(() =>
+    motorOpen.map(t => ({ ...t, pnlUsd: motorEquityFinal * (t.pnl_pct / 100) })),
+    [motorOpen, motorEquityFinal])
+
+  // Reutiliza computeAnalytics() (ya probado con CSV) mapeando las filas
+  // escaladas a su misma forma — da win rate/PF/drawdown/Sharpe/equity curve/
+  // breakdowns sin duplicar lógica. Comisión/funding siempre 0: pnl_pct del
+  // motor ya viene neto.
+  const motorAsCsv = useMemo<CsvTrade[]>(() => scaledTrades.map(t => ({
+    timestamp: t.closed_at ?? t.opened_at,
+    symbol: t.sym,
+    pnl_bruto: t.pnlUsd,
+    commission: 0,
+    funding_fee: 0,
+    pnl_neto: t.pnlUsd,
+    tipo: t.pnl_pct >= 0 ? 'WIN' : 'LOSS',
+    raw_txids: [],
+  })), [scaledTrades])
+
+  const motorAnalytics = useMemo(() => motorAsCsv.length ? computeAnalytics(motorAsCsv) : null, [motorAsCsv])
+
+  const scaledTradesDesc = useMemo(() => [...scaledTrades].reverse(), [scaledTrades])
+  const motorPageData    = scaledTradesDesc.slice(motorPage * PAGE_SIZE, (motorPage + 1) * PAGE_SIZE)
+  const motorTotalPages  = Math.ceil(scaledTradesDesc.length / PAGE_SIZE)
+
   // ── Manual trade handlers ───────────────────────────────────────────────────
 
   function calcPnl(entry: number, exit: number, lado: 'LONG' | 'SHORT', size: number) {
@@ -544,16 +683,25 @@ export default function JournalPage() {
     if (Object.keys(e).length) return
 
     setSaving(true)
+    setSaveError(null)
     const { pnl_usd, pnl_pct } = calcPnl(form.entry_price, form.exit_price, form.lado, form.size_usd)
     const resultado = autoResultado(pnl_usd)
     const payload = { ...form, pnl_usd, pnl_pct, resultado }
 
+    let ok = false
+
     if (editing) {
       const { data: { user: u } } = await supabase.auth.getUser()
-      if (!u) return
+      if (!u) { setSaving(false); return }
       // Filtrar por id Y user_id — protección doble si RLS falla
       const { error } = await supabase.from('trades').update(payload).eq('id', editing).eq('user_id', u.id)
-      if (!error) { setTrades(ts => ts.map(t => t.id === editing ? { ...t, ...payload } : t)); setEditing(null) }
+      if (!error) {
+        setTrades(ts => ts.map(t => t.id === editing ? { ...t, ...payload } : t))
+        setEditing(null)
+        ok = true
+      } else {
+        setSaveError(error.message)
+      }
     } else {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setSaving(false); return }
@@ -564,11 +712,16 @@ export default function JournalPage() {
           try { localStorage.setItem('sigma_trades', JSON.stringify(next)) } catch {}
           return next
         })
+        ok = true
+      } else if (error) {
+        setSaveError(error.message)
       }
     }
 
     setSaving(false)
-    setForm({ ...EMPTY, fecha: new Date().toISOString().slice(0, 10) })
+    // Solo limpiar el formulario si de verdad se guardó — si falló, el usuario
+    // necesita ver sus datos intactos y el mensaje de error, no un form vacío.
+    if (ok) setForm({ ...EMPTY, fecha: todayLocal() })
   }
 
   function handleEdit(t: Trade) {
@@ -729,6 +882,106 @@ export default function JournalPage() {
     doc.save(`sigma-report-${now.toISOString().slice(0, 10)}.pdf`)
   }
 
+  function exportMotorCSV() {
+    if (!scaledTrades.length) return
+    const headers = ['Abierto', 'Cerrado', 'Símbolo', 'TF', 'Dirección', 'Estrategia', 'Grade', 'Entry', 'Exit', 'PnL %', 'PnL USD (tu capital)', 'Equity', 'Estado']
+    const rows = scaledTrades.map(t => [
+      t.opened_at, t.closed_at ?? '', t.sym, t.tf, t.direction.toUpperCase(), t.strategy, t.grade,
+      t.entry, t.exit_price ?? '', t.pnl_pct.toFixed(2), t.pnlUsd.toFixed(2), t.equityAfter.toFixed(2), t.status,
+    ])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url
+    a.download = `sigma-motor-journal-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function exportMotorPDF() {
+    if (!motorAnalytics || !scaledTrades.length) return
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('es-CL')
+    const W = 210
+
+    doc.setFillColor(4, 5, 10)
+    doc.rect(0, 0, W, 40, 'F')
+    doc.setTextColor(212, 175, 55)
+    doc.setFontSize(22)
+    doc.setFont('helvetica', 'bold')
+    doc.text('SIGMA RESEARCH', 14, 16)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text('MOTOR EN VIVO × TU CAPITAL — JOURNAL', 14, 23)
+    doc.setTextColor(122, 127, 154)
+    doc.text(`Generado: ${dateStr}`, 14, 30)
+    doc.text(`Capital base: $${Math.round(motorCapital).toLocaleString('es-CL')}`, W - 14, 30, { align: 'right' })
+
+    const kpis = [
+      { label: 'WIN RATE',      value: `${motorAnalytics.winRate.toFixed(1)}%`, color: motorAnalytics.winRate >= 50 ? '#34d399' : '#f87171' },
+      { label: 'PROFIT FACTOR', value: motorAnalytics.profitFactor >= 999 ? '∞' : motorAnalytics.profitFactor.toFixed(2), color: motorAnalytics.profitFactor >= 1 ? '#34d399' : '#f87171' },
+      { label: 'PNL NETO',      value: `${motorAnalytics.pnlNeto >= 0 ? '+' : ''}$${Math.round(motorAnalytics.pnlNeto).toLocaleString('es-CL')}`, color: motorAnalytics.pnlNeto >= 0 ? '#34d399' : '#f87171' },
+      { label: 'MAX DRAWDOWN',  value: `${motorAnalytics.maxDrawdownPct.toFixed(1)}%`, color: '#f87171' },
+      { label: 'TOTAL TRADES',  value: String(motorAnalytics.totalTrades), color: '#d4af37' },
+      { label: 'EQUITY ACTUAL', value: `$${Math.round(motorEquityFinal).toLocaleString('es-CL')}`, color: '#d4af37' },
+    ]
+    const colW = (W - 28) / 3
+    kpis.forEach((k, i) => {
+      const col = i % 3, row = Math.floor(i / 3)
+      const x = 14 + col * (colW + 4), y = 50 + row * 24
+      doc.setFillColor(11, 13, 20)
+      doc.rect(x, y, colW, 20, 'F')
+      doc.setTextColor(122, 127, 154); doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+      doc.text(k.label, x + 4, y + 7)
+      const [r, g, b] = k.color.match(/\w\w/g)!.map(h => parseInt(h, 16))
+      doc.setTextColor(r, g, b); doc.setFontSize(14); doc.setFont('helvetica', 'bold')
+      doc.text(k.value, x + 4, y + 16)
+    })
+
+    let y = 106
+    doc.setTextColor(212, 175, 55); doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+    doc.text('// ÚLTIMOS 20 TRADES DEL MOTOR', 14, y)
+    y += 6
+    doc.setFillColor(26, 29, 46)
+    doc.rect(14, y, W - 28, 6, 'F')
+    doc.setTextColor(122, 127, 154); doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+    const cols = [14, 36, 60, 90, 120, 150, 175]
+    const headers2 = ['CERRADO', 'SÍMBOLO', 'DIR', 'ESTRATEGIA', 'PNL %', 'PNL USD', 'EQUITY']
+    headers2.forEach((h, i) => doc.text(h, cols[i], y + 4))
+    y += 8
+
+    const recent = [...scaledTrades].reverse().slice(0, 20)
+    for (const t of recent) {
+      if (y > 270) break
+      const isWin = t.pnl_pct >= 0
+      doc.setFillColor(isWin ? 11 : 20, isWin ? 20 : 11, isWin ? 15 : 11)
+      doc.rect(14, y - 3, W - 28, 6, 'F')
+      doc.setTextColor(232, 233, 240); doc.setFontSize(7)
+      doc.text((t.closed_at ?? t.opened_at).slice(5, 16).replace('T', ' '), cols[0], y + 1)
+      doc.text(t.sym, cols[1], y + 1)
+      const dirColor = t.direction === 'long' ? [52, 211, 153] : [248, 113, 113]
+      doc.setTextColor(dirColor[0], dirColor[1], dirColor[2])
+      doc.text(t.direction.toUpperCase(), cols[2], y + 1)
+      doc.setTextColor(232, 233, 240)
+      doc.text(t.strategy.replace(/_/g, ' '), cols[3], y + 1)
+      const pnlColor = isWin ? [52, 211, 153] : [248, 113, 113]
+      doc.setTextColor(pnlColor[0], pnlColor[1], pnlColor[2])
+      doc.text(`${isWin ? '+' : ''}${t.pnl_pct.toFixed(2)}%`, cols[4], y + 1)
+      doc.text(`${t.pnlUsd >= 0 ? '+' : ''}$${Math.round(t.pnlUsd)}`, cols[5], y + 1)
+      doc.setTextColor(122, 127, 154)
+      doc.text(`$${Math.round(t.equityAfter).toLocaleString('es-CL')}`, cols[6], y + 1)
+      y += 6
+    }
+
+    doc.setTextColor(58, 63, 85); doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+    doc.text('SIGMA RESEARCH · SURVIVE FIRST · WIN AFTER', W / 2, 287, { align: 'center' })
+
+    doc.save(`sigma-motor-report-${now.toISOString().slice(0, 10)}.pdf`)
+  }
+
   // ── Chart options ────────────────────────────────────────────────────────────
 
   const chartTooltipDefaults = {
@@ -742,13 +995,14 @@ export default function JournalPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono,'DM Mono',monospace)" }}>
+      <style>{`.j-input:focus{border-color:${C.gold}!important;box-shadow:0 0 0 1px ${C.gold}33}`}</style>
       <div className="dash-content" style={{ maxWidth: 1200, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}
         <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>
-              {'// JOURNAL · REGISTRO DE TRADES'}
+              {'// JOURNAL · MOTOR EN VIVO × TU CAPITAL'}
             </div>
             <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,72px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
               <span style={{ color: C.text }}>TRADE</span>{' '}
@@ -757,20 +1011,367 @@ export default function JournalPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={exportTradesCSV}
-              disabled={!trades.length}
-              style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${C.border}`, color: C.dimText, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', cursor: trades.length ? 'pointer' : 'not-allowed', opacity: trades.length ? 1 : 0.4 }}
+              onClick={exportMotorCSV}
+              disabled={!scaledTrades.length}
+              style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${C.border}`, color: C.dimText, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', cursor: scaledTrades.length ? 'pointer' : 'not-allowed', opacity: scaledTrades.length ? 1 : 0.4 }}
             >↓ CSV</button>
             <button
-              onClick={exportPDF}
-              disabled={!trades.length}
-              style={{ padding: '8px 16px', background: trades.length ? `${C.gold}18` : 'transparent', border: `1px solid ${trades.length ? C.gold : C.border}`, color: trades.length ? C.gold : C.muted, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', cursor: trades.length ? 'pointer' : 'not-allowed', opacity: trades.length ? 1 : 0.5 }}
+              onClick={exportMotorPDF}
+              disabled={!scaledTrades.length}
+              style={{ padding: '8px 16px', background: scaledTrades.length ? `${C.gold}18` : 'transparent', border: `1px solid ${scaledTrades.length ? C.gold : C.border}`, color: scaledTrades.length ? C.gold : C.muted, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', cursor: scaledTrades.length ? 'pointer' : 'not-allowed', opacity: scaledTrades.length ? 1 : 0.5 }}
             >↓ PDF REPORT</button>
           </div>
         </div>
 
+        {/* ════════════════════════════════════════════════════════════════════ */}
+        {/* MOTOR EN VIVO × CAPITAL DEL USUARIO — sección primaria             */}
+        {/* ════════════════════════════════════════════════════════════════════ */}
+
+        {/* Apartado dedicado a explicar qué es esto — orienta a quien llega
+            por primera vez, antes de mostrarle ningún número. */}
+        <div style={{ ...cardStyle, background: C.surface, border: `1px dashed ${C.gold}50`, padding: '18px 22px', marginBottom: 16 }}>
+          <SectionHeader>{'// ¿QUÉ ES ESTE JOURNAL?'}</SectionHeader>
+          <p style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.8, margin: '0 0 8px' }}>
+            No es un diario que tú llenas — es el registro real de <strong style={{ color: C.text }}>SIGMA ENGINE</strong>. Cada trade que ves abajo es una operación que el motor efectivamente ejecutó; su retorno % se aplica en cadena sobre <strong style={{ color: C.gold }}>tu capital</strong> (el de <a href="/portafolio" style={{ color: C.gold, textDecoration: 'none' }}>tu portafolio</a>), no sobre la cuenta paper interna del motor.
+          </p>
+          <p style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.8, margin: 0 }}>
+            El conteo arranca desde el día que creaste tu cuenta — no se te atribuyen operaciones del motor anteriores a tu ingreso. El trade abierto (si hay uno) muestra P&L flotante en vivo y se actualiza cada minuto. Es una simulación con fines informativos: el motor no gestiona capital de terceros.
+          </p>
+        </div>
+
+        {portfolioCapital === 0 && portfolioReady && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            background: `${C.gold}14`, border: `1px solid ${C.gold}50`,
+            padding: '12px 16px', marginBottom: 16, borderRadius: C.radiusSm,
+          }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: `${C.gold}22`, padding: '3px 8px', flexShrink: 0 }}>
+              CAPITAL DE REFERENCIA
+            </span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.5 }}>
+              Mostrando el motor sobre <strong style={{ color: C.gold }}>$1.000</strong> de referencia. Configura tu portafolio para ver tu capital real.
+            </span>
+            <a href="/portafolio" style={{ fontFamily: 'monospace', fontSize: 10, color: C.gold, textDecoration: 'none', border: `1px solid ${C.gold}44`, padding: '4px 10px', flexShrink: 0 }}>
+              IR A PORTAFOLIO →
+            </a>
+          </div>
+        )}
+
+        {motorError && (
+          <div style={{ padding: '14px 18px', background: `${C.red}12`, border: `1px solid ${C.red}40`, marginBottom: 16, fontFamily: 'monospace', fontSize: 11, color: C.red, borderRadius: C.radiusSm }}>
+            ⚠ {motorError}
+          </div>
+        )}
+
+        {motorLoading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 24 }}>
+            {[1, 2, 3, 4].map(i => <div key={i} className="animate-pulse" style={{ ...cardStyle, background: C.surface, height: 80 }} />)}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
+
+            {/* Trade(s) abierto — en vivo, P&L flotante sobre tu capital */}
+            {scaledOpen.map((t, i) => {
+              const slPct = t.entry > 0 ? Math.abs(((t.sl - t.entry) / t.entry) * 100) : 0
+              const tpPct = t.entry > 0 ? Math.abs(((t.tp - t.entry) / t.entry) * 100) : 0
+              return (
+              <div key={i} style={{ ...cardStyle, background: C.surface, borderLeft: `3px solid ${C.gold}`, padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.gold, boxShadow: `0 0 8px ${C.gold}` }} />
+                    <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: C.gold }}>EN VIVO · NO REALIZADO</span>
+                  </div>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color: C.text }}>{t.sym}</div>
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, padding: '2px 8px', color: t.direction === 'long' ? C.green : C.red, border: `1px solid ${t.direction === 'long' ? C.green : C.red}40` }}>
+                    {t.direction.toUpperCase()}
+                  </span>
+                  <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{t.strategy.replace(/_/g, ' ')} · {t.grade} · {t.tf}</div>
+                  <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                    <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color: t.pnlUsd >= 0 ? C.green : C.red, textShadow: numberEmboss }}>
+                      {fmt(t.pnlUsd)}
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct.toFixed(2)}%</div>
+                  </div>
+                </div>
+                {/* Pequeño resumen de la posición — contexto, no solo el P&L */}
+                <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                  Abierta hace {elapsedSince(t.opened_at)} · Entry <span style={{ color: C.text }}>${fmtN(t.entry)}</span>
+                  {' · '}SL <span style={{ color: C.red }}>${fmtN(t.sl)}</span> <span style={{ color: C.muted }}>(-{slPct.toFixed(1)}%)</span>
+                  {' · '}TP <span style={{ color: C.green }}>${fmtN(t.tp)}</span> <span style={{ color: C.muted }}>(+{tpPct.toFixed(1)}%)</span>
+                </div>
+              </div>
+              )
+            })}
+
+            {motorAnalytics ? (
+              <>
+                {/* Resumen ejecutivo */}
+                <AnalysisSection n={1} title="RESUMEN EJECUTIVO">
+                  {motorLiquidated && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: `${C.red}12`, border: `1px solid ${C.red}40`, padding: '10px 14px', marginBottom: 14 }}>
+                      <span style={{ color: C.red, fontSize: 14, flexShrink: 0 }}>⚠</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.6 }}>
+                        Tu capital simulado llegó a <strong style={{ color: C.red }}>$0</strong> en una operación con pérdida ≥100%. Los trades posteriores del motor no pueden recuperar capital que ya no existe — por eso la equity se mantiene en $0 desde ese punto.
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 10 }}>
+                    <MetricCard label="Capital base" value={`$${fmtN(motorCapital)}`} sub={portfolioCapital > 0 ? 'tu portafolio' : 'referencia'} />
+                    <MetricCard label="Total Trades" value={motorAnalytics.totalTrades.toString()} />
+                    <MetricCard label="Win Rate" value={`${motorAnalytics.winRate.toFixed(1)}%`} color={motorAnalytics.winRate >= 50 ? C.green : C.red} />
+                    <MetricCard label="Profit Factor" value={motorAnalytics.profitFactor >= 999 ? '∞' : motorAnalytics.profitFactor.toFixed(2)} color={motorAnalytics.profitFactor >= 1.5 ? C.green : motorAnalytics.profitFactor >= 1 ? C.yellow : C.red} />
+                    <MetricCard label="PnL Neto" value={fmtUsd(motorAnalytics.pnlNeto)} color={motorAnalytics.pnlNeto >= 0 ? C.green : C.red} />
+                    <MetricCard label="Max Drawdown" value={`${motorAnalytics.maxDrawdownPct.toFixed(1)}%`} color={C.red} />
+                    <MetricCard label="Expectancy" value={fmtUsd(motorAnalytics.expectancy)} sub="por trade" color={motorAnalytics.expectancy >= 0 ? C.green : C.red} />
+                    <MetricCard label="Sharpe Ratio" value={motorAnalytics.sharpe.toFixed(2)} sub="anualizado rf=0" color={motorAnalytics.sharpe >= 1 ? C.green : motorAnalytics.sharpe >= 0 ? C.yellow : C.red} />
+                    <MetricCard label="Equity actual" value={`$${fmtN(motorEquityFinal)}`} color={C.gold} />
+                  </div>
+                </AnalysisSection>
+
+                {/* Equity curve */}
+                <AnalysisSection n={2} title="EQUITY CURVE — TU CAPITAL SIGUIENDO AL MOTOR">
+                  {motorAnalytics.equityCurve.length > 1 ? (() => {
+                    const n = motorAnalytics.equityCurve.length
+                    const haloData = motorAnalytics.equityCurve.map((p, i) => i === n - 1 ? p.equity : null)
+                    return (
+                      <div style={{ height: 280 }}>
+                        <Line
+                          data={{
+                            labels: motorAnalytics.equityCurve.map(p => p.date),
+                            datasets: [
+                              {
+                                label: 'halo', data: haloData, borderColor: 'transparent', backgroundColor: 'transparent',
+                                pointRadius: motorAnalytics.equityCurve.map((_, i) => i === n - 1 ? 16 : 0),
+                                pointBackgroundColor: `${C.gold}22`, pointBorderColor: 'transparent', order: 3,
+                              },
+                              {
+                                label: 'glow', data: motorAnalytics.equityCurve.map(p => p.equity), borderColor: `${C.gold}30`, backgroundColor: 'transparent',
+                                fill: false, tension: 0.3, borderWidth: 7, pointRadius: 0, order: 2,
+                              },
+                              {
+                                label: 'Tu equity', data: motorAnalytics.equityCurve.map(p => p.equity), borderColor: C.gold,
+                                backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
+                                  const { chart } = ctx
+                                  const { ctx: c2d, chartArea } = chart
+                                  if (!chartArea) return `${C.gold}20`
+                                  const g = c2d.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+                                  g.addColorStop(0, `${C.gold}45`)
+                                  g.addColorStop(1, `${C.gold}00`)
+                                  return g
+                                },
+                                fill: true, tension: 0.3, borderWidth: 2,
+                                pointRadius: motorAnalytics.equityCurve.map((_, i) => i === n - 1 ? 6 : i === motorAnalytics.maxDrawdownIdx ? 5 : 3),
+                                pointBackgroundColor: motorAnalytics.equityCurve.map((p, i) => i === n - 1 ? C.gold : i === motorAnalytics.maxDrawdownIdx ? C.red : (p.win ? C.green : C.red)),
+                                pointBorderColor: motorAnalytics.equityCurve.map((p, i) => i === n - 1 ? '#fff7d6' : i === motorAnalytics.maxDrawdownIdx ? C.red : (p.win ? C.green : C.red)),
+                                pointBorderWidth: motorAnalytics.equityCurve.map((_, i) => i === n - 1 ? 2 : 1),
+                                order: 1,
+                              },
+                            ],
+                          }}
+                          options={{
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: {
+                              legend: { display: true, labels: { color: C.dimText, font: { family: 'monospace', size: 10 }, boxWidth: 14, filter: item => item.text !== 'halo' && item.text !== 'glow' } },
+                              tooltip: { ...chartTooltipDefaults, filter: item => item.dataset.label !== 'halo' && item.dataset.label !== 'glow' },
+                            },
+                            scales: {
+                              x: { ...xScaleDefaults, ticks: { ...xScaleDefaults.ticks, maxTicksLimit: 10 } },
+                              y: { ...yScaleDefaults, ticks: { ...yScaleDefaults.ticks, callback: (v: number | string) => `$${Number(v).toFixed(0)}` } },
+                            },
+                          }}
+                        />
+                      </div>
+                    )
+                  })() : (
+                    <div style={{ padding: 32, textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: C.muted }}>Insuficientes datos para graficar</div>
+                  )}
+                </AnalysisSection>
+
+                {/* Distribución PnL */}
+                <AnalysisSection n={3} title="DISTRIBUCIÓN PnL">
+                  <div style={{ height: Math.min(400, Math.max(200, motorAnalytics.histBins.length * 18)) }}>
+                    <Bar
+                      data={{
+                        labels: motorAnalytics.histBins.map(b => b.label),
+                        datasets: [{
+                          label: 'Frecuencia', data: motorAnalytics.histBins.map(b => b.count),
+                          backgroundColor: motorAnalytics.histBins.map(b => b.positive ? `${C.green}70` : `${C.red}70`),
+                          borderColor: motorAnalytics.histBins.map(b => b.positive ? C.green : C.red), borderWidth: 1,
+                        }],
+                      }}
+                      options={{
+                        indexAxis: 'y' as const, responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: chartTooltipDefaults },
+                        scales: { x: xScaleDefaults, y: { ...yScaleDefaults, ticks: { ...yScaleDefaults.ticks, font: { family: 'monospace', size: 9 } } } },
+                      }}
+                    />
+                  </div>
+                </AnalysisSection>
+
+                {/* Breakdown por dimensión */}
+                <AnalysisSection n={4} title="BREAKDOWN POR DIMENSIÓN">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 20 }}>
+                    <div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>POR SÍMBOLO</div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11 }}>
+                        <thead><tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                          {['Símbolo', 'N', 'WR%', 'PnL'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: C.muted, fontWeight: 400, fontSize: 9 }}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                          {motorAnalytics.bySymbol.slice(0, 10).map(row => (
+                            <tr key={row.symbol} style={{ borderBottom: `1px solid ${C.border}20` }}>
+                              <td style={{ padding: '5px 8px', color: C.text }}>{row.symbol}</td>
+                              <td style={{ padding: '5px 8px', color: C.dimText }}>{row.trades}</td>
+                              <td style={{ padding: '5px 8px', color: row.wins / row.trades >= 0.5 ? C.green : C.red }}>{((row.wins / row.trades) * 100).toFixed(0)}%</td>
+                              <td style={{ padding: '5px 8px', color: row.pnlNeto >= 0 ? C.green : C.red }}>{fmtUsd(row.pnlNeto)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>POR HORA UTC (top activas)</div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11 }}>
+                        <thead><tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                          {['Hora', 'N', 'WR%'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: C.muted, fontWeight: 400, fontSize: 9 }}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                          {motorAnalytics.byHour.filter(r => r.trades > 0).sort((a, b) => b.trades - a.trades).slice(0, 10).map(row => {
+                            const wr = (row.wins / row.trades) * 100
+                            return (
+                              <tr key={row.hour} style={{ borderBottom: `1px solid ${C.border}20`, background: wr >= 60 ? `${C.green}08` : 'transparent' }}>
+                                <td style={{ padding: '5px 8px', color: C.text }}>{String(row.hour).padStart(2, '0')}:00</td>
+                                <td style={{ padding: '5px 8px', color: C.dimText }}>{row.trades}</td>
+                                <td style={{ padding: '5px 8px', color: wr >= 50 ? C.green : C.red }}>{wr.toFixed(0)}%</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>POR DÍA DE SEMANA</div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11 }}>
+                        <thead><tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                          {['Día', 'N', 'WR%', 'PnL'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: C.muted, fontWeight: 400, fontSize: 9 }}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                          {motorAnalytics.byDow.filter(r => r.trades > 0).map(row => {
+                            const wr = (row.wins / row.trades) * 100
+                            return (
+                              <tr key={row.dow} style={{ borderBottom: `1px solid ${C.border}20`, background: row.pnlNeto > 0 ? `${C.green}08` : 'transparent' }}>
+                                <td style={{ padding: '5px 8px', color: C.text }}>{DOW_NAMES[row.dow]}</td>
+                                <td style={{ padding: '5px 8px', color: C.dimText }}>{row.trades}</td>
+                                <td style={{ padding: '5px 8px', color: wr >= 50 ? C.green : C.red }}>{wr.toFixed(0)}%</td>
+                                <td style={{ padding: '5px 8px', color: row.pnlNeto >= 0 ? C.green : C.red }}>{fmtUsd(row.pnlNeto)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>POR MES</div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11 }}>
+                        <thead><tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                          {['Mes', 'N', 'WR%', 'PnL Neto'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: C.muted, fontWeight: 400, fontSize: 9 }}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                          {motorAnalytics.byMonth.map(row => {
+                            const wr = row.trades > 0 ? (row.wins / row.trades) * 100 : 0
+                            return (
+                              <tr key={row.month} style={{ borderBottom: `1px solid ${C.border}20` }}>
+                                <td style={{ padding: '5px 8px', color: C.text }}>{row.month}</td>
+                                <td style={{ padding: '5px 8px', color: C.dimText }}>{row.trades}</td>
+                                <td style={{ padding: '5px 8px', color: wr >= 50 ? C.green : C.red }}>{wr.toFixed(0)}%</td>
+                                <td style={{ padding: '5px 8px', color: row.pnlNeto >= 0 ? C.green : C.red }}>{fmtUsd(row.pnlNeto)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </AnalysisSection>
+
+                {/* Tabla de trades del motor */}
+                <AnalysisSection n={5} title="TRADES DEL MOTOR">
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                          {['Cerrado', 'Símbolo', 'Dir', 'Estrategia', 'Grade', 'PnL %', 'PnL USD', 'Equity', 'Estado'].map(h => (
+                            <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: C.dimText, fontWeight: 400, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {motorPageData.map((t, i) => {
+                          const isWin = t.pnl_pct >= 0
+                          const accentColor = isWin ? C.green : C.red
+                          const accent = resultAccent(Math.abs(t.pnl_pct) / 8, accentColor)
+                          const baseBg = i % 2 === 1 ? C.surface2 : 'transparent'
+                          return (
+                            <tr key={`${t.sym}-${t.opened_at}`} style={{ borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${accent.border}`, background: baseBg, transition: 'background 0.15s' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = accent.bg)}
+                              onMouseLeave={e => (e.currentTarget.style.background = baseBg)}>
+                              <td style={{ padding: '10px 14px', color: C.dimText, whiteSpace: 'nowrap' }}>{(t.closed_at ?? '').slice(0, 16).replace('T', ' ')}</td>
+                              <td style={{ padding: '10px 14px', color: C.text, fontWeight: 600 }}>{t.sym}</td>
+                              <td style={{ padding: '10px 14px', color: t.direction === 'long' ? C.green : C.red, fontWeight: 700 }}>{t.direction.toUpperCase()}</td>
+                              <td style={{ padding: '10px 14px', color: C.dimText }}>{t.strategy.replace(/_/g, ' ')}</td>
+                              <td style={{ padding: '10px 14px', color: C.gold }}>{t.grade}</td>
+                              <td style={{ padding: '10px 14px', color: isWin ? C.green : C.red, fontVariantNumeric: 'tabular-nums' }}>{isWin ? '+' : ''}{t.pnl_pct.toFixed(2)}%</td>
+                              <td style={{ padding: '10px 14px', color: isWin ? C.green : C.red, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(t.pnlUsd)}</td>
+                              <td style={{ padding: '10px 14px', color: C.dimText, fontVariantNumeric: 'tabular-nums' }}>${fmtN(t.equityAfter)}</td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <span style={{ fontSize: 10, letterSpacing: '0.1em', padding: '2px 6px', border: `1px solid ${accentColor}40`, color: accentColor }}>{t.status}</span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {motorTotalPages > 1 && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
+                      <button onClick={() => setMotorPage(p => Math.max(0, p - 1))} disabled={motorPage === 0}
+                        style={{ padding: '6px 14px', background: 'transparent', border: `1px solid ${C.border}`, color: C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: motorPage === 0 ? 'default' : 'pointer', opacity: motorPage === 0 ? 0.4 : 1 }}>
+                        ← PREV
+                      </button>
+                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{motorPage + 1} / {motorTotalPages}</span>
+                      <button onClick={() => setMotorPage(p => Math.min(motorTotalPages - 1, p + 1))} disabled={motorPage === motorTotalPages - 1}
+                        style={{ padding: '6px 14px', background: 'transparent', border: `1px solid ${C.border}`, color: C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: motorPage === motorTotalPages - 1 ? 'default' : 'pointer', opacity: motorPage === motorTotalPages - 1 ? 0.4 : 1 }}>
+                        NEXT →
+                      </button>
+                    </div>
+                  )}
+                </AnalysisSection>
+              </>
+            ) : (
+              <div style={{ padding: 48, textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: C.muted, ...cardStyle, background: C.surface }}>
+                Aún no hay trades del motor desde que te uniste. Tu journal se va a ir llenando en vivo a medida que el motor opere — sin atribuirte operaciones anteriores a tu cuenta.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Toggle sección secundaria */}
+        <button
+          onClick={() => setShowManual(s => !s)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%', justifyContent: 'space-between',
+            padding: '12px 18px', marginBottom: showManual ? 16 : 32, background: C.surface, border: `1px solid ${C.border}`,
+            color: C.dimText, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', cursor: 'pointer',
+          }}
+        >
+          <span>{'// TUS TRADES (MANUAL + CSV PROPIO)'}</span>
+          <span>{showManual ? '▾ OCULTAR' : '▸ MOSTRAR'}</span>
+        </button>
+
+        {showManual && (
+        <>
         {/* Manual stats bar */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 1, background: C.border, marginBottom: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 24 }}>
           {[
             { label: 'Total trades', value: stats.total.toString(), color: C.gold },
             { label: 'Win Rate', value: `${stats.winRate}%`, color: stats.winRate >= 50 ? C.green : C.red },
@@ -779,15 +1380,15 @@ export default function JournalPage() {
             { label: 'Peor trade', value: trades.length ? fmt(stats.worst) : '—', color: C.red },
             { label: 'Tamaño medio', value: trades.length ? `$${fmtN(stats.avgSize)}` : '—', color: C.dimText },
           ].map(s => (
-            <div key={s.label} style={{ background: C.surface, padding: '16px 18px' }}>
+            <div key={s.label} style={{ ...cardStyle, background: C.surface, padding: '16px 18px' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 6 }}>{s.label}</div>
-              <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: s.color, lineHeight: 1, textShadow: numberEmboss }}>{s.value}</div>
             </div>
           ))}
         </div>
 
         {/* ── CSV Import ──────────────────────────────────────────────────────── */}
-        <div style={{ background: C.surface, border: `1px dashed ${C.gold}50`, padding: '20px 24px', marginBottom: 1 }}>
+        <div style={{ ...cardStyle, background: C.surface, border: `1px dashed ${C.gold}50`, padding: '20px 24px', marginBottom: 24 }}>
           <SectionHeader>{'// IMPORTAR CSV BINANCE FUTURES'}</SectionHeader>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
@@ -880,7 +1481,7 @@ export default function JournalPage() {
         </div>
 
         {/* ── Manual trade form ───────────────────────────────────────────────── */}
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '24px', marginBottom: 1 }}>
+        <div style={{ ...cardStyle, background: C.surface, padding: '24px', marginBottom: 24 }}>
           <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: editing ? C.yellow : C.gold, marginBottom: 16 }}>
             {editing ? '// EDITAR TRADE' : '// NUEVO TRADE'}
           </div>
@@ -888,10 +1489,10 @@ export default function JournalPage() {
           <form onSubmit={handleSubmit} noValidate>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 16, marginBottom: 16 }}>
               <Field label="Fecha">
-                <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} style={inputStyle} />
+                <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} className="j-input" style={inputStyle} />
               </Field>
               <Field label="Par">
-                <input type="text" placeholder="BTC/USDT" value={form.par} onChange={e => setForm(f => ({ ...f, par: e.target.value.toUpperCase() }))} style={{ ...inputStyle, borderColor: errors.par ? C.red : C.border }} />
+                <input type="text" placeholder="BTC/USDT" value={form.par} onChange={e => setForm(f => ({ ...f, par: e.target.value.toUpperCase() }))} className="j-input" style={{ ...inputStyle, borderColor: errors.par ? C.red : C.border }} />
                 {errors.par && <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.red }}>{errors.par}</span>}
               </Field>
               <Field label="Dirección">
@@ -905,35 +1506,40 @@ export default function JournalPage() {
                 </div>
               </Field>
               <Field label="Entrada ($)">
-                <input type="number" step="any" min="0" placeholder="0.00" value={form.entry_price || ''} onChange={e => setForm(f => ({ ...f, entry_price: parseFloat(e.target.value) || 0 }))} style={{ ...inputStyle, borderColor: errors.entry_price ? C.red : C.border }} />
+                <input type="number" step="any" min="0" placeholder="0.00" value={form.entry_price || ''} onChange={e => setForm(f => ({ ...f, entry_price: parseFloat(e.target.value) || 0 }))} className="j-input" style={{ ...inputStyle, borderColor: errors.entry_price ? C.red : C.border }} />
                 {errors.entry_price && <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.red }}>{errors.entry_price}</span>}
               </Field>
               <Field label="Salida ($)">
-                <input type="number" step="any" min="0" placeholder="0.00" value={form.exit_price || ''} onChange={e => setForm(f => ({ ...f, exit_price: parseFloat(e.target.value) || 0 }))} style={{ ...inputStyle, borderColor: errors.exit_price ? C.red : C.border }} />
+                <input type="number" step="any" min="0" placeholder="0.00" value={form.exit_price || ''} onChange={e => setForm(f => ({ ...f, exit_price: parseFloat(e.target.value) || 0 }))} className="j-input" style={{ ...inputStyle, borderColor: errors.exit_price ? C.red : C.border }} />
                 {errors.exit_price && <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.red }}>{errors.exit_price}</span>}
               </Field>
               <Field label="Tamaño (USD)">
-                <input type="number" step="any" min="0" placeholder="500" value={form.size_usd || ''} onChange={e => setForm(f => ({ ...f, size_usd: parseFloat(e.target.value) || 0 }))} style={{ ...inputStyle, borderColor: errors.size_usd ? C.red : C.border }} />
+                <input type="number" step="any" min="0" placeholder="500" value={form.size_usd || ''} onChange={e => setForm(f => ({ ...f, size_usd: parseFloat(e.target.value) || 0 }))} className="j-input" style={{ ...inputStyle, borderColor: errors.size_usd ? C.red : C.border }} />
                 {errors.size_usd && <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.red }}>{errors.size_usd}</span>}
               </Field>
               <Field label="Stop Loss ($)">
-                <input type="number" step="any" min="0" placeholder="opcional" value={form.sl || ''} onChange={e => setForm(f => ({ ...f, sl: parseFloat(e.target.value) || null }))} style={inputStyle} />
+                <input type="number" step="any" min="0" placeholder="opcional" value={form.sl || ''} onChange={e => setForm(f => ({ ...f, sl: parseFloat(e.target.value) || null }))} className="j-input" style={inputStyle} />
               </Field>
               <Field label="Take Profit ($)">
-                <input type="number" step="any" min="0" placeholder="opcional" value={form.tp || ''} onChange={e => setForm(f => ({ ...f, tp: parseFloat(e.target.value) || null }))} style={inputStyle} />
+                <input type="number" step="any" min="0" placeholder="opcional" value={form.tp || ''} onChange={e => setForm(f => ({ ...f, tp: parseFloat(e.target.value) || null }))} className="j-input" style={inputStyle} />
               </Field>
             </div>
             <div style={{ marginBottom: 16 }}>
               <Field label="Notas">
-                <textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} placeholder="Setup, contexto, lección aprendida…" rows={2} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+                <textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} placeholder="Setup, contexto, lección aprendida…" rows={2} className="j-input" style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
               </Field>
             </div>
+            {saveError && (
+              <div style={{ marginBottom: 14, padding: '10px 14px', background: `${C.red}15`, border: `1px solid ${C.red}40`, borderRadius: C.radiusSm, fontFamily: 'monospace', fontSize: 11, color: C.red }}>
+                ⚠ No se pudo guardar: {saveError}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="submit" disabled={saving} style={{ padding: '10px 28px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: 'none', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
                 {saving ? 'GUARDANDO…' : editing ? 'ACTUALIZAR' : 'GUARDAR TRADE'}
               </button>
               {editing && (
-                <button type="button" onClick={() => { setEditing(null); setForm({ ...EMPTY }) }} style={{ padding: '10px 20px', background: 'transparent', color: C.dimText, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                <button type="button" onClick={() => { setEditing(null); setForm({ ...EMPTY }); setSaveError(null) }} style={{ padding: '10px 20px', background: 'transparent', color: C.dimText, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: `1px solid ${C.border}`, cursor: 'pointer' }}>
                   CANCELAR
                 </button>
               )}
@@ -957,10 +1563,16 @@ export default function JournalPage() {
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
             {trades.length > 0 && filter !== 'ANÁLISIS' && (
-              <button onClick={exportTradesCSV}
-                style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', border: 'none', cursor: 'pointer', background: C.surface, color: C.gold }}>
-                ↓ EXPORTAR CSV
-              </button>
+              <>
+                <button onClick={exportTradesCSV}
+                  style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', border: 'none', cursor: 'pointer', background: C.surface, color: C.gold }}>
+                  ↓ EXPORTAR CSV
+                </button>
+                <button onClick={exportPDF}
+                  style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', border: 'none', cursor: 'pointer', background: C.surface, color: C.gold }}>
+                  ↓ EXPORTAR PDF
+                </button>
+              </>
             )}
             <div style={{ background: C.surface, padding: '10px 16px', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>
               {filter === 'ANÁLISIS' ? `${csvTradesSorted.length} trades CSV` : `${visible.length} trade${visible.length !== 1 ? 's' : ''}`}
@@ -1023,12 +1635,11 @@ export default function JournalPage() {
         {/* ANÁLISIS TAB                                                         */}
         {/* ════════════════════════════════════════════════════════════════════ */}
         {filter === 'ANÁLISIS' && analytics && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
             {/* 1 — RESUMEN EJECUTIVO */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 24px' }}>
-              <SectionHeader>{'// 1 · RESUMEN EJECUTIVO'}</SectionHeader>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 1, background: C.border }}>
+            <AnalysisSection n={1} title="RESUMEN EJECUTIVO">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 10 }}>
                 <MetricCard label="Total Trades" value={analytics.totalTrades.toString()} />
                 <MetricCard label="Win Rate" value={`${analytics.winRate.toFixed(1)}%`} color={analytics.winRate >= 50 ? C.green : C.red} />
                 <MetricCard label="Profit Factor" value={analytics.profitFactor >= 999 ? '∞' : analytics.profitFactor.toFixed(2)} color={analytics.profitFactor >= 1.5 ? C.green : analytics.profitFactor >= 1 ? C.yellow : C.red} />
@@ -1040,11 +1651,10 @@ export default function JournalPage() {
                 <MetricCard label="Expectancy" value={fmtUsd(analytics.expectancy)} sub="por trade" color={analytics.expectancy >= 0 ? C.green : C.red} />
                 <MetricCard label="Sharpe Ratio" value={analytics.sharpe.toFixed(2)} sub="anualizado rf=0" color={analytics.sharpe >= 1 ? C.green : analytics.sharpe >= 0 ? C.yellow : C.red} />
               </div>
-            </div>
+            </AnalysisSection>
 
             {/* 2 — EQUITY CURVE */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 24px' }}>
-              <SectionHeader>{'// 2 · EQUITY CURVE'}</SectionHeader>
+            <AnalysisSection n={2} title="EQUITY CURVE">
               {analytics.equityCurve.length > 1 ? (() => {
                 // Benchmark: normalizar SPX al mismo origen que equity curve
                 const n = analytics.equityCurve.length
@@ -1054,12 +1664,33 @@ export default function JournalPage() {
                   const pct = i / (n - 1)
                   return parseFloat((finalEquity * pct * 0.5).toFixed(2))
                 })
+                // Halo estático del punto final — "tu posición actual", sin loop/animación
+                const haloData = analytics.equityCurve.map((p, i) => i === n - 1 ? p.equity : null)
                 return (
                 <div style={{ height: 280 }}>
                   <Line
                     data={{
                       labels: analytics.equityCurve.map(p => p.date),
                       datasets: [
+                        {
+                          label: 'halo',
+                          data: haloData,
+                          borderColor: 'transparent',
+                          backgroundColor: 'transparent',
+                          pointRadius: analytics.equityCurve.map((_, i) => i === n - 1 ? 16 : 0),
+                          pointBackgroundColor: `${C.gold}22`,
+                          pointBorderColor: 'transparent',
+                          order: 3,
+                        },
+                        {
+                          label: 'glow',
+                          data: analytics.equityCurve.map(p => p.equity),
+                          borderColor: `${C.gold}30`,
+                          backgroundColor: 'transparent',
+                          fill: false, tension: 0.3, borderWidth: 7,
+                          pointRadius: 0,
+                          order: 2,
+                        },
                         {
                           label: 'Tu PnL',
                           data: analytics.equityCurve.map(p => p.equity),
@@ -1074,26 +1705,37 @@ export default function JournalPage() {
                             return g
                           },
                           fill: true, tension: 0.3, borderWidth: 2,
-                          pointRadius: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? 6 : 0),
-                          pointBackgroundColor: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? C.red : C.gold),
-                          pointBorderColor: analytics.equityCurve.map((_, i) => i === analytics.maxDrawdownIdx ? C.red : C.gold),
+                          // Cada trade cerrado marcado por su propio resultado — la curva
+                          // cuenta la historia, no solo el dorado de marca.
+                          pointRadius: analytics.equityCurve.map((_, i) => i === n - 1 ? 6 : i === analytics.maxDrawdownIdx ? 5 : 3),
+                          pointBackgroundColor: analytics.equityCurve.map((p, i) => i === n - 1 ? C.gold : i === analytics.maxDrawdownIdx ? C.red : (p.win ? C.green : C.red)),
+                          pointBorderColor: analytics.equityCurve.map((p, i) => i === n - 1 ? '#fff7d6' : i === analytics.maxDrawdownIdx ? C.red : (p.win ? C.green : C.red)),
+                          pointBorderWidth: analytics.equityCurve.map((_, i) => i === n - 1 ? 2 : 1),
+                          order: 1,
                         },
                         {
                           label: 'SPX Benchmark',
                           data: spxBenchmark,
-                          borderColor: C.blue + 'aa',
+                          borderColor: C.blue + '66',
                           backgroundColor: 'transparent',
                           fill: false, tension: 0.3, borderWidth: 1,
                           borderDash: [4, 4],
                           pointRadius: 0,
+                          order: 4,
                         },
                       ],
                     }}
                     options={{
                       responsive: true, maintainAspectRatio: false,
                       plugins: {
-                        legend: { display: true, labels: { color: C.dimText, font: { family: 'monospace', size: 10 }, boxWidth: 14 } },
-                        tooltip: chartTooltipDefaults,
+                        legend: {
+                          display: true,
+                          labels: {
+                            color: C.dimText, font: { family: 'monospace', size: 10 }, boxWidth: 14,
+                            filter: item => item.text !== 'halo' && item.text !== 'glow',
+                          },
+                        },
+                        tooltip: { ...chartTooltipDefaults, filter: item => item.dataset.label !== 'halo' && item.dataset.label !== 'glow' },
                       },
                       scales: {
                         x: { ...xScaleDefaults, ticks: { ...xScaleDefaults.ticks, maxTicksLimit: 10 } },
@@ -1106,11 +1748,10 @@ export default function JournalPage() {
               })() : (
                 <div style={{ padding: 32, textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: C.muted }}>Insuficientes datos para graficar</div>
               )}
-            </div>
+            </AnalysisSection>
 
             {/* 3 — DISTRIBUCIÓN PnL */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 24px' }}>
-              <SectionHeader>{'// 3 · DISTRIBUCIÓN PnL'}</SectionHeader>
+            <AnalysisSection n={3} title="DISTRIBUCIÓN PnL">
               {(() => {
                 const pnlVals = analytics.histBins.map(b => b.count)
                 const meanVal = analytics.totalTrades > 0
@@ -1146,11 +1787,10 @@ export default function JournalPage() {
                   </div>
                 )
               })()}
-            </div>
+            </AnalysisSection>
 
             {/* 4 — BREAKDOWN */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 24px' }}>
-              <SectionHeader>{'// 4 · BREAKDOWN POR DIMENSIÓN'}</SectionHeader>
+            <AnalysisSection n={4} title="BREAKDOWN POR DIMENSIÓN">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 20 }}>
 
                 {/* By symbol */}
@@ -1243,11 +1883,10 @@ export default function JournalPage() {
                 </div>
 
               </div>
-            </div>
+            </AnalysisSection>
 
             {/* 5 — COSTOS OPERATIVOS */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 24px' }}>
-              <SectionHeader>{'// 5 · COSTOS OPERATIVOS'}</SectionHeader>
+            <AnalysisSection n={5} title="COSTOS OPERATIVOS">
               {analytics.byMonth.length > 0 ? (
                 <div style={{ height: 220, marginBottom: 20 }}>
                   <Bar
@@ -1270,17 +1909,17 @@ export default function JournalPage() {
                 </div>
               ) : null}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-                <div style={{ padding: '14px 16px', background: C.bg, border: `1px solid ${C.border}` }}>
+                <div style={{ ...cardStyle, padding: '14px 16px', background: C.bg }}>
                   <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginBottom: 4, letterSpacing: '0.15em' }}>COSTOS / PnL BRUTO</div>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: C.red }}>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: C.red, textShadow: numberEmboss }}>
                     {analytics.pnlBruto !== 0
                       ? `${Math.abs(((analytics.totalCommissions + analytics.totalFunding) / analytics.pnlBruto) * 100).toFixed(1)}%`
                       : '—'}
                   </div>
                 </div>
-                <div style={{ padding: '14px 16px', background: C.bg, border: `1px solid ${C.border}` }}>
+                <div style={{ ...cardStyle, padding: '14px 16px', background: C.bg }}>
                   <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginBottom: 4, letterSpacing: '0.15em' }}>PROYECCIÓN ANUAL COSTOS</div>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: C.red }}>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: C.red, textShadow: numberEmboss }}>
                     {(() => {
                       const sorted = [...csvTrades].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
                       if (!sorted.length) return '—'
@@ -1290,20 +1929,19 @@ export default function JournalPage() {
                     })()}
                   </div>
                 </div>
-                <div style={{ padding: '14px 16px', background: C.bg, border: `1px solid ${C.border}` }}>
+                <div style={{ ...cardStyle, padding: '14px 16px', background: C.bg }}>
                   <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginBottom: 4, letterSpacing: '0.15em' }}>TOTAL COMISIONES</div>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: C.red }}>{fmtUsdPlain(analytics.totalCommissions)}</div>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: C.red, textShadow: numberEmboss }}>{fmtUsdPlain(analytics.totalCommissions)}</div>
                 </div>
-                <div style={{ padding: '14px 16px', background: C.bg, border: `1px solid ${C.border}` }}>
+                <div style={{ ...cardStyle, padding: '14px 16px', background: C.bg }}>
                   <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginBottom: 4, letterSpacing: '0.15em' }}>TOTAL FUNDING FEES</div>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: analytics.totalFunding >= 0 ? C.green : C.red }}>{fmtUsdPlain(analytics.totalFunding)}</div>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: analytics.totalFunding >= 0 ? C.green : C.red, textShadow: numberEmboss }}>{fmtUsdPlain(analytics.totalFunding)}</div>
                 </div>
               </div>
-            </div>
+            </AnalysisSection>
 
             {/* 6 — TRADES RECONSTRUIDOS */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '20px 24px' }}>
-              <SectionHeader>{'// 6 · TRADES RECONSTRUIDOS'}</SectionHeader>
+            <AnalysisSection n={6} title="TRADES RECONSTRUIDOS">
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11 }}>
                   <thead>
@@ -1317,8 +1955,13 @@ export default function JournalPage() {
                     {csvPageData.map((t, i) => {
                       const isLiq = t.tipo === 'LIQUIDATION'
                       const isSmallLoss = t.tipo === 'LOSS' && Math.abs(t.pnl_neto) < 0.5
+                      const accentColor = isLiq ? C.yellow : t.pnl_neto >= 0 ? C.green : C.red
+                      const accent = resultAccent(Math.abs(t.pnl_neto) / 15, accentColor)
+                      const baseBg = isLiq ? `${C.red}18` : isSmallLoss ? `${C.yellow}08` : (i % 2 === 1 ? C.surface2 : 'transparent')
                       return (
-                        <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: isLiq ? `${C.red}18` : isSmallLoss ? `${C.yellow}08` : 'transparent' }}>
+                        <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${accent.border}`, background: baseBg, transition: 'background 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = accent.bg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = baseBg)}>
                           <td style={{ padding: '10px 14px', color: C.dimText, whiteSpace: 'nowrap' }}>{t.timestamp.slice(0, 16).replace('T', ' ')}</td>
                           <td style={{ padding: '10px 14px', color: C.text }}>{t.symbol}</td>
                           <td style={{ padding: '10px 14px', color: t.pnl_bruto >= 0 ? C.green : C.red, fontVariantNumeric: 'tabular-nums' }}>{fmtUsd(t.pnl_bruto)}</td>
@@ -1348,14 +1991,14 @@ export default function JournalPage() {
                   </button>
                 </div>
               )}
-            </div>
+            </AnalysisSection>
 
           </div>
         )}
 
         {/* ── Manual trades table ─────────────────────────────────────────────── */}
         {filter !== 'ANÁLISIS' && (
-          <div style={{ background: C.surface }}>
+          <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden' }}>
             {loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '1px', background: C.border }}>
                 <style>{`@keyframes skj{0%{background-position:-200% 0}100%{background-position:200% 0}}.skj{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:skj 1.4s ease infinite;border-radius:2px}`}</style>
@@ -1385,8 +2028,12 @@ export default function JournalPage() {
                   <tbody>
                     {visible.map((t, i) => {
                       const resColor = t.resultado === 'WIN' ? C.green : t.resultado === 'LOSS' ? C.red : C.yellow
+                      const accent = resultAccent(Math.abs(t.pnl_pct ?? 0) / 8, resColor)
+                      const baseBg = i % 2 === 1 ? C.surface2 : 'transparent'
                       return (
-                        <tr key={t.id} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? 'transparent' : `${C.gold}03` }}>
+                        <tr key={t.id} style={{ borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${accent.border}`, background: baseBg, transition: 'background 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = accent.bg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = baseBg)}>
                           <td style={{ padding: '12px 14px', color: C.dimText, whiteSpace: 'nowrap' }}>{t.fecha}</td>
                           <td style={{ padding: '12px 14px', color: C.text, fontWeight: 600 }}>{t.par}</td>
                           <td style={{ padding: '12px 14px', color: t.lado === 'LONG' ? C.green : C.red, fontWeight: 700 }}>{t.lado}</td>
@@ -1415,6 +2062,8 @@ export default function JournalPage() {
               </div>
             )}
           </div>
+        )}
+        </>
         )}
 
       </div>

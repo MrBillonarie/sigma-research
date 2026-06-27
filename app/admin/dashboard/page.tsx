@@ -1,7 +1,12 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import {
+  BarChart2, Users, MessageSquare, ClipboardList, Mail,
+  FileText, Cpu, Search, Plus,
+  Bell, LogOut, ExternalLink, X, ChevronRight, RefreshCw,
+} from 'lucide-react'
 
 const SESSION_KEY   = 'sigma_admin_auth'
 const ADMIN_HEADERS = { 'Content-Type': 'application/json' }
@@ -43,6 +48,22 @@ interface CampañaRow {
   id: string; segmento: string; subject: string; title: string; sent_count: number; sent_at: string
 }
 
+interface CronEntry { lastRun: string | null; status: 'ok' | 'stale' | 'unknown' }
+interface SystemHealth {
+  crons: { syncFondos: CronEntry; motorSignals: CronEntry; motorAccuracy: CronEntry; sistemaNotifs: CronEntry }
+  pending: { lpSignals: number; lpItems: { id: string; hyp_text?: string }[]; reportesSinPdf: number; reportesItems: { id: string; titulo: string; numero: number }[] }
+  recentAudit: { id: string; ts: string; action: string; target_id: string | null; meta: Record<string, unknown> | null }[]
+}
+
+interface BizAlert { id: string; email?: string; nombre?: string; lastSeen?: string | null; registeredAt?: string; since?: string }
+interface BizMetrics {
+  mrr: number; mrrGoal: number
+  totalUsers: number; proCount: number; freeCount: number; confirmedCount: number
+  thisWeek: number; lastWeek: number; weeklyGrowthPct: number | null; weeksToGoal: number
+  conversionRate: number
+  alerts: { churnRisk: BizAlert[]; convOpportunity: BizAlert[]; urgentTickets: BizAlert[] }
+}
+
 interface MarketingForm {
   segmento: 'todos' | 'pro' | 'free'
   subject: string
@@ -72,24 +93,46 @@ const mockModelos = [
   { tag: 'VAR-06',   name: 'MACRO REGIME',     status: 'PRODUCCIÓN', accuracy: '84.1%', metric: 'Directional Acc', activo: true  },
 ]
 
-type Tab = 'resumen' | 'usuarios' | 'solicitudes' | 'modelos' | 'reportes' | 'tasas' | 'sync' | 'soporte' | 'marketing'
+type Tab = 'resumen' | 'usuarios' | 'solicitudes' | 'modelos' | 'reportes' | 'soporte' | 'marketing'
 
-const SIDEBAR_TABS: { id: Tab; label: string }[] = [
-  { id: 'resumen',     label: 'RESUMEN'    },
-  { id: 'usuarios',    label: 'USUARIOS'   },
-  { id: 'soporte',     label: 'SOPORTE'    },
-  { id: 'solicitudes', label: 'SOLICITUDES'},
-  { id: 'modelos',     label: 'MODELOS'    },
-  { id: 'reportes',    label: 'REPORTES'   },
-  { id: 'tasas',       label: 'TASAS DAP'  },
-  { id: 'sync',        label: 'SYNC DATOS' },
-  { id: 'marketing',   label: 'MARKETING'  },
+const SIDEBAR_GROUPS: { label: string; items: { id: Tab; label: string; icon: React.ElementType }[] }[] = [
+  {
+    label: 'NEGOCIO',
+    items: [{ id: 'resumen', label: 'Resumen', icon: BarChart2 }],
+  },
+  {
+    label: 'COMUNIDAD',
+    items: [
+      { id: 'usuarios',    label: 'Usuarios',    icon: Users          },
+      { id: 'soporte',     label: 'Soporte',     icon: MessageSquare  },
+      { id: 'solicitudes', label: 'Solicitudes', icon: ClipboardList  },
+      { id: 'marketing',   label: 'Marketing',   icon: Mail           },
+    ],
+  },
+  {
+    label: 'CONTENIDO',
+    items: [
+      { id: 'reportes', label: 'Reportes', icon: FileText },
+      { id: 'modelos',  label: 'Modelos',  icon: Cpu      },
+    ],
+  },
 ]
+
+// Flat list for mobile tabs (same order)
+const SIDEBAR_TABS = SIDEBAR_GROUPS.flatMap(g => g.items)
 
 const EMPTY_FORM = { numero: '', titulo: '', fecha: '', descripcion: '', url_pdf: '' }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function relativeTime(iso: string): string {
+  const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
+  if (h < 1) return 'hace < 1h'
+  if (h < 24) return `hace ${h}h`
+  const d = Math.floor(h / 24)
+  return d === 1 ? 'ayer' : `hace ${d} días`
 }
 
 export default function AdminDashboard() {
@@ -134,6 +177,22 @@ export default function AdminDashboard() {
   const [campañas,    setCampañas]    = useState<CampañaRow[]>([])
   const [loadingCamp, setLoadingCamp] = useState(false)
 
+  // ── Business metrics ─────────────────────────────────────────────────────────
+  const [bizMetrics,    setBizMetrics]    = useState<BizMetrics | null>(null)
+  const [loadingBiz,    setLoadingBiz]    = useState(false)
+
+  // ── System health ─────────────────────────────────────────────────────────────
+  const [systemHealth,  setSystemHealth]  = useState<SystemHealth | null>(null)
+  const [loadingSys,    setLoadingSys]    = useState(false)
+
+  // ── Ctrl+K global search ──────────────────────────────────────────────────
+  const [cmdkOpen,      setCmdkOpen]      = useState(false)
+  const [searchQuery,   setSearchQuery]   = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // ── Right panel (user detail) ─────────────────────────────────────────────
+  const [rightPanel,    setRightPanel]    = useState<UserRow | null>(null)
+
   // ── Pine Scripts ─────────────────────────────────────────────────────────────
   const [pineDownloading, setPineDownloading] = useState<string | null>(null)
   const [pineValidating,  setPineValidating]  = useState(false)
@@ -149,8 +208,28 @@ export default function AdminDashboard() {
       fetchTickets()
       fetchModelosState()
       fetchCampañas()
+      fetchBizMetrics()
+      fetchSystemHealth()
     }
   }, [router])
+
+  // Ctrl+K shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setCmdkOpen(prev => !prev)
+        setSearchQuery('')
+      }
+      if (e.key === 'Escape') { setCmdkOpen(false); setRightPanel(null) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  useEffect(() => {
+    if (cmdkOpen) setTimeout(() => searchRef.current?.focus(), 50)
+  }, [cmdkOpen])
 
   async function fetchModelosState() {
     try {
@@ -162,6 +241,26 @@ export default function AdminDashboard() {
         setModelos(prev => prev.map(m => map[m.tag] !== undefined ? { ...m, activo: map[m.tag] } : m))
       }
     } catch {}
+  }
+
+  async function fetchBizMetrics() {
+    setLoadingBiz(true)
+    try {
+      const res  = await fetch('/api/admin/business-metrics', { headers: ADMIN_HEADERS })
+      const json = await res.json()
+      if (!json.error) setBizMetrics(json)
+    } catch {}
+    setLoadingBiz(false)
+  }
+
+  async function fetchSystemHealth() {
+    setLoadingSys(true)
+    try {
+      const res  = await fetch('/api/admin/system-health', { headers: ADMIN_HEADERS })
+      const json = await res.json()
+      if (!json.error) setSystemHealth(json)
+    } catch {}
+    setLoadingSys(false)
   }
 
   async function fetchCampañas() {
@@ -404,13 +503,6 @@ export default function AdminDashboard() {
   const proCount       = users.filter(u => u.plan === 'pro').length
   const pendingTickets = tickets.filter(t => t.status === 'pendiente').length
 
-  const kpis = [
-    { label: 'Usuarios registrados', value: loadingUsers ? '…' : users.length.toString(),                                    color: 'text-gold'        },
-    { label: 'Usuarios PRO',         value: loadingUsers ? '…' : proCount.toString(),                                        color: 'text-gold'        },
-    { label: 'Fondos en DB',         value: loadingSync  ? '…' : (syncStatus?.fondos.total.toLocaleString('es-CL') ?? '—'), color: 'text-emerald-400' },
-    { label: 'ETFs en DB',           value: loadingSync  ? '…' : (syncStatus?.etfs.total?.toString() ?? '—'),                color: 'text-emerald-400' },
-  ]
-
   // Gráfico de crecimiento — últimas 8 semanas
   const growthData = useMemo(() => {
     const MS_WEEK = 7 * 24 * 3600 * 1000
@@ -428,6 +520,24 @@ export default function AdminDashboard() {
   }, [users])
 
   const growthMax = useMemo(() => Math.max(...growthData.map(w => w.count), 1), [growthData])
+
+  const totalAlerts = (bizMetrics?.alerts.churnRisk.length ?? 0) +
+    (bizMetrics?.alerts.convOpportunity.length ?? 0) +
+    (bizMetrics?.alerts.urgentTickets.length ?? 0)
+
+  const staleCrons = systemHealth
+    ? Object.values(systemHealth.crons).filter(c => c.status === 'stale').length
+    : 0
+  const unknownCrons = systemHealth
+    ? Object.values(systemHealth.crons).filter(c => c.status === 'unknown').length
+    : 0
+
+  const cmdkResults = searchQuery.trim().length > 0
+    ? users.filter(u =>
+        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.nombre || '').toLowerCase().includes(searchQuery.toLowerCase())
+      ).slice(0, 8)
+    : []
 
   // Feed de actividad reciente
   const activityFeed = useMemo(() => {
@@ -477,74 +587,139 @@ export default function AdminDashboard() {
   if (loading) return null
 
   return (
-    <div className="min-h-screen bg-bg text-text flex flex-col">
+    <div className="min-h-screen bg-admin-bg text-text flex flex-col">
 
-      {/* Top bar */}
-      <header className="bg-surface border-b border-border px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 border border-gold flex items-center justify-center">
-              <span className="display-heading text-gold text-xs leading-none">Σ</span>
-            </div>
-            <span className="display-heading text-lg tracking-widest text-text">SIGMA</span>
-            <span className="section-label text-gold ml-1">ADMIN</span>
+      {/* ── Mission Control Header ─────────────────────────────────────────── */}
+      <header className="bg-admin-surface px-5 py-2.5 flex items-center justify-between sticky top-0 z-50 shadow-admin-header">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 border border-admin-violet2 flex items-center justify-center bg-admin-violet/10">
+            <span className="display-heading text-admin-violet2 text-xs leading-none">Σ</span>
           </div>
-          <span className="hidden sm:block terminal-text text-xs text-muted border-l border-border pl-4">
-            admin@sigma.cl
-          </span>
+          <span className="display-heading text-base tracking-widest text-text">SIGMA</span>
+          <span className="section-label text-[10px] text-admin-violet2 border border-admin-violet/30 px-1.5 py-0.5 ml-0.5">ADMIN</span>
         </div>
-        <div className="flex items-center gap-4">
-          <Link href="/" className="terminal-text text-xs text-text-dim hover:text-gold transition-colors">
-            ← Ver sitio
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => { setCmdkOpen(true); setSearchQuery('') }}
+            className="flex items-center gap-2 px-3 py-1.5 bg-admin-surface2 border border-admin-border hover:border-admin-violet/40 transition-colors"
+          >
+            <Search size={12} className="text-muted" />
+            <span className="terminal-text text-xs text-muted hidden sm:block">Buscar</span>
+            <kbd className="hidden sm:block terminal-text text-[10px] text-muted border border-admin-border px-1 py-0.5">⌘K</kbd>
+          </button>
+
+          <button
+            onClick={() => setTab('reportes')}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-admin-border hover:border-admin-violet/40 text-text-dim hover:text-admin-violet2 transition-colors"
+          >
+            <Plus size={13} />
+            <span className="section-label text-[10px] hidden sm:block">REPORTE</span>
+          </button>
+
+          <button
+            onClick={() => setTab('resumen')}
+            className="relative flex items-center px-2.5 py-1.5 border border-admin-border hover:border-admin-violet/40 text-text-dim hover:text-admin-violet2 transition-colors"
+          >
+            <Bell size={14} />
+            {totalAlerts > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] flex items-center justify-center rounded-full leading-none">
+                {totalAlerts}
+              </span>
+            )}
+          </button>
+
+          <div className="w-px h-5 bg-admin-border mx-1" />
+
+          <Link href="/" className="flex items-center gap-1.5 terminal-text text-xs text-text-dim hover:text-admin-violet2 transition-colors px-2 py-1.5">
+            <ExternalLink size={12} />
+            <span className="hidden sm:block">Sitio</span>
           </Link>
-          <button onClick={logout} className="section-label text-xs text-red-400 hover:text-red-300 transition-colors">
-            SALIR
+
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 section-label text-[10px] text-red-400/70 hover:text-red-400 transition-colors px-2 py-1.5 border border-transparent hover:border-red-400/30"
+          >
+            <LogOut size={13} />
+            <span className="hidden sm:block">SALIR</span>
           </button>
         </div>
       </header>
 
+      {/* ── Sticky KPI Bar ─────────────────────────────────────────────────── */}
+      <div className="bg-admin-bg px-4 py-2 sticky top-[49px] z-40 hidden md:flex items-stretch gap-1.5">
+        {[
+          { label: 'MRR',          value: loadingBiz   ? '…' : `$${bizMetrics?.mrr ?? 0}`,         color: 'text-gold'           },
+          { label: 'ESTA SEMANA',  value: loadingBiz   ? '…' : `+${bizMetrics?.thisWeek ?? 0} reg`, color: 'text-emerald-400'    },
+          { label: 'ALERTAS',      value: loadingBiz   ? '…' : String(totalAlerts),                 color: totalAlerts > 0 ? 'text-red-400' : 'text-text-dim' },
+          { label: 'TICKETS',      value: String(pendingTickets),                                    color: pendingTickets > 0 ? 'text-yellow-400' : 'text-text-dim' },
+          { label: 'PRO',          value: loadingUsers ? '…' : String(proCount),                    color: 'text-admin-violet2'  },
+          { label: 'CRONS',        value: loadingSys   ? '…' : staleCrons > 0 ? `${staleCrons} STALE` : unknownCrons === 4 ? '—' : 'OK', color: loadingSys ? 'text-muted' : staleCrons > 0 ? 'text-red-400' : unknownCrons === 4 ? 'text-muted' : 'text-emerald-400' },
+        ].map(kpi => (
+          <div key={kpi.label} className="flex items-center gap-2.5 px-4 py-2 bg-admin-surface shadow-admin-glow">
+            <span className="section-label text-[9px] text-muted tracking-widest">{kpi.label}</span>
+            <span className={`terminal-text text-sm num tabular-nums font-medium ${kpi.color}`}>{kpi.value}</span>
+          </div>
+        ))}
+      </div>
+
       <div className="flex flex-1">
 
-        {/* Sidebar */}
-        <aside className="hidden md:flex flex-col w-48 bg-surface border-r border-border py-6 px-3 gap-1 shrink-0">
-          {SIDEBAR_TABS.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              className={`section-label text-left px-3 py-2.5 transition-colors text-xs flex items-center justify-between ${
-                tab === item.id
-                  ? 'text-gold bg-gold/5 border-l-2 border-gold'
-                  : 'text-text-dim hover:text-gold hover:bg-gold/5 border-l-2 border-transparent'
-              }`}
-            >
-              {item.label}
-              {item.id === 'soporte' && pendingTickets > 0 && (
-                <span className="bg-yellow-400/20 text-yellow-400 text-[10px] px-1.5 py-0.5 rounded-full leading-none">
-                  {pendingTickets}
-                </span>
-              )}
-            </button>
+        {/* ── Grouped Sidebar ─────────────────────────────────────────────── */}
+        <aside className="hidden md:flex flex-col w-52 bg-admin-surface2 py-4 px-2 shrink-0 shadow-admin-sidebar">
+          {SIDEBAR_GROUPS.map(group => (
+            <div key={group.label} className="mb-3">
+              <div className="section-label text-[9px] text-muted px-3 mb-1 tracking-widest">{group.label}</div>
+              {group.items.map(item => {
+                const Icon     = item.icon
+                const isActive = tab === item.id
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setTab(item.id)}
+                    className={`w-full text-left flex items-center gap-2.5 px-3 py-2 transition-all border-l-2 ${
+                      isActive
+                        ? 'text-admin-violet2 bg-admin-bg border-admin-violet2 shadow-[inset_0_0_12px_rgba(124,58,237,0.12)]'
+                        : 'text-text-dim hover:text-text hover:bg-admin-bg/50 border-transparent'
+                    }`}
+                  >
+                    <Icon size={13} className={isActive ? 'text-admin-violet2' : 'text-muted'} />
+                    <span className="section-label text-xs">{item.label}</span>
+                    {item.id === 'soporte' && pendingTickets > 0 && (
+                      <span className="ml-auto bg-yellow-400/20 text-yellow-400 text-[9px] px-1.5 py-0.5 rounded-full leading-none">
+                        {pendingTickets}
+                      </span>
+                    )}
+                    {item.id === 'resumen' && totalAlerts > 0 && (
+                      <span className="ml-auto bg-red-400/20 text-red-400 text-[9px] px-1.5 py-0.5 rounded-full leading-none">
+                        {totalAlerts}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           ))}
 
-          <div className="border-t border-border my-3 mx-1" />
+          <div className="my-2 mx-3 h-px bg-admin-violet/10" />
 
           <Link
             href="/admin/lp-signal"
-            className="section-label text-left px-3 py-2.5 text-xs text-text-dim hover:text-gold hover:bg-gold/5 border-l-2 border-transparent transition-colors flex items-center justify-between"
+            className="flex items-center gap-2.5 px-3 py-2 text-text-dim hover:text-admin-violet2 hover:bg-admin-bg/60 border-l-2 border-transparent transition-colors"
           >
-            LP SIGNAL
-            <span className="text-muted text-[10px]">↗</span>
+            <ExternalLink size={13} className="text-muted" />
+            <span className="section-label text-xs">LP SIGNAL</span>
           </Link>
         </aside>
 
         {/* Mobile tabs */}
-        <div className="md:hidden w-full border-b border-border bg-surface px-4 flex gap-1 overflow-x-auto">
+        <div className="md:hidden w-full border-b border-admin-border bg-admin-surface px-4 flex gap-1 overflow-x-auto">
           {SIDEBAR_TABS.map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`section-label text-xs py-3 px-3 whitespace-nowrap border-b-2 transition-colors ${
-                tab === t.id ? 'text-gold border-gold' : 'text-text-dim border-transparent'
+                tab === t.id ? 'text-admin-violet2 border-admin-violet' : 'text-text-dim border-transparent'
               }`}
             >
               {t.label}
@@ -561,25 +736,338 @@ export default function AdminDashboard() {
           {/* ── RESUMEN ─────────────────────────────────────────────────────── */}
           {tab === 'resumen' && (
             <div className="flex flex-col gap-8">
-              <div>
-                <div className="section-label text-gold mb-1">{'// RESUMEN'}</div>
-                <h2 className="display-heading text-4xl text-text">OVERVIEW</h2>
-              </div>
-
-              {/* KPIs */}
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
-                {kpis.map(k => (
-                  <div key={k.label} className="bg-surface p-5">
-                    <div className="section-label text-text-dim text-xs mb-1">{k.label}</div>
-                    <div className={`display-heading text-5xl num tabular-nums ${k.color}`}>{k.value}</div>
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="section-label text-[9px] text-muted mb-1 tracking-[0.2em]">{'// ADMIN · RESUMEN'}</div>
+                  <h2 className="display-heading text-4xl text-text">OVERVIEW</h2>
+                </div>
+                <div className="hidden sm:flex flex-col items-end gap-0.5">
+                  <div className="terminal-text text-xs text-muted num">
+                    {new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </div>
-                ))}
+                  <div className="section-label text-[9px] text-gold/40 tracking-widest">SIGMA RESEARCH</div>
+                </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-px bg-border">
+              {/* ── SISTEMA ─────────────────────────────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="section-label text-[9px] text-muted/50 tabular-nums">01</span>
+                  <div className="section-label text-gold">SALUD DEL SISTEMA</div>
+                  <div className="flex-1 h-px bg-gold/10" />
+                  <button
+                    onClick={fetchSystemHealth}
+                    className="flex items-center gap-1.5 terminal-text text-xs text-text-dim hover:text-gold transition-colors"
+                  >
+                    <RefreshCw size={11} className={loadingSys ? 'animate-spin' : ''} />
+                    {loadingSys ? 'actualizando…' : 'actualizar'}
+                  </button>
+                </div>
+
+                {/* Cron status strip */}
+                <div className="bg-admin-surface mb-2 grid grid-cols-2 sm:grid-cols-4 divide-x divide-admin-border">
+                  {([
+                    { key: 'syncFondos',    label: 'SYNC FONDOS'    },
+                    { key: 'motorSignals',  label: 'MOTOR SIGNALS'  },
+                    { key: 'motorAccuracy', label: 'MOTOR ACCURACY' },
+                    { key: 'sistemaNotifs', label: 'NOTIFICACIONES' },
+                  ] as const).map(c => {
+                    const d      = systemHealth?.crons[c.key]
+                    const status = d?.status ?? 'unknown'
+                    return (
+                      <div key={c.key} className={`p-4 border-b-2 ${
+                        status === 'stale' ? 'border-b-red-400' : status === 'ok' ? 'border-b-emerald-400' : 'border-b-transparent'
+                      }`}>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                            status === 'ok' ? 'bg-emerald-400' : status === 'stale' ? 'bg-red-400 animate-pulse' : 'bg-admin-border'
+                          }`} />
+                          <span className="section-label text-[9px] text-text-dim tracking-widest">{c.label}</span>
+                        </div>
+                        <div className={`terminal-text text-xs ${
+                          status === 'ok' ? 'text-emerald-400' : status === 'stale' ? 'text-red-400' : 'text-muted'
+                        }`}>
+                          {loadingSys ? '…' : d?.lastRun ? relativeTime(d.lastRun) : 'Sin datos'}
+                        </div>
+                        <div className={`section-label text-[9px] mt-0.5 ${
+                          status === 'ok' ? 'text-emerald-400/60' : status === 'stale' ? 'text-red-400/60' : 'text-muted'
+                        }`}>
+                          {status.toUpperCase()}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Pendientes + Audit */}
+                <div className="grid md:grid-cols-2 gap-1.5">
+
+                  {/* Cola pendiente */}
+                  <div className="bg-admin-surface p-5 shadow-admin-glow">
+                    <div className="section-label text-gold mb-3">COLA PENDIENTE</div>
+                    {loadingSys ? (
+                      <div className="terminal-text text-xs text-muted">Cargando…</div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between py-2 border-b border-admin-border">
+                          <span className="terminal-text text-xs text-text-dim">LP Signals pendientes</span>
+                          <span className={`display-heading text-2xl num ${
+                            (systemHealth?.pending.lpSignals ?? 0) > 0 ? 'text-yellow-400' : 'text-muted'
+                          }`}>{systemHealth?.pending.lpSignals ?? 0}</span>
+                        </div>
+                        {(systemHealth?.pending.lpSignals ?? 0) > 0 && (
+                          <Link href="/admin/lp-signal" className="terminal-text text-xs text-yellow-400 hover:text-yellow-300 underline underline-offset-2">
+                            Revisar señales →
+                          </Link>
+                        )}
+                        <div className="flex items-center justify-between py-2">
+                          <span className="terminal-text text-xs text-text-dim">Reportes sin PDF</span>
+                          <span className={`display-heading text-2xl num ${
+                            (systemHealth?.pending.reportesSinPdf ?? 0) > 0 ? 'text-orange-400' : 'text-muted'
+                          }`}>{systemHealth?.pending.reportesSinPdf ?? 0}</span>
+                        </div>
+                        {(systemHealth?.pending.reportesSinPdf ?? 0) > 0 && (
+                          <button
+                            onClick={() => setTab('reportes')}
+                            className="terminal-text text-xs text-orange-400 hover:text-orange-300 underline underline-offset-2 text-left"
+                          >
+                            {systemHealth?.pending.reportesItems.map(r => `#${r.numero} ${r.titulo}`).join(', ')} — ir a reportes →
+                          </button>
+                        )}
+                        {(systemHealth?.pending.lpSignals ?? 0) === 0 && (systemHealth?.pending.reportesSinPdf ?? 0) === 0 && (
+                          <div className="terminal-text text-xs text-emerald-400/70">Todo al día ✓</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Audit reciente */}
+                  <div className="bg-admin-surface p-5 shadow-admin-glow">
+                    <div className="section-label text-gold mb-3">ÚLTIMAS ACCIONES</div>
+                    {loadingSys ? (
+                      <div className="terminal-text text-xs text-muted">Cargando…</div>
+                    ) : (systemHealth?.recentAudit ?? []).length === 0 ? (
+                      <div className="terminal-text text-xs text-muted">Sin acciones registradas aún.</div>
+                    ) : (
+                      <div className="flex flex-col divide-y divide-admin-border">
+                        {(systemHealth?.recentAudit ?? []).map(log => (
+                          <div key={log.id} className="flex items-center gap-2 py-2">
+                            <span className="terminal-text text-[10px] text-muted num shrink-0 whitespace-nowrap">
+                              {new Date(log.ts).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                            <span className="terminal-text text-xs text-text truncate">{log.action}</span>
+                            {log.meta && typeof log.meta === 'object' && 'titulo' in log.meta && (
+                              <span className="terminal-text text-[10px] text-muted truncate max-w-[100px]">
+                                {String(log.meta.titulo).slice(0, 30)}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* ── ESTADO DEL NEGOCIO ──────────────────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="section-label text-[9px] text-muted/50 tabular-nums">02</span>
+                  <div className="section-label text-gold">ESTADO DEL NEGOCIO</div>
+                  <div className="flex-1 h-px bg-gold/10" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr] gap-2 bg-admin-bg">
+
+                  {/* MRR */}
+                  <div className="bg-admin-surface p-6 shadow-admin-glow relative overflow-hidden bg-gradient-to-br from-gold/5 to-transparent">
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-gold to-transparent" />
+                    <div className="section-label text-text-dim text-xs mb-2">MRR ACTUAL</div>
+                    <div className="display-heading text-6xl text-gold num tabular-nums drop-shadow-[0_0_24px_rgba(212,175,55,0.25)]">
+                      {loadingBiz ? '…' : `$${bizMetrics?.mrr ?? 0}`}
+                    </div>
+                    <div className="terminal-text text-xs text-muted mt-1">
+                      {loadingBiz ? '' : `${bizMetrics?.proCount ?? 0} usuarios PRO × $29 USD`}
+                    </div>
+                    {bizMetrics && (
+                      <div className="mt-3">
+                        <div className="flex justify-between terminal-text text-xs text-muted mb-1">
+                          <span>META $2,900</span>
+                          <span>{Math.round((bizMetrics.mrr / 2900) * 100)}%</span>
+                        </div>
+                        <div className="h-1 bg-border overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-gold/60 to-gold transition-all" style={{ width: `${Math.min((bizMetrics.mrr / 2900) * 100, 100)}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Crecimiento semanal */}
+                  <div className="bg-admin-surface p-5 shadow-admin-glow relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400/60 to-transparent" />
+                    <div className="section-label text-text-dim text-xs mb-2">CRECIMIENTO SEMANAL</div>
+                    <div className="display-heading text-5xl text-emerald-400 num tabular-nums">
+                      {loadingBiz ? '…' : `+${bizMetrics?.thisWeek ?? 0}`}
+                    </div>
+                    <div className="terminal-text text-xs text-muted mt-1">
+                      {loadingBiz ? '' : (() => {
+                        const g = bizMetrics?.weeklyGrowthPct
+                        if (g === null || g === undefined) return 'primera semana con datos'
+                        return g >= 0 ? `↑ ${g}% vs semana pasada` : `↓ ${Math.abs(g)}% vs semana pasada`
+                      })()}
+                    </div>
+                    {bizMetrics && (
+                      <div className="mt-3 terminal-text text-xs text-muted">
+                        Semana anterior: <span className="text-text">{bizMetrics.lastWeek} registro{bizMetrics.lastWeek !== 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Proyección */}
+                  <div className="bg-admin-surface p-5 shadow-admin-glow relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-yellow-400/60 to-transparent" />
+                    <div className="section-label text-text-dim text-xs mb-2">PROYECCIÓN A 100 USUARIOS</div>
+                    <div className="display-heading text-5xl text-yellow-400 num tabular-nums">
+                      {loadingBiz ? '…' : bizMetrics?.weeksToGoal === 0 ? '✓' : `~${bizMetrics?.weeksToGoal}sem`}
+                    </div>
+                    <div className="terminal-text text-xs text-muted mt-1">
+                      {loadingBiz ? '' : bizMetrics?.weeksToGoal === 0
+                        ? 'Meta alcanzada'
+                        : `al ritmo actual de ${bizMetrics?.thisWeek ?? 0} reg/semana`}
+                    </div>
+                    {bizMetrics && (
+                      <div className="mt-3">
+                        <div className="flex justify-between terminal-text text-xs text-muted mb-1">
+                          <span>{bizMetrics.totalUsers} / 100</span>
+                          <span>{bizMetrics.totalUsers}%</span>
+                        </div>
+                        <div className="h-1 bg-border overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-yellow-400/60 to-yellow-400 transition-all" style={{ width: `${Math.min(bizMetrics.totalUsers, 100)}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* ── ALERTAS ─────────────────────────────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="section-label text-[9px] text-muted/50 tabular-nums">03</span>
+                  <div className={`section-label ${totalAlerts > 0 && !loadingBiz ? 'text-red-400' : 'text-gold'}`}>ALERTAS</div>
+                  <div className="flex-1 h-px bg-gold/10" />
+                  {totalAlerts === 0 && !loadingBiz && (
+                    <span className="section-label text-[9px] text-emerald-400/70">TODO OK ✓</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-admin-bg">
+
+                  {/* Churn risk */}
+                  <div className={`bg-surface p-5 ${!loadingBiz && (bizMetrics?.alerts.churnRisk.length ?? 0) > 0 ? 'border-l-2 border-red-400' : ''}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${(bizMetrics?.alerts.churnRisk.length ?? 0) > 0 ? 'bg-red-400' : 'bg-border'}`} />
+                      <div className="section-label text-xs text-text-dim">CHURN RISK</div>
+                    </div>
+                    <div className={`display-heading text-4xl num ${(bizMetrics?.alerts.churnRisk.length ?? 0) > 0 ? 'text-red-400' : 'text-muted'}`}>
+                      {loadingBiz ? '…' : bizMetrics?.alerts.churnRisk.length ?? 0}
+                    </div>
+                    <div className="terminal-text text-xs text-muted mt-1">PRO sin actividad &gt;14 días</div>
+                    {(bizMetrics?.alerts.churnRisk.length ?? 0) > 0 && (
+                      <button onClick={() => setTab('usuarios')} className="mt-3 terminal-text text-xs text-red-400 hover:text-red-300 underline underline-offset-2">
+                        Ver usuarios →
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Oportunidad de conversión */}
+                  <div className={`bg-surface p-5 ${!loadingBiz && (bizMetrics?.alerts.convOpportunity.length ?? 0) > 0 ? 'border-l-2 border-yellow-400' : ''}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${(bizMetrics?.alerts.convOpportunity.length ?? 0) > 0 ? 'bg-yellow-400' : 'bg-border'}`} />
+                      <div className="section-label text-xs text-text-dim">OPORTUNIDAD</div>
+                    </div>
+                    <div className={`display-heading text-4xl num ${(bizMetrics?.alerts.convOpportunity.length ?? 0) > 0 ? 'text-yellow-400' : 'text-muted'}`}>
+                      {loadingBiz ? '…' : bizMetrics?.alerts.convOpportunity.length ?? 0}
+                    </div>
+                    <div className="terminal-text text-xs text-muted mt-1">Free &gt;7 días sin convertir</div>
+                    {(bizMetrics?.alerts.convOpportunity.length ?? 0) > 0 && (
+                      <button onClick={() => setTab('marketing')} className="mt-3 terminal-text text-xs text-yellow-400 hover:text-yellow-300 underline underline-offset-2">
+                        Enviar campaña →
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Tickets urgentes */}
+                  <div className={`bg-surface p-5 ${!loadingBiz && (bizMetrics?.alerts.urgentTickets.length ?? 0) > 0 ? 'border-l-2 border-orange-400' : ''}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${(bizMetrics?.alerts.urgentTickets.length ?? 0) > 0 ? 'bg-orange-400' : 'bg-border'}`} />
+                      <div className="section-label text-xs text-text-dim">TICKETS URGENTES</div>
+                    </div>
+                    <div className={`display-heading text-4xl num ${(bizMetrics?.alerts.urgentTickets.length ?? 0) > 0 ? 'text-orange-400' : 'text-muted'}`}>
+                      {loadingBiz ? '…' : bizMetrics?.alerts.urgentTickets.length ?? 0}
+                    </div>
+                    <div className="terminal-text text-xs text-muted mt-1">Tickets pendientes &gt;48h</div>
+                    {(bizMetrics?.alerts.urgentTickets.length ?? 0) > 0 && (
+                      <button onClick={() => setTab('soporte')} className="mt-3 terminal-text text-xs text-orange-400 hover:text-orange-300 underline underline-offset-2">
+                        Ver soporte →
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* ── EMBUDO ──────────────────────────────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="section-label text-[9px] text-muted/50 tabular-nums">04</span>
+                  <div className="section-label text-gold">EMBUDO DE CONVERSIÓN</div>
+                  <div className="flex-1 h-px bg-gold/10" />
+                </div>
+                <div className="bg-admin-surface p-5 shadow-admin-glow">
+                  {loadingBiz ? (
+                    <div className="terminal-text text-xs text-muted">Calculando…</div>
+                  ) : bizMetrics ? (
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2 bg-admin-bg">
+                      {[
+                        { label: 'REGISTRADOS',  value: bizMetrics.totalUsers,     color: 'text-text',        pct: 100 },
+                        { label: 'CONFIRMADOS',  value: bizMetrics.confirmedCount,  color: 'text-emerald-400', pct: bizMetrics.totalUsers > 0 ? Math.round((bizMetrics.confirmedCount / bizMetrics.totalUsers) * 100) : 0 },
+                        { label: 'CONVERTIDOS PRO', value: bizMetrics.proCount,     color: 'text-gold',        pct: bizMetrics.confirmedCount > 0 ? Math.round((bizMetrics.proCount / bizMetrics.confirmedCount) * 100) : 0 },
+                      ].map((step, i) => (
+                        <div key={step.label} className="flex-1 bg-surface p-5 flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="terminal-text text-xs text-muted">{String(i + 1).padStart(2, '0')}</span>
+                            <span className="section-label text-xs text-text-dim">{step.label}</span>
+                          </div>
+                          <div className={`display-heading text-4xl num tabular-nums ${step.color}`}>{step.value}</div>
+                          <div className="h-1 bg-border overflow-hidden">
+                            <div className="h-full bg-current transition-all opacity-60" style={{ width: `${step.pct}%`, color: step.color.replace('text-', '') }} />
+                          </div>
+                          <div className="terminal-text text-xs text-muted">{step.pct}% del paso anterior</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {bizMetrics && (
+                    <div className="mt-3 pt-3 border-t border-admin-border flex flex-wrap gap-6">
+                      <div>
+                        <span className="section-label text-xs text-text-dim">TASA FREE → PRO</span>
+                        <span className="ml-3 terminal-text text-gold text-sm num">{bizMetrics.conversionRate}%</span>
+                      </div>
+                      <div>
+                        <span className="section-label text-xs text-text-dim">MRR POTENCIAL (100 PRO)</span>
+                        <span className="ml-3 terminal-text text-text text-sm num">${bizMetrics.mrrGoal} USD</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+
+              <div className="grid md:grid-cols-2 gap-2 bg-admin-bg">
 
                 {/* Estado de usuarios */}
-                <div className="bg-surface p-6">
+                <div className="bg-admin-surface p-6 shadow-admin-glow">
                   <div className="section-label text-gold mb-4">ESTADO DE USUARIOS</div>
                   {loadingUsers ? (
                     <div className="terminal-text text-xs text-muted">Cargando…</div>
@@ -610,7 +1098,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Estado de sync */}
-                <div className="bg-surface p-6">
+                <div className="bg-admin-surface p-6 shadow-admin-glow">
                   <div className="section-label text-gold mb-4">SYNC DE DATOS</div>
                   {loadingSync ? (
                     <div className="terminal-text text-xs text-muted">Cargando…</div>
@@ -627,7 +1115,7 @@ export default function AdminDashboard() {
                           <div className="h-full bg-gold-gradient transition-all duration-700" style={{ width: `${syncStatus.fondos.pctToday}%` }} />
                         </div>
                       </div>
-                      <div className="flex items-center justify-between py-1.5 border-b border-border">
+                      <div className="flex items-center justify-between py-1.5 border-b border-admin-border">
                         <span className="terminal-text text-xs text-text">ETFs</span>
                         <span className="terminal-text text-xs text-emerald-400 num">{syncStatus.etfs.total} fondos</span>
                       </div>
@@ -641,7 +1129,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Crecimiento de usuarios — últimas 8 semanas */}
-              <div className="bg-surface p-6">
+              <div className="bg-admin-surface p-6 shadow-admin-glow">
                 <div className="flex items-center justify-between mb-5">
                   <div className="section-label text-gold">CRECIMIENTO DE USUARIOS</div>
                   <span className="terminal-text text-xs text-muted">últimas 8 semanas</span>
@@ -675,7 +1163,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Conversión free → PRO */}
-              <div className="bg-surface p-6">
+              <div className="bg-admin-surface p-6 shadow-admin-glow">
                 <div className="flex items-center justify-between mb-5">
                   <div className="section-label text-gold">CONVERSIÓN FREE → PRO</div>
                   <span className="terminal-text text-xs text-muted">últimas 8 semanas</span>
@@ -715,11 +1203,11 @@ export default function AdminDashboard() {
               </div>
 
               {/* Estado modelos */}
-              <div className="bg-surface p-6">
+              <div className="bg-admin-surface p-6 shadow-admin-glow">
                 <div className="section-label text-gold mb-4">ESTADO DE MODELOS</div>
-                <div className="grid md:grid-cols-3 gap-px bg-border">
+                <div className="grid md:grid-cols-3 gap-2 bg-admin-bg">
                   {modelos.map(m => (
-                    <div key={m.tag} className="bg-bg p-4 flex items-center justify-between">
+                    <div key={m.tag} className="bg-admin-bg p-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full ${m.activo ? 'bg-emerald-400' : 'bg-red-400'}`} />
                         <span className="terminal-text text-xs text-text">{m.name}</span>
@@ -733,7 +1221,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Feed de actividad reciente */}
-              <div className="bg-surface p-6">
+              <div className="bg-admin-surface p-6 shadow-admin-glow">
                 <div className="flex items-center justify-between mb-4">
                   <div className="section-label text-gold">ACTIVIDAD RECIENTE</div>
                   <span className="terminal-text text-xs text-muted">últimas acciones</span>
@@ -743,7 +1231,7 @@ export default function AdminDashboard() {
                 ) : activityFeed.length === 0 ? (
                   <div className="terminal-text text-xs text-muted">Sin actividad aún.</div>
                 ) : (
-                  <div className="flex flex-col divide-y divide-border">
+                  <div className="flex flex-col divide-y divide-admin-border">
                     {activityFeed.map((item, i) => (
                       <div key={i} className="flex items-center gap-3 py-2.5">
                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -787,7 +1275,7 @@ export default function AdminDashboard() {
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-surface border-b border-border">
+                      <tr className="bg-admin-surface border-b border-admin-border">
                         {['Nombre', 'Email', 'Plan', 'Registro', 'Último acceso', 'Estado', ''].map(h => (
                           <th key={h} className="section-label text-text-dim text-xs text-left px-4 py-3">{h}</th>
                         ))}
@@ -797,7 +1285,7 @@ export default function AdminDashboard() {
                       {users.map(u => (
                         <Fragment key={u.id}>
                           <tr
-                            className={`border-b border-border transition-colors cursor-pointer ${expandedUser === u.id ? 'bg-gold/5' : 'hover:bg-surface/60'}`}
+                            className={`border-b border-admin-border transition-colors cursor-pointer ${expandedUser === u.id ? 'bg-gold/5' : 'hover:bg-surface/60'}`}
                             onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}
                           >
                             <td className="terminal-text text-sm text-text px-4 py-3">{u.nombre || '—'}</td>
@@ -808,7 +1296,7 @@ export default function AdminDashboard() {
                                 className={`section-label text-xs border px-2.5 py-1 transition-colors ${
                                   u.plan === 'pro'
                                     ? 'text-gold border-gold/40 hover:bg-gold/10'
-                                    : 'text-text-dim border-border hover:border-gold/40 hover:text-gold'
+                                    : 'text-text-dim border-admin-border hover:border-gold/40 hover:text-gold'
                                 }`}
                               >
                                 {u.plan === 'pro' ? 'PRO' : 'FREE'}
@@ -827,7 +1315,7 @@ export default function AdminDashboard() {
                           </tr>
 
                           {expandedUser === u.id && (
-                            <tr key={`${u.id}-expand`} className="border-b border-border bg-gold/5">
+                            <tr key={`${u.id}-expand`} className="border-b border-admin-border bg-gold/5">
                               <td colSpan={7} className="px-6 py-5">
                                 <div className="flex flex-col gap-3 max-w-xl">
                                   <div className="section-label text-gold text-xs">ENVIAR EMAIL DIRECTO</div>
@@ -837,7 +1325,7 @@ export default function AdminDashboard() {
                                     value={emailDirecto[u.id] ?? ''}
                                     onChange={e => setEmailDirecto(prev => ({ ...prev, [u.id]: e.target.value }))}
                                     onClick={e => e.stopPropagation()}
-                                    className="w-full bg-bg border border-border focus:border-gold/60 outline-none px-4 py-3 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
+                                    className="w-full bg-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-3 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
                                   />
                                   <div className="flex items-center gap-3">
                                     <button
@@ -849,7 +1337,7 @@ export default function AdminDashboard() {
                                     </button>
                                     <button
                                       onClick={e => { e.stopPropagation(); togglePlan(u) }}
-                                      className="section-label text-xs border border-border px-5 py-2 text-text-dim hover:border-gold hover:text-gold transition-colors"
+                                      className="section-label text-xs border border-admin-border px-5 py-2 text-text-dim hover:border-gold hover:text-gold transition-colors"
                                     >
                                       {u.plan === 'pro' ? 'BAJAR A FREE' : 'SUBIR A PRO'}
                                     </button>
@@ -892,12 +1380,12 @@ export default function AdminDashboard() {
 
               {/* Resumen por estado */}
               {!loadingTickets && tickets.length > 0 && (
-                <div className="grid grid-cols-3 gap-px bg-border">
+                <div className="grid grid-cols-3 gap-2 bg-admin-bg">
                   {(['pendiente', 'visto', 'resuelto'] as const).map(s => {
                     const count  = tickets.filter(t => t.status === s).length
                     const colors = { pendiente: 'text-yellow-400', visto: 'text-gold', resuelto: 'text-emerald-400' }
                     return (
-                      <div key={s} className="bg-surface p-4 text-center">
+                      <div key={s} className="bg-admin-surface p-4 shadow-admin-glow text-center">
                         <div className={`display-heading text-4xl num ${colors[s]}`}>{count}</div>
                         <div className="section-label text-text-dim text-xs mt-1">{s.toUpperCase()}</div>
                       </div>
@@ -909,11 +1397,11 @@ export default function AdminDashboard() {
               {loadingTickets ? (
                 <div className="terminal-text text-xs text-muted">Cargando…</div>
               ) : tickets.length === 0 ? (
-                <div className="bg-surface border border-border p-8 text-center terminal-text text-xs text-muted">
+                <div className="bg-admin-surface p-8 text-center terminal-text text-xs text-muted">
                   No hay solicitudes todavía.
                 </div>
               ) : (
-                <div className="flex flex-col gap-px bg-border">
+                <div className="flex flex-col gap-2 bg-admin-bg">
                   {tickets.map(t => {
                     const statusColors: Record<string, string> = {
                       pendiente: 'text-yellow-400 border-yellow-400/30',
@@ -921,7 +1409,7 @@ export default function AdminDashboard() {
                       resuelto:  'text-emerald-400 border-emerald-400/30',
                     }
                     return (
-                      <div key={t.id} className="bg-surface p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div key={t.id} className="bg-admin-surface p-5 shadow-admin-glow flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="terminal-text text-sm text-text">{t.nombre}</span>
@@ -961,9 +1449,9 @@ export default function AdminDashboard() {
                 <h2 className="display-heading text-4xl text-text">MODELOS ML</h2>
               </div>
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2 bg-admin-bg">
                 {modelos.map(m => (
-                  <div key={m.tag} className="bg-surface p-5 flex flex-col gap-3">
+                  <div key={m.tag} className="bg-admin-surface p-5 shadow-admin-glow flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5">{m.tag}</span>
                       <span className={`section-label text-xs ${m.status === 'PRODUCCIÓN' ? 'text-emerald-400' : 'text-yellow-400'}`}>
@@ -994,9 +1482,9 @@ export default function AdminDashboard() {
                 <div className="section-label text-gold mb-1">{'// PINE SCRIPTS'}</div>
                 <h2 className="display-heading text-3xl text-text mb-4">DESCARGAR MOTORES</h2>
 
-                <div className="grid md:grid-cols-2 gap-px bg-border mb-4">
+                <div className="grid md:grid-cols-2 gap-2 bg-admin-bg mb-4">
                   {/* Motor 1 */}
-                  <div className="bg-surface p-6 flex flex-col gap-4">
+                  <div className="bg-admin-surface p-6 shadow-admin-glow flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                       <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5">MOTOR 1</span>
                       <span className="section-label text-xs text-emerald-400">PRODUCCIÓN</span>
@@ -1027,7 +1515,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* Motor 2 */}
-                  <div className="bg-surface p-6 flex flex-col gap-4">
+                  <div className="bg-admin-surface p-6 shadow-admin-glow flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                       <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5">MOTOR 2</span>
                       <span className="section-label text-xs text-emerald-400">PRODUCCIÓN</span>
@@ -1059,7 +1547,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Validation panel */}
-                <div className="bg-surface border border-border p-5 flex items-center gap-6">
+                <div className="bg-admin-surface p-5 shadow-admin-glow flex items-center gap-6">
                   <div className="flex-1">
                     <div className="section-label text-xs text-text-dim mb-1">VALIDACIÓN ESTÁTICA</div>
                     {pineValidResult ? (
@@ -1085,7 +1573,7 @@ export default function AdminDashboard() {
                       } catch { /* silently fail */ }
                       finally { setPineValidating(false) }
                     }}
-                    className="section-label text-xs px-4 py-2.5 border border-border hover:border-gold/40 text-text-dim hover:text-gold transition-colors disabled:opacity-50 whitespace-nowrap"
+                    className="section-label text-xs px-4 py-2.5 border border-admin-border hover:border-gold/40 text-text-dim hover:text-gold transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
                     {pineValidating ? '⟳ VALIDANDO...' : 'VALIDAR AHORA'}
                   </button>
@@ -1102,7 +1590,7 @@ export default function AdminDashboard() {
                 <h2 className="display-heading text-4xl text-text">REPORTES</h2>
               </div>
 
-              <div ref={formRef} className={`border p-6 ${editingId ? 'bg-gold/5 border-gold/40' : 'bg-surface border-border'}`}>
+              <div ref={formRef} className={`border p-6 ${editingId ? 'bg-gold/5 border-gold/40' : 'bg-surface border-admin-border'}`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="section-label text-gold">
                     {editingId ? `EDITANDO REPORTE #${form.numero.padStart(3, '0')}` : 'NUEVO REPORTE'}
@@ -1120,7 +1608,7 @@ export default function AdminDashboard() {
                       <input type="number" required value={form.numero}
                         onChange={e => setForm(p => ({ ...p, numero: e.target.value }))}
                         placeholder="001"
-                        className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                        className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                       />
                     </div>
                     <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -1128,7 +1616,7 @@ export default function AdminDashboard() {
                       <input type="text" required value={form.titulo}
                         onChange={e => setForm(p => ({ ...p, titulo: e.target.value }))}
                         placeholder="Reporte Mensual #001"
-                        className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                        className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                       />
                     </div>
                   </div>
@@ -1138,14 +1626,14 @@ export default function AdminDashboard() {
                       <label className="section-label text-text-dim text-xs">Fecha de publicación</label>
                       <input type="date" required value={form.fecha}
                         onChange={e => setForm(p => ({ ...p, fecha: e.target.value }))}
-                        className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm transition-colors"
+                        className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm transition-colors"
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="section-label text-text-dim text-xs">PDF — subir archivo</label>
                       <input ref={fileRef} type="file" accept=".pdf"
                         onChange={e => setPdfFile(e.target.files?.[0] ?? null)}
-                        className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm transition-colors file:mr-3 file:bg-gold file:border-0 file:text-bg file:section-label file:text-xs file:px-3 file:py-1 file:cursor-pointer"
+                        className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm transition-colors file:mr-3 file:bg-gold file:border-0 file:text-bg file:section-label file:text-xs file:px-3 file:py-1 file:cursor-pointer"
                       />
                     </div>
                   </div>
@@ -1155,7 +1643,7 @@ export default function AdminDashboard() {
                     <input type="url" value={form.url_pdf}
                       onChange={e => setForm(p => ({ ...p, url_pdf: e.target.value }))}
                       placeholder="https://..."
-                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                      className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                     />
                   </div>
 
@@ -1164,7 +1652,7 @@ export default function AdminDashboard() {
                     <textarea rows={3} value={form.descripcion}
                       onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))}
                       placeholder="Resumen breve del contenido del reporte…"
-                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
+                      className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
                     />
                   </div>
 
@@ -1178,16 +1666,16 @@ export default function AdminDashboard() {
                 </form>
               </div>
 
-              <div className="flex flex-col gap-px bg-border">
-                <div className="bg-surface px-5 py-3">
+              <div className="flex flex-col gap-2 bg-admin-bg">
+                <div className="bg-admin-surface px-5 py-3">
                   <span className="section-label text-text-dim text-xs">REPORTES PUBLICADOS</span>
                 </div>
                 {loadingR ? (
-                  <div className="bg-bg p-8 text-center terminal-text text-xs text-muted">Cargando…</div>
+                  <div className="bg-admin-bg p-8 text-center terminal-text text-xs text-muted">Cargando…</div>
                 ) : reportes.length === 0 ? (
-                  <div className="bg-bg p-8 text-center terminal-text text-xs text-muted">No hay reportes todavía.</div>
+                  <div className="bg-admin-bg p-8 text-center terminal-text text-xs text-muted">No hay reportes todavía.</div>
                 ) : reportes.map(r => (
-                  <div key={r.id} className="bg-bg px-5 py-4 flex items-center gap-4 flex-wrap">
+                  <div key={r.id} className="bg-admin-bg px-5 py-4 flex items-center gap-4 flex-wrap">
                     <span className="display-heading text-2xl text-gold min-w-[3rem]">
                       #{String(r.numero).padStart(3, '0')}
                     </span>
@@ -1204,14 +1692,14 @@ export default function AdminDashboard() {
                       className={`section-label text-xs border px-3 py-1 transition-colors ${
                         r.activo
                           ? 'text-emerald-400 border-emerald-400/30 hover:border-red-400 hover:text-red-400'
-                          : 'text-muted border-border hover:border-gold hover:text-gold'
+                          : 'text-muted border-admin-border hover:border-gold hover:text-gold'
                       }`}>{r.activo ? 'ACTIVO' : 'OCULTO'}
                     </button>
                     <button onClick={() => startEdit(r)}
                       className={`section-label text-xs border px-3 py-1 transition-colors ${
                         editingId === r.id
                           ? 'text-gold border-gold bg-gold/10'
-                          : 'text-text-dim border-border hover:border-gold hover:text-gold'
+                          : 'text-text-dim border-admin-border hover:border-gold hover:text-gold'
                       }`}>{editingId === r.id ? 'EDITANDO' : 'EDITAR'}
                     </button>
                     <button onClick={() => deleteReporte(r.id)}
@@ -1221,18 +1709,6 @@ export default function AdminDashboard() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* ── TASAS DAP ───────────────────────────────────────────────────── */}
-          {tab === 'tasas' && (
-            <div className="flex flex-col gap-6">
-              <div>
-                <div className="section-label text-gold mb-1">{'// TASAS DAP'}</div>
-                <h2 className="display-heading text-4xl text-text">DEPÓSITOS A PLAZO</h2>
-                <p className="text-text-dim text-sm mt-2">Actualiza las tasas de los bancos. Se reflejan en el comparador en menos de 1 hora.</p>
-              </div>
-              <TasasDapEditor />
             </div>
           )}
 
@@ -1250,12 +1726,12 @@ export default function AdminDashboard() {
               </div>
 
               {!loadingTickets && tickets.length > 0 && (
-                <div className="grid grid-cols-3 gap-px bg-border">
+                <div className="grid grid-cols-3 gap-2 bg-admin-bg">
                   {(['pendiente', 'visto', 'resuelto'] as const).map(s => {
                     const count  = tickets.filter(t => t.status === s).length
                     const colors = { pendiente: 'text-yellow-400', visto: 'text-gold', resuelto: 'text-emerald-400' }
                     return (
-                      <div key={s} className="bg-surface p-4 text-center">
+                      <div key={s} className="bg-admin-surface p-4 shadow-admin-glow text-center">
                         <div className={`display-heading text-4xl num ${colors[s]}`}>{count}</div>
                         <div className="section-label text-text-dim text-xs mt-1">{s.toUpperCase()}</div>
                       </div>
@@ -1267,11 +1743,11 @@ export default function AdminDashboard() {
               {loadingTickets ? (
                 <div className="terminal-text text-xs text-muted">Cargando…</div>
               ) : tickets.length === 0 ? (
-                <div className="bg-surface border border-border p-8 text-center terminal-text text-xs text-muted">
+                <div className="bg-admin-surface p-8 text-center terminal-text text-xs text-muted">
                   No hay tickets todavía.
                 </div>
               ) : (
-                <div className="flex flex-col gap-px bg-border">
+                <div className="flex flex-col gap-2 bg-admin-bg">
                   {tickets.map(t => {
                     const isExpanded = expandedTicket === t.id
                     const statusColors = {
@@ -1306,10 +1782,10 @@ export default function AdminDashboard() {
                         </div>
 
                         {isExpanded && (
-                          <div className="px-5 pb-6 flex flex-col gap-4 border-t border-border">
+                          <div className="px-5 pb-6 flex flex-col gap-4 border-t border-admin-border">
                             <div className="mt-4">
                               <div className="section-label text-text-dim text-xs mb-2">MENSAJE</div>
-                              <div className="bg-bg border border-border p-4 terminal-text text-sm text-text-dim leading-relaxed whitespace-pre-wrap">
+                              <div className="bg-admin-bg border border-admin-border p-4 terminal-text text-sm text-text-dim leading-relaxed whitespace-pre-wrap">
                                 {t.mensaje}
                               </div>
                             </div>
@@ -1331,7 +1807,7 @@ export default function AdminDashboard() {
                                   onClick={() => updateTicket(t.id, s)}
                                   disabled={t.status === s || sendingTicket === t.id}
                                   className={`section-label text-xs border px-3 py-1 transition-colors disabled:opacity-40 ${
-                                    t.status === s ? statusColors[s] : 'text-text-dim border-border hover:border-gold hover:text-gold'
+                                    t.status === s ? statusColors[s] : 'text-text-dim border-admin-border hover:border-gold hover:text-gold'
                                   }`}
                                 >
                                   {s.toUpperCase()}
@@ -1348,7 +1824,7 @@ export default function AdminDashboard() {
                                 value={respuestas[t.id] ?? ''}
                                 onChange={e => setRespuestas(prev => ({ ...prev, [t.id]: e.target.value }))}
                                 placeholder="Escribe tu respuesta aquí…"
-                                className="w-full bg-bg border border-border focus:border-gold/60 outline-none px-4 py-3 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
+                                className="w-full bg-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-3 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
                               />
                               <div className="flex items-center gap-3 mt-3 flex-wrap">
                                 <button
@@ -1361,7 +1837,7 @@ export default function AdminDashboard() {
                                 <button
                                   onClick={() => updateTicket(t.id, 'resuelto', respuestas[t.id], false)}
                                   disabled={sendingTicket === t.id}
-                                  className="section-label text-xs text-text-dim border border-border px-4 py-2.5 hover:border-gold hover:text-gold transition-colors disabled:opacity-40"
+                                  className="section-label text-xs text-text-dim border border-admin-border px-4 py-2.5 hover:border-gold hover:text-gold transition-colors disabled:opacity-40"
                                 >
                                   MARCAR RESUELTO SIN EMAIL
                                 </button>
@@ -1382,89 +1858,6 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
-
-          {/* ── SYNC DATOS ──────────────────────────────────────────────────── */}
-          {tab === 'sync' && (
-            <div className="flex flex-col gap-8">
-              <div className="flex items-end justify-between">
-                <div>
-                  <div className="section-label text-gold mb-1">{'// SINCRONIZACIÓN'}</div>
-                  <h2 className="display-heading text-4xl text-text">ESTADO DE DATOS</h2>
-                </div>
-                <button onClick={fetchSyncStatus} className="section-label text-xs text-gold border border-gold/30 px-3 py-1.5 hover:bg-gold/5 transition-colors">
-                  ACTUALIZAR
-                </button>
-              </div>
-
-              {loadingSync ? (
-                <div className="terminal-text text-xs text-muted">Cargando…</div>
-              ) : syncStatus ? (
-                <div className="grid md:grid-cols-2 gap-px bg-border">
-                  <div className="bg-surface p-6 flex flex-col gap-5">
-                    <div className="section-label text-gold">FONDOS MUTUOS</div>
-                    <div>
-                      <div className="flex justify-between mb-1.5">
-                        <span className="terminal-text text-xs text-text-dim">Actualizados hoy</span>
-                        <span className="terminal-text text-xs text-gold num tabular-nums">
-                          {syncStatus.fondos.updatedToday.toLocaleString('es-CL')} / {syncStatus.fondos.total.toLocaleString('es-CL')} ({syncStatus.fondos.pctToday}%)
-                        </span>
-                      </div>
-                      <div className="h-2 bg-border">
-                        <div className="h-full bg-gold-gradient transition-all duration-700" style={{ width: `${syncStatus.fondos.pctToday}%` }} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-px bg-border">
-                      <div className="bg-bg p-4">
-                        <div className="section-label text-text-dim text-xs mb-1">Total fondos</div>
-                        <div className="display-heading text-4xl text-gold num">{syncStatus.fondos.total.toLocaleString('es-CL')}</div>
-                      </div>
-                      <div className="bg-bg p-4">
-                        <div className="section-label text-text-dim text-xs mb-1">AGFs cubiertos</div>
-                        <div className="display-heading text-4xl text-text num">{syncStatus.agf.total}</div>
-                      </div>
-                    </div>
-                    {syncStatus.fondos.lastUpdate && (
-                      <div className="terminal-text text-xs text-text-dim">Última sync: {fmtDate(syncStatus.fondos.lastUpdate)}</div>
-                    )}
-                  </div>
-
-                  <div className="bg-surface p-6 flex flex-col gap-5">
-                    <div className="section-label text-gold">ETFs</div>
-                    <div className="bg-bg p-4">
-                      <div className="section-label text-text-dim text-xs mb-1">Total ETFs</div>
-                      <div className="display-heading text-4xl text-gold num">{syncStatus.etfs.total}</div>
-                    </div>
-                    {syncStatus.etfs.lastUpdate && (
-                      <div className="terminal-text text-xs text-text-dim">Última sync: {fmtDate(syncStatus.etfs.lastUpdate)}</div>
-                    )}
-                    <div className="flex items-center gap-2 mt-auto">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span className="terminal-text text-xs text-emerald-400">Sync diario 3 AM Chile</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="terminal-text text-xs text-red-400">Error cargando estado</div>
-              )}
-
-              <div className="bg-surface border border-border p-6">
-                <div className="section-label text-gold mb-4">SCHEDULE GITHUB ACTIONS</div>
-                <div className="flex flex-col gap-3">
-                  {[
-                    { color: 'bg-emerald-400', text: 'Fondos Mutuos (update) — Lun a Sáb · 3:00 AM Chile' },
-                    { color: 'bg-yellow-400',  text: 'Fondos Mutuos (discover) — Domingos · 2:00 AM Chile' },
-                    { color: 'bg-emerald-400', text: 'ETFs — Todos los días · 3:00 AM Chile' },
-                  ].map(({ color, text }) => (
-                    <div key={text} className="flex items-center gap-3">
-                      <span className={`w-1.5 h-1.5 rounded-full ${color} shrink-0`} />
-                      <span className="terminal-text text-xs text-text">{text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ── MARKETING ───────────────────────────────────────────────────── */}
           {tab === 'marketing' && (
             <div className="flex flex-col gap-8">
@@ -1474,7 +1867,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Stats de audiencia */}
-              <div className="grid grid-cols-3 gap-px bg-border">
+              <div className="grid grid-cols-3 gap-2 bg-admin-bg">
                 {[
                   { label: 'Todos los usuarios', count: users.length,                           seg: 'todos' as const },
                   { label: 'Usuarios PRO',        count: users.filter(u => u.plan === 'pro').length, seg: 'pro'   as const },
@@ -1492,7 +1885,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Formulario */}
-              <form onSubmit={sendMarketing} className="bg-surface border border-border p-6 flex flex-col gap-5">
+              <form onSubmit={sendMarketing} className="bg-admin-surface p-6 shadow-admin-glow flex flex-col gap-5">
                 <div className="section-label text-gold">NUEVO ENVÍO</div>
 
                 {/* Segmento */}
@@ -1505,7 +1898,7 @@ export default function AdminDashboard() {
                         type="button"
                         onClick={() => setMktForm(f => ({ ...f, segmento: s }))}
                         className={`section-label text-xs border px-4 py-2 transition-colors ${
-                          mktForm.segmento === s ? 'bg-gold text-bg border-gold' : 'text-text-dim border-border hover:border-gold hover:text-gold'
+                          mktForm.segmento === s ? 'bg-gold text-bg border-gold' : 'text-text-dim border-admin-border hover:border-gold hover:text-gold'
                         }`}
                       >
                         {s.toUpperCase()} {!loadingUsers && `(${s === 'todos' ? users.length : s === 'pro' ? users.filter(u => u.plan === 'pro').length : users.filter(u => u.plan !== 'pro').length})`}
@@ -1526,7 +1919,7 @@ export default function AdminDashboard() {
                     value={mktForm.subject}
                     onChange={e => setMktForm(f => ({ ...f, subject: e.target.value }))}
                     placeholder="Sigma Research · Nuevo análisis disponible"
-                    className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                    className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                   />
                 </div>
 
@@ -1540,7 +1933,7 @@ export default function AdminDashboard() {
                       value={mktForm.title}
                       onChange={e => setMktForm(f => ({ ...f, title: e.target.value }))}
                       placeholder="NUEVO ANÁLISIS"
-                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                      className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -1550,7 +1943,7 @@ export default function AdminDashboard() {
                       value={mktForm.subtitle}
                       onChange={e => setMktForm(f => ({ ...f, subtitle: e.target.value }))}
                       placeholder="Mercado local — Abril 2025"
-                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                      className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                     />
                   </div>
                 </div>
@@ -1564,7 +1957,7 @@ export default function AdminDashboard() {
                     value={mktForm.body}
                     onChange={e => setMktForm(f => ({ ...f, body: e.target.value }))}
                     placeholder="Hemos publicado un nuevo análisis con señales para las próximas semanas…"
-                    className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
+                    className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
                   />
                 </div>
 
@@ -1578,7 +1971,7 @@ export default function AdminDashboard() {
                       value={mktForm.ctaText}
                       onChange={e => setMktForm(f => ({ ...f, ctaText: e.target.value }))}
                       placeholder="VER ANÁLISIS →"
-                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                      className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -1589,7 +1982,7 @@ export default function AdminDashboard() {
                       value={mktForm.ctaUrl}
                       onChange={e => setMktForm(f => ({ ...f, ctaUrl: e.target.value }))}
                       placeholder="https://sigma-research.vercel.app/home"
-                      className="bg-bg border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
+                      className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                     />
                   </div>
                 </div>
@@ -1610,8 +2003,8 @@ export default function AdminDashboard() {
               </form>
 
               {/* Historial de campañas */}
-              <div className="bg-surface border border-border">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+              <div className="bg-admin-surface">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-admin-border">
                   <span className="section-label text-gold text-xs">HISTORIAL DE CAMPAÑAS</span>
                   <button onClick={fetchCampañas} className="terminal-text text-xs text-text-dim hover:text-gold transition-colors">↻</button>
                 </div>
@@ -1623,7 +2016,7 @@ export default function AdminDashboard() {
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                       <thead>
-                        <tr className="border-b border-border">
+                        <tr className="border-b border-admin-border">
                           {['Fecha', 'Asunto', 'Segmento', 'Enviados'].map(h => (
                             <th key={h} className="section-label text-text-dim text-xs text-left px-4 py-2.5">{h}</th>
                           ))}
@@ -1631,7 +2024,7 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody>
                         {campañas.map(c => (
-                          <tr key={c.id} className="border-b border-border hover:bg-gold/5 transition-colors">
+                          <tr key={c.id} className="border-b border-admin-border hover:bg-gold/5 transition-colors">
                             <td className="terminal-text text-xs text-muted px-4 py-3 num whitespace-nowrap">
                               {new Date(c.sent_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </td>
@@ -1639,7 +2032,7 @@ export default function AdminDashboard() {
                             <td className="px-4 py-3">
                               <span className={`section-label text-[10px] border px-2 py-0.5 ${
                                 c.segmento === 'pro'  ? 'text-gold border-gold/30' :
-                                c.segmento === 'free' ? 'text-text-dim border-border' :
+                                c.segmento === 'free' ? 'text-text-dim border-admin-border' :
                                 'text-emerald-400 border-emerald-400/30'
                               }`}>
                                 {c.segmento.toUpperCase()}
@@ -1658,115 +2051,128 @@ export default function AdminDashboard() {
 
         </main>
       </div>
-    </div>
-  )
-}
 
-// ── Editor de tasas DAP ───────────────────────────────────────────────────────
-interface TasaRow {
-  id: string; nombre: string
-  d7: number; d14: number; d30: number; d60: number; d90: number; d180: number; d360: number
-  updated_at: string
-}
-const PLAZOS_DAP = ['d7','d14','d30','d60','d90','d180','d360'] as const
-const LABELS_DAP: Record<string, string> = { d7:'7d', d14:'14d', d30:'30d', d60:'60d', d90:'90d', d180:'180d', d360:'360d' }
-
-function TasasDapEditor() {
-  const [tasas,   setTasas]   = useState<TasaRow[]>([])
-  const [editing, setEditing] = useState<Record<string, Partial<TasaRow>>>({})
-  const [saving,  setSaving]  = useState<string | null>(null)
-  const [msg,     setMsg]     = useState<{ text: string; ok: boolean } | null>(null)
-
-  useEffect(() => {
-    fetch('/api/tasas-dap').then(r => r.json()).then(j => { if (j.ok) setTasas(j.data) }).catch(() => {})
-  }, [])
-
-  function handleChange(id: string, field: string, value: string) {
-    setEditing(prev => ({ ...prev, [id]: { ...prev[id], [field]: parseFloat(value) || 0 } }))
-  }
-
-  async function handleSave(banco: TasaRow) {
-    setSaving(banco.id)
-    const updated = { ...banco, ...editing[banco.id] }
-    const r = await fetch('/api/admin/tasas-dap', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated),
-    })
-    const j = await r.json()
-    if (j.ok) {
-      setMsg({ text: `✓ ${banco.nombre} guardado`, ok: true })
-      setEditing(prev => { const n = { ...prev }; delete n[banco.id]; return n })
-      fetch('/api/tasas-dap').then(r => r.json()).then(j => { if (j.ok) setTasas(j.data) }).catch(() => {})
-    } else {
-      setMsg({ text: `Error: ${j.error}`, ok: false })
-    }
-    setSaving(null)
-    setTimeout(() => setMsg(null), 3000)
-  }
-
-  return (
-    <div className="bg-surface border border-border">
-      {msg && (
-        <div className={`px-4 py-3 text-sm font-mono ${msg.ok ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
-          {msg.text}
+      {/* ── Ctrl+K Modal ─────────────────────────────────────────────────────── */}
+      {cmdkOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[15vh]"
+          onClick={() => setCmdkOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg mx-4 bg-admin-surface shadow-admin-glow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 border-b border-admin-border px-4 py-3">
+              <Search size={15} className="text-muted shrink-0" />
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Buscar usuario por email o nombre…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent outline-none terminal-text text-sm text-text placeholder:text-muted"
+              />
+              <kbd className="terminal-text text-[10px] text-muted border border-admin-border px-1.5 py-0.5">ESC</kbd>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {searchQuery.trim().length === 0 ? (
+                <div className="px-4 py-6 terminal-text text-xs text-muted text-center">Escribe para buscar usuarios…</div>
+              ) : cmdkResults.length === 0 ? (
+                <div className="px-4 py-6 terminal-text text-xs text-muted text-center">Sin resultados para &quot;{searchQuery}&quot;</div>
+              ) : cmdkResults.map(u => (
+                <button
+                  key={u.id}
+                  className="w-full text-left px-4 py-3 hover:bg-admin-violet/10 transition-colors border-b border-admin-border last:border-0 flex items-center gap-3"
+                  onClick={() => { setRightPanel(u); setCmdkOpen(false) }}
+                >
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${u.plan === 'pro' ? 'bg-gold' : 'bg-admin-border'}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="terminal-text text-sm text-text truncate">{u.nombre || u.email.split('@')[0]}</div>
+                    <div className="terminal-text text-xs text-muted truncate">{u.email}</div>
+                  </div>
+                  <span className={`section-label text-[10px] border px-2 py-0.5 shrink-0 ${u.plan === 'pro' ? 'text-gold border-gold/30' : 'text-text-dim border-admin-border'}`}>
+                    {u.plan.toUpperCase()}
+                  </span>
+                  <ChevronRight size={12} className="text-muted shrink-0" />
+                </button>
+              ))}
+            </div>
+            <div className="border-t border-admin-border px-4 py-2">
+              <span className="terminal-text text-[10px] text-muted">{users.length} usuarios totales</span>
+            </div>
+          </div>
         </div>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="text-left px-4 py-3 text-xs font-mono tracking-widest text-text-dim uppercase">Banco</th>
-              {PLAZOS_DAP.map(p => (
-                <th key={p} className="text-right px-3 py-3 text-xs font-mono tracking-widest text-text-dim uppercase">{LABELS_DAP[p]}</th>
-              ))}
-              <th className="px-4 py-3 text-xs font-mono text-text-dim uppercase text-center">Acción</th>
-              <th className="px-4 py-3 text-xs font-mono text-text-dim uppercase">Actualizado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tasas.map(b => {
-              const ed      = editing[b.id] ?? {}
-              const isDirty = Object.keys(ed).length > 0
-              return (
-                <tr key={b.id} className={`border-b border-border ${isDirty ? 'bg-gold/5' : ''}`}>
-                  <td className="px-4 py-3 font-mono text-sm text-text">{b.nombre}</td>
-                  {PLAZOS_DAP.map(p => (
-                    <td key={p} className="px-3 py-3 text-right">
-                      <input
-                        type="number" step="0.01" min="0" max="5"
-                        value={(ed[p as keyof TasaRow] ?? b[p as keyof TasaRow] ?? '') as number}
-                        onChange={e => handleChange(b.id, p, e.target.value)}
-                        className="bg-background border border-border text-text font-mono text-sm text-right w-16 px-2 py-1"
-                      />
-                      <span className="text-text-dim text-xs ml-1">%</span>
-                    </td>
-                  ))}
-                  <td className="px-4 py-3 text-center">
-                    {isDirty ? (
-                      <button
-                        onClick={() => handleSave(b)}
-                        disabled={saving === b.id}
-                        className="section-label text-xs bg-gold text-background px-3 py-1.5 hover:bg-gold/80 transition-colors disabled:opacity-50"
-                      >
-                        {saving === b.id ? '...' : 'GUARDAR'}
-                      </button>
-                    ) : (
-                      <span className="text-text-dim text-xs">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-text-dim">
-                    {b.updated_at ? new Date(b.updated_at).toLocaleDateString('es-CL') : '—'}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="px-4 py-3 border-t border-border text-xs font-mono text-text-dim">
-        Tasas en % mensual · Fuente: verificar sitios web de cada banco · Actualización mensual recomendada
-      </div>
+
+      {/* ── Right Panel (user detail) ─────────────────────────────────────────── */}
+      {rightPanel && (
+        <div className="fixed inset-0 z-[90] flex justify-end" onClick={() => setRightPanel(null)}>
+          <div
+            className="w-full max-w-sm bg-admin-surface h-full overflow-y-auto shadow-admin-glow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-admin-border sticky top-0 bg-admin-surface">
+              <div className="section-label text-admin-violet2 text-xs">DETALLE USUARIO</div>
+              <button onClick={() => setRightPanel(null)} className="text-muted hover:text-text transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5 flex flex-col gap-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-admin-violet/20 border border-admin-violet/30 flex items-center justify-center">
+                  <span className="display-heading text-admin-violet2 text-lg leading-none">
+                    {(rightPanel.nombre || rightPanel.email)[0].toUpperCase()}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <div className="terminal-text text-sm text-text truncate">{rightPanel.nombre || '—'}</div>
+                  <div className="terminal-text text-xs text-muted truncate">{rightPanel.email}</div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 bg-admin-bg border border-admin-border p-4">
+                {[
+                  { label: 'PLAN',         value: rightPanel.plan.toUpperCase(),                   color: rightPanel.plan === 'pro' ? 'text-gold' : 'text-text-dim'       },
+                  { label: 'ESTADO',       value: rightPanel.confirmed ? 'CONFIRMADO' : 'PENDIENTE', color: rightPanel.confirmed ? 'text-emerald-400' : 'text-yellow-400' },
+                  { label: 'REGISTRO',     value: rightPanel.created_at.slice(0, 10),              color: 'text-text'                                                     },
+                  { label: 'ÚLTIMO LOGIN', value: rightPanel.last_sign_in?.slice(0, 10) ?? '—',   color: 'text-text'                                                     },
+                ].map(f => (
+                  <div key={f.label} className="flex items-center justify-between py-1 border-b border-admin-border last:border-0">
+                    <span className="section-label text-[10px] text-muted">{f.label}</span>
+                    <span className={`terminal-text text-xs num ${f.color}`}>{f.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="section-label text-[10px] text-muted mb-1">ACCIONES RÁPIDAS</div>
+                <button
+                  onClick={() => {
+                    const newPlan = rightPanel.plan === 'pro' ? 'free' : 'pro'
+                    togglePlan(rightPanel)
+                    setRightPanel({ ...rightPanel, plan: newPlan })
+                  }}
+                  className={`w-full section-label text-xs py-2.5 px-4 border transition-colors text-left ${
+                    rightPanel.plan === 'pro'
+                      ? 'border-red-400/30 text-red-400 hover:bg-red-400/10'
+                      : 'border-gold/30 text-gold hover:bg-gold/10'
+                  }`}
+                >
+                  {rightPanel.plan === 'pro' ? '↓ BAJAR A FREE' : '↑ SUBIR A PRO'}
+                </button>
+                <button
+                  onClick={() => { setTab('usuarios'); setExpandedUser(rightPanel.id); setRightPanel(null) }}
+                  className="w-full section-label text-xs py-2.5 px-4 border border-admin-border text-text-dim hover:border-admin-violet/40 hover:text-admin-violet2 transition-colors text-left"
+                >
+                  → VER EN USUARIOS
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
+

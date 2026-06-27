@@ -32,13 +32,14 @@ interface MotorDef {
   syms: string[]; desc: string; status: 'ACTIVO' | 'PRÓXIMAMENTE'
 }
 const MOTORS: MotorDef[] = [
-  { id:1, name:'M1', label:'CRYPTO',       color:'#d4af37', syms:['BTC','ETH','SOL','BNB','LTC'],     status:'ACTIVO',       desc:'BTC · ETH · SOL · BNB · LTC — Futures perpetuos Binance' },
-  { id:2, name:'M2', label:'COMMODITIES',  color:'#1D9E75', syms:['XAU','XAG','WTI','HG','NG','PL'], status:'ACTIVO',       desc:'XAU · XAG · WTI · HG · NG · PL — CFDs futuros yfinance' },
-  { id:3, name:'M3', label:'STOCKS US',    color:'#7a7f9a', syms:[],                                  status:'PRÓXIMAMENTE', desc:'S&P 500 · Russell 1000 · ETFs sectoriales' },
-  { id:4, name:'M4', label:'LATAM',        color:'#7a7f9a', syms:[],                                  status:'PRÓXIMAMENTE', desc:'Acciones Chile · Brasil · México' },
-  { id:5, name:'M5', label:'FOREX',        color:'#7a7f9a', syms:[],                                  status:'PRÓXIMAMENTE', desc:'EUR/USD · GBP/JPY · USD/JPY y más' },
+  { id:1, name:'M1', label:'CRYPTO',          color:'#d4af37', syms:['BTC','ETH','SOL','BNB','LTC'],     status:'ACTIVO',       desc:'BTC · ETH · SOL · BNB · LTC — Futures perpetuos Binance' },
+  { id:2, name:'M2', label:'COMMODITIES',     color:'#1D9E75', syms:['XAU','XAG','WTI','HG','NG','PL'], status:'ACTIVO',       desc:'XAU · XAG · WTI · HG · NG · PL — CFDs futuros yfinance' },
+  { id:3, name:'M3', label:'STOCKS US',       color:'#7a7f9a', syms:['SPY','QQQ','IWM'],                status:'PRÓXIMAMENTE', desc:'S&P 500 · Nasdaq 100 · Russell 2000 — vía ETFs, sin acciones individuales · Broker: IBKR' },
+  { id:4, name:'M4', label:'BONOS & MACRO',   color:'#7a7f9a', syms:['TLT','HYG','TBT','ZN','ZB'],       status:'PRÓXIMAMENTE', desc:'Treasury 20Y+ · High Yield · Notas/Bonos 10Y-30Y — duration y crédito · Broker: IBKR' },
+  { id:5, name:'M5', label:'FUTUROS ÍNDICES', color:'#7a7f9a', syms:['MES','MNQ','MYM'],                status:'PRÓXIMAMENTE', desc:'S&P 500 · Nasdaq 100 · Dow Jones — micro-futuros CME · Broker: IBKR' },
+  { id:6, name:'M6', label:'FOREX & ÍNDICES INTL', color:'#7a7f9a', syms:['EUR/USD','GBP/USD','USD/JPY','USD/CHF'], status:'PRÓXIMAMENTE', desc:'Majors vía IBKR IDEALPRO — DAX/FTSE/Nikkei en fase 2 (margen multi-moneda)' },
+  { id:7, name:'M7', label:'LATAM',           color:'#7a7f9a', syms:[],                                  status:'PRÓXIMAMENTE', desc:'Acciones Chile · Brasil · México' },
 ]
-const TF_ORDER = ['1d','4h','1h','15m','5m','30m','1w']
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const MONO  = "var(--font-dm-mono,'DM Mono',monospace)"
@@ -75,13 +76,6 @@ function gradeClr(g?: string) {
 }
 function fmtStrat(s?: string) {
   return (s??'—').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())
-}
-function sortTFs(tfs: string[]) {
-  return [...tfs].sort((a,b)=>{
-    const ia=TF_ORDER.indexOf(a), ib=TF_ORDER.indexOf(b)
-    if(ia<0&&ib<0) return 0; if(ia<0) return 1; if(ib<0) return -1
-    return ia-ib
-  })
 }
 function motorOf(c: Champion): number {
   const s = champSym(c)
@@ -192,208 +186,134 @@ function DetailPanel({ c }: { c: Champion }) {
   )
 }
 
-// ─── Fila de champion ─────────────────────────────────────────────────────────
-function ChampRow({ c, expanded, onToggle }: { c:Champion; expanded:boolean; onToggle:()=>void }) {
+const RANK_STYLE: Record<number, { bg:string; fg:string }> = {
+  1: { bg:'linear-gradient(135deg,#ffe9a8,#d4af37)', fg:'#1a1300' },
+  2: { bg:'linear-gradient(135deg,#eef0f5,#9aa3b5)', fg:'#13151c' },
+  3: { bg:'linear-gradient(135deg,#e8a565,#b5651d)', fg:'#1f0d00' },
+}
+
+// ─── Tarjeta de champion (vitrina) ───────────────────────────────────────────
+function ChampCard({ c, rank, motorColor, expanded, onToggle }: {
+  c:Champion; rank?:number; motorColor:string; expanded:boolean; onToggle:()=>void
+}) {
   const d = champDir(c)
   const isShort = d==='short', isAdapt = d==='adaptive'
   const dirClr = isAdapt?GOLD:isShort?RED:GRN
-  const dirLbl = isAdapt?'◆ ADPT':isShort?'▼ SHORT':'▲ LONG'
+  const dirLbl = isAdapt?'◆ ADAPTIVE':isShort?'▼ SHORT':'▲ LONG'
   const gc = gradeClr(c.grade)
+  const isChamp = c.grade === 'A+'
   const wr = c.wr!=null ? (c.wr<=1?c.wr*100:c.wr) : null
+  const wftClr = c.wft_verdict==='PASS' ? GRN : c.wft_verdict==='FAIL' ? RED : MUTED
+  const rs = rank ? RANK_STYLE[rank] : undefined
 
   return (
-    <>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') onToggle() }}
-        style={{
-          display:'grid',
-          gridTemplateColumns:'32px 52px 44px 78px 1fr 76px 62px 48px 28px',
-          alignItems:'center', gap:8,
-          padding:'10px 16px', cursor:'pointer',
-          borderBottom:`1px solid ${expanded?'transparent':BDR}`,
-          borderLeft:`3px solid ${expanded?gc:'transparent'}`,
-          background: expanded?`${gc}09`:undefined,
-        }}
-      >
-        <span style={{ fontFamily:MONO, fontSize:10, color:gc, fontWeight:700 }}>{c.grade??'?'}</span>
-        <span style={{ fontFamily:BEBAS, fontSize:18, color:'#e8e9f0', letterSpacing:'0.04em', lineHeight:1 }}>{champSym(c)}</span>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') onToggle() }}
+      className={`modelos-champ-card${rank===1?' modelos-champ-card--rank1':''}`}
+      style={{
+        position:'relative',
+        gridColumn: expanded ? '1 / -1' : undefined,
+        background: isChamp ? `linear-gradient(160deg,${GOLD}12,${SURF} 55%)` : SURF,
+        border: `1px solid ${isChamp?GOLD+'70':motorColor+'30'}`,
+        boxShadow: isChamp ? `0 0 14px ${GOLD}22` : 'none',
+        borderRadius: 6, padding:'12px 14px', cursor:'pointer',
+        display:'flex', flexDirection:'column', gap:8,
+      }}
+    >
+      {rs && (
+        <span style={{
+          position:'absolute', top:-9, right:12,
+          fontFamily:BEBAS, fontSize:11, letterSpacing:'0.05em',
+          color:rs.fg, background:rs.bg,
+          padding:'2px 8px', borderRadius:10, boxShadow:'0 2px 6px rgba(0,0,0,0.45)',
+        }}>#{rank}</span>
+      )}
+
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <span style={{ fontFamily:MONO, fontSize:10, color:gc, fontWeight:700, border:`1px solid ${gc}60`, borderRadius:3, padding:'1px 5px' }}>{c.grade??'?'}</span>
+        <span style={{ fontFamily:BEBAS, fontSize:20, color:'#e8e9f0', letterSpacing:'0.04em', lineHeight:1 }}>{champSym(c)}</span>
         <span style={{ fontFamily:MONO, fontSize:10, color:GOLD }}>{champTF(c).toUpperCase()}</span>
-        <span style={{ fontFamily:MONO, fontSize:10, color:dirClr, background:`${dirClr}14`, padding:'2px 5px', textAlign:'center' }}>{dirLbl}</span>
+        {c.signal && <span style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:GRN, boxShadow:`0 0 6px ${GRN}` }} />}
+        <span style={{ marginLeft: c.signal?0:'auto', fontFamily:MONO, fontSize:11, color:MUTED, transform:expanded?'rotate(180deg)':'none', transition:'transform 0.15s' }}>▾</span>
+      </div>
+
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <span style={{ fontFamily:MONO, fontSize:9, color:dirClr, background:`${dirClr}14`, padding:'2px 6px', borderRadius:3 }}>{dirLbl}</span>
         <span style={{ fontFamily:MONO, fontSize:10, color:DIM, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
           {fmtStrat(c.strategy)}
         </span>
-        <span style={{ fontFamily:MONO, fontSize:12, color:c.cagr!=null?(c.cagr>=0?GRN:RED):MUTED, textAlign:'right', fontWeight:600 }}>
-          {p0(c.cagr)}
-        </span>
-        <span style={{ fontFamily:MONO, fontSize:11, color:wr!=null?(wr>=60?GRN:wr>=50?GOLD:RED):MUTED, textAlign:'right' }}>
-          {wr!=null?`${wr.toFixed(1)}%`:'—'}
-        </span>
-        <span style={{ fontFamily:MONO, fontSize:11, color:MUTED, textAlign:'right' }}>
-          {c.trades?.toLocaleString()??'—'}
-        </span>
-        <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
-          {c.signal && <span style={{ width:5, height:5, borderRadius:'50%', background:GRN, boxShadow:`0 0 5px ${GRN}` }} />}
-          <span style={{ fontFamily:MONO, fontSize:11, color:MUTED, display:'inline-block', transform:expanded?'rotate(180deg)':'none', transition:'transform 0.15s' }}>▾</span>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, paddingTop:8, borderTop:`1px solid ${BDR}` }}>
+        <div>
+          <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.1em' }}>CAGR</div>
+          <div style={{ fontFamily:BEBAS, fontSize:16, color:c.cagr!=null?(c.cagr>=0?GRN:RED):MUTED }}>{p0(c.cagr)}</div>
+        </div>
+        <div>
+          <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.1em' }}>WIN RT</div>
+          <div style={{ fontFamily:BEBAS, fontSize:16, color:wr!=null?(wr>=60?GRN:wr>=50?GOLD:RED):MUTED }}>{wr!=null?`${wr.toFixed(1)}%`:'—'}</div>
+        </div>
+        <div>
+          <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.1em' }}>MAX DD</div>
+          <div style={{ fontFamily:BEBAS, fontSize:16, color:RED }}>{p1(c.dd)}</div>
+        </div>
+        <div>
+          <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.1em' }}>TRADES</div>
+          <div style={{ fontFamily:BEBAS, fontSize:16, color:'#e8e9f0' }}>{c.trades?.toLocaleString()??'—'}</div>
         </div>
       </div>
-      {expanded && <DetailPanel c={c} />}
-    </>
-  )
-}
 
-// ─── Grupo de temporalidad ────────────────────────────────────────────────────
-function TFGroup({ tfName, champs, expandedKey, onToggle }: {
-  tfName: string; champs: Champion[]
-  expandedKey: string|null; onToggle: (k:string)=>void
-}) {
-  return (
-    <>
-      <div style={{
-        padding:'4px 16px', background:BG,
-        borderBottom:`1px solid ${MUTED}20`,
-        fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.18em',
-      }}>
-        {tfName.toUpperCase()} — {champs.length} modelo{champs.length!==1?'s':''}
+      <div style={{ display:'flex', gap:8, fontFamily:MONO, fontSize:9 }}>
+        <span style={{ color: c.val_mc!=null&&c.val_mc>=80?GRN:GOLD }}>MC {c.val_mc!=null?`${c.val_mc.toFixed(0)}%`:'—'}</span>
+        <span style={{ color:MUTED }}>·</span>
+        <span style={{ color: wftClr }}>WFT {c.wft_verdict||'—'}</span>
       </div>
-      {champs.map(c=>{
-        const k = champKey(c)
-        return <ChampRow key={k} c={c} expanded={expandedKey===k} onToggle={()=>onToggle(k)} />
-      })}
-    </>
-  )
-}
 
-// ─── Sección de dirección ─────────────────────────────────────────────────────
-function DirectionBlock({ direction, champs, expandedKey, onToggle }: {
-  direction: 'long'|'short'|'adaptive'
-  champs: Champion[]
-  expandedKey: string|null; onToggle:(k:string)=>void
-}) {
-  const [open, setOpen] = useState(true)
-  const isShort = direction==='short', isAdapt = direction==='adaptive'
-  const dc = isAdapt?GOLD:isShort?RED:GRN
-  const dlbl = isAdapt?'◆ ADAPTIVE':isShort?'▼ SHORT':'▲ LONG'
-
-  const byTF: Record<string,Champion[]> = {}
-  for (const c of champs) {
-    const t = champTF(c)
-    if (!byTF[t]) byTF[t]=[]
-    byTF[t].push(c)
-  }
-  const keys = sortTFs(Object.keys(byTF))
-
-  return (
-    <div>
-      <button
-        onClick={()=>setOpen(v=>!v)}
-        style={{
-          width:'100%', display:'flex', alignItems:'center', gap:10,
-          padding:'7px 16px', background:`${dc}09`, border:'none',
-          borderLeft:`2px solid ${dc}`, borderBottom:`1px solid ${BDR}`,
-          cursor:'pointer', textAlign:'left',
-        }}
-      >
-        <span style={{ fontFamily:MONO, fontSize:11, color:dc, letterSpacing:'0.1em' }}>{dlbl}</span>
-        <span style={{ fontFamily:MONO, fontSize:10, color:MUTED }}>{champs.length} modelos</span>
-        <span style={{ marginLeft:'auto', fontFamily:MONO, fontSize:10, color:MUTED }}>{open?'▴':'▾'}</span>
-      </button>
-
-      {open && (
-        <div style={{ borderLeft:`2px solid ${dc}18` }}>
-          {/* Column headers */}
-          <div style={{
-            display:'grid',
-            gridTemplateColumns:'32px 52px 44px 78px 1fr 76px 62px 48px 28px',
-            gap:8, padding:'5px 16px',
-            background:BG, borderBottom:`1px solid ${BDR}`,
-          }}>
-            {['GRADE','SYM','TF','DIR','ESTRATEGIA','CAGR','WIN RT','TRADES',''].map((h,i)=>(
-              <span key={i} style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.12em', textAlign:i>=5?'right':'left' }}>{h}</span>
-            ))}
-          </div>
-          {keys.map(t=>(
-            <TFGroup key={t} tfName={t} champs={byTF[t]} expandedKey={expandedKey} onToggle={onToggle} />
-          ))}
-        </div>
-      )}
+      {expanded && <div onClick={e=>e.stopPropagation()} style={{ marginTop:4, marginLeft:-14, marginRight:-14, marginBottom:-12 }}><DetailPanel c={c} /></div>}
     </div>
   )
 }
 
-// ─── Sección de motor ─────────────────────────────────────────────────────────
-function MotorSection({ motor, champs }: { motor:MotorDef; champs:Champion[] }) {
-  const [open, setOpen] = useState(true)
-  const [expandedKey, setExpKey] = useState<string|null>(null)
-
-  const toggle = (k:string) => setExpKey(prev=>prev===k?null:k)
-
-  const isActive = motor.status==='ACTIVO'
-  const longs    = champs.filter(c=>champDir(c)==='long')
-  const shorts   = champs.filter(c=>champDir(c)==='short')
-  const adaptive = champs.filter(c=>champDir(c)==='adaptive')
-  const aPlus    = champs.filter(c=>c.grade==='A+').length
-  const aGrd     = champs.filter(c=>c.grade==='A').length
-
+// ─── Tabs de motor ────────────────────────────────────────────────────────────
+function MotorTabs({ selected, onSelect, counts }: {
+  selected: number; onSelect:(id:number)=>void; counts: Record<number, number>
+}) {
   return (
-    <div style={{ marginBottom:12, border:`1px solid ${BDR}`, overflow:'hidden' }}>
-      <button
-        onClick={()=>setOpen(v=>!v)}
-        style={{
-          width:'100%', display:'flex', alignItems:'center', gap:14,
-          padding:'13px 20px', background:SURF,
-          borderBottom: open?`1px solid ${BDR}`:'none',
-          borderLeft:`4px solid ${motor.color}`,
-          cursor:'pointer', border:'none', textAlign:'left',
-          outline:'none',
-        }}
-      >
-        <span style={{ fontFamily:BEBAS, fontSize:26, color:`${motor.color}50`, lineHeight:1, minWidth:28 }}>{motor.id}</span>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:2, flexWrap:'wrap' }}>
-            <span style={{ fontFamily:BEBAS, fontSize:18, color:motor.color, letterSpacing:'0.06em' }}>{motor.label}</span>
-            <span style={{ fontFamily:MONO, fontSize:9, color:isActive?GRN:MUTED, border:`1px solid ${isActive?GRN:MUTED}40`, padding:'1px 6px' }}>{motor.status}</span>
-            {isActive&&champs.length>0&&(
-              <span style={{ fontFamily:MONO, fontSize:9, color:MUTED }}>
-                {champs.length} champ{champs.length!==1?'s':''} · {longs.length}L / {shorts.length}S
-                {aPlus>0?` · ${aPlus} A+`:''}
-                {aGrd>0?` · ${aGrd} A`:''}
-              </span>
+    <div style={{ display:'flex', gap:4, flexWrap:'wrap', borderBottom:`1px solid ${BDR}`, marginBottom:18 }}>
+      {MOTORS.map(m=>{
+        const isSel = m.id===selected
+        const n = counts[m.id] ?? 0
+        const isActive = m.status==='ACTIVO'
+        return (
+          <button
+            key={m.id}
+            onClick={()=>onSelect(m.id)}
+            style={{
+              display:'flex', alignItems:'center', gap:7,
+              padding:'10px 16px', background:'transparent', border:'none',
+              borderBottom:`2px solid ${isSel?m.color:'transparent'}`,
+              cursor:'pointer', fontFamily:BEBAS, fontSize:14, letterSpacing:'0.04em',
+              color: isSel ? m.color : (isActive?DIM:MUTED),
+              opacity: isActive||isSel ? 1 : 0.6,
+            }}
+          >
+            M{m.id} · {m.label}
+            {isActive && n>0 && (
+              <span style={{ fontFamily:MONO, fontSize:9, color: isSel?m.color:MUTED, background:`${m.color}18`, borderRadius:8, padding:'1px 6px' }}>{n}</span>
             )}
-          </div>
-          <span style={{ fontFamily:MONO, fontSize:10, color:MUTED }}>{motor.desc}</span>
-        </div>
-        <span style={{ fontFamily:MONO, fontSize:11, color:MUTED }}>{open?'▴':'▾'}</span>
-      </button>
-
-      {open && (
-        <>
-          {!isActive ? (
-            <div style={{ padding:'28px 24px', background:BG, textAlign:'center' }}>
-              <div style={{ fontFamily:BEBAS, fontSize:22, color:MUTED, letterSpacing:'0.12em', marginBottom:6 }}>EN DESARROLLO</div>
-              <div style={{ fontFamily:MONO, fontSize:11, color:MUTED }}>{motor.desc}</div>
-            </div>
-          ) : champs.length===0 ? (
-            <div style={{ padding:'18px 20px', background:BG }}>
-              <span style={{ fontFamily:MONO, fontSize:11, color:MUTED }}>Sin champions activos — trainer buscando modelos…</span>
-            </div>
-          ) : (
-            <>
-              {longs.length    > 0 && <DirectionBlock direction="long"     champs={longs}    expandedKey={expandedKey} onToggle={toggle} />}
-              {shorts.length   > 0 && <DirectionBlock direction="short"    champs={shorts}   expandedKey={expandedKey} onToggle={toggle} />}
-              {adaptive.length > 0 && <DirectionBlock direction="adaptive" champs={adaptive} expandedKey={expandedKey} onToggle={toggle} />}
-            </>
-          )}
-        </>
-      )}
+            {!isActive && <span style={{ fontFamily:MONO, fontSize:8, color:MUTED }}>PRÓX</span>}
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-// ─── Barra de resumen ─────────────────────────────────────────────────────────
-function SummaryBar({ champs }: { champs:Champion[] }) {
+// ─── Ticker de resumen ────────────────────────────────────────────────────────
+function TickerBar({ champs }: { champs:Champion[] }) {
   if (!champs.length) return null
   const aPlus  = champs.filter(c=>c.grade==='A+').length
   const aGrd   = champs.filter(c=>c.grade==='A').length
@@ -402,23 +322,95 @@ function SummaryBar({ champs }: { champs:Champion[] }) {
   const sigs   = champs.filter(c=>c.signal).length
   const avgC   = champs.reduce((s,c)=>s+(c.cagr??0),0)/champs.length
 
+  const Item = ({ l, v, c }:{l:string; v:string; c:string}) => (
+    <span style={{ display:'flex', alignItems:'baseline', gap:5, whiteSpace:'nowrap' }}>
+      <span style={{ fontFamily:MONO, fontSize:9, color:MUTED, letterSpacing:'0.1em' }}>{l}</span>
+      <span style={{ fontFamily:BEBAS, fontSize:16, color:c }}>{v}</span>
+    </span>
+  )
+  const Sep = () => <span style={{ color:BDR }}>│</span>
+
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:1, background:BDR, marginBottom:14, border:`1px solid ${BDR}` }}>
-      {[
-        { l:'CHAMPIONS', v:champs.length.toString(),  c:GOLD },
-        { l:'GRADE A+',  v:aPlus.toString(),           c:'#ffd700' },
-        { l:'GRADE A',   v:aGrd.toString(),            c:GRN },
-        { l:'LONGS',     v:longs.toString(),           c:GRN },
-        { l:'SHORTS',    v:shorts.toString(),          c:RED },
-        { l:'CAGR PROM', v:p0(avgC),                   c:GRN },
-        { l:'CON SEÑAL', v:sigs.toString(),            c:sigs>0?GRN:MUTED },
-        { l:'MOTORES',   v:'2/5',                      c:MUTED },
-      ].map(s=>(
-        <div key={s.l} style={{ background:SURF, padding:'10px 14px' }}>
-          <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.12em', marginBottom:4 }}>{s.l}</div>
-          <div style={{ fontFamily:BEBAS, fontSize:22, color:s.c, lineHeight:1 }}>{s.v}</div>
-        </div>
-      ))}
+    <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap', padding:'2px 2px 16px' }}>
+      <Item l="CHAMPIONS" v={champs.length.toString()} c={GOLD} /><Sep/>
+      <Item l="A+" v={aPlus.toString()} c="#ffd700" />
+      <Item l="A" v={aGrd.toString()} c={GRN} /><Sep/>
+      <Item l="LONGS" v={longs.toString()} c={GRN} />
+      <Item l="SHORTS" v={shorts.toString()} c={RED} /><Sep/>
+      <Item l="CAGR PROM" v={p0(avgC)} c={GRN} />
+      <Item l="CON SEÑAL" v={sigs.toString()} c={sigs>0?GRN:MUTED} />
+    </div>
+  )
+}
+
+// ─── Tablero de un motor: filtros + grilla plana ─────────────────────────────
+function ChampionsBoard({ motor, champs }: { motor:MotorDef; champs:Champion[] }) {
+  const [filter, setFilter]   = useState<'all'|'long'|'short'|'adaptive'>('all')
+  const [expandedKey, setKey] = useState<string|null>(null)
+  const toggle = (k:string) => setKey(prev=>prev===k?null:k)
+
+  if (motor.status!=='ACTIVO') {
+    return (
+      <div style={{ padding:'40px 24px', background:BG, textAlign:'center', border:`1px solid ${BDR}` }}>
+        <div style={{ fontFamily:BEBAS, fontSize:24, color:MUTED, letterSpacing:'0.12em', marginBottom:8 }}>EN DESARROLLO</div>
+        <div style={{ fontFamily:MONO, fontSize:11, color:MUTED }}>{motor.desc}</div>
+      </div>
+    )
+  }
+  if (champs.length===0) {
+    return (
+      <div style={{ padding:'24px 20px', background:BG, border:`1px solid ${BDR}` }}>
+        <span style={{ fontFamily:MONO, fontSize:11, color:MUTED }}>Sin champions activos — trainer buscando modelos…</span>
+      </div>
+    )
+  }
+
+  const longs  = champs.filter(c=>champDir(c)==='long').length
+  const shorts = champs.filter(c=>champDir(c)==='short').length
+  const adapt  = champs.filter(c=>champDir(c)==='adaptive').length
+
+  const filtered = champs
+    .filter(c => filter==='all' || champDir(c)===filter)
+    .sort((a,b) => (b.cagr ?? -9999) - (a.cagr ?? -9999))
+
+  const FILTERS: Array<{ k:'all'|'long'|'short'|'adaptive'; lbl:string; n:number; c:string }> = [
+    { k:'all',   lbl:'TODOS',      n:champs.length, c:GOLD },
+    { k:'long',  lbl:'▲ LONG',     n:longs,         c:GRN  },
+    { k:'short', lbl:'▼ SHORT',    n:shorts,        c:RED  },
+    ...(adapt>0 ? [{ k:'adaptive' as const, lbl:'◆ ADAPTIVE', n:adapt, c:GOLD }] : []),
+  ]
+
+  return (
+    <div>
+      <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap' }}>
+        {FILTERS.map(f=>(
+          <button
+            key={f.k}
+            onClick={()=>setFilter(f.k)}
+            style={{
+              fontFamily:MONO, fontSize:10, letterSpacing:'0.06em',
+              padding:'6px 12px', borderRadius:14, cursor:'pointer',
+              border:`1px solid ${filter===f.k?f.c:BDR}`,
+              background: filter===f.k?`${f.c}14`:'transparent',
+              color: filter===f.k?f.c:DIM,
+            }}
+          >
+            {f.lbl} <span style={{ opacity:0.65 }}>{f.n}</span>
+          </button>
+        ))}
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
+        {filtered.map((c,i)=>{
+          const k = champKey(c)
+          return (
+            <ChampCard
+              key={k} c={c} motorColor={motor.color}
+              rank={i<3?i+1:undefined}
+              expanded={expandedKey===k} onToggle={()=>toggle(k)}
+            />
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -428,6 +420,7 @@ export default function ModelosPage() {
   const [champs,     setChamps]     = useState<Champion[]>([])
   const [loading,    setLoading]    = useState(true)
   const [lastUpdate, setLastUpdate] = useState<string|null>(null)
+  const [selMotor,   setSelMotor]   = useState(1)
 
   const load = useCallback(async () => {
     try {
@@ -449,11 +442,22 @@ export default function ModelosPage() {
     return () => clearInterval(id)
   }, [load])
 
-  const m1 = champs.filter(c=>motorOf(c)===1)
-  const m2 = champs.filter(c=>motorOf(c)===2)
+  const counts: Record<number, number> = {}
+  for (const m of MOTORS) counts[m.id] = champs.filter(c=>motorOf(c)===m.id).length
+  const motor = MOTORS.find(m=>m.id===selMotor) ?? MOTORS[0]
+  const motorChamps = champs.filter(c=>motorOf(c)===selMotor)
 
   return (
     <div style={{ minHeight:'100vh', background:BG, color:'#e8e9f0', fontFamily:MONO }}>
+      <style>{`
+        .modelos-champ-card { transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+        .modelos-champ-card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0,0,0,0.4); }
+        .modelos-champ-card--rank1 { animation: modelosChampPulse 2.6s ease-in-out infinite; }
+        @keyframes modelosChampPulse {
+          0%, 100% { box-shadow: 0 0 14px rgba(212,175,55,0.22); }
+          50%      { box-shadow: 0 0 28px rgba(212,175,55,0.55); }
+        }
+      `}</style>
       <div style={{ maxWidth:1200, margin:'0 auto', padding:'88px 24px 64px' }}>
 
         {/* Header */}
@@ -472,25 +476,18 @@ export default function ModelosPage() {
               {loading ? 'Conectando…' : lastUpdate ? `↻ ${lastUpdate}` : 'Motor offline'}
             </span>
             <span style={{ color:BDR }}>·</span>
-            <div style={{ display:'flex', gap:8 }}>
-              {MOTORS.map(m=>(
-                <span key={m.id} style={{ fontFamily:MONO, fontSize:9, color:m.status==='ACTIVO'?GRN:MUTED, display:'flex', alignItems:'center', gap:4 }}>
-                  <span style={{ fontSize:6 }}>●</span> M{m.id}
-                </span>
-              ))}
-            </div>
-            <span style={{ color:BDR }}>·</span>
-            <span style={{ fontFamily:MONO, fontSize:9, color:MUTED }}>Click en fila para estadísticas completas</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:MUTED }}>Click en una tarjeta para estadísticas completas</span>
           </div>
         </div>
 
-        {/* Resumen */}
-        {!loading && <SummaryBar champs={champs} />}
+        {/* Tabs de motor */}
+        <MotorTabs selected={selMotor} onSelect={setSelMotor} counts={counts} />
 
-        {/* Motores */}
-        <MotorSection motor={MOTORS[0]} champs={m1} />
-        <MotorSection motor={MOTORS[1]} champs={m2} />
-        {MOTORS.slice(2).map(m=><MotorSection key={m.id} motor={m} champs={[]} />)}
+        {/* Ticker de resumen del motor seleccionado */}
+        {!loading && <TickerBar champs={motorChamps} />}
+
+        {/* Tablero del motor seleccionado */}
+        <ChampionsBoard motor={motor} champs={motorChamps} />
 
       </div>
     </div>

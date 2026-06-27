@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-const VPS = process.env.VPS_URL ?? 'http://localhost:8080'
+const VPS = process.env.VPS_URL ?? ''
 
 const FALLBACK = {
   regime:           'UNKNOWN',
@@ -19,6 +19,7 @@ const FALLBACK = {
 }
 
 export async function GET() {
+  if (!VPS) return NextResponse.json(FALLBACK)
   try {
     const [engineRes, publicRes] = await Promise.all([
       fetch(`${VPS}/api/v2/engine_status`, { cache: 'no-store', signal: AbortSignal.timeout(4000) }),
