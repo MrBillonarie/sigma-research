@@ -26,6 +26,7 @@ import {
   Settings,
   Bell,
   Zap,
+  LifeBuoy,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +57,7 @@ const navItems = [
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
   { label: 'Motor',          href: '/motor-decision',   icon: Zap             },
+  { label: 'Soporte',        href: '/soporte',          icon: LifeBuoy        },
 ]
 
 const comparadorItems = [
@@ -90,6 +92,7 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
+  { id: '/soporte',                   label: 'Soporte',        href: '/soporte',                  category: 'Página',      icon: LifeBuoy,        keywords: ['ticket','ayuda','contacto','soporte'] },
   { id: '/comparador/etfs',           label: 'ETFs',           href: '/comparador/etfs',          category: 'Comparador',  icon: TrendingUp      },
   // Tickers
   ...TICKER_LIST.map(t => ({

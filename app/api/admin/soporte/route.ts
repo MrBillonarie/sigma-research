@@ -39,13 +39,26 @@ export async function PATCH(req: NextRequest) {
     .from('contact_submissions')
     .update(updates)
     .eq('id', id)
-    .select('nombre, email, mensaje, respuesta')
+    .select('user_id, nombre, email, mensaje, respuesta')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (enviarEmail && respuesta && data?.email) {
     await sendSoporteRespuesta(data.email, data.nombre, data.mensaje, respuesta)
+  }
+
+  if (respuesta && data?.user_id) {
+    await sb().from('notifications').insert({
+      user_id:      data.user_id,
+      type:         'soporte',
+      title:        'Respuesta a tu ticket de soporte',
+      body:         respuesta.slice(0, 200),
+      urgente:      false,
+      accion_label: 'Ver respuesta',
+      accion_href:  '/soporte',
+      read:         false,
+    })
   }
 
   return NextResponse.json({ ok: true })
