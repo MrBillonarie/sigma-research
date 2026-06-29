@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import HeroAnimation from './components/HeroAnimation'
+import MotorVivoPanel from './components/landing/MotorVivoPanel'
 
 export const metadata: Metadata = {
   title: 'SQuant Desk — Infraestructura Cuantitativa LATAM',
@@ -19,7 +20,7 @@ const S   = '#0b0d14'  // surface
 const B   = '#1a1d2e'  // border
 const T   = '#e8e9f0'  // text
 const D   = '#7a7f9a'  // dim
-const M   = '#4a5068'  // muted
+const M   = '#7a7f9a'  // muted — era #4a5068 (2.44:1 sobre S, bajo el mínimo WCAG 3:1)
 
 // Gutter horizontal responsivo — antes 32px fijo, comprimía demasiado el
 // contenido contra el borde en mobile. clamp() lo angosta hasta 20px en
@@ -342,6 +343,11 @@ export default async function RootPage() {
     ? (((fire.current_equity - fire.starting_equity) / fire.starting_equity) * 100).toFixed(2)
     : '13.19'
 
+  // Color del glow del panel Motor en Vivo — espeja la clasificación de RegimePill.
+  const regimeRo   = regime === 'risk-on'  || regime.toUpperCase() === 'BULL'
+  const regimeRoff = regime === 'risk-off' || regime.toUpperCase() === 'BEAR'
+  const regimeGlow = regimeRo ? '#34d399' : regimeRoff ? '#f87171' : '#f59e0b'
+
   // Metallic gold gradient — spread into style={{}} where needed.
   // textShadow funciona aunque el fill sea transparente (pinta sobre el
   // contorno del glifo, no sobre el color) — da la sensación de relieve/grabado
@@ -567,69 +573,15 @@ export default async function RootPage() {
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <SectionRule label="// SIGMA ENGINE · EN VIVO AHORA" />
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: 1, background: B }}>
-
-            {/* Panel izquierdo: status del engine */}
-            <div style={{ background: S, padding: '32px 28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399', flexShrink: 0 }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#34d399', letterSpacing: '0.25em' }}>SIGMA ENGINE · ACTIVO</span>
-              </div>
-
-              {([
-                { k: 'RÉGIMEN MERCADO',   node: <RegimePill regime={regime} />,           v: null },
-                { k: 'EDGES CONFIRMADOS', node: null, v: `${bayesian.confirmed} modelo${bayesian.confirmed !== 1 ? 's' : ''}` },
-                { k: 'EN OBSERVACIÓN',    node: null, v: `${bayesian.watching} activo${bayesian.watching !== 1 ? 's' : ''}` },
-                { k: 'ÚLTIMA DECISIÓN',   node: null, v: timeAgo(lastDecisionAt) },
-              ] as Array<{ k: string; node: ReactNode | null; v: string | null }>).map(({ k, node, v }) => (
-                <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: `1px solid ${B}` }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.2em' }}>{k}</span>
-                  {node ?? <span style={{ fontFamily: 'monospace', fontSize: 10, color: T }}>{v}</span>}
-                </div>
-              ))}
-
-              <p style={{ fontFamily: 'monospace', fontSize: 10, color: M, lineHeight: 1.85, marginTop: 22, borderLeft: `2px solid ${G}30`, paddingLeft: 14 }}>
-                El motor evalúa posiciones cada ciclo y solo activa modelos<br />
-                que superan el gate out-of-sample y el filtro Bayesiano.
-              </p>
-            </div>
-
-            {/* Panel derecho: scanner de precios en vivo */}
-            <div style={{ background: S, padding: '32px 28px' }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.3em', marginBottom: 20 }}>{'// SCANNER · TIEMPO REAL'}</div>
-
-              {(tickers.length > 0 ? tickers : [
-                { symbol: 'BTC', price: 0, change24h: 0 },
-                { symbol: 'ETH', price: 0, change24h: 0 },
-                { symbol: 'SOL', price: 0, change24h: 0 },
-                { symbol: 'BNB', price: 0, change24h: 0 },
-              ]).map(t => (
-                <div key={t.symbol} style={{ padding: '13px 0', borderBottom: `1px solid ${B}`, display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: T, width: 44, flexShrink: 0 }}>{t.symbol}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: T, flex: 1, fontVariantNumeric: 'tabular-nums' }}>
-                    {t.price > 0 ? `$${t.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                  </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, width: 68, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: t.change24h >= 0 ? '#34d399' : '#f87171' }}>
-                    {t.price > 0 ? `${t.change24h >= 0 ? '+' : ''}${t.change24h.toFixed(2)}%` : '—'}
-                  </span>
-                  {/* Señal borrosa — visible solo en dashboard */}
-                  <div style={{ fontFamily: 'monospace', fontSize: 8, padding: '3px 8px', letterSpacing: '0.15em', color: G, border: `1px solid ${G}25`, background: `${G}08`, filter: 'blur(3.5px)', userSelect: 'none', flexShrink: 0 }}>
-                    SEÑAL
-                  </div>
-                </div>
-              ))}
-
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${B}` }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, lineHeight: 1.85, marginBottom: 14 }}>
-                  SEÑALES COMPLETAS BUY / SELL / HOLD<br />
-                  DISPONIBLES EN DASHBOARD DESPUÉS DEL REGISTRO
-                </div>
-                <Link href="/registro" className="gold-cta" style={{ display: 'inline-block', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: BG, background: `linear-gradient(135deg, ${G}, #c9a227)`, padding: '10px 20px', textDecoration: 'none', boxShadow: `0 0 20px rgba(212,175,55,0.2)` }}>
-                  VER SEÑALES COMPLETAS →
-                </Link>
-              </div>
-            </div>
-          </div>
+          <MotorVivoPanel
+            tokens={{ G, BG, S, B, T, D, M }}
+            regimeNode={<RegimePill regime={regime} />}
+            regimeGlow={regimeGlow}
+            bayesianConfirmed={bayesian.confirmed}
+            bayesianWatching={bayesian.watching}
+            lastDecisionLabel={timeAgo(lastDecisionAt)}
+            initialTickers={tickers}
+          />
         </div>
       </section>
 
