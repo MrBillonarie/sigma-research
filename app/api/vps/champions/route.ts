@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
 
@@ -47,7 +48,10 @@ function normalizeChampion(raw: RawChampion) {
 
 export async function GET() {
   const { data: { user } } = await makeClient().auth.getUser()
-  if (!user) return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
+  const engineCookie = cookies().get('sigma_engine_session')?.value
+  if (!user && !verifyEngineMonitorSession(engineCookie)) {
+    return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
+  }
 
   // Primary: /api/v2/champions — full champion list with all metrics
   // Fallback: /api/public top_models — always available
