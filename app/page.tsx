@@ -406,12 +406,12 @@ export default async function RootPage() {
             </div>
           </div>
 
-          {/* 3-line headline */}
-          <div style={{ marginBottom: 32, fontFamily: "'Bebas Neue', Impact, sans-serif", letterSpacing: '0.02em', lineHeight: 0.88, ...reveal(120) }}>
+          {/* 3-line headline — único h1 de la página */}
+          <h1 style={{ margin: '0 0 32px', fontFamily: "'Bebas Neue', Impact, sans-serif", letterSpacing: '0.02em', lineHeight: 0.88, fontWeight: 400, ...reveal(120) }}>
             <div style={{ fontSize: 'clamp(34px, 12vw, 140px)', color: T }}>VENTAJA</div>
             <div style={{ fontSize: 'clamp(34px, 12vw, 140px)', ...gMetal }}>CUANTITATIVA</div>
             <div style={{ fontSize: 'clamp(22px, 7vw, 86px)', color: D, marginTop: 6 }}>PARA OPERADORES EN LATAM</div>
-          </div>
+          </h1>
 
           {/* Description */}
           <p style={{ fontFamily: 'monospace', fontSize: 13, color: D, lineHeight: 1.9, maxWidth: 520, marginBottom: 28, borderLeft: `2px solid ${G}40`, paddingLeft: 18, ...reveal(320) }}>
@@ -846,17 +846,17 @@ export default async function RootPage() {
                 </Link>
               ))}
             </div>
-            <p style={{ fontFamily: 'monospace', fontSize: 9, color: '#3a3d50', letterSpacing: '0.06em', lineHeight: 1.8, maxWidth: 600, margin: '0 auto 16px' }}>
+            <p style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.06em', lineHeight: 1.8, maxWidth: 600, margin: '0 auto 16px' }}>
               AVISO LEGAL: SQuant Desk es una plataforma de herramientas analíticas y no constituye asesoramiento financiero ni de inversión. Modelos, señales y análisis son solo informativos. Resultados pasados no garantizan retornos futuros.
             </p>
-            <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#3a3d50', letterSpacing: '0.3em' }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.3em' }}>
               © {new Date().getFullYear()} SQUANT DESK · TODOS LOS DERECHOS RESERVADOS
             </div>
           </div>
         </div>
       </section>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes heroReveal {
           from { opacity: 0; transform: translateY(14px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -901,7 +901,7 @@ export default async function RootPage() {
           box-shadow: 0 14px 30px -10px ${gc}45, inset 0 0 0 1px ${gc}35;
         }`
         }).join('')}
-      `}</style>
+      ` }} />
     </main>
   )
 }

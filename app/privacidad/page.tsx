@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Política de Privacidad — SQuant Desk',
+  title: 'Política de Privacidad',
   description: 'Política de privacidad y protección de datos de SQuant Desk.',
 }
 

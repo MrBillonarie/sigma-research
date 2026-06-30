@@ -355,18 +355,22 @@ export default function LpSignalPage() {
   }, [])
 
   const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=4h&limit=50')
-      if (res.ok) {
-        const raw = await res.json() as [number, string, string, string, string, ...unknown[]][]
-        setKlines(raw.map(r => ({ open: parseFloat(r[1]), high: parseFloat(r[2]), low: parseFloat(r[3]), close: parseFloat(r[4]) })))
-      }
-    } catch {}
-    try {
-      const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT')
-      if (res.ok) { const d = await res.json() as { price: string }; const p = parseFloat(d.price); if (p > 0) setBnbPrice(p) }
-    } catch {}
-    const results = await Promise.all(
+    const fetchKlines = async () => {
+      try {
+        const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=4h&limit=50')
+        if (res.ok) {
+          const raw = await res.json() as [number, string, string, string, string, ...unknown[]][]
+          setKlines(raw.map(r => ({ open: parseFloat(r[1]), high: parseFloat(r[2]), low: parseFloat(r[3]), close: parseFloat(r[4]) })))
+        }
+      } catch {}
+    }
+    const fetchBnb = async () => {
+      try {
+        const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT')
+        if (res.ok) { const d = await res.json() as { price: string }; const p = parseFloat(d.price); if (p > 0) setBnbPrice(p) }
+      } catch {}
+    }
+    const fetchPools = async () => Promise.all(
       POOL_CONFIGS.map(async (cfg): Promise<PoolApiResponse | null> => {
         try {
           const res = await fetch(`/api/pancakeswap/pools?pool=${cfg.proxyKey}`)
@@ -377,6 +381,8 @@ export default function LpSignalPage() {
         } catch { return null }
       })
     )
+
+    const [, , results] = await Promise.all([fetchKlines(), fetchBnb(), fetchPools()])
     setApiError(results.every(r => r === null))
     setPoolsData(results)
     setLoading(false)

@@ -15,7 +15,7 @@ const nextConfig = {
 
   // Tree-shake lucide-react y otras librerías pesadas — carga solo los íconos usados
   experimental: {
-    optimizePackageImports: ['lucide-react', 'chart.js', 'react-chartjs-2', '@react-email/components'],
+    optimizePackageImports: ['lucide-react', 'chart.js', 'react-chartjs-2', '@react-email/components', 'framer-motion'],
   },
 
   async headers() {

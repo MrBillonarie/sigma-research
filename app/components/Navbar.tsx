@@ -157,6 +157,12 @@ export default function Navbar() {
               className="relative"
               onMouseEnter={() => setActiveGroup(group.id)}
               onMouseLeave={() => setActiveGroup(null)}
+              onFocus={() => setActiveGroup(group.id)}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setActiveGroup(prev => (prev === group.id ? null : prev))
+                }
+              }}
             >
               <button
                 aria-expanded={activeGroup === group.id}

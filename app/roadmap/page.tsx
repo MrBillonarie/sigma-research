@@ -6,7 +6,7 @@ import SigmaDivider from '@/app/components/landing/SigmaDivider'
 import LiveHeroCounter from '@/app/components/landing/LiveHeroCounter'
 
 export const metadata: Metadata = {
-  title: 'Roadmap — SQuant Desk',
+  title: 'Roadmap',
   description:
     'La hoja de ruta de SQuant Desk: lo que ya construimos, en qué estamos trabajando y hacia dónde va la arquitectura multi-motor.',
 }

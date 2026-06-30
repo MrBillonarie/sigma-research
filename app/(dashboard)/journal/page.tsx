@@ -1,23 +1,16 @@
 'use client'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { supabase } from '@/app/lib/supabase'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { C, cardStyle, numberEmboss } from '@/app/lib/constants'
-import Papa from 'papaparse'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js'
-import { Line, Bar } from 'react-chartjs-2'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler)
+// chart.js + react-chartjs-2 pesan ~70kB y solo hacen falta cuando el usuario
+// realmente ve un gráfico — se cargan en un chunk aparte en vez de ir en el
+// bundle inicial de /journal.
+const chartLoading = () => <div style={{ height: '100%', minHeight: 120 }} />
+const Line = dynamic(() => import('./JournalCharts').then(m => m.Line), { ssr: false, loading: chartLoading })
+const Bar = dynamic(() => import('./JournalCharts').then(m => m.Bar), { ssr: false, loading: chartLoading })
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -114,6 +107,7 @@ function parseAmount(s: string): number {
 }
 
 async function parseCsvFile(file: File): Promise<ParsedEvent[]> {
+  const { default: Papa } = await import('papaparse')
   return new Promise((resolve, reject) => {
     Papa.parse<Record<string, string>>(file, {
       header: true,

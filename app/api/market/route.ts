@@ -74,10 +74,25 @@ async function fetchXAU(): Promise<Ticker | null> {
   return await fetchStooq('xauusd')
 }
 
+// In-memory cache — RightBar.tsx polls este endpoint cada 30s por usuario;
+// sin cache, cada poll de cada usuario dispara hasta 6 fetches a Yahoo/Stooq
+// (SPX + XAU con fallbacks). 60s de TTL alcanza para precios de mercado.
+let _cached: { spx: Ticker | null; xau: Ticker | null } | null = null
+let _cacheAt = 0
+const CACHE_TTL_MS = 60 * 1000
+
 export async function GET() {
+  const now = Date.now()
+  if (_cached && now - _cacheAt < CACHE_TTL_MS) {
+    return NextResponse.json(_cached, { headers: { 'Cache-Control': 'public, max-age=60' } })
+  }
+
   const [spx, xau] = await Promise.all([fetchSPX(), fetchXAU()])
+  _cached = { spx, xau }
+  _cacheAt = now
+
   return NextResponse.json(
-    { spx, xau },
-    { headers: { 'Cache-Control': 'no-store' } }
+    _cached,
+    { headers: { 'Cache-Control': 'public, max-age=60' } }
   )
 }

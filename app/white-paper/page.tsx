@@ -5,7 +5,7 @@ import SigmaDivider from '@/app/components/landing/SigmaDivider'
 import DownloadWhitePaperPdf from './DownloadWhitePaperPdf'
 
 export const metadata: Metadata = {
-  title: 'White Paper — SQuant Desk',
+  title: 'White Paper',
   description:
     'Arquitectura, metodología cuantitativa, gestión de riesgo y track record del motor SIGMA: cómo se valida una estrategia antes de arriesgar capital real.',
 }
