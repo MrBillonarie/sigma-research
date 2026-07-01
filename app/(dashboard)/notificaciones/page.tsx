@@ -318,16 +318,31 @@ export default function NotificacionesPage() {
               return (
                 <div key={group.label}>
                   {/* Date group header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.2em', color: '#3a3f55', flexShrink: 0 }}>
-                      {`// ${group.label}`}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <span style={{
+                      width: 24, height: 1, flexShrink: 0,
+                      background: group.label === 'HOY' ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.18)',
+                    }} />
+                    <span style={{
+                      fontFamily: MONO, fontSize: 9, letterSpacing: '0.22em', fontWeight: 700,
+                      flexShrink: 0, padding: '3px 11px',
+                      color: group.label === 'HOY' ? '#d4af37' : '#9097b8',
+                      border: `1px solid ${group.label === 'HOY' ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.18)'}`,
+                      background: group.label === 'HOY' ? 'rgba(212,175,55,0.07)' : 'rgba(255,255,255,0.04)',
+                    }}>
+                      {group.label}
                     </span>
-                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                    <span style={{
+                      flex: 1, height: 1,
+                      background: group.label === 'HOY' ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.12)',
+                    }} />
                     {groupUnread > 0 && (
                       <span style={{
-                        fontFamily: MONO, fontSize: 8, letterSpacing: '0.1em', fontWeight: 700,
-                        background: '#ef4444', color: '#fff',
-                        padding: '2px 7px', borderRadius: 8,
+                        fontFamily: MONO, fontSize: 8, letterSpacing: '0.08em', fontWeight: 700,
+                        flexShrink: 0, padding: '2px 8px',
+                        color: '#f87171',
+                        border: '1px solid rgba(248,113,113,0.35)',
+                        background: 'rgba(248,113,113,0.08)',
                       }}>
                         {groupUnread} sin leer
                       </span>
