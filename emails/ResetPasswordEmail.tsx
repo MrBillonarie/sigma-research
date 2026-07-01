@@ -1,6 +1,6 @@
 import { Row, Column, Text, Section, Hr } from '@react-email/components'
 import * as React from 'react'
-import { Base, CTAButton, GOLD, TEXT, MUTED, BG, BORDER } from './_base'
+import { Base, CTAButton, GOLD, TEXT, MUTED, BORDER } from './_base'
 
 export interface ResetPasswordEmailProps {
   firstName: string

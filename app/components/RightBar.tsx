@@ -62,15 +62,6 @@ interface PriceAlert {
   price: number; triggered: boolean; createdAt: string
 }
 
-interface Setup {
-  id: string; par: string; tipo: 'LONG' | 'SHORT' | 'LP'
-  entry?: number; sl?: number; tp?: number; rr?: number
-  rangeLow?: number; rangeHigh?: number; feeTier?: string; protocol?: string
-  timeframe: string; metodologia: string
-  estado: 'ACTIVO' | 'INVALIDO' | 'EJECUTADO' | 'EN_RANGO' | 'FUERA_RANGO'
-  nota: string; fecha: string
-}
-
 interface CommunitySetup {
   id: string; par: string; tipo: 'LONG' | 'SHORT' | 'LP'
   entry?: number; sl?: number; tp?: number
@@ -86,24 +77,6 @@ const SESSIONS = [
   { name: 'LONDON',   from: 7,  to: 16, color: T.blue,   tz: 'Europe/London',    label: 'London' },
   { name: 'NEW YORK', from: 13, to: 22, color: T.green,  tz: 'America/New_York', label: 'NY'     },
 ] as const
-
-// ─── Own setups (edit manually) ───────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _SETUPS: Setup[] = [
-  {
-    id: '1', par: 'BTCUSDT', tipo: 'LONG',
-    entry: 83500, sl: 81200, tp: 88000, rr: 2.1,
-    timeframe: '4H', metodologia: 'OB+MACD', estado: 'ACTIVO',
-    nota: 'OB 4H respetado, MACD divergencia bull', fecha: '2026-04-18',
-  },
-  {
-    id: '2', par: 'ETH/USDC', tipo: 'LP',
-    rangeLow: 1580, rangeHigh: 1950,
-    feeTier: '0.05%', protocol: 'Uniswap v3',
-    timeframe: '—', metodologia: 'Concentrated LP', estado: 'EN_RANGO',
-    nota: 'Rango tight alrededor de precio actual', fecha: '2026-04-18',
-  },
-]
 
 const SYM_STREAM = SYMBOLS.map(s => `${s.toLowerCase()}usdt@ticker`).join('/')
 const WS_URL     = `wss://stream.binance.com:9443/stream?streams=${SYM_STREAM}`
@@ -131,31 +104,6 @@ function playBeep(ctx: React.MutableRefObject<AudioContext | null>) {
     gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.35)
     osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.35)
   } catch {}
-}
-
-function resolveSetupStatus(s: Setup, price: number): Setup['estado'] {
-  if (!price || s.tipo === 'LP') return s.estado
-  if (s.tipo === 'LONG') {
-    if (s.sl && price <= s.sl) return 'INVALIDO'
-    if (s.tp && price >= s.tp) return 'EJECUTADO'
-  } else {
-    if (s.sl && price >= s.sl) return 'INVALIDO'
-    if (s.tp && price <= s.tp) return 'EJECUTADO'
-  }
-  return s.estado
-}
-
-function resolveLpStatus(s: Setup, price: number): 'EN_RANGO' | 'FUERA_RANGO' {
-  if (!price || !s.rangeLow || !s.rangeHigh) return s.estado as 'EN_RANGO' | 'FUERA_RANGO'
-  return price >= s.rangeLow && price <= s.rangeHigh ? 'EN_RANGO' : 'FUERA_RANGO'
-}
-
-function setupProgress(s: Setup, price: number): number {
-  if (!price || !s.entry || !s.tp) return 0
-  const p = s.tipo === 'LONG'
-    ? (price - s.entry) / (s.tp - s.entry)
-    : (s.entry - price) / (s.entry - s.tp)
-  return Math.max(0, Math.min(100, p * 100))
 }
 
 function symFromPar(par: string): Sym {
@@ -588,92 +536,6 @@ export default function RightBar() {
 
       </aside>
     </>
-  )
-}
-
-// ─── SetupCard: handles LONG / SHORT / LP ─────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _SetupCard({ s, price }: { s: Setup; price: number }) {
-
-  if (s.tipo === 'LP') {
-    const st      = resolveLpStatus(s, price)
-    const inRange = st === 'EN_RANGO'
-    const pct     = s.rangeLow && s.rangeHigh
-      ? Math.max(0, Math.min(100, ((price - s.rangeLow) / (s.rangeHigh - s.rangeLow)) * 100))
-      : 50
-
-    return (
-      <div style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.violet, background: T.violet + '20', padding: '1px 5px', letterSpacing: '0.08em' }}>LP</span>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: inRange ? T.green : T.red, background: (inRange ? T.green : T.red) + '18', padding: '1px 5px' }}>{st}</span>
-        </div>
-        <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.text, marginBottom: 4 }}>{s.par}</div>
-        {s.protocol && (
-          <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.violet, marginBottom: 4 }}>{s.protocol} · {s.feeTier}</div>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>RANGO</span>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.text }}>{fmtPrice(s.rangeLow ?? 0)} – {fmtPrice(s.rangeHigh ?? 0)}</span>
-        </div>
-        {price > 0 && (
-          <div style={{ marginBottom: 5 }}>
-            <div style={{ height: 5, background: T.border, borderRadius: 3, position: 'relative' }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: inRange ? T.violet : T.red, borderRadius: 3 }} />
-              <div style={{ position: 'absolute', left: `${pct}%`, top: -1, width: 2, height: 7, background: T.gold, transform: 'translateX(-50%)' }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 8, color: T.dimText, marginTop: 2 }}>
-              <span>{fmtPrice(s.rangeLow ?? 0)}</span>
-              <span style={{ color: inRange ? T.green : T.red }}>{fmtPrice(price)}</span>
-              <span>{fmtPrice(s.rangeHigh ?? 0)}</span>
-            </div>
-          </div>
-        )}
-        <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.dimText, lineHeight: 1.5 }}>{s.nota}</div>
-        <div style={{ fontFamily: 'monospace', fontSize: 8, color: T.muted, marginTop: 3 }}>{s.fecha}</div>
-      </div>
-    )
-  }
-
-  const st         = resolveSetupStatus(s, price)
-  const prog       = st === 'ACTIVO' ? setupProgress(s, price) : 0
-  const stColor    = st === 'EJECUTADO' ? T.gold : st === 'INVALIDO' ? T.red : T.dimText
-  const badgeColor = s.tipo === 'LONG' ? T.green : T.red
-
-  return (
-    <div style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}` }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.08em', color: badgeColor, background: badgeColor + '20', padding: '1px 5px' }}>{s.tipo}</span>
-          <span style={{ fontFamily: 'monospace', fontSize: 10, color: T.dimText }}>{s.timeframe}</span>
-        </div>
-        <span style={{ fontFamily: 'monospace', fontSize: 9, color: stColor, background: stColor + '18', padding: '1px 5px', letterSpacing: '0.1em' }}>{st}</span>
-      </div>
-      <div style={{ fontFamily: 'monospace', fontSize: 11, color: T.text, marginBottom: 4 }}>{s.par}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
-        {[{ l: 'E', v: s.entry ?? 0, c: T.dimText }, { l: 'SL', v: s.sl ?? 0, c: T.red + 'cc' }, { l: 'TP', v: s.tp ?? 0, c: T.green + 'cc' }].map(({ l, v, c }) => (
-          <div key={l} style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>{l}</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: c }}>{fmtPrice(v)}</span>
-          </div>
-        ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>RR</span>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.gold }}>{s.rr}R</span>
-        </div>
-      </div>
-      {st === 'ACTIVO' && price > 0 && (
-        <div style={{ marginBottom: 5 }}>
-          <div style={{ height: 3, background: T.border, borderRadius: 2 }}>
-            <div style={{ width: `${prog}%`, height: '100%', background: prog > 0 ? T.green : T.muted, borderRadius: 2, transition: 'width 0.3s' }} />
-          </div>
-          <div style={{ fontFamily: 'monospace', fontSize: 8, color: T.dimText, marginTop: 2, textAlign: 'right' }}>{prog.toFixed(0)}% hacia TP</div>
-        </div>
-      )}
-      <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.gold, letterSpacing: '0.08em', marginBottom: 3 }}>{s.metodologia}</div>
-      <div style={{ fontFamily: 'monospace', fontSize: 9, color: T.dimText, lineHeight: 1.5 }}>{s.nota}</div>
-      <div style={{ fontFamily: 'monospace', fontSize: 8, color: T.muted, marginTop: 3 }}>{s.fecha}</div>
-    </div>
   )
 }
 

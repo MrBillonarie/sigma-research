@@ -170,7 +170,7 @@ function getSignal(
 // ─── Score 0-100 con MACD + pesos dinámicos por régimen ──────────────────────
 function calcScore(
   rsi: number, netFlow: number, mom: number,
-  r1m: number, r1y: number, vol: number, consistency: number,
+  _r1m: number, r1y: number, vol: number, consistency: number,
   macd: MACDResult | null,
   emaTrend: EMATrendResult | null,
   regime: MarketRegime,

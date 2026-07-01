@@ -324,7 +324,7 @@ const RETRY_WAITS_MS = [300_000, 600_000, 1_200_000]
 const MAX_RETRIES    = RETRY_WAITS_MS.length
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function processProvider(p: any, total: number, label: string, from: string, to: string, counters: { synced: number; sin_datos: number; errors: number }): Promise<boolean> {
+async function processProvider(p: any, label: string, from: string, to: string, counters: { synced: number; sin_datos: number; errors: number }): Promise<boolean> {
   process.stdout.write(label)
 
   let conceptuals: { id: string; nombre: string; attrs: unknown }[] = []
@@ -515,7 +515,7 @@ async function runDiscover() {
       continue
     }
 
-    const ok = await processProvider(p, providers.length, label, from, to, counters)
+    const ok = await processProvider(p, label, from, to, counters)
     if (!ok) pendientes.push(p)
   }
 
@@ -532,7 +532,7 @@ async function runDiscover() {
       const p     = pendientes[pi]
       const label = `  [retry ${retry + 1} · ${pi + 1}/${pendientes.length}] ${(p.attributes?.name ?? '?').slice(0, 28).padEnd(30)}`
       providerCooldowns = 0
-      const ok = await processProvider(p, pendientes.length, label, from, to, counters)
+      const ok = await processProvider(p, label, from, to, counters)
       if (!ok) aún.push(p)
     }
     pendientes = aún

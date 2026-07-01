@@ -17,7 +17,7 @@ export function calcIL(priceRatio: number): number {
   return (2 * Math.sqrt(priceRatio)) / (1 + priceRatio) - 1
 }
 
-export function calcBreakEvenDays(capital: number, apyPct: number, ilPct: number): number {
+export function calcBreakEvenDays(_capital: number, apyPct: number, ilPct: number): number {
   if (apyPct <= 0) return Infinity
   const dailyRate = apyPct / 100 / 365
   return Math.abs(ilPct / 100) / dailyRate

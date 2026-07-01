@@ -19,7 +19,7 @@ function makeClient() {
 // "Guardar como" con el nombre de archivo correcto. El fetch hacia el motor
 // corre server-side en la misma VPS (127.0.0.1) y no necesita cookie/token
 // propio, pero exigimos sesión de squantdesk antes de llegar a este proxy.
-export async function GET(req: NextRequest, { params }: { params: { path: string[] } }) {
+export async function GET(_req: NextRequest, { params }: { params: { path: string[] } }) {
   const { data: { user } } = await makeClient().auth.getUser()
   const engineCookie = cookies().get('sigma_engine_session')?.value
   if (!user && !verifyEngineMonitorSession(engineCookie)) {

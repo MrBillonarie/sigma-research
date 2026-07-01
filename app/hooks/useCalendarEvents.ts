@@ -87,7 +87,6 @@ export function useCalendarEvents(): CalendarEventState {
       setError(null)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error desconocido'
-      console.warn('[useCalendarEvents] Usando datos mock:', msg)
       setNewsEvents(MOCK_EVENTS)
       setUsingMock(true)
       if (!msg.includes('does not exist') && !msg.includes('42P01')) {
@@ -109,7 +108,6 @@ export function useCalendarEvents(): CalendarEventState {
       .order('task_date', { ascending: true })
 
     if (fetchError) {
-      console.warn('[useCalendarEvents] tareas:', fetchError.message)
       setTaskEvents([])
       return
     }

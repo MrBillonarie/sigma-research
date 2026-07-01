@@ -1,6 +1,6 @@
 import { Row, Column, Text, Section } from '@react-email/components'
 import * as React from 'react'
-import { Base, CTAButton, Label, GOLD, TEXT, MUTED, BG } from './_base'
+import { Base, CTAButton, Label, GOLD, TEXT, MUTED } from './_base'
 
 export interface WelcomeEmailProps {
   firstName: string

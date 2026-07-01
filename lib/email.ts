@@ -143,6 +143,7 @@ export async function sendSoporteRespuesta(
       <tr><td style="padding:32px 32px 16px">
         <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.3em;color:#d4af37">// RESPUESTA DE SOPORTE</p>
         <h2 style="margin:0 0 20px;font-size:22px;font-weight:bold;color:#e5e5e5">Hemos respondido tu consulta</h2>
+        <p style="margin:0 0 16px;font-size:13px;color:#e5e5e5">Hola ${escHtml(nombre)},</p>
         <div style="background:#1a1a1a;border:1px solid #222;padding:16px;margin-bottom:24px">
           <p style="margin:0 0 6px;font-size:10px;color:#555;letter-spacing:0.2em">TU MENSAJE ORIGINAL</p>
           <p style="margin:0;font-size:12px;color:#666;line-height:1.8">${escHtml(mensajeOriginal).replace(/\n/g, '<br>')}</p>
