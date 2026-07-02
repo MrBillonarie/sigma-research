@@ -53,7 +53,8 @@ interface ChartProps {
 function PriceChart({ data, livePrice }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<ReturnType<typeof createChart> | null>(null)
-  const seriesRef    = useRef<ReturnType<typeof chartRef.current extends null ? never : (typeof chartRef.current)['addSeries']> | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const seriesRef    = useRef<any>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
