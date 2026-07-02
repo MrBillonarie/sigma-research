@@ -162,21 +162,77 @@ export default function HUDPage() {
 
   return (
     <>
-      {/* Skin "quieto" — detalles estáticos del lado web (esquinas, sombras,
-          scrollbars). Vive en el <body>, gana la cascada frente a los estilos
-          del motor (en <head>) sin modificar nada del motor. No agrega ni
-          quita información: solo suaviza lo que ya está. */}
+      {/* Re-skin "Black & Gold" — overrides CSS del lado web. Vive en el
+          <body>, gana la cascada frente a los estilos del motor (en <head>)
+          sin modificar nada del motor. Traduce la paleta azulada del engine
+          al negro profundo + dorado del sitio, con títulos de sección estilo
+          landing y un glow ligero en los datos clave. */}
       <style>{`
         @keyframes hud-pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:0.55; transform:scale(0.96)} }
         @keyframes hud-scan  { 0%{left:-40%} 100%{left:100%} }
-        #sigma-hud-root .card     { border-radius: 10px !important; box-shadow: 0 6px 18px rgba(0,0,0,0.28); }
-        #sigma-hud-root .kpi-card { border-radius: 8px !important; }
+
+        /* ══ 1. Paleta: azul del motor → negro + dorado SQuant ══ */
+        #sigma-hud-root .card {
+          position: relative;
+          background: #0b0d14 !important;
+          border: 1px solid #1a1d2e !important;
+          border-radius: 10px !important;
+          box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+          overflow: hidden;
+        }
+        #sigma-hud-root .card::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, rgba(212,175,55,0.75), transparent 70%);
+        }
+        #sigma-hud-root .card-title {
+          color: #d4af37 !important;
+          letter-spacing: 0.18em !important;
+          text-transform: uppercase;
+        }
+        #sigma-hud-root .kpi-strip { background: transparent !important; }
+        #sigma-hud-root .kpi-card {
+          background: #0b0d14 !important;
+          border: 1px solid #1a1d2e !important;
+          border-radius: 8px !important;
+          margin: 3px !important;
+        }
+        #sigma-hud-root .kpi-label { color: #7a7f9a !important; letter-spacing: 0.18em !important; }
+        #sigma-hud-root .asset-box { background: #0b0d14 !important; border-color: #1a1d2e !important; border-radius: 6px !important; }
+        #sigma-hud-root .risk-cell { background: #0b0d14 !important; border-color: #1a1d2e !important; border-radius: 6px !important; }
+        /* paneles con la paleta azul puesta como estilo inline */
+        #sigma-hud-root [style*="background:#141b38"], #sigma-hud-root [style*="background: #141b38"],
+        #sigma-hud-root [style*="background:#1a2240"], #sigma-hud-root [style*="background: #1a2240"] {
+          background-color: #0b0d14 !important;
+        }
         #sigma-hud-root .badge, #sigma-hud-root .pill, #sigma-hud-root .tf-pill { border-radius: 4px !important; }
-        #sigma-hud-root .matrix td, #sigma-hud-root .asset-box { border-radius: 6px !important; }
+        #sigma-hud-root .matrix td { border-radius: 6px !important; }
+
+        /* ══ 2. Títulos de sección estilo landing (MOTOR 1 / 2 / 3…) ══ */
+        #sigma-hud-root .section-divider { margin: 36px 0 18px !important; }
+        #sigma-hud-root .section-divider-text {
+          font-family: 'Bebas Neue', Impact, sans-serif !important;
+          font-size: 22px !important;
+          letter-spacing: 0.14em !important;
+          color: #d4af37 !important;
+          text-shadow: 0 0 24px rgba(212,175,55,0.3);
+        }
+        #sigma-hud-root .section-divider-line {
+          height: 1px !important;
+          background: linear-gradient(90deg, transparent, rgba(212,175,55,0.45)) !important;
+        }
+        #sigma-hud-root .section-divider-line:last-of-type {
+          background: linear-gradient(270deg, transparent, rgba(212,175,55,0.45)) !important;
+        }
+
+        /* ══ 3. Dosis ligera de glow en datos clave ══ */
+        #sigma-hud-root .kpi-value { text-shadow: 0 0 14px currentColor; }
+        #sigma-hud-root .cell-ok   { text-shadow: 0 0 10px rgba(46,204,113,0.4); }
+
+        /* scrollbars finas */
         #sigma-hud-root ::-webkit-scrollbar { width: 8px; height: 8px; }
         #sigma-hud-root ::-webkit-scrollbar-track { background: transparent; }
-        #sigma-hud-root ::-webkit-scrollbar-thumb { background: #242f55; border-radius: 4px; }
-        #sigma-hud-root ::-webkit-scrollbar-thumb:hover { background: rgba(201,162,39,0.45); }
+        #sigma-hud-root ::-webkit-scrollbar-thumb { background: #1a1d2e; border-radius: 4px; }
+        #sigma-hud-root ::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.45); }
       `}</style>
 
       {status === 'loading' && (
@@ -217,7 +273,7 @@ export default function HUDPage() {
         id="sigma-hud-root"
         ref={containerRef}
         style={{
-          minHeight: '100vh', background: '#020510',
+          minHeight: '100vh', background: '#04050a',
           // Fade-in único al terminar de cargar — después nada se mueve
           opacity: status === 'ok' ? 1 : 0,
           transition: 'opacity 0.7s ease',
