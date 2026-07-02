@@ -21,6 +21,7 @@ const MORE_LINKS = [
   { href: '/montecarlo',       label: 'Monte Carlo' },
   { href: '/ingresos-pasivos', label: 'Ingresos Pasivos' },
   { href: '/mis-reportes',     label: 'Reportes' },
+  { href: '/tax',              label: 'Tax IGC' },
   { href: '/lp-defi',          label: 'LP DeFi' },
   { href: '/lp-signal',        label: 'LP Signal' },
   { href: '/modelos',          label: 'Modelos' },

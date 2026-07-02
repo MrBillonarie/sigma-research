@@ -30,6 +30,7 @@ import {
   Users,
   LineChart,
   Signal,
+  Receipt,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,6 +62,7 @@ const navItems = [
   { label: 'Modelos',        href: '/modelos',          icon: BrainCircuit    },
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
+  { label: 'Tax',            href: '/tax',              icon: Receipt         },
   { label: 'Motor',          href: '/motor-decision',   icon: Zap             },
   { label: 'Community',      href: '/community-setups', icon: Users           },
   { label: 'Soporte',        href: '/soporte',          icon: LifeBuoy        },
@@ -98,6 +100,7 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/modelos',          label: 'Modelos',        href: '/modelos',          category: 'Página', icon: BrainCircuit    },
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
+  { id: '/tax',                       label: 'Tax',            href: '/tax',                      category: 'Página',      icon: Receipt,         keywords: ['tax','impuesto','igc','renta','tributario','chile'] },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
   { id: '/community-setups',          label: 'Community',      href: '/community-setups',         category: 'Página',      icon: Users,           keywords: ['community','setups','comunidad','votos','ideas','trades'] },
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },

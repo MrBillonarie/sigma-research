@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
-const PASS = '0808'
+const PASS = process.env.VPS_MOTOR_PASS ?? '0808'
 
 function makeClient() {
   const cookieStore = cookies()

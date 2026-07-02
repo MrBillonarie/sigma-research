@@ -25,7 +25,6 @@ const PUBLIC = new Set([
   '/api-docs',
   '/offline',
   '/demo',
-  '/sigma-live',
   '/manifest.webmanifest',
   '/robots.txt',
   '/sitemap.xml',
