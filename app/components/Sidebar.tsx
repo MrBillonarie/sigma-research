@@ -45,10 +45,10 @@ const MUTED  = C.textDim
 const MONO   = F.mono
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
-const navItems = [
+const navItems: { label: string; href: string; icon: LucideIcon; live?: boolean }[] = [
   { label: 'Home',           href: '/home',             icon: Home            },
-  { label: 'HUD',            href: '/hud',              icon: Activity        },
-  { label: 'Terminal',       href: '/terminal',         icon: LineChart       },
+  { label: 'HUD',            href: '/hud',              icon: Activity,        live: true },
+  { label: 'Terminal',       href: '/terminal',         icon: LineChart,       live: true },
   { label: 'Portafolio',     href: '/portafolio',        icon: PieChart        },
   { label: 'Journal',        href: '/journal',          icon: BookOpen        },
   { label: 'Diagnosticador', href: '/diagnosticador',   icon: Stethoscope     },
@@ -340,9 +340,29 @@ function SearchBar({ collapsed, onExpand }: { collapsed: boolean; onExpand: () =
 export default function Sidebar() {
   const pathname  = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const navRef = useRef<HTMLElement>(null)
+  const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null)
+
+  // Posiciona el indicador dorado sobre el item activo; al navegar, la
+  // transición CSS lo hace "viajar" hasta el nuevo item.
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const el = nav.querySelector<HTMLElement>('[data-active="true"]')
+    if (!el) { setIndicator(null); return }
+    setIndicator({ top: el.offsetTop, height: el.offsetHeight })
+  }, [pathname, collapsed])
+
   async function handleLogout() {
     await supabase.auth.signOut()
     window.location.href = '/'
+  }
+
+  const activeGradient = 'linear-gradient(90deg, rgba(212,175,55,0.16) 0%, rgba(212,175,55,0.04) 60%, transparent 100%)'
+  const iconGlow       = 'drop-shadow(0 0 5px rgba(212,175,55,0.55))'
+  const dividerStyle: React.CSSProperties = {
+    height: 1, flexShrink: 0,
+    background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.28) 50%, transparent)',
   }
 
   const navLinkBase: React.CSSProperties = {
@@ -378,11 +398,16 @@ export default function Sidebar() {
         overflow: 'hidden',
       }}
     >
+      <style>{`
+        .sb-nav::-webkit-scrollbar { width: 0; height: 0; }
+        .sb-nav { scrollbar-width: none; }
+        @keyframes sb-pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+      `}</style>
+
       {/* Logo */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: collapsed ? '18px 0' : '16px 14px',
-        borderBottom: `1px solid ${BORDER}`,
         justifyContent: collapsed ? 'center' : 'flex-start',
         flexShrink: 0,
       }}>
@@ -397,57 +422,82 @@ export default function Sidebar() {
         )}
       </div>
 
+      <div style={dividerStyle} />
+
       {/* Search bar */}
-      <div style={{ borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+      <div style={{ flexShrink: 0 }}>
         <SearchBar collapsed={collapsed} onExpand={() => setCollapsed(false)} />
       </div>
 
+      <div style={dividerStyle} />
+
       {/* Notification Bell */}
-      <div style={{ borderBottom: `1px solid ${BORDER}`, padding: '4px 6px', flexShrink: 0 }}>
+      <div style={{ padding: '4px 6px', flexShrink: 0 }}>
         <NotificationBell collapsed={collapsed} />
       </div>
 
+      <div style={dividerStyle} />
+
       {/* Nav items */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflowY: 'auto', padding: '12px 8px' }}>
-        {navItems.map(({ label, href, icon: Icon }) => {
+      <nav ref={navRef} className="sb-nav" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 5, flex: 1, overflowY: 'auto', padding: '14px 8px' }}>
+        {/* Indicador dorado que viaja entre items */}
+        {indicator && (
+          <span style={{
+            position: 'absolute', left: 0, width: 3,
+            top: indicator.top, height: indicator.height,
+            background: `linear-gradient(180deg, transparent, ${GOLD} 25%, ${GOLD} 75%, transparent)`,
+            borderRadius: 2,
+            boxShadow: '0 0 8px rgba(212,175,55,0.65), 0 0 2px rgba(212,175,55,0.9)',
+            transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1), height 0.28s cubic-bezier(0.4,0,0.2,1)',
+            pointerEvents: 'none',
+          }} />
+        )}
+        {navItems.map(({ label, href, icon: Icon, live }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link
               key={href}
               href={href}
               title={collapsed ? label : undefined}
+              data-active={active ? 'true' : 'false'}
               style={{
                 ...navLinkBase,
-                color:       active ? GOLD : MUTED,
-                background:  active ? 'rgba(212,175,55,0.07)' : 'transparent',
-                borderLeft:  active ? `2px solid ${GOLD}` : '2px solid transparent',
-                paddingLeft: active ? (collapsed ? undefined : 8) : undefined,
+                color:      active ? GOLD : MUTED,
+                background: active ? activeGradient : 'transparent',
               }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
               onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
             >
-              <Icon size={16} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
-              {!collapsed && <span>{label}</span>}
+              <Icon size={16} style={{ flexShrink: 0, color: active ? GOLD : 'inherit', filter: active ? iconGlow : 'none', transition: 'filter 0.2s' }} />
+              {!collapsed && <span style={active ? { textShadow: '0 0 14px rgba(212,175,55,0.35)' } : undefined}>{label}</span>}
+              {!collapsed && live && (
+                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px rgba(74,222,128,0.8)', animation: 'sb-pulse 1.6s ease-in-out infinite' }} />
+                  <span style={{ fontSize: 8, letterSpacing: '0.15em', color: '#4ade80', opacity: 0.85 }}>LIVE</span>
+                </span>
+              )}
             </Link>
           )
         })}
       </nav>
 
+      <div style={dividerStyle} />
+
       {/* Bottom: profile + logout */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 8px 14px', borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 8px 14px', flexShrink: 0 }}>
         <Link
           href="/perfil"
           title={collapsed ? 'Perfil' : undefined}
           style={{
             ...navLinkBase,
             color:      pathname === '/perfil' ? GOLD : MUTED,
-            background: pathname === '/perfil' ? 'rgba(212,175,55,0.07)' : 'transparent',
-            borderLeft: pathname === '/perfil' ? `2px solid ${GOLD}` : '2px solid transparent',
+            background: pathname === '/perfil' ? activeGradient : 'transparent',
+            boxShadow:  pathname === '/perfil' ? `inset 3px 0 0 ${GOLD}` : 'none',
           }}
           onMouseEnter={e => { if (pathname !== '/perfil') { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
           onMouseLeave={e => { if (pathname !== '/perfil') { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
         >
-          <User size={16} style={{ flexShrink: 0 }} />
+          <User size={16} style={{ flexShrink: 0, filter: pathname === '/perfil' ? iconGlow : 'none' }} />
           {!collapsed && <span>Perfil</span>}
         </Link>
 
