@@ -9,17 +9,27 @@ export default function Icon() {
     (
       <div
         style={{
-          width: 32, height: 32,
+          width: '32px',
+          height: '32px',
           background: '#04050a',
-          border: '1.5px solid #d4af37',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          borderRadius: '4px',
+          border: '1px solid #d4af37',
+          fontFamily: 'monospace',
         }}
       >
-        <span style={{ color: '#d4af37', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>
+        <div
+          style={{
+            fontSize: '22px',
+            color: '#d4af37',
+            lineHeight: 1,
+            display: 'flex',
+          }}
+        >
           Σ
-        </span>
+        </div>
       </div>
     ),
     { ...size }

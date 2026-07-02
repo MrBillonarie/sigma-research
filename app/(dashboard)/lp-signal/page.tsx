@@ -96,11 +96,16 @@ export default function LpSignalPage() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/lp-signal/active')
-      .then(r => r.json())
-      .then(({ signal: s }) => { if (s) setSignal(s); else setNoSig(true) })
-      .catch(() => setNoSig(true))
-      .finally(() => setLoading(false))
+    function loadSignal() {
+      fetch('/api/lp-signal/active')
+        .then(r => r.json())
+        .then(({ signal: s }) => { if (s) { setSignal(s); setNoSig(false) } else setNoSig(true) })
+        .catch(() => setNoSig(true))
+        .finally(() => setLoading(false))
+    }
+    loadSignal()
+    const id = setInterval(loadSignal, 30_000)
+    return () => clearInterval(id)
   }, [])
 
   // Live BTC price via WebSocket

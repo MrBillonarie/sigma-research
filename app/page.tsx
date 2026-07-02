@@ -527,7 +527,7 @@ export default async function RootPage() {
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56, gap: 24, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 14 }}>{'// PLATAFORMA · 6 HERRAMIENTAS'}</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 14 }}>{'// PLATAFORMA · 9 HERRAMIENTAS'}</div>
               <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(48px, 7vw, 88px)', color: T, lineHeight: 0.92, margin: 0 }}>
                 TODO LO QUE UN<br />
                 <span style={gMetal}>QUANT NECESITA</span>

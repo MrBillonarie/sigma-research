@@ -34,27 +34,13 @@ export const metadata: Metadata = {
     url: 'https://squantdesk.com',
     siteName: 'SQuant Desk',
     locale: 'es_ES',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'SQuant Desk — Inteligencia Cuantitativa',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'SQuant Desk — Inteligencia Cuantitativa',
     description: 'Herramientas cuantitativas de grado institucional para inversores independientes.',
-    images: ['/og-image.png'],
   },
   manifest: '/manifest.json',
-  icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
   robots: {
     index: true,
     follow: true,

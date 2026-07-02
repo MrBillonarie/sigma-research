@@ -82,7 +82,7 @@ export async function GET() {
       `<html><body style="background:#020510;color:#c9a227;font-family:monospace;padding:40px">
         <h2>SIGMA ENGINE — sin conexión</h2><p>${String(e)}</p>
       </body></html>`,
-      { headers: { 'Content-Type': 'text/html' } }
+      { status: 503, headers: { 'Content-Type': 'text/html' } }
     )
   }
 }
