@@ -26,6 +26,14 @@ interface Notification {
   created_at:    string
 }
 
+// Señal en vivo del motor — mismo feed que alimenta el HUD (/api/public del engine)
+interface MotorSignal {
+  sym?: string; tf?: string; strategy?: string; type?: string; grade?: string
+  price?: number; sl?: number; tp?: number; wr?: number; cagr?: number
+  recommendation?: string; reason?: string; signal?: boolean
+  val_confidence?: string; has_open_trade?: boolean
+}
+
 // ─── SVG Type Icons ───────────────────────────────────────────────────────────
 function TypeIcon({ type }: { type: string }) {
   const size  = 22
@@ -138,6 +146,25 @@ export default function NotificacionesPage() {
   const [loading, setLoading] = useState(true)
   const [userId,  setUserId]  = useState<string | null>(null)
   const [filter,  setFilter]  = useState('all')
+  const [signals, setSignals] = useState<MotorSignal[]>([])
+
+  // Señales en vivo del motor (mismo origen que el HUD) — refresh cada 60s
+  useEffect(() => {
+    let dead = false
+    async function loadSignals() {
+      try {
+        const r = await fetch('/api/vps/signals', { cache: 'no-store' })
+        if (!r.ok) return
+        const d = await r.json()
+        if (!dead && Array.isArray(d?.signals)) {
+          setSignals(d.signals.filter((s: MotorSignal) => s.signal))
+        }
+      } catch {}
+    }
+    loadSignals()
+    const id = setInterval(loadSignals, 60_000)
+    return () => { dead = true; clearInterval(id) }
+  }, [])
 
   const loadNotifs = useCallback(async (uid: string) => {
     const { data } = await supabase
@@ -280,12 +307,87 @@ export default function NotificacionesPage() {
           })}
         </div>
 
+        {/* ── Señales del motor (live, mismo feed del HUD) ── */}
+        {(filter === 'all' || filter === 'señal') && signals.length > 0 && (
+          <div style={{ marginBottom: 36 }}>
+            <style>{`@keyframes notif-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: GREEN, boxShadow: `0 0 6px ${GREEN}`, animation: 'notif-pulse 1.6s infinite', flexShrink: 0 }} />
+              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.22em', color: DIM }}>
+                {'// SEÑALES DEL MOTOR · LIVE'}
+              </span>
+              <span style={{ flex: 1, height: 1, background: 'rgba(52,211,153,0.18)' }} />
+              <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>{signals.length} activas</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 10 }}>
+              {signals.map((s, i) => {
+                const isLong = (s.type ?? '') !== 'short'
+                const dirC   = isLong ? GREEN : RED
+                const gc     = s.grade === 'A+' ? '#ffd700' : s.grade === 'A' ? GREEN : s.grade === 'B' ? '#60a5fa' : MUTED
+                return (
+                  <div key={`${s.sym}-${s.tf}-${i}`} style={{
+                    background: CARD, border: `1px solid ${BORDER}`,
+                    borderLeft: `3px solid ${dirC}`, borderRadius: 8,
+                    padding: '12px 14px',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ fontFamily: MONO, fontSize: 9, color: dirC, background: `${dirC}1a`, padding: '1px 6px', borderRadius: 2, letterSpacing: '0.08em' }}>
+                          {isLong ? 'LONG' : 'SHORT'}
+                        </span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: TEXT, fontWeight: 600 }}>{s.sym}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>{s.tf?.toUpperCase()}</span>
+                      </div>
+                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: gc, background: `${gc}20`, border: `1px solid ${gc}40`, padding: '1px 6px', borderRadius: 2 }}>
+                        {s.grade ?? '?'}
+                      </span>
+                    </div>
+                    {s.strategy && (
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: GOLD, letterSpacing: '0.05em', marginBottom: 6 }}>
+                        {s.strategy}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
+                      {s.price != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>E <span style={{ color: TEXT }}>{s.price}</span></span>}
+                      {s.sl    != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>SL <span style={{ color: RED }}>{s.sl}</span></span>}
+                      {s.tp    != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>TP <span style={{ color: GREEN }}>{s.tp}</span></span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {s.wr   != null && <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>WR <span style={{ color: DIM }}>{s.wr.toFixed(0)}%</span></span>}
+                      {s.cagr != null && <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>CAGR <span style={{ color: s.cagr >= 0 ? GREEN : RED }}>{s.cagr >= 0 ? '+' : ''}{s.cagr.toFixed(1)}%</span></span>}
+                      {s.val_confidence && <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>CONF <span style={{ color: s.val_confidence === 'ALTA' ? GREEN : GOLD }}>{s.val_confidence}</span></span>}
+                      {s.has_open_trade && (
+                        <span style={{ fontFamily: MONO, fontSize: 8, color: GOLD, border: `1px solid ${GOLD}44`, padding: '1px 5px', borderRadius: 2, letterSpacing: '0.1em' }}>ABIERTA</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => router.push('/hud')}
+                      style={{ marginTop: 10, fontFamily: MONO, fontSize: 9, color: GOLD, background: 'none', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 10px', cursor: 'pointer', letterSpacing: '0.08em' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(245,200,66,0.08)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'none')}
+                    >
+                      VER EN HUD →
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── List ── */}
         {loading ? (
           <div style={{ padding: '60px 0', textAlign: 'center', fontFamily: MONO, fontSize: 12, color: MUTED }}>
             Cargando…
           </div>
         ) : filtered.length === 0 ? (
+          (filter === 'all' || filter === 'señal') && signals.length > 0 ? (
+            /* Hay señales live arriba — solo una nota compacta para el historial */
+            <div style={{ padding: '20px 0', fontFamily: MONO, fontSize: 10, color: '#2a2f45', letterSpacing: '0.12em', textAlign: 'center' }}>
+              SIN NOTIFICACIONES HISTÓRICAS
+            </div>
+          ) : (
           /* ── Empty state ── */
           <div style={{ padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
             <pre style={{
@@ -310,6 +412,7 @@ export default function NotificacionesPage() {
               )}
             </div>
           </div>
+          )
         ) : (
           /* ── Grouped list ── */
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
