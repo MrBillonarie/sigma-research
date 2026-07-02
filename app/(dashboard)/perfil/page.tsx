@@ -9,7 +9,6 @@ import type { User } from '@supabase/supabase-js'
 
 const GOLD   = '#F5C842'
 const BG     = '#04050a'
-const CARD   = '#0f0f0f'
 const BORDER = 'rgba(255,255,255,0.08)'
 const TEXT   = '#e8e9f0'
 const MUTED  = 'rgba(255,255,255,0.38)'
@@ -60,13 +59,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function Card({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
+// Fila plana de panel de ajustes: etiqueta + descripción a la izquierda,
+// control a la derecha, separadas por un divisor fino (sin tarjetas).
+function Row({ label, hint, children }: { label: string; hint?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div id={id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '28px 32px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        {title}
+    <div className="pf-row" style={{ display: 'grid', gridTemplateColumns: '230px 1fr', gap: 28, padding: '26px 4px', borderBottom: '1px solid rgba(255,255,255,0.06)', alignItems: 'start' }}>
+      <div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: TEXT, fontWeight: 600, marginBottom: 6 }}>{label}</div>
+        {hint && <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, lineHeight: 1.7 }}>{hint}</div>}
       </div>
-      {children}
+      <div style={{ minWidth: 0 }}>{children}</div>
     </div>
   )
 }
@@ -132,6 +134,16 @@ export default function PerfilPage() {
   const [publishingSetup, setPublishingSetup] = useState(false)
   const [setupMsg,        setSetupMsg]        = useState('')
   const [setupError,      setSetupError]      = useState('')
+
+  const [tab, setTab] = useState<'cuenta' | 'seguridad' | 'comunidad' | 'sesion'>('cuenta')
+
+  // Deep-links del buscador global (#cambiar-pwd, #publicar-setup, etc.) → pestaña correcta
+  useEffect(() => {
+    const h = window.location.hash
+    if (h === '#cambiar-pwd' || h === '#credenciales-guardadas' || h === '#binance-keys') setTab('seguridad')
+    else if (h === '#publicar-setup') setTab('comunidad')
+    else if (h === '#sesion') setTab('sesion')
+  }, [])
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -311,263 +323,196 @@ export default function PerfilPage() {
     ? (fireProfile.fire_gasto_mensual * 12) / 0.04
     : null
 
-  const navLinks = [
-    { label: 'Editar nombre',       href: '#editar-nombre', icon: '✎' },
-    ...(hasStoredCreds ? [{ label: 'Credenciales guardadas', href: '#credenciales-guardadas', icon: '⚿' }] : []),
-    ...(!isOAuth ? [{ label: 'Cambiar contraseña', href: '#cambiar-pwd', icon: '🔒' }] : []),
-    { label: 'Publicar setup',      href: '#publicar-setup', icon: '▲' },
-    { label: 'Sesión',              href: '#sesion',         icon: '→' },
+  const sigmaId = `Σ-${(user?.id ?? '0000').replace(/-/g, '').slice(0, 4).toUpperCase()}`
+
+  const TABS = [
+    { id: 'cuenta'    as const, label: 'CUENTA' },
+    { id: 'seguridad' as const, label: 'SEGURIDAD' },
+    { id: 'comunidad' as const, label: 'COMUNIDAD' },
+    { id: 'sesion'    as const, label: 'SESIÓN' },
+  ]
+
+  const headerStats: Array<{ label: string; val: string; color: string; href?: string }> = [
+    { label: 'META FIRE',   val: fireTarget ? `$${Math.round(fireTarget).toLocaleString('es-CL')}` : '—', color: fireTarget ? GOLD : MUTED, href: '/fire' },
+    { label: 'CAPITAL',     val: portfolioReady ? `$${Math.round(portfolioTotal).toLocaleString('es-CL')}` : '—', color: TEXT, href: '/portafolio' },
+    { label: 'COPYTRADING', val: copytrading?.enabled ? `$${Math.round(copytrading.capital).toLocaleString('es-CL')}` : 'NO INSCRITO', color: copytrading?.enabled ? GREEN : MUTED },
+    { label: 'REPUTACIÓN',  val: String(profile?.reputation ?? 0), color: (profile?.reputation ?? 0) >= 50 ? GOLD : (profile?.reputation ?? 0) >= 20 ? GREEN : DIM },
+    ...(tradeStats ? [{ label: 'WIN RATE', val: `${tradeStats.winRate}%`, color: tradeStats.winRate >= 50 ? GREEN : RED }] : []),
   ]
 
   return (
     <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: MONO }}>
       <style>{`
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes pf-spin { to { transform: rotate(360deg) } }
         .perf-input:focus { border-color:${GOLD}!important; box-shadow:0 0 0 2px rgba(245,200,66,0.15)!important; }
         .btn-primary:hover { background:#e0b438!important; transform:scale(1.01); }
         .btn-outline:hover { background:rgba(245,200,66,0.08)!important; }
-        .nav-link:hover { color:${GOLD}!important; background:rgba(245,200,66,0.06)!important; }
+        .pf-stat { transition: background 0.15s; text-decoration: none; display: block; }
+        .pf-stat:hover { background: rgba(245,200,66,0.05); }
+        .pf-tab:hover { color: ${TEXT} !important; }
         @media(max-width:768px){
-          .perfil-grid { grid-template-columns:1fr!important; }
-          .perfil-sidebar { position:static!important; }
+          .pf-row  { grid-template-columns: 1fr !important; gap: 10px !important; }
+          .pf-head { flex-direction: column !important; align-items: flex-start !important; }
         }
       `}</style>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '72px 24px 80px' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '64px 24px 90px' }}>
 
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: MUTED, marginBottom: 8 }}>
-              {'// CUENTA · CONFIGURACIÓN'}
-            </div>
-            <h1 style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 'clamp(38px,5vw,64px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
-              <span style={{ color: TEXT }}>MI </span>
-              <span style={{ background: `linear-gradient(135deg,${GOLD},#f0cc5a)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PERFIL</span>
-            </h1>
-          </div>
-          {/* Account status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 8 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: GREEN, display: 'inline-block', animation: 'pulse-dot 2s ease infinite' }} />
-            <span style={{ fontFamily: MONO, fontSize: 11, color: GREEN, letterSpacing: '0.08em' }}>Cuenta activa</span>
-          </div>
+        {/* ── Título ── */}
+        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: MUTED, marginBottom: 8 }}>
+          {'// PANEL DE USUARIO'}
         </div>
-        <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', marginBottom: 32 }} />
+        <h1 style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 'clamp(38px,5vw,60px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: '0 0 24px' }}>
+          <span style={{ color: TEXT }}>MI </span>
+          <span style={{ background: `linear-gradient(135deg,${GOLD},#f0cc5a)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PERFIL</span>
+        </h1>
 
-        {/* ── Two-column layout ── */}
-        <div className="perfil-grid" style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start' }}>
+        {/* ── Banda de identidad ── */}
+        <div style={{ position: 'relative', border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', marginBottom: 36, background: '#0b0d14' }}>
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 70% 120% at 0% 0%, rgba(245,200,66,0.08), transparent 55%)' }} />
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(rgba(245,200,66,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(245,200,66,0.025) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
 
-          {/* ── LEFT SIDEBAR ── */}
-          <div className="perfil-sidebar" style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 0, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
-            {/* Avatar + info */}
-            <div style={{ padding: '28px 24px 20px', borderBottom: `1px solid ${BORDER}` }}>
-              {/* Avatar con upload */}
-              <div style={{ position: 'relative', width: 72, height: 72, marginBottom: 16 }}>
-                {avatarUrl ? (
-                  <Image src={avatarUrl} alt="avatar" width={72} height={72} style={{ borderRadius: '50%', objectFit: 'cover', border: `2px solid ${GOLD}55` }} />
-                ) : (
-                  <div style={{ width: 72, height: 72, borderRadius: '50%', background: `rgba(245,200,66,0.1)`, border: `2px solid ${GOLD}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>
-                  </div>
-                )}
-                {/* Upload overlay */}
-                <button
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: '50%', background: GOLD, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}
-                  title="Cambiar foto"
-                >
-                  {uploadingAvatar ? '…' : '✎'}
-                </button>
-                <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+          <div className="pf-head" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 24, padding: '30px 32px', flexWrap: 'wrap' }}>
+            {/* Avatar con anillo dorado animado */}
+            <div style={{ position: 'relative', width: 92, height: 92, flexShrink: 0 }}>
+              <div style={{ position: 'absolute', inset: -3, borderRadius: '50%', background: `conic-gradient(from 0deg, transparent 0%, ${GOLD} 18%, transparent 40%)`, animation: 'pf-spin 5s linear infinite' }} />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', overflow: 'hidden', border: '3px solid #0b0d14', background: 'rgba(245,200,66,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {avatarUrl
+                  ? <Image src={avatarUrl} alt="avatar" width={92} height={92} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                  : <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 34, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>}
               </div>
-              {avatarMsg && <div style={{ fontFamily: MONO, fontSize: 10, color: avatarMsg.startsWith('Error') ? '#f87171' : '#34d399', marginBottom: 8 }}>{avatarMsg}</div>}
-              {/* Name */}
-              <div style={{ fontFamily: MONO, fontSize: 14, color: TEXT, fontWeight: 600, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {displayName}
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                title="Cambiar foto"
+                style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: '50%', background: GOLD, border: '2px solid #0b0d14', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, zIndex: 2 }}
+              >
+                {uploadingAvatar ? '…' : '✎'}
+              </button>
+              <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+            </div>
+
+            {/* Identidad */}
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 34, color: TEXT, letterSpacing: '0.04em', lineHeight: 1 }}>{displayName}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.15em' }}>{sigmaId}</span>
               </div>
-              {/* Email */}
-              <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginBottom: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {email}
+              <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, margin: '6px 0 12px' }}>{email}</div>
+              <div style={{ display: 'flex', gap: '6px 18px', flexWrap: 'wrap', fontFamily: MONO, fontSize: 10, color: MUTED }}>
+                <span><span style={{ color: 'rgba(255,255,255,0.25)' }}>Miembro desde </span>{createdAt}</span>
+                <span><span style={{ color: 'rgba(255,255,255,0.25)' }}>Último acceso </span>{lastLogin}</span>
+                <span><span style={{ color: 'rgba(255,255,255,0.25)' }}>Acceso vía </span>{provider.toUpperCase()}</span>
               </div>
-              {/* Plan badge */}
-              <span style={{ display: 'inline-block', fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', borderRadius: 6, padding: '4px 12px', marginBottom: 14,
-                color: plan === 'pro' ? GOLD : DIM,
-                background: plan === 'pro' ? 'rgba(245,200,66,0.12)' : 'rgba(255,255,255,0.05)',
-                border: plan === 'pro' ? '1px solid rgba(245,200,66,0.4)' : '1px solid rgba(255,255,255,0.12)',
+              {avatarMsg && <div style={{ fontFamily: MONO, fontSize: 10, color: avatarMsg.startsWith('Error') ? RED : GREEN, marginTop: 8 }}>{avatarMsg}</div>}
+            </div>
+
+            {/* Plan + estado */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', borderRadius: 6, padding: '6px 16px',
+                color: plan === 'pro' ? '#000' : DIM,
+                background: plan === 'pro' ? `linear-gradient(135deg,${GOLD},#e0b438)` : 'rgba(255,255,255,0.05)',
+                border: plan === 'pro' ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                boxShadow: plan === 'pro' ? '0 0 18px rgba(245,200,66,0.35)' : 'none',
               }}>
                 {plan === 'pro' ? 'PLAN PRO' : 'PLAN FREE'}
               </span>
-              {/* Meta */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-                  <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Miembro desde</span>
-                  {createdAt}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-                  <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Último acceso</span>
-                  {lastLogin}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-                  <span style={{ color: 'rgba(255,255,255,0.25)', marginRight: 6 }}>Acceso via</span>
-                  {provider.toUpperCase()}
-                </div>
-              </div>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: MONO, fontSize: 10, color: GREEN, letterSpacing: '0.1em' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: GREEN, animation: 'pulse-dot 2s ease infinite' }} />
+                CUENTA ACTIVA
+              </span>
             </div>
-
-            {/* Nav links */}
-            <nav style={{ padding: '12px 0' }}>
-              {navLinks.map(link => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="nav-link"
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 20px', fontFamily: MONO, fontSize: 12, color: DIM, textDecoration: 'none', transition: 'color 0.15s, background 0.15s', borderRadius: 0 }}
-                >
-                  <span style={{ fontSize: 13, width: 16, textAlign: 'center', flexShrink: 0 }}>{link.icon}</span>
-                  {link.label}
-                </a>
-              ))}
-            </nav>
           </div>
 
-          {/* ── RIGHT CONTENT ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Stats del trader — strip plano con divisores */}
+          <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: `repeat(${headerStats.length}, 1fr)`, borderTop: `1px solid ${BORDER}` }}>
+            {headerStats.map((s, i) => {
+              const inner = (
+                <>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 24, color: s.color, lineHeight: 1, marginBottom: 5 }}>{s.val}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.15em' }}>{s.label}</div>
+                </>
+              )
+              const st: React.CSSProperties = { padding: '16px 12px', borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none', textAlign: 'center' }
+              return s.href
+                ? <a key={s.label} href={s.href} className="pf-stat" style={st}>{inner}</a>
+                : <div key={s.label} style={st}>{inner}</div>
+            })}
+          </div>
+        </div>
 
-            {/* Mi Plan Sigma — resumen consolidado */}
-            <Card title="// Mi Plan Sigma">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                <a href="/fire" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center', display: 'block' }}>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 22, color: fireTarget ? GOLD : MUTED, lineHeight: 1, marginBottom: 6 }}>
-                    {fireTarget ? `$${Math.round(fireTarget).toLocaleString('es-CL')}` : 'Sin definir'}
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Meta FIRE</div>
-                </a>
-                <a href="/portafolio" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center', display: 'block' }}>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 22, color: TEXT, lineHeight: 1, marginBottom: 6 }}>
-                    {portfolioReady ? `$${Math.round(portfolioTotal).toLocaleString('es-CL')}` : '—'}
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Capital total</div>
-                </a>
-                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center' }}>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 22, color: copytrading?.enabled ? GREEN : MUTED, lineHeight: 1, marginBottom: 6 }}>
-                    {copytrading?.enabled ? `$${Math.round(copytrading.capital).toLocaleString('es-CL')}` : 'No inscrito'}
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Copytrading</div>
-                </div>
-              </div>
-              {!fireProfile.fire_completed && (
-                <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, marginTop: 14, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, borderLeft: `2px solid ${GOLD}` }}>
-                  Aún no configuras tu plan FIRE. <a href="/fire" style={{ color: GOLD }}>Ir a /fire →</a>
-                </div>
-              )}
-            </Card>
+        {/* ── Tabs ── */}
+        <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${BORDER}`, marginBottom: 8, flexWrap: 'wrap' }}>
+          {TABS.map(t => {
+            const active = tab === t.id
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)} className="pf-tab" style={{
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                padding: '12px 20px', fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 17, letterSpacing: '0.08em',
+                color: active ? GOLD : MUTED,
+                borderBottom: `2px solid ${active ? GOLD : 'transparent'}`,
+                marginBottom: -1, transition: 'color 0.15s, border-color 0.15s',
+              }}>
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
 
-            {/* Performance Stats */}
-            {tradeStats && (
-              <Card title="// Performance de Trading">
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 12 }}>
-                  {[
-                    { label: 'Total trades',  val: String(tradeStats.total),                                                              color: GOLD },
-                    { label: 'Win rate',      val: `${tradeStats.winRate}%`,                                                             color: tradeStats.winRate >= 50 ? GREEN : RED },
-                    { label: 'PnL total',     val: `${tradeStats.pnl >= 0 ? '+' : ''}$${Math.round(tradeStats.pnl).toLocaleString('es-CL')}`, color: tradeStats.pnl >= 0 ? GREEN : RED },
-                    { label: 'Mejor trade',   val: `+$${Math.round(tradeStats.best).toLocaleString('es-CL')}`,                           color: GREEN },
-                    { label: 'Peor trade',    val: `$${Math.round(tradeStats.worst).toLocaleString('es-CL')}`,                           color: RED },
-                    { label: 'Win streak',    val: `${tradeStats.streak}W`,                                                              color: tradeStats.streak >= 3 ? GOLD : DIM },
-                  ].map(({ label, val, color }) => (
-                    <div key={label} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 12px', textAlign: 'center' }}>
-                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color, lineHeight: 1, marginBottom: 6 }}>{val}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textAlign: 'right' }}>
-                  Datos sincronizados desde Journal
-                </div>
-              </Card>
-            )}
+        {/* ══ CUENTA ══ */}
+        {tab === 'cuenta' && (
+          <div>
 
-            {/* Reputación */}
-            {profile !== null && (
-              <Card title="// Reputación">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
-                  {[
-                    { label: 'Reputación',    val: profile.reputation,        color: profile.reputation >= 50 ? GOLD : profile.reputation >= 20 ? GREEN : DIM },
-                    { label: 'Setups Pub.',   val: profile.setups_published,  color: DIM },
-                    { label: 'TP Alcanzados', val: profile.setups_won,        color: GREEN },
-                  ].map(({ label, val, color }) => (
-                    <div key={label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '14px 8px' }}>
-                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 32, color, lineHeight: 1, marginBottom: 6 }}>{val}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, lineHeight: 1.7, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, borderLeft: `2px solid ${profile.reputation >= 50 ? GOLD : profile.reputation >= 20 ? GREEN : 'rgba(255,255,255,0.12)'}` }}>
-                  {profile.reputation >= 50
-                    ? <span style={{ color: GOLD }}>★ Trader Senior — tus setups se publican con destaque.</span>
-                    : profile.reputation >= 20
-                      ? <span style={{ color: GREEN }}>◆ Trader Verificado — tus setups son visibles en la sidebar.</span>
-                      : profile.reputation >= MIN_REP
-                        ? <span>Puedes publicar setups. Sigue obteniendo votos para subir de rango.</span>
-                        : <span>Necesitas <strong style={{ color: GOLD }}>{MIN_REP - profile.reputation} puntos más</strong> de reputación para publicar setups.</span>
-                  }
-                </div>
-              </Card>
-            )}
-
-            {/* Información de cuenta */}
-            <Card title="// Información de cuenta">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                {[
-                  { label: 'Email',          val: email },
-                  { label: 'Miembro desde',  val: createdAt },
-                  { label: 'Último acceso',  val: lastLogin },
-                ].map(({ label, val }) => (
-                  <div key={label} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 6 }}>{label}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 13, color: TEXT, fontWeight: 500, wordBreak: 'break-all' }}>{val}</div>
-                  </div>
-                ))}
-                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 8 }}>Plan</div>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', borderRadius: 6, padding: '4px 12px',
-                    color: plan === 'pro' ? GOLD : DIM,
-                    background: plan === 'pro' ? 'rgba(245,200,66,0.12)' : 'rgba(255,255,255,0.05)',
-                    border: plan === 'pro' ? '1px solid rgba(245,200,66,0.4)' : '1px solid rgba(255,255,255,0.12)',
-                  }}>{plan === 'pro' ? 'PLAN PRO' : 'PLAN FREE'}</span>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '14px 16px' }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: MUTED, marginBottom: 6 }}>Proveedor</div>
-                  <div style={{ fontFamily: MONO, fontSize: 13, color: TEXT, fontWeight: 500, textTransform: 'uppercase' }}>{provider}</div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Editar nombre */}
-            <Card id="editar-nombre" title="// Editar nombre">
-              <form onSubmit={handleSaveName} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <Field label="Nombre visible">
-                    <input
-                      type="text" value={nombre} onChange={e => setNombre(e.target.value)}
-                      placeholder="Tu nombre" className="perf-input" style={inputCss}
-                    />
-                  </Field>
-                </div>
+            <Row label="Nombre visible" hint="Cómo te ven otros usuarios en la comunidad y en tus setups publicados.">
+              <form onSubmit={handleSaveName} style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <input
+                  type="text" value={nombre} onChange={e => setNombre(e.target.value)}
+                  placeholder="Tu nombre" className="perf-input" style={{ ...inputCss, maxWidth: 320 }}
+                />
                 <button type="submit" disabled={savingName} className="btn-primary" style={{ ...btnPrimary, opacity: savingName ? 0.6 : 1, whiteSpace: 'nowrap' }}>
                   {savingName ? 'GUARDANDO…' : 'GUARDAR'}
                 </button>
               </form>
               {nameMsg && <div style={{ fontFamily: MONO, fontSize: 11, color: GREEN, marginTop: 12 }}>{nameMsg}</div>}
-            </Card>
+            </Row>
 
-            {/* Credenciales guardadas de una versión anterior — sin formularios
-                de edición, solo la opción de borrarlas permanentemente. */}
+            {tradeStats && (
+              <Row label="Performance de trading" hint="Sincronizado desde tu Journal.">
+                <div style={{ display: 'flex', gap: '20px 40px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'TOTAL TRADES', val: String(tradeStats.total),                                                                   color: GOLD },
+                    { label: 'WIN RATE',     val: `${tradeStats.winRate}%`,                                                                   color: tradeStats.winRate >= 50 ? GREEN : RED },
+                    { label: 'PNL TOTAL',    val: `${tradeStats.pnl >= 0 ? '+' : ''}$${Math.round(tradeStats.pnl).toLocaleString('es-CL')}`, color: tradeStats.pnl >= 0 ? GREEN : RED },
+                    { label: 'MEJOR',        val: `+$${Math.round(tradeStats.best).toLocaleString('es-CL')}`,                                color: GREEN },
+                    { label: 'PEOR',         val: `$${Math.round(tradeStats.worst).toLocaleString('es-CL')}`,                                color: RED },
+                    { label: 'STREAK',       val: `${tradeStats.streak}W`,                                                                   color: tradeStats.streak >= 3 ? GOLD : DIM },
+                  ].map(({ label, val, color }) => (
+                    <div key={label}>
+                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 24, color, lineHeight: 1, marginBottom: 4 }}>{val}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em' }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </Row>
+            )}
+
+            {!fireProfile.fire_completed && (
+              <Row label="Plan FIRE" hint="Define tu meta de independencia financiera para verla en el panel.">
+                <a href="/fire" className="btn-outline" style={{ ...btnOutline, display: 'inline-block', textDecoration: 'none' }}>
+                  CONFIGURAR EN /FIRE →
+                </a>
+              </Row>
+            )}
+
+          </div>
+        )}
+
+        {/* ══ SEGURIDAD ══ */}
+        {tab === 'seguridad' && (
+          <div>
             {hasStoredCreds && (
-              <Card id="credenciales-guardadas" title="// Credenciales guardadas">
-                <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginBottom: 16, lineHeight: 1.6 }}>
-                  Tienes credenciales de sincronización (Binance, IBKR o MetaTrader 5) guardadas de una versión anterior de esta página. Ya no se gestionan ni se sincronizan desde aquí — puedes borrarlas de forma permanente.
-                </p>
+              <Row label="Credenciales guardadas" hint="Claves de Binance, IBKR o MetaTrader 5 guardadas en una versión anterior. Ya no se gestionan ni sincronizan — puedes borrarlas de forma permanente.">
                 {clearMsg && <div style={{ fontFamily: MONO, fontSize: 11, color: clearMsg.startsWith('Error') ? RED : GREEN, marginBottom: 12 }}>{clearMsg}</div>}
                 <button
                   type="button" onClick={handleClearCredentials} disabled={clearingCreds}
@@ -583,13 +528,12 @@ export default function PerfilPage() {
                     CANCELAR
                   </button>
                 )}
-              </Card>
+              </Row>
             )}
 
-            {/* Cambiar contraseña */}
-            {!isOAuth && (
-              <Card id="cambiar-pwd" title="// Cambiar contraseña">
-                <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {!isOAuth ? (
+              <Row label="Cambiar contraseña" hint="Mínimo 8 caracteres. El cambio se aplica de inmediato.">
+                <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 380 }}>
                   <Field label="Nueva contraseña">
                     <input type="password" value={pwdNew} onChange={e => setPwdNew(e.target.value)} placeholder="Mínimo 8 caracteres" className="perf-input" style={inputCss} />
                   </Field>
@@ -604,14 +548,47 @@ export default function PerfilPage() {
                     </button>
                   </div>
                 </form>
-              </Card>
+              </Row>
+            ) : (
+              <Row label="Contraseña" hint="Tu acceso está gestionado por un proveedor externo.">
+                <span style={{ fontFamily: MONO, fontSize: 11, color: DIM, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '8px 14px', display: 'inline-block', letterSpacing: '0.08em' }}>
+                  GESTIONADA POR {provider.toUpperCase()}
+                </span>
+              </Row>
+            )}
+          </div>
+        )}
+
+        {/* ══ COMUNIDAD ══ */}
+        {tab === 'comunidad' && (
+          <div>
+            {profile !== null && (
+              <Row
+                label="Reputación"
+                hint={profile.reputation >= 50
+                  ? <span style={{ color: GOLD }}>★ Trader Senior — tus setups se publican con destaque.</span>
+                  : profile.reputation >= 20
+                    ? <span style={{ color: GREEN }}>◆ Trader Verificado — tus setups son visibles en la sidebar.</span>
+                    : profile.reputation >= MIN_REP
+                      ? 'Puedes publicar setups. Sigue obteniendo votos para subir de rango.'
+                      : <span>Necesitas <strong style={{ color: GOLD }}>{MIN_REP - profile.reputation} puntos más</strong> de reputación para publicar setups.</span>}
+              >
+                <div style={{ display: 'flex', gap: '20px 40px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'REPUTACIÓN',    val: profile.reputation,       color: profile.reputation >= 50 ? GOLD : profile.reputation >= 20 ? GREEN : DIM },
+                    { label: 'SETUPS PUB.',   val: profile.setups_published, color: DIM },
+                    { label: 'TP ALCANZADOS', val: profile.setups_won,       color: GREEN },
+                  ].map(({ label, val, color }) => (
+                    <div key={label}>
+                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color, lineHeight: 1, marginBottom: 4 }}>{val}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em' }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </Row>
             )}
 
-            {/* Publicar setup */}
-            <Card id="publicar-setup" title="// Publicar setup">
-              <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginBottom: 20, lineHeight: 1.6 }}>
-                Setups publicados aparecen en la barra lateral para todos los usuarios. Reputación mínima: {MIN_REP}.
-              </p>
+            <Row label="Publicar setup" hint={`Los setups publicados aparecen en la barra lateral para todos los usuarios. Reputación mínima: ${MIN_REP}.`}>
               {profile !== null && (profile.reputation ?? 0) < MIN_REP ? (
                 <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '14px 18px' }}>
                   Reputación actual: <span style={{ color: GOLD }}>{profile.reputation}</span> / {MIN_REP} requeridos.
@@ -670,25 +647,28 @@ export default function PerfilPage() {
                   </div>
                 </form>
               )}
-            </Card>
-
-            {/* Sesión */}
-            <Card id="sesion" title="// Sesión">
-              <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginBottom: 20, lineHeight: 1.6 }}>
-                Cierra sesión en este dispositivo. Tus datos quedan guardados en la nube.
-              </p>
-              <button
-                onClick={handleSignOut}
-                style={{ padding: '12px 24px', background: 'transparent', color: RED, fontFamily: MONO, fontSize: 11, letterSpacing: '0.15em', border: `1px solid ${RED}44`, borderRadius: 8, cursor: 'pointer', transition: 'background 0.15s' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(248,113,113,0.08)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
-              >
-                CERRAR SESIÓN
-              </button>
-            </Card>
-
+            </Row>
           </div>
-        </div>
+        )}
+
+        {/* ══ SESIÓN — zona de cierre ══ */}
+        {tab === 'sesion' && (
+          <div style={{ marginTop: 28, border: `1px dashed ${RED}55`, borderRadius: 12, padding: '26px 28px', background: 'rgba(248,113,113,0.03)' }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.25em', color: RED, marginBottom: 12 }}>⚠ ZONA DE CIERRE</div>
+            <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, margin: '0 0 20px', lineHeight: 1.7, maxWidth: 520 }}>
+              Cierra sesión en este dispositivo. Tus datos quedan guardados en la nube; los datos locales del navegador (portafolio, alertas, journal) se limpian de este equipo.
+            </p>
+            <button
+              onClick={handleSignOut}
+              style={{ padding: '12px 24px', background: 'transparent', color: RED, fontFamily: MONO, fontSize: 11, letterSpacing: '0.15em', border: `1px solid ${RED}44`, borderRadius: 8, cursor: 'pointer', transition: 'background 0.15s' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(248,113,113,0.08)')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+            >
+              CERRAR SESIÓN
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   )
