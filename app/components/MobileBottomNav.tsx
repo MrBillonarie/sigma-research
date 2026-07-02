@@ -21,7 +21,6 @@ const MORE_LINKS = [
   { href: '/ingresos-pasivos', label: 'Ingresos Pasivos' },
   { href: '/mis-reportes',     label: 'Reportes' },
   { href: '/lp-defi',          label: 'LP DeFi' },
-  { href: '/lp-signal',        label: 'LP Signal' },
   { href: '/modelos',          label: 'Modelos' },
   { href: '/soporte',          label: 'Soporte' },
   { href: '/perfil',           label: 'Perfil' },

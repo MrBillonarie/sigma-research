@@ -6,7 +6,7 @@ import Footer from './Footer'
 const DASHBOARD_ROUTES = [
   '/home', '/hud', '/journal', '/calendario',
   '/montecarlo', '/fire', '/modelos', '/mis-reportes',
-  '/lp-defi', '/lp-signal', '/perfil', '/diagnosticador',
+  '/lp-defi', '/perfil', '/diagnosticador',
   '/ingresos-pasivos', '/portafolio', '/notificaciones',
   '/motor-decision', '/reportes', '/soporte',
   '/onboarding', '/auth',

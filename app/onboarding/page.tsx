@@ -227,7 +227,7 @@ export default function OnboardingPage() {
                   { icon: '∑',  label: 'Motor de Decisión',      desc: 'Champions por TF · Grade A · exportación CSV',       href: '/motor-decision' },
                   { icon: '◎', label: 'Monte Carlo',             desc: 'Simulaciones de riesgo institucional (1000+ paths)', href: '/montecarlo' },
                   { icon: '◈', label: 'Reportes',                desc: 'PDF ejecutivos · P&L · métricas por período',        href: '/reportes' },
-                  { icon: '⊕', label: 'LP Signal',               desc: 'Señales de liquidez DeFi con Kelly sizing',          href: '/lp-signal' },
+                  { icon: '⊕', label: 'LP DeFi',                 desc: 'Análisis cuantitativo de pools de liquidez',         href: '/lp-defi' },
                 ]).map(item => (
                   <div key={item.label} className="bg-surface px-5 py-4 flex items-center gap-4">
                     <span className="text-gold text-lg w-6 text-center">{item.icon}</span>

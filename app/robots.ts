@@ -35,7 +35,6 @@ export default function robots(): MetadataRoute.Robots {
           '/perfil',
           '/notificaciones',
           '/lp-defi',
-          '/lp-signal',
           '/modelos',
           '/admin',
           '/api',

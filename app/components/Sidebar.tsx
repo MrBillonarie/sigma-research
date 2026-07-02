@@ -28,7 +28,6 @@ import {
   Zap,
   LifeBuoy,
   LineChart,
-  Signal,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,7 +55,6 @@ const navItems: { label: string; href: string; icon: LucideIcon; live?: boolean 
   { label: 'FIRE',           href: '/fire',             icon: Flame           },
   { label: 'Calendario',     href: '/calendario',       icon: Calendar        },
   { label: 'LP DeFi',        href: '/lp-defi',          icon: Layers          },
-  { label: 'LP Signal',      href: '/lp-signal',        icon: Signal          },
   { label: 'Modelos',        href: '/modelos',          icon: BrainCircuit    },
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
@@ -87,8 +85,7 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/montecarlo',       label: 'Monte Carlo',    href: '/montecarlo',       category: 'Página', icon: TrendingUp      },
   { id: '/fire',             label: 'FIRE',           href: '/fire',             category: 'Página', icon: Flame           },
   { id: '/calendario',       label: 'Calendario',     href: '/calendario',       category: 'Página', icon: Calendar        },
-  { id: '/lp-defi',          label: 'LP DeFi',        href: '/lp-defi',          category: 'Página', icon: Layers          },
-  { id: '/lp-signal',        label: 'LP Signal',      href: '/lp-signal',        category: 'Página', icon: Signal,          keywords: ['lp','signal','señal','defi','liquidity','liquidez','kelly'] },
+  { id: '/lp-defi',          label: 'LP DeFi',        href: '/lp-defi',          category: 'Página', icon: Layers,          keywords: ['lp','defi','liquidity','liquidez','pools'] },
   { id: '/modelos',          label: 'Modelos',        href: '/modelos',          category: 'Página', icon: BrainCircuit    },
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
