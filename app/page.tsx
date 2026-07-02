@@ -6,6 +6,9 @@ import Link from 'next/link'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import HeroAnimation from './components/HeroAnimation'
 import MotorVivoPanel from './components/landing/MotorVivoPanel'
+import Reveal from './components/landing/Reveal'
+import CountUp from './components/landing/CountUp'
+import TiltCard from './components/landing/TiltCard'
 
 export const metadata: Metadata = {
   title: 'SQuant Desk — Infraestructura Cuantitativa LATAM',
@@ -191,24 +194,28 @@ function EquityCurveSVG({ history, initial }: { history: HistoryTrade[]; initial
           stroke="rgba(212,175,55,0.06)" strokeWidth="1" strokeDasharray="4,10"
         />
       ))}
-      <path d={fillPts} fill="url(#eq-fill)" />
-      <path d={linePts} fill="none" stroke="url(#eq-line)" strokeWidth="1.5" strokeLinejoin="round" filter="url(#glow-g)" />
+      <path d={fillPts} fill="url(#eq-fill)" className="eq-fill-p" />
+      <path d={linePts} fill="none" stroke="url(#eq-line)" strokeWidth="1.5" strokeLinejoin="round" filter="url(#glow-g)" className="eq-line-main" pathLength={1} />
       {points.slice(1).map((p, i) => {
         const x = mapX(i + 1), y = mapY(p.eq)
         const isWin = p.status === 'TP_HIT' || p.status === 'TRAIL_HIT'
         const c = isWin ? '#34d399' : '#f87171'
+        // Cada punto aparece cuando el trazo animado pasa por su posición
+        const delay = Math.round(200 + (i / Math.max(points.length - 2, 1)) * 1400)
         return (
-          <g key={i}>
+          <g key={i} className="eq-dot" style={{ animationDelay: `${delay}ms` }}>
             <circle cx={x.toFixed(1)} cy={y.toFixed(1)} r="5"
               fill={c} fillOpacity="0.12" stroke={c} strokeOpacity="0.3" strokeWidth="1" />
             <circle cx={x.toFixed(1)} cy={y.toFixed(1)} r="2.5" fill={c} fillOpacity="0.9" />
           </g>
         )
       })}
-      <circle cx={mapX(points.length - 1).toFixed(1)} cy={mapY(points[points.length - 1].eq).toFixed(1)}
-        r="6" fill="none" stroke={G} strokeOpacity="0.25" strokeWidth="1" />
-      <circle cx={mapX(points.length - 1).toFixed(1)} cy={mapY(points[points.length - 1].eq).toFixed(1)}
-        r="3" fill={G} />
+      <g className="eq-dot" style={{ animationDelay: '1700ms' }}>
+        <circle cx={mapX(points.length - 1).toFixed(1)} cy={mapY(points[points.length - 1].eq).toFixed(1)}
+          r="6" fill="none" stroke={G} strokeOpacity="0.25" strokeWidth="1" />
+        <circle cx={mapX(points.length - 1).toFixed(1)} cy={mapY(points[points.length - 1].eq).toFixed(1)}
+          r="3" fill={G} />
+      </g>
     </svg>
   )
 }
@@ -499,21 +506,25 @@ export default async function RootPage() {
       {/* ══ 2. STATS — 4 columnas con datos reales ═══════════════════════════ */}
       <section style={{ borderBottom: `1px solid ${B}` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: `0 ${PX}` }}>
+          <Reveal>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', background: B, gap: 1 }}>
             {[
-              { value: metrics?.wr     ? `${metrics.wr.toFixed(1)}%`    : '68%',   label: 'Win Rate',      detail: 'backtesting out-of-sample' },
-              { value: metrics?.pf     ? `${metrics.pf.toFixed(2)}×`    : '1.70×', label: 'Profit Factor', detail: 'PRO · SIGMA ENGINE'        },
-              { value: metrics?.calmar ? `${metrics.calmar.toFixed(2)}`  : '1.61',  label: 'Calmar Ratio',  detail: '12M rolling'               },
-              { value: `${(backtests / 1_000_000).toFixed(1)}M`,                   label: 'Backtests',     detail: 'escenarios validados'      },
+              { num: metrics?.wr     ?? 68,               dec: 1, suffix: '%', label: 'Win Rate',      detail: 'backtesting out-of-sample' },
+              { num: metrics?.pf     ?? 1.70,             dec: 2, suffix: '×', label: 'Profit Factor', detail: 'PRO · SIGMA ENGINE'        },
+              { num: metrics?.calmar ?? 1.61,             dec: 2, suffix: '',  label: 'Calmar Ratio',  detail: '12M rolling'               },
+              { num: backtests / 1_000_000,               dec: 1, suffix: 'M', label: 'Backtests',     detail: 'escenarios validados'      },
             ].map(s => (
               <div key={s.label} style={{ background: BG, padding: '44px 32px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G}, transparent)` }} />
                 <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.28em', color: M, textTransform: 'uppercase', marginBottom: 16 }}>{s.label}</div>
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 58, color: G, lineHeight: 1, letterSpacing: '0.02em', marginBottom: 8, textShadow: `0 0 30px rgba(212,175,55,0.2)` }}>{s.value}</div>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 58, color: G, lineHeight: 1, letterSpacing: '0.02em', marginBottom: 8, textShadow: `0 0 30px rgba(212,175,55,0.2)` }}>
+                  <CountUp value={s.num} decimals={s.dec} suffix={s.suffix} />
+                </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.1em' }}>{s.detail}</div>
               </div>
             ))}
           </div>
+          </Reveal>
         </div>
       </section>
 
@@ -538,9 +549,10 @@ export default async function RootPage() {
             </Link>
           </div>
 
+          <Reveal>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 1, background: B }}>
-            {tools.map((t, i) => (
-              <div key={t.id} className={`tool-card tool-card-${i}`} style={{ background: S, padding: '32px 28px', position: 'relative', overflow: 'hidden' }}>
+            {tools.map(t => (
+              <TiltCard key={t.id} accent={t.col} style={{ background: S, padding: '32px 28px', position: 'relative', overflow: 'hidden' }}>
                 {/* Unique color top border per tool */}
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: t.col }} />
                 {/* Numeral pálido de fondo — misma firma que el ranking de /lp-defi */}
@@ -557,9 +569,10 @@ export default async function RootPage() {
                   {t.name}
                 </div>
                 <p style={{ fontFamily: 'monospace', fontSize: 11, color: D, lineHeight: 1.8, margin: 0, position: 'relative' }}>{t.desc}</p>
-              </div>
+              </TiltCard>
             ))}
           </div>
+          </Reveal>
         </div>
       </section>
 
@@ -573,6 +586,7 @@ export default async function RootPage() {
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <SectionRule label="// SIGMA ENGINE · EN VIVO AHORA" />
 
+          <Reveal>
           <MotorVivoPanel
             tokens={{ G, BG, S, B, T, D, M }}
             regimeNode={<RegimePill regime={regime} />}
@@ -582,6 +596,7 @@ export default async function RootPage() {
             lastDecisionLabel={timeAgo(lastDecisionAt)}
             initialTickers={tickers}
           />
+          </Reveal>
         </div>
       </section>
 
@@ -590,6 +605,7 @@ export default async function RootPage() {
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <SectionRule label="// PAPER TRADING EN PRODUCCIÓN" />
 
+          <Reveal>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 36, flexWrap: 'wrap', gap: 20 }}>
             <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(36px, 5vw, 64px)', color: T, lineHeight: 0.92, margin: 0 }}>
               SIGMA ENGINE ·{' '}
@@ -601,7 +617,7 @@ export default async function RootPage() {
             </h2>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#34d399', lineHeight: 1, textShadow: '0 0 40px rgba(52,211,153,0.3)' }}>
-                +{returnPct}%
+                <CountUp value={parseFloat(returnPct)} decimals={2} prefix="+" suffix="%" duration={1800} />
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', marginTop: 4 }}>RETORNO PAPER</div>
             </div>
@@ -631,17 +647,20 @@ export default async function RootPage() {
           {/* Stats bar */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1, background: B, marginTop: 1 }}>
             {[
-              { v: `${metrics?.wr     ? metrics.wr.toFixed(1)     : '68'}%`,   l: 'Win Rate'          },
-              { v: `${metrics?.pf     ? metrics.pf.toFixed(2)     : '1.70'}×`, l: 'Profit Factor'     },
-              { v: `${metrics?.calmar ? metrics.calmar.toFixed(2) : '1.61'}`,  l: 'Calmar Ratio'      },
-              { v: `${metrics?.n_trades ?? history.length + 1}`,               l: 'Trades registrados' },
-            ].map(({ v, l }) => (
+              { n: metrics?.wr     ?? 68,                       dec: 1, suffix: '%', l: 'Win Rate'          },
+              { n: metrics?.pf     ?? 1.70,                     dec: 2, suffix: '×', l: 'Profit Factor'     },
+              { n: metrics?.calmar ?? 1.61,                     dec: 2, suffix: '',  l: 'Calmar Ratio'      },
+              { n: metrics?.n_trades ?? history.length + 1,     dec: 0, suffix: '',  l: 'Trades registrados' },
+            ].map(({ n, dec, suffix, l }) => (
               <div key={l} style={{ background: BG, padding: '24px 28px', textAlign: 'center' }}>
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 44, color: G, lineHeight: 1, marginBottom: 6, textShadow: `0 0 20px rgba(212,175,55,0.2)` }}>{v}</div>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 44, color: G, lineHeight: 1, marginBottom: 6, textShadow: `0 0 20px rgba(212,175,55,0.2)` }}>
+                  <CountUp value={n} decimals={dec} suffix={suffix} />
+                </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{l}</div>
               </div>
             ))}
           </div>
+          </Reveal>
         </div>
       </section>
 
@@ -661,12 +680,13 @@ export default async function RootPage() {
               </Link>
             </div>
 
+            <Reveal>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 1, background: B }}>
               {champions.map((c, i) => {
                 const gc = gradeColor(c.grade)
                 const isLeader = i === 0
                 return (
-                  <div key={i} className={`champion-card champion-card-${i}`} style={{
+                  <TiltCard key={i} accent={gc} style={{
                     background: isLeader ? `linear-gradient(160deg, ${gc}14, ${S} 60%)` : S,
                     boxShadow: isLeader ? `0 0 20px ${gc}22` : 'none',
                     padding: '28px 24px', position: 'relative', overflow: 'hidden',
@@ -733,10 +753,11 @@ export default async function RootPage() {
                       </div>
                       <span style={{ fontFamily: 'monospace', fontSize: 9, color: T, flexShrink: 0 }}>{c.wr?.toFixed(1)}% WR</span>
                     </div>
-                  </div>
+                  </TiltCard>
                 )
               })}
             </div>
+            </Reveal>
           </div>
         </section>
       )}
@@ -757,6 +778,7 @@ export default async function RootPage() {
             </div>
           </div>
 
+          <Reveal>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 1, background: B }}>
             {plans.map(p => (
               <div key={p.tier} style={{
@@ -803,6 +825,7 @@ export default async function RootPage() {
               </div>
             ))}
           </div>
+          </Reveal>
         </div>
       </section>
 
@@ -810,6 +833,7 @@ export default async function RootPage() {
       <section style={{ padding: `clamp(64px, 16vw, 112px) ${PX} 80px`, background: S, borderBottom: `1px solid ${B}`, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212,175,55,0.05) 0%, transparent 70%)` }} />
         <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+          <Reveal>
           <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 18 }}>{'// EMPIEZA HOY'}</div>
           <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", lineHeight: 0.88, margin: '0 0 24px' }}>
             <span style={{ display: 'block', fontSize: 'clamp(56px, 9vw, 120px)', color: T }}>OPERA CON</span>
@@ -836,6 +860,7 @@ export default async function RootPage() {
               ¿YA TIENES CUENTA? →
             </Link>
           </div>
+          </Reveal>
 
           {/* Legal */}
           <div style={{ borderTop: `1px solid ${B}`, paddingTop: 24 }}>
@@ -882,25 +907,19 @@ export default async function RootPage() {
           color: #d4af37 !important;
           background: rgba(212,175,55,0.05) !important;
         }
-        .tool-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
-        ${tools.map((t, i) => `
-        .tool-card-${i}:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 14px 30px -10px ${t.col}45, inset 0 0 0 1px ${t.col}35;
-        }`).join('')}
         @keyframes leaderEdgeDraw {
           from { transform: scaleX(0); opacity: 0; }
           to   { transform: scaleX(1); opacity: 1; }
         }
-        .champion-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
-        ${champions.map((c, i) => {
-          const gc = gradeColor(c.grade)
-          return `
-        .champion-card-${i}:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 14px 30px -10px ${gc}45, inset 0 0 0 1px ${gc}35;
-        }`
-        }).join('')}
+        /* Equity curve — se dibuja al entrar en viewport (Reveal agrega .rv-in) */
+        .eq-line-main { stroke-dasharray: 1; stroke-dashoffset: 1; }
+        .rv-in .eq-line-main { animation: eqDraw 1.8s cubic-bezier(0.4,0,0.2,1) 0.15s forwards; }
+        .eq-fill-p { opacity: 0; }
+        .rv-in .eq-fill-p { animation: eqFadeIn 0.9s ease-out 1.2s forwards; }
+        .eq-dot { opacity: 0; }
+        .rv-in .eq-dot { animation: eqFadeIn 0.35s ease-out forwards; }
+        @keyframes eqDraw   { to { stroke-dashoffset: 0; } }
+        @keyframes eqFadeIn { to { opacity: 1; } }
       ` }} />
     </main>
   )
