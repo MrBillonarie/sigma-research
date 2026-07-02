@@ -601,9 +601,18 @@ export default function CalendarioPage() {
               </h1>
               <div style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:6 }}>
                 {usingMock && (
-                  <span style={{ fontSize:9, letterSpacing:'0.15em', color:C.dimText,
-                    background:C.border, padding:'3px 8px' }}>
-                    DATOS DE REFERENCIA
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    fontSize: 10, letterSpacing: '0.12em', color: '#f59e0b',
+                    background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+                    padding: '4px 10px',
+                  }}>
+                    <svg width="8" height="8" viewBox="0 0 8 8" style={{ flexShrink: 0 }}>
+                      <circle cx="4" cy="4" r="3.5" fill="none" stroke="#f59e0b" strokeWidth="1"/>
+                      <line x1="4" y1="2" x2="4" y2="4.5" stroke="#f59e0b" strokeWidth="1.2" strokeLinecap="round"/>
+                      <circle cx="4" cy="6" r="0.6" fill="#f59e0b"/>
+                    </svg>
+                    EVENTOS DE REFERENCIA — los datos reales se cargan vía SIGMA Research
                   </span>
                 )}
                 {error && !usingMock && (

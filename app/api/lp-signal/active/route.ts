@@ -29,6 +29,10 @@ export async function GET() {
     .limit(1)
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: 'Error fetching signal' }, { status: 500 })
+  if (error) {
+    // Table doesn't exist yet — return no-signal state gracefully
+    if (error.code === '42P01') return NextResponse.json({ signal: null })
+    return NextResponse.json({ error: 'Error fetching signal' }, { status: 500 })
+  }
   return NextResponse.json({ signal: data })
 }

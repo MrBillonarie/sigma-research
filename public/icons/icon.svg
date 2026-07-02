@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#04050a"/>
+  <!-- Gold border -->
+  <rect x="8" y="8" width="496" height="496" fill="none" stroke="#d4af37" stroke-width="8"/>
+  <!-- Sigma symbol -->
+  <text x="256" y="360" text-anchor="middle" font-family="Georgia, serif" font-size="320" font-weight="bold" fill="#d4af37">Σ</text>
+</svg>

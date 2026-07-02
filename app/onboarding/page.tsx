@@ -202,25 +202,51 @@ export default function OnboardingPage() {
                 <div className="section-label text-gold mb-1">{'// PASO 3 DE 3'}</div>
                 <h2 className="display-heading text-3xl text-text mb-1">TODO LISTO</h2>
                 <p className="terminal-text text-text-dim text-sm">
-                  Bienvenido{nombre ? `, ${nombre}` : ''} a Sigma Research.
+                  Bienvenido{nombre ? `, ${nombre}` : ''} — perfil <span className="text-gold">{PERFILES.find(p => p.id === perfil)?.label}</span> configurado.
                 </p>
               </div>
 
+              {/* Features por perfil */}
               <div className="flex flex-col gap-px bg-border">
-                {[
-                  { icon: '◈', label: 'Dashboard personalizado',    desc: 'KPIs, señales y portafolio en tiempo real' },
-                  { icon: '⚡', label: 'HUD de señales live',        desc: 'Binance WebSocket · régimen de mercado' },
-                  { icon: '∑',  label: 'Motor de decisión',          desc: `Optimizado para perfil ${PERFILES.find(p => p.id === perfil)?.label}` },
-                  { icon: '◎', label: 'Calculadora FIRE',           desc: 'Simulaciones Monte Carlo · planificación' },
-                ].map(item => (
+                {(perfil === 'retail' ? [
+                  { icon: '◎', label: 'Calculadora FIRE',        desc: 'Proyecta tu independencia financiera con Monte Carlo', href: '/fire' },
+                  { icon: '◈', label: 'Portafolio',              desc: 'Registra tus posiciones y trackea tu patrimonio',     href: '/portafolio' },
+                  { icon: '⇌', label: 'Comparador de Fondos',    desc: 'ETFs, fondos mutuos y renta fija en un solo lugar',   href: '/comparador/etfs' },
+                  { icon: '∿', label: 'Ingresos Pasivos',        desc: 'Staking, DeFi, dividendos y bots de rendimiento',    href: '/ingresos-pasivos' },
+                ] : perfil === 'trader' ? [
+                  { icon: '⚡', label: 'HUD de Señales Live',    desc: 'Régimen de mercado · Binance WebSocket · alertas',   href: '/hud' },
+                  { icon: '∑',  label: 'Motor de Decisión',      desc: 'Modelos ML en vivo · win rate · drawdown ajustado',  href: '/motor-decision' },
+                  { icon: '◈', label: 'Journal de Trades',       desc: 'Registra operaciones y analiza tu performance',      href: '/journal' },
+                  { icon: '⊡', label: 'Terminal',                desc: 'Gráficos en vivo · precio · libro de órdenes',       href: '/terminal' },
+                ] : [
+                  { icon: '∑',  label: 'Motor de Decisión',      desc: 'Champions por TF · Grade A · exportación CSV',       href: '/motor-decision' },
+                  { icon: '◎', label: 'Monte Carlo',             desc: 'Simulaciones de riesgo institucional (1000+ paths)', href: '/montecarlo' },
+                  { icon: '◈', label: 'Reportes',                desc: 'PDF ejecutivos · P&L · métricas por período',        href: '/reportes' },
+                  { icon: '⊕', label: 'LP Signal',               desc: 'Señales de liquidez DeFi con Kelly sizing',          href: '/lp-signal' },
+                ]).map(item => (
                   <div key={item.label} className="bg-surface px-5 py-4 flex items-center gap-4">
                     <span className="text-gold text-lg w-6 text-center">{item.icon}</span>
-                    <div>
+                    <div className="flex-1">
                       <div className="terminal-text text-sm text-text">{item.label}</div>
                       <div className="terminal-text text-xs text-text-dim">{item.desc}</div>
                     </div>
+                    <span className="terminal-text text-xs text-muted">{item.href}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* Primer paso sugerido */}
+              <div className="border border-gold/20 bg-gold/5 px-4 py-3 flex items-start gap-3">
+                <span className="text-gold mt-0.5">→</span>
+                <p className="terminal-text text-xs text-text-dim leading-relaxed">
+                  <span className="text-gold">Primer paso sugerido:</span>{' '}
+                  {perfil === 'retail'
+                    ? 'Ve a Portafolio y registra tu capital actual para que todas las proyecciones sean personalizadas.'
+                    : perfil === 'trader'
+                    ? 'Abre el HUD para ver el régimen de mercado en vivo y las señales activas del motor.'
+                    : 'Revisa el Motor de Decisión para ver los champions activos y sus métricas de robustez.'
+                  }
+                </p>
               </div>
 
               <button

@@ -33,6 +33,9 @@ const CAPS = [
   { id:'04', name:'FIRE + MONTECARLO', col:'#d4af37', desc:'4% rule. 2,000 GBM trajectories. P10/P50/P90 percentiles. 20-year projection.' },
   { id:'05', name:'QUANT ENGINE',      col:'#a78bfa', desc:'4 ML models: HMM-01, XGB-03, STAT-05, GARCH-02. Score 0–100, net EV, Kelly fraction.' },
   { id:'06', name:'COMPARATORS',       col:'#f87171', desc:'Global ETFs, Chilean Mutual Funds CMF, Fixed Income DAP, LP DeFi PancakeSwap v3.' },
+  { id:'07', name:'LP SIGNAL',         col:'#06b6d4', desc:'Uniswap v3 concentrated liquidity signals. Kelly-sized ranges, Monte Carlo fee projection, IL breakeven.' },
+  { id:'08', name:'PASSIVE INCOME',    col:'#10b981', desc:'Staking, DeFi, dividends and bots catalog. APY comparison, compound growth and impermanent loss calculator.' },
+  { id:'09', name:'NOTIFICATIONS',     col:'#8b5cf6', desc:'Real-time alerts via Supabase Realtime. Urgent signals pinned, toast system with 6-second auto-dismiss.' },
 ]
 
 const MODELS = [
@@ -153,7 +156,7 @@ export default async function EnPage() {
         <div style={{ maxWidth:1280, margin:'0 auto' }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr auto', alignItems:'flex-end', marginBottom:64, gap:32 }}>
             <div>
-              <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.3em', color:G, marginBottom:16 }}>{'// PLATFORM · 6 TOOLS'}</div>
+              <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.3em', color:G, marginBottom:16 }}>{'// PLATFORM · 9 TOOLS'}</div>
               <h2 style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(48px,7vw,88px)', color:T, lineHeight:0.92, margin:0 }}>
                 EVERYTHING A<br />
                 <span style={{ background:`linear-gradient(135deg,${G},#f0cc5a,#a88c25)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>QUANT NEEDS</span>

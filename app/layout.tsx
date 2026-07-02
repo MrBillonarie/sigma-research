@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Bebas_Neue, DM_Mono } from 'next/font/google'
 import './globals.css'
 import ConditionalShell from './components/ConditionalShell'
+import SWRegister from './components/SWRegister'
 
 const bebasNeue = Bebas_Neue({
   weight: '400',
@@ -48,6 +49,7 @@ export const metadata: Metadata = {
     description: 'Herramientas cuantitativas de grado institucional para inversores independientes.',
     images: ['/og-image.png'],
   },
+  manifest: '/manifest.json',
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',
@@ -67,6 +69,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className={`${bebasNeue.variable} ${dmMono.variable} bg-bg text-text antialiased`}>
+        <SWRegister />
         <ConditionalShell>
           {children}
         </ConditionalShell>

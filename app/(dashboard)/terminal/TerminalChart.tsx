@@ -1,74 +1,95 @@
 'use client'
-import {
-  Chart as ChartJS, LineElement, PointElement, LinearScale,
-  CategoryScale, Filler, Tooltip, Legend,
-} from 'chart.js'
-import { Line } from 'react-chartjs-2'
+import { useEffect, useRef } from 'react'
+import { createChart, ColorType, CrosshairMode, AreaSeries, LineSeries } from 'lightweight-charts'
 
-ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend)
-
-const C = { bg: '#04050a', border: '#1a1d2e', gold: '#d4af37', surface: '#0b0d14', dimText: '#7a7f9a' }
+const C = { bg: '#04050a', border: '#1a1d2e', gold: '#d4af37', surface: '#0b0d14', dimText: '#7a7f9a', text: '#e8e9f0' }
 
 const fmt = (v: number) =>
   v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
 
-interface Props { labels: string[]; total: number[]; platforms: { name: string; data: number[]; color: string }[] }
+interface Props {
+  labels: string[]
+  total: number[]
+  platforms: { name: string; data: number[]; color: string }[]
+}
 
 export default function TerminalChart({ labels, total, platforms }: Props) {
-  const datasets = [
-    {
-      label: 'Total Patrimonio',
-      data: total,
-      borderColor: C.gold,
-      backgroundColor: 'rgba(212,175,55,0.07)',
-      borderWidth: 2.5,
-      fill: true,
-      pointRadius: 0,
-      tension: 0.35,
-      order: 1,
-    },
-    ...platforms.map(p => ({
-      label: p.name,
-      data: p.data,
-      borderColor: p.color,
-      backgroundColor: 'transparent',
-      borderWidth: 1,
-      borderDash: [4, 3],
-      fill: false,
-      pointRadius: 0,
-      tension: 0.35,
-      order: 2,
-    })),
-  ]
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!containerRef.current || !labels.length) return
+
+    const chart = createChart(containerRef.current, {
+      width:  containerRef.current.clientWidth,
+      height: 320,
+      layout: {
+        background: { type: ColorType.Solid, color: C.bg },
+        textColor: C.dimText,
+        fontFamily: 'monospace',
+        fontSize: 10,
+      },
+      grid: {
+        vertLines: { color: C.border },
+        horzLines: { color: C.border },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: C.gold + '50', labelBackgroundColor: C.surface },
+        horzLine: { color: C.gold + '50', labelBackgroundColor: C.surface },
+      },
+      rightPriceScale: {
+        borderColor: C.border,
+      },
+      timeScale: {
+        borderColor: C.border,
+      },
+    })
+
+    // Mapear labels a timestamps (un mes por punto, empezando hace N meses)
+    const now = Date.now()
+    const toTime = (i: number) =>
+      Math.floor((now - (labels.length - 1 - i) * 30 * 24 * 3600 * 1000) / 1000) as unknown as import('lightweight-charts').Time
+
+    // Serie principal — total patrimonio (área dorada) — API v5
+    const totalSeries = chart.addSeries(AreaSeries, {
+      lineColor: C.gold,
+      topColor: C.gold + '28',
+      bottomColor: C.gold + '04',
+      lineWidth: 2,
+      priceFormat: { type: 'custom', formatter: fmt },
+    })
+    totalSeries.setData(total.map((v, i) => ({ time: toTime(i), value: v })))
+
+    // Series secundarias — plataformas (líneas) — API v5
+    platforms.forEach(p => {
+      const s = chart.addSeries(LineSeries, {
+        color: p.color,
+        lineWidth: 1,
+        lineStyle: 1,
+        priceFormat: { type: 'custom', formatter: fmt },
+        lastValueVisible: false,
+        priceLineVisible: false,
+      })
+      s.setData(p.data.map((v, i) => ({ time: toTime(i), value: v })))
+    })
+
+    chart.timeScale().fitContent()
+
+    const ro = new ResizeObserver(entries => {
+      const { width } = entries[0].contentRect
+      chart.applyOptions({ width })
+    })
+    ro.observe(containerRef.current)
+
+    return () => {
+      ro.disconnect()
+      chart.remove()
+    }
+  }, [labels, total, platforms])
 
   return (
-    <div style={{ height: 320, padding: '12px 12px 4px', background: C.bg }}>
-      <Line
-        data={{ labels, datasets }}
-        options={{
-          responsive: true, maintainAspectRatio: false,
-          animation: { duration: 500 },
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: {
-              display: true, position: 'top',
-              labels: { color: C.dimText, font: { family: 'monospace', size: 10 }, boxWidth: 18, padding: 14 },
-            },
-            tooltip: {
-              backgroundColor: C.surface, borderColor: C.border, borderWidth: 1,
-              titleColor: C.gold, bodyColor: '#e8e9f0',
-              titleFont: { family: 'monospace', size: 11 },
-              bodyFont: { family: 'monospace', size: 11 },
-              padding: 10,
-              callbacks: { label: (i) => ` ${i.dataset.label}: ${fmt(i.parsed.y ?? 0)}` },
-            },
-          },
-          scales: {
-            x: { ticks: { color: C.dimText, font: { family: 'monospace', size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 13 }, grid: { color: 'rgba(212,175,55,0.05)' }, border: { color: C.border } },
-            y: { ticks: { color: C.dimText, font: { family: 'monospace', size: 10 }, callback: (v) => fmt(Number(v)) }, grid: { color: 'rgba(212,175,55,0.05)' }, border: { color: C.border } },
-          },
-        }}
-      />
+    <div style={{ background: C.bg, padding: '12px 0 4px' }}>
+      <div ref={containerRef} style={{ width: '100%' }} />
     </div>
   )
 }
