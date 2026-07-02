@@ -13,6 +13,7 @@ const PRIMARY = [
 ]
 
 const MORE_LINKS = [
+  { href: '/terminal',         label: 'Terminal' },
   { href: '/community-setups', label: 'Community' },
   { href: '/fire',             label: 'FIRE' },
   { href: '/journal',          label: 'Journal' },
@@ -21,6 +22,7 @@ const MORE_LINKS = [
   { href: '/ingresos-pasivos', label: 'Ingresos Pasivos' },
   { href: '/mis-reportes',     label: 'Reportes' },
   { href: '/lp-defi',          label: 'LP DeFi' },
+  { href: '/lp-signal',        label: 'LP Signal' },
   { href: '/modelos',          label: 'Modelos' },
   { href: '/comparador/etfs',  label: 'Comparador ETFs' },
   { href: '/soporte',          label: 'Soporte' },

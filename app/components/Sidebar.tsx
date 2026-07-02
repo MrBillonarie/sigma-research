@@ -28,6 +28,8 @@ import {
   Zap,
   LifeBuoy,
   Users,
+  LineChart,
+  Signal,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +49,7 @@ const MONO   = F.mono
 const navItems = [
   { label: 'Home',           href: '/home',             icon: Home            },
   { label: 'HUD',            href: '/hud',              icon: Activity        },
+  { label: 'Terminal',       href: '/terminal',         icon: LineChart       },
   { label: 'Portafolio',     href: '/portafolio',        icon: PieChart        },
   { label: 'Journal',        href: '/journal',          icon: BookOpen        },
   { label: 'Diagnosticador', href: '/diagnosticador',   icon: Stethoscope     },
@@ -54,6 +57,7 @@ const navItems = [
   { label: 'FIRE',           href: '/fire',             icon: Flame           },
   { label: 'Calendario',     href: '/calendario',       icon: Calendar        },
   { label: 'LP DeFi',        href: '/lp-defi',          icon: Layers          },
+  { label: 'LP Signal',      href: '/lp-signal',        icon: Signal          },
   { label: 'Modelos',        href: '/modelos',          icon: BrainCircuit    },
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
@@ -82,6 +86,7 @@ const ALL_ITEMS: SearchItem[] = [
   // Pages
   { id: '/home',             label: 'Home',           href: '/home',             category: 'Página', icon: Home            },
   { id: '/hud',              label: 'HUD',            href: '/hud',              category: 'Página', icon: Activity        },
+  { id: '/terminal',         label: 'Terminal',       href: '/terminal',         category: 'Página', icon: LineChart,       keywords: ['terminal','chart','gráfico','precio','live','btc','eth'] },
   { id: '/portafolio',        label: 'Portafolio',     href: '/portafolio',        category: 'Página', icon: PieChart        },
   { id: '/journal',          label: 'Journal',        href: '/journal',          category: 'Página', icon: BookOpen        },
   { id: '/diagnosticador',   label: 'Diagnosticador', href: '/diagnosticador',   category: 'Página', icon: Stethoscope     },
@@ -89,6 +94,7 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/fire',             label: 'FIRE',           href: '/fire',             category: 'Página', icon: Flame           },
   { id: '/calendario',       label: 'Calendario',     href: '/calendario',       category: 'Página', icon: Calendar        },
   { id: '/lp-defi',          label: 'LP DeFi',        href: '/lp-defi',          category: 'Página', icon: Layers          },
+  { id: '/lp-signal',        label: 'LP Signal',      href: '/lp-signal',        category: 'Página', icon: Signal,          keywords: ['lp','signal','señal','defi','liquidity','liquidez','kelly'] },
   { id: '/modelos',          label: 'Modelos',        href: '/modelos',          category: 'Página', icon: BrainCircuit    },
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },

@@ -314,7 +314,7 @@ const plans = [
     items: ['Todo lo anterior', 'Reportes PDF mensuales', 'Señales PRO.MACD activas', 'Equity curves actualizadas', 'Soporte prioritario'],
   },
   {
-    tier: 'INSTITUTIONAL', price: 'Custom', period: 'cotizar',        col: '#60a5fa', fill: false, badge: null,            cta: 'CONTACTAR',     href: '/contacto',
+    tier: 'INSTITUTIONAL', price: 'Custom', period: 'cotizar',        col: '#60a5fa', fill: false, badge: null,            cta: 'VER API DOCS',  href: '/api-docs',
     items: ['Todo lo anterior', 'Acceso API completo', 'Modelos a medida', 'White label disponible', 'SLA garantizado'],
   },
 ]
@@ -323,6 +323,7 @@ const legalLinks = [
   { href: '/quienes-somos', label: 'Quiénes Somos' },
   { href: '/terminos',      label: 'Términos' },
   { href: '/privacidad',    label: 'Privacidad' },
+  { href: '/api-docs',      label: 'API Docs' },
   { href: '/faq',           label: 'FAQ' },
   { href: '/contacto',      label: 'Contacto' },
 ]
