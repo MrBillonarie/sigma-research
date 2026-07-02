@@ -139,6 +139,34 @@ export default function HUDPage() {
     }
   }, [])
 
+  // Crosshair en las matrices de señales: al pasar el mouse por una celda se
+  // ilumina toda su columna (la fila la maneja CSS). Solo presentación del
+  // lado web — el HTML del motor no se modifica, solo se togglea una clase.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    let lastCells: Element[] = []
+    const clear = () => { lastCells.forEach(c => c.classList.remove('sigma-col-hl')); lastCells = [] }
+    function onOver(e: MouseEvent) {
+      const cell  = (e.target as HTMLElement).closest('td, th') as HTMLTableCellElement | null
+      const table = cell?.closest('table.matrix') as HTMLTableElement | null
+      if (!cell || !table) { clear(); return }
+      const idx = cell.cellIndex
+      clear()
+      table.querySelectorAll('tr').forEach(tr => {
+        const c = (tr as HTMLTableRowElement).cells[idx]
+        if (c) { c.classList.add('sigma-col-hl'); lastCells.push(c) }
+      })
+    }
+    container.addEventListener('mouseover', onOver)
+    container.addEventListener('mouseleave', clear)
+    return () => {
+      container.removeEventListener('mouseover', onOver)
+      container.removeEventListener('mouseleave', clear)
+      clear()
+    }
+  }, [])
+
   // El dashboard del motor genera parte de su navegación (ej. "Per-Model
   // Paper") vía JS, con hrefs absolutos como /models. /hud no tiene sub-rutas
   // propias para servir eso, pero /motor-en-vivo sí (ya con su propio proxy
@@ -162,6 +190,72 @@ export default function HUDPage() {
 
   return (
     <>
+      {/* ── Skin visual SQuant sobre el HUD ─────────────────────────────────
+          Overrides CSS del lado web. Este <style> vive en el <body>, así que
+          gana la cascada frente a los estilos del motor (inyectados en <head>)
+          a igual especificidad. El motor no se modifica. */}
+      <style>{`
+        /* ══ 1. KPI strip estilo Bloomberg — vidrio + sticky ══ */
+        #sigma-hud-root #kpi-strip {
+          position: sticky !important; top: 0 !important; z-index: 80 !important;
+          background: rgba(2,5,16,0.82) !important;
+          backdrop-filter: blur(12px) saturate(1.1);
+          -webkit-backdrop-filter: blur(12px) saturate(1.1);
+          border-bottom: 1px solid rgba(212,175,55,0.18) !important;
+          box-shadow: 0 10px 28px rgba(0,0,0,0.5);
+          padding-top: 6px !important; padding-bottom: 6px !important;
+        }
+        #sigma-hud-root .kpi-card {
+          position: relative;
+          background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.006)) !important;
+          border: 1px solid rgba(212,175,55,0.12) !important;
+          border-radius: 8px !important;
+          margin: 5px 4px !important;
+          overflow: hidden;
+          transition: transform .15s ease, border-color .15s ease !important;
+        }
+        #sigma-hud-root .kpi-card::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, rgba(212,175,55,0.85), transparent 75%);
+        }
+        #sigma-hud-root .kpi-card:hover { transform: translateY(-2px); border-color: rgba(212,175,55,0.4) !important; }
+        #sigma-hud-root .kpi-label { letter-spacing: 0.2em !important; opacity: 0.75; }
+        #sigma-hud-root .kpi-value { text-shadow: 0 0 16px currentColor; }
+
+        /* ══ 2. Crosshair en matrices M1/M2/M3 ══ */
+        #sigma-hud-root .matrix td.sigma-col-hl,
+        #sigma-hud-root .matrix th.sigma-col-hl {
+          box-shadow: inset 0 0 0 999px rgba(212,175,55,0.07) !important;
+        }
+        #sigma-hud-root .matrix tr:hover td {
+          box-shadow: inset 0 0 0 999px rgba(212,175,55,0.05);
+        }
+
+        /* ══ 3. Micro-detalles ══ */
+        /* hover en filas de tablas normales (las matrices tienen el suyo) */
+        #sigma-hud-root table:not(.matrix) tbody tr:hover td {
+          background: rgba(212,175,55,0.04);
+        }
+        /* badges y pills con esquinas suaves */
+        #sigma-hud-root .badge, #sigma-hud-root .pill, #sigma-hud-root .tf-pill {
+          border-radius: 4px !important;
+        }
+        /* celdas listas con glow verde sutil */
+        #sigma-hud-root .cell-ok { text-shadow: 0 0 12px rgba(46,204,113,0.45); }
+        /* separadores de sección con la firma dorada del sitio */
+        #sigma-hud-root .section-divider-line {
+          background: linear-gradient(90deg, transparent, rgba(212,175,55,0.35), transparent) !important;
+        }
+        #sigma-hud-root .section-divider-text { color: #d4af37 !important; }
+        /* cards con radio consistente */
+        #sigma-hud-root .card { border-radius: 10px !important; }
+        /* scrollbars finas */
+        #sigma-hud-root ::-webkit-scrollbar { width: 8px; height: 8px; }
+        #sigma-hud-root ::-webkit-scrollbar-track { background: transparent; }
+        #sigma-hud-root ::-webkit-scrollbar-thumb { background: #242f55; border-radius: 4px; }
+        #sigma-hud-root ::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.5); }
+      `}</style>
+
       {status === 'loading' && (
         <div style={{
           position: 'fixed', inset: 0, background: '#020510',
@@ -181,6 +275,7 @@ export default function HUDPage() {
         </div>
       )}
       <div
+        id="sigma-hud-root"
         ref={containerRef}
         style={{ minHeight: '100vh', background: '#020510' }}
       />
