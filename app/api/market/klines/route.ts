@@ -8,6 +8,7 @@ const YAHOO_SYM: Record<string, string> = {
   AAPL: 'AAPL', NVDA: 'NVDA', TSLA: 'TSLA', JPM: 'JPM', XOM: 'XOM',
   XAU: 'GC=F',   // futuros oro COMEX — XAUUSD=X es poco confiable en Yahoo
   WTI: 'CL=F',   // futuros crudo NYMEX
+  SPX: '^GSPC',  // S&P 500 index — sparkline del RightBar
 }
 
 // tf de la UI → (interval, range) de Yahoo. Yahoo no tiene 4h: se agregan velas 1h.

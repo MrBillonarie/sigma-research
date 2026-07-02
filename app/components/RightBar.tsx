@@ -122,6 +122,7 @@ export default function RightBar() {
   })
   const [spx, setSpx] = useState<ExtTicker | null>(null)
   const [xau, setXau] = useState<ExtTicker | null>(null)
+  const [sparks, setSparks] = useState<Record<string, number[]>>({})
   const [alerts,     setAlerts]     = useState<PriceAlert[]>([])
   const [showForm,   setShowForm]   = useState(false)
   const [formSym,    setFormSym]    = useState<Sym>('BTC')
@@ -240,6 +241,36 @@ export default function RightBar() {
     }
   }, [connect])
 
+  // Sparklines 24h — un fetch al montar + refresh cada 5 min
+  useEffect(() => {
+    let dead = false
+    async function loadSparks() {
+      const next: Record<string, number[]> = {}
+      await Promise.all([
+        ...SYMBOLS.map(async s => {
+          try {
+            const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}USDT&interval=30m&limit=48`)
+            if (!r.ok) return
+            const raw: [number, string, string, string, string][] = await r.json()
+            next[s] = raw.map(k => parseFloat(k[4]))
+          } catch {}
+        }),
+        ...(['XAU', 'SPX'] as const).map(async s => {
+          try {
+            const r = await fetch(`/api/market/klines?symbol=${s}&tf=1h`)
+            if (!r.ok) return
+            const d = await r.json()
+            if (Array.isArray(d.klines)) next[s] = d.klines.slice(-24).map((k: { value: number }) => k.value)
+          } catch {}
+        }),
+      ])
+      if (!dead && Object.keys(next).length) setSparks(prev => ({ ...prev, ...next }))
+    }
+    loadSparks()
+    const id = setInterval(loadSparks, 300_000)
+    return () => { dead = true; clearInterval(id) }
+  }, [])
+
   // Poll SPX + XAU (spot) from server-side proxy every 30s
   useEffect(() => {
     async function poll() {
@@ -319,6 +350,8 @@ export default function RightBar() {
         @keyframes rb-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         @keyframes rb-gold  { 0%,100%{background:rgba(212,175,55,0.10)} 50%{background:rgba(212,175,55,0.25)} }
         @keyframes rb-sess  { 0%,100%{opacity:1} 50%{opacity:0.55} }
+        .rb-setup { transition: transform 0.15s ease, background 0.15s ease; }
+        .rb-setup:hover { transform: translateY(-1px); }
       `}</style>
 
       <aside
@@ -356,16 +389,19 @@ export default function RightBar() {
             const isOpen     = utcH >= s.from && utcH < s.to
             const hoursLeft  = isOpen ? s.to - utcH : null
             const hoursUntil = !isOpen ? (utcH < s.from ? s.from - utcH : 24 - utcH + s.from) : null
+            const progress   = isOpen ? ((utcH - s.from) / (s.to - s.from)) * 100 : 0
             return (
               <div key={s.name} style={{
                 display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5,
-                padding: '4px 6px',
-                background: isOpen ? s.color + '12' : 'transparent',
+                padding: '5px 6px', borderRadius: 3,
+                background: isOpen ? `linear-gradient(90deg, ${s.color}16, ${s.color}06)` : 'transparent',
                 border: `1px solid ${isOpen ? s.color + '40' : T.border}`,
+                borderLeft: `2px solid ${isOpen ? s.color : T.border}`,
               }}>
                 <div style={{
                   width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
                   background: isOpen ? s.color : T.muted,
+                  boxShadow: isOpen ? `0 0 6px ${s.color}` : 'none',
                   animation: isOpen ? 'rb-sess 2.5s infinite' : undefined,
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -380,14 +416,31 @@ export default function RightBar() {
                         ? `abre en ${Math.floor(hoursUntil)}h ${Math.round((hoursUntil % 1) * 60)}m`
                         : ''}
                   </div>
+                  {/* Progreso de la sesión */}
+                  {isOpen && (
+                    <div style={{ height: 2, background: T.border, borderRadius: 1, marginTop: 4, overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${progress}%`, height: '100%', borderRadius: 1,
+                        background: `linear-gradient(90deg, ${s.color}66, ${s.color})`,
+                        transition: 'width 1s linear',
+                      }} />
+                    </div>
+                  )}
                 </div>
               </div>
             )
           })}
 
           {activeSessions.length > 1 && (
-            <div style={{ fontFamily: 'monospace', fontSize: 8, color: T.gold, marginTop: 4, letterSpacing: '0.1em' }}>
-              ⚡ OVERLAP: {activeSessions.map(s => s.label).join(' + ')}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
+              padding: '4px 7px', borderRadius: 3,
+              background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.3)',
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: T.gold, boxShadow: `0 0 6px ${T.gold}`, animation: 'rb-pulse 1.6s infinite' }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 8, color: T.gold, letterSpacing: '0.12em' }}>
+                OVERLAP: {activeSessions.map(s => s.label).join(' + ')}
+              </span>
             </div>
           )}
         </div>
@@ -407,8 +460,11 @@ export default function RightBar() {
                     {up ? '▲' : '▼'} {Math.abs(t.change24h).toFixed(2)}%
                   </span>
                 </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
-                  {fmtPrice(t.price)}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
+                    {fmtPrice(t.price)}
+                  </span>
+                  <Spark data={sparks[sym]} up={up} />
                 </div>
               </div>
             )
@@ -426,8 +482,11 @@ export default function RightBar() {
                 <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>—</span>
               )}
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
-              {xau ? fmtPrice(xau.price) : '—'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
+                {xau ? fmtPrice(xau.price) : '—'}
+              </span>
+              <Spark data={sparks['XAU']} up={(xau?.change24h ?? 0) >= 0} />
             </div>
           </div>
 
@@ -448,8 +507,11 @@ export default function RightBar() {
                 <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>—</span>
               )}
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
-              {spx ? fmtPrice(spx.price) : '—'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
+                {spx ? fmtPrice(spx.price) : '—'}
+              </span>
+              <Spark data={sparks['SPX']} up={(spx?.change24h ?? 0) >= 0} />
             </div>
           </div>
         </div>
@@ -560,7 +622,11 @@ function CommunityCard({
     : null
 
   return (
-    <div style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}` }}>
+    <div className="rb-setup" style={{
+      padding: '10px 12px', borderBottom: `1px solid ${T.border}`,
+      borderLeft: `2px solid ${badgeColor}`,
+      background: `linear-gradient(90deg, ${badgeColor}0a, transparent 55%)`,
+    }}>
       {/* Author row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
         <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.dimText }}>
@@ -649,15 +715,23 @@ function MotorSetupCard({ t }: { t: OpenTrade }) {
   const gc       = motorGradeColor(t.grade)
 
   return (
-    <div style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}` }}>
+    <div className="rb-setup" style={{
+      padding: '10px 12px', borderBottom: `1px solid ${T.border}`,
+      borderLeft: `2px solid ${dirColor}`,
+      background: `linear-gradient(90deg, ${dirColor}0a, transparent 55%)`,
+    }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, color: dirColor, background: dirColor + '1a', padding: '1px 5px', letterSpacing: '0.08em' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 9, color: dirColor, background: dirColor + '1a', padding: '1px 5px', letterSpacing: '0.08em', borderRadius: 2 }}>
             {isLong ? 'LONG' : 'SHORT'}
           </span>
           <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>{tf}</span>
         </div>
-        <span style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: gc, background: gc + '20', border: `1px solid ${gc}40`, padding: '1px 5px' }}>
+        <span style={{
+          fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: gc,
+          background: gc + '20', border: `1px solid ${gc}40`, padding: '1px 5px',
+          borderRadius: 2, boxShadow: `0 0 8px ${gc}40`,
+        }}>
           {t.grade ?? '?'}
         </span>
       </div>
@@ -667,11 +741,54 @@ function MotorSetupCard({ t }: { t: OpenTrade }) {
           {t.strategy.slice(0, 20)}
         </div>
       )}
+      {t.entry != null && t.sl != null && t.tp != null && (
+        <LevelBar entry={t.entry} sl={t.sl} tp={t.tp} />
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {t.entry != null && <Row l="E"  v={t.entry} c={T.dimText} />}
         {t.sl    != null && <Row l="SL" v={t.sl}    c={T.red + 'cc'} />}
         {t.tp    != null && <Row l="TP" v={t.tp}    c={T.green + 'cc'} />}
       </div>
+    </div>
+  )
+}
+
+// ─── Sparkline 24h ────────────────────────────────────────────────────────────
+function Spark({ data, up }: { data?: number[]; up: boolean }) {
+  if (!data || data.length < 2) return null
+  const min = Math.min(...data), max = Math.max(...data)
+  const range = max - min || 1
+  const W = 62, H = 18
+  const pts  = data.map((v, i) => [(i / (data.length - 1)) * W, H - 1.5 - ((v - min) / range) * (H - 3)] as const)
+  const line = pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+  const color = up ? T.green : T.red
+  return (
+    <svg width={W} height={H} style={{ display: 'block', flexShrink: 0 }} aria-hidden>
+      <polygon points={`0,${H} ${line} ${W},${H}`} fill={color} opacity="0.08" />
+      <polyline points={line} fill="none" stroke={color} strokeWidth="1.1" opacity="0.85" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// ─── Barra visual SL → Entry → TP ────────────────────────────────────────────
+function LevelBar({ entry, sl, tp }: { entry: number; sl: number; tp: number }) {
+  const lo = Math.min(sl, tp), hi = Math.max(sl, tp)
+  if (!(hi > lo)) return null
+  const ePos = Math.max(0, Math.min(100, ((entry - lo) / (hi - lo)) * 100))
+  const leftColor  = sl <= tp ? T.red : T.green
+  const rightColor = sl <= tp ? T.green : T.red
+  return (
+    <div style={{
+      position: 'relative', height: 4, borderRadius: 2, margin: '7px 0 3px',
+      background: `linear-gradient(90deg, ${leftColor}55, ${rightColor}55)`,
+    }}>
+      <span style={{
+        position: 'absolute', left: `${ePos}%`, top: '50%',
+        transform: 'translate(-50%,-50%)',
+        width: 7, height: 7, borderRadius: '50%',
+        background: T.gold, border: `1px solid ${T.bg}`,
+        boxShadow: `0 0 5px ${T.gold}aa`,
+      }} />
     </div>
   )
 }
