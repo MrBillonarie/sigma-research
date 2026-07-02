@@ -48,6 +48,14 @@ interface FireData {
   current_equity: number; starting_equity: number
   target_equity: number; progress_pct: number; baseline_date: string
 }
+// Portafolio real de paper trading (/api/public → portfolio). Es la fuente
+// correcta para el retorno público: fire.starting_equity es la línea base del
+// reto FIRE ($550 en BTC virtual), NO el capital inicial del paper trading —
+// usarla inflaba el retorno a +1900%.
+interface PaperData {
+  initial: number; equity: number; startDate: string | null
+  equityHistory: { eq: number }[]
+}
 interface Ticker { symbol: string; price: number; change24h: number }
 
 // ─── Data fetch ───────────────────────────────────────────────────────────────
@@ -63,7 +71,7 @@ async function getPageData() {
         symbol: t.symbol.replace('USDT', ''), price: parseFloat(t.lastPrice), change24h: parseFloat(t.priceChangePercent),
       }))
       return {
-        metrics: null, fire: null as (FireData | null), coverage: null,
+        metrics: null, fire: null as (FireData | null), paper: null as (PaperData | null), coverage: null,
         backtests: 16_767_345, regime: 'UNKNOWN',
         champions: [] as Champion[], history: [] as HistoryTrade[],
         bayesian: { confirmed: 1, watching: 2 },
@@ -81,6 +89,12 @@ async function getPageData() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const binRaw = binRes.ok    ? await binRes.json()   : []
     const fire: FireData | null = engine?.fire ?? null
+    const paper: PaperData | null = pub?.portfolio ? {
+      initial:       Number(pub.portfolio.initial_capital ?? 10_000),
+      equity:        Number(pub.portfolio.equity ?? 0),
+      startDate:     (pub.portfolio.start_date ?? null) as string | null,
+      equityHistory: Array.isArray(pub.portfolio.equity_history) ? pub.portfolio.equity_history : [],
+    } : null
     const tickers: Ticker[] = (binRaw as Array<{ symbol: string; lastPrice: string; priceChangePercent: string }>).map(t => ({
       symbol:    t.symbol.replace('USDT', ''),
       price:     parseFloat(t.lastPrice),
@@ -89,6 +103,7 @@ async function getPageData() {
     return {
       metrics:       engine?.portfolio ?? null,
       fire,
+      paper,
       coverage:      engine?.coverage ?? null,
       backtests:     Number(engine?.backtests_total ?? 16_767_345),
       regime:        (pub?.regime ?? 'UNKNOWN') as string,
@@ -107,7 +122,7 @@ async function getPageData() {
     }
   } catch {
     return {
-      metrics: null, fire: null as (FireData | null), coverage: null,
+      metrics: null, fire: null as (FireData | null), paper: null as (PaperData | null), coverage: null,
       backtests: 16_767_345, regime: 'UNKNOWN',
       champions: [] as Champion[], history: [] as HistoryTrade[],
       bayesian: { confirmed: 1, watching: 2 },
@@ -154,12 +169,20 @@ function RegimePill({ regime }: { regime: string }) {
 }
 
 // ─── Equity curve SVG ─────────────────────────────────────────────────────────
-function EquityCurveSVG({ history, initial }: { history: HistoryTrade[]; initial: number }) {
-  const points: Array<{ eq: number; status: string }> = [
-    { eq: initial, status: 'start' },
-    ...history.filter(t => t.equity_after != null).map(t => ({ eq: t.equity_after!, status: t.status })),
-  ]
+// Preferencia: equity_history real del portafolio (curva completa desde el
+// inicio del paper trading). Fallback: equity_after de los últimos trades.
+function EquityCurveSVG({ eqSeries, history, initial }: { eqSeries: number[]; history: HistoryTrade[]; initial: number }) {
+  const points: Array<{ eq: number; status: string }> = eqSeries.length >= 2
+    ? [
+        { eq: initial, status: 'start' },
+        ...eqSeries.map((eq, i) => ({ eq, status: eq >= (i === 0 ? initial : eqSeries[i - 1]) ? 'TP_HIT' : 'SL_HIT' })),
+      ]
+    : [
+        { eq: initial, status: 'start' },
+        ...history.filter(t => t.equity_after != null).map(t => ({ eq: t.equity_after!, status: t.status })),
+      ]
   if (points.length < 2) return null
+  const showDots = points.length <= 40
 
   const W = 760, H = 140, PX = 12, PY = 20
   const eqs   = points.map(p => p.eq)
@@ -196,7 +219,7 @@ function EquityCurveSVG({ history, initial }: { history: HistoryTrade[]; initial
       ))}
       <path d={fillPts} fill="url(#eq-fill)" className="eq-fill-p" />
       <path d={linePts} fill="none" stroke="url(#eq-line)" strokeWidth="1.5" strokeLinejoin="round" filter="url(#glow-g)" className="eq-line-main" pathLength={1} />
-      {points.slice(1).map((p, i) => {
+      {showDots && points.slice(1).map((p, i) => {
         const x = mapX(i + 1), y = mapY(p.eq)
         const isWin = p.status === 'TP_HIT' || p.status === 'TRAIL_HIT'
         const c = isWin ? '#34d399' : '#f87171'
@@ -341,13 +364,16 @@ export default async function RootPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (user) redirect('/home')
 
-  const [{ metrics, fire, backtests, regime, champions, history, bayesian, lastDecisionAt, tickers }, userCount] = await Promise.all([
+  const [{ metrics, paper, backtests, regime, champions, history, bayesian, lastDecisionAt, tickers }, userCount] = await Promise.all([
     getPageData(),
     getUserCount(),
   ])
 
-  const returnPct = fire
-    ? (((fire.current_equity - fire.starting_equity) / fire.starting_equity) * 100).toFixed(2)
+  // Retorno real del paper trading: equity vs capital inicial del portafolio
+  // ($10.000 desde el 10-may). NO usar fire.starting_equity (baseline del reto
+  // FIRE, $550 virtual) — inflaba el número a +1900%.
+  const returnPct = paper && paper.initial > 0
+    ? (((paper.equity - paper.initial) / paper.initial) * 100).toFixed(2)
     : '13.19'
 
   // Color del glow del panel Motor en Vivo — espeja la clasificación de RegimePill.
@@ -431,7 +457,7 @@ export default async function RootPage() {
             {([
               { k: 'MERCADOS',     v: 'BTC · ETH · SOL · BNB · XAU',  accent: false, dot: false },
               { k: 'ESTRATEGIAS',  v: '70+ validadas · walk-forward OOS', accent: false, dot: false },
-              { k: 'CAPITAL FIRE', v: fire ? `$${Math.round(fire.current_equity).toLocaleString('es-CL')}  ·  +${returnPct}%` : `$11.319  ·  +${returnPct}%`, accent: true, dot: false },
+              { k: 'PAPER TRADING', v: paper ? `$${Math.round(paper.equity).toLocaleString('es-CL')}  ·  +${returnPct}%` : `$11.319  ·  +${returnPct}%`, accent: true, dot: false },
               { k: 'ESTADO',       v: `LIVE · ${regime}`, accent: true, dot: true },
             ] as Array<{ k: string; v: string; accent: boolean; dot: boolean }>).map(
               ({ k, v, accent, dot }, idx, arr) => (
@@ -610,9 +636,9 @@ export default async function RootPage() {
             <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(36px, 5vw, 64px)', color: T, lineHeight: 0.92, margin: 0 }}>
               SIGMA ENGINE ·{' '}
               <span style={gMetal}>
-                DESDE {fire?.baseline_date
-                  ? new Date(fire.baseline_date).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-                  : '12 MAY 2026'}
+                DESDE {paper?.startDate
+                  ? new Date(paper.startDate + 'T12:00:00').toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+                  : '10 MAY 2026'}
               </span>
             </h2>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -627,16 +653,20 @@ export default async function RootPage() {
           <div style={{ background: BG, border: `1px solid ${B}`, overflow: 'hidden', position: 'relative', boxShadow: `inset 0 1px 0 rgba(212,175,55,0.08)` }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}35, transparent)` }} />
             <div style={{ padding: '24px 24px 8px' }}>
-              <EquityCurveSVG history={history} initial={fire?.starting_equity ?? 10_000} />
+              <EquityCurveSVG
+                eqSeries={paper?.equityHistory.map(h => h.eq) ?? []}
+                history={history}
+                initial={paper?.initial ?? 10_000}
+              />
             </div>
             <div style={{ padding: '12px 24px', borderTop: `1px solid ${B}`, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399' }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>TP / TRAIL</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>AVANCE</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f87171' }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>SL</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>RETROCESO</span>
               </div>
               <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginLeft: 'auto' }}>
                 PAPER TRADING · ALGORITMO REAL · NO SE GESTIONA CAPITAL DE TERCEROS
