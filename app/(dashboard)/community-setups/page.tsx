@@ -228,13 +228,13 @@ function SetupCard({
         }}>
           {setup.metodologia && (
             <p style={{ margin: 0, fontFamily: MONO, fontSize: 11, color: C.textDim, lineHeight: 1.6 }}>
-              <span style={{ color: C.muted, marginRight: 6 }}>// metodología</span>
+              <span style={{ color: C.muted, marginRight: 6 }}>{'// metodología'}</span>
               {setup.metodologia}
             </p>
           )}
           {setup.nota && (
             <p style={{ margin: 0, fontFamily: MONO, fontSize: 11, color: C.textDim, lineHeight: 1.6 }}>
-              <span style={{ color: C.muted, marginRight: 6 }}>// nota</span>
+              <span style={{ color: C.muted, marginRight: 6 }}>{'// nota'}</span>
               {setup.nota}
             </p>
           )}
