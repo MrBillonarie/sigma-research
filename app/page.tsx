@@ -122,11 +122,10 @@ async function getUserCount(): Promise<number> {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } },
     )
-    const { data } = await sb.auth.admin.listUsers({ page: 1, perPage: 1 })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (data as any)?.total ?? 17
+    const { data } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    return data?.users?.length ?? 0
   } catch {
-    return 17
+    return 0
   }
 }
 

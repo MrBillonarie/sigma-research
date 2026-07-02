@@ -34,6 +34,11 @@ export default function OnboardingPage() {
 
   async function handleStep1(e: React.FormEvent) {
     e.preventDefault()
+    // Persistir nombre y perfil ya en paso 1 — si el usuario abandona
+    // antes de terminar, no pierde estos datos al volver
+    supabase.auth.updateUser({
+      data: { nombre: nombre.trim() || undefined, perfil_trader: perfil },
+    }).catch(() => {})
     setStep(2)
   }
 
