@@ -14,18 +14,15 @@ const PRIMARY = [
 
 const MORE_LINKS = [
   { href: '/terminal',         label: 'Terminal' },
-  { href: '/community-setups', label: 'Community' },
   { href: '/fire',             label: 'FIRE' },
   { href: '/journal',          label: 'Journal' },
   { href: '/calendario',       label: 'Calendario' },
   { href: '/montecarlo',       label: 'Monte Carlo' },
   { href: '/ingresos-pasivos', label: 'Ingresos Pasivos' },
   { href: '/mis-reportes',     label: 'Reportes' },
-  { href: '/tax',              label: 'Tax IGC' },
   { href: '/lp-defi',          label: 'LP DeFi' },
   { href: '/lp-signal',        label: 'LP Signal' },
   { href: '/modelos',          label: 'Modelos' },
-  { href: '/comparador/etfs',  label: 'Comparador ETFs' },
   { href: '/soporte',          label: 'Soporte' },
   { href: '/perfil',           label: 'Perfil' },
 ]

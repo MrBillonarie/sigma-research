@@ -75,14 +75,14 @@ export async function middleware(request: NextRequest) {
   // gate de password propio vive en la página, no en el middleware.
   if (pathname.startsWith('/motor-en-vivo/')) return NextResponse.next()
 
-  // Renta Fija y Fondos Mutuos: sacados de circulación para todos los
-  // usuarios por ahora (se evalúa más adelante dejarlos solo para usuarios
-  // particulares). El código de las páginas queda intacto, solo se bloquea
-  // el acceso vía redirect.
-  if (pathname === '/comparador/renta-fija' || pathname.startsWith('/comparador/renta-fija/') ||
-      pathname === '/comparador/fondos-mutuos' || pathname.startsWith('/comparador/fondos-mutuos/')) {
+  // Secciones retiradas de la web (2026-07-02): Tax, Community Setups y todo
+  // el Comparador (ETFs/renta fija/fondos mutuos). Los links antiguos
+  // redirigen a /home en vez de dar 404.
+  if (pathname === '/tax' || pathname.startsWith('/tax/') ||
+      pathname === '/community-setups' || pathname.startsWith('/community-setups/') ||
+      pathname === '/comparador' || pathname.startsWith('/comparador/')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/comparador/etfs'
+    url.pathname = '/home'
     url.search   = ''
     return NextResponse.redirect(url)
   }

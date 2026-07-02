@@ -216,7 +216,7 @@ export default function OnboardingPage() {
                 {(perfil === 'retail' ? [
                   { icon: '◎', label: 'Calculadora FIRE',        desc: 'Proyecta tu independencia financiera con Monte Carlo', href: '/fire' },
                   { icon: '◈', label: 'Portafolio',              desc: 'Registra tus posiciones y trackea tu patrimonio',     href: '/portafolio' },
-                  { icon: '⇌', label: 'Comparador de Fondos',    desc: 'ETFs, fondos mutuos y renta fija en un solo lugar',   href: '/comparador/etfs' },
+                  { icon: '⇌', label: 'Monte Carlo',             desc: 'Simula escenarios de tu patrimonio con 1000+ paths',  href: '/montecarlo' },
                   { icon: '∿', label: 'Ingresos Pasivos',        desc: 'Staking, DeFi, dividendos y bots de rendimiento',    href: '/ingresos-pasivos' },
                 ] : perfil === 'trader' ? [
                   { icon: '⚡', label: 'HUD de Señales Live',    desc: 'Régimen de mercado · Binance WebSocket · alertas',   href: '/hud' },

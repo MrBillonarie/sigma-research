@@ -27,10 +27,8 @@ import {
   Bell,
   Zap,
   LifeBuoy,
-  Users,
   LineChart,
   Signal,
-  Receipt,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -62,14 +60,8 @@ const navItems = [
   { label: 'Modelos',        href: '/modelos',          icon: BrainCircuit    },
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
-  { label: 'Tax',            href: '/tax',              icon: Receipt         },
   { label: 'Motor',          href: '/motor-decision',   icon: Zap             },
-  { label: 'Community',      href: '/community-setups', icon: Users           },
   { label: 'Soporte',        href: '/soporte',          icon: LifeBuoy        },
-]
-
-const comparadorItems = [
-  { label: 'ETFs', href: '/comparador/etfs', icon: TrendingUp },
 ]
 
 // ─── Search data ──────────────────────────────────────────────────────────────
@@ -100,12 +92,9 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/modelos',          label: 'Modelos',        href: '/modelos',          category: 'Página', icon: BrainCircuit    },
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
-  { id: '/tax',                       label: 'Tax',            href: '/tax',                      category: 'Página',      icon: Receipt,         keywords: ['tax','impuesto','igc','renta','tributario','chile'] },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
-  { id: '/community-setups',          label: 'Community',      href: '/community-setups',         category: 'Página',      icon: Users,           keywords: ['community','setups','comunidad','votos','ideas','trades'] },
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
   { id: '/soporte',                   label: 'Soporte',        href: '/soporte',                  category: 'Página',      icon: LifeBuoy,        keywords: ['ticket','ayuda','contacto','soporte'] },
-  { id: '/comparador/etfs',           label: 'ETFs',           href: '/comparador/etfs',          category: 'Comparador',  icon: TrendingUp      },
   // Tickers
   ...TICKER_LIST.map(t => ({
     id: `ticker-${t}`, label: `Ver ${t} en Terminal`, href: `/terminal?symbol=${t}`,
@@ -433,35 +422,6 @@ export default function Sidebar() {
                 background:  active ? 'rgba(212,175,55,0.07)' : 'transparent',
                 borderLeft:  active ? `2px solid ${GOLD}` : '2px solid transparent',
                 paddingLeft: active ? (collapsed ? undefined : 8) : undefined,
-              }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
-            >
-              <Icon size={16} style={{ flexShrink: 0, color: active ? GOLD : 'inherit' }} />
-              {!collapsed && <span>{label}</span>}
-            </Link>
-          )
-        })}
-
-        {/* COMPARADOR section */}
-        <div style={{ borderTop: `1px solid ${BORDER}`, margin: '8px 0', marginTop: 'auto' }} />
-        {!collapsed && (
-          <div style={{ padding: '0 4px 4px', fontFamily: MONO, fontSize: 8, letterSpacing: '0.22em', color: C.muted, textTransform: 'uppercase' }}>
-            Comparador
-          </div>
-        )}
-        {comparadorItems.map(({ label, href, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/')
-          return (
-            <Link
-              key={href}
-              href={href}
-              title={collapsed ? label : undefined}
-              style={{
-                ...navLinkBase,
-                color:      active ? GOLD : MUTED,
-                background: active ? 'rgba(212,175,55,0.07)' : 'transparent',
-                borderLeft: active ? `2px solid ${GOLD}` : '2px solid transparent',
               }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' } }}
               onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}

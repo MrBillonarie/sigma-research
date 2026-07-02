@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
 import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 
@@ -829,24 +828,6 @@ export default function PortfolioPage() {
               </div>
             </div>
 
-            {/* ── 10. TAX MINI-CARD ── */}
-            <div style={{ ...cardStyle, background: C.surface, padding: '20px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-              <div>
-                <Label text="Resumen tributario estimado" />
-                <div style={{ display: 'flex', gap: 24, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, marginBottom: 3 }}>Ingreso pasivo anual</div>
-                    <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 28, color: C.green, lineHeight: 1 }}>{fmtUSD(D.ingresoAnual)}</div>
-                  </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, maxWidth: 340, lineHeight: 1.7 }}>
-                    Para calcular tu Impuesto Global Complementario (IGC) con desglose por BTC, futuros, acciones y más →
-                  </div>
-                </div>
-              </div>
-              <Link href="/tax" style={{ fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.15em', textTransform: 'uppercase', color: C.gold, border: `1px solid ${C.gold}`, padding: '10px 24px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                → TAX CHILE
-              </Link>
-            </div>
           </>
         )}
 
