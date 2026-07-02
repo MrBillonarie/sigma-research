@@ -252,7 +252,8 @@ async function saveSignalHistory(
       .map(a => ({
         ticker:           a.ticker ?? a.id,
         name:             a.name,
-        asset_class:      a.assetClass,
+        // asset_class es NOT NULL en la tabla — un asset sin clase rompería el batch completo
+        asset_class:      a.assetClass ?? 'otro',
         signal:           a.signal,
         score:            a.score,
         r1m:              a.return30d,
