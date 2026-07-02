@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 
 // El motor tiene dos trackers paralelos (portfolio global + per-modelo) que
 // pueden emitir una fila por separado para el mismo trade abierto en la
-// tabla "POSICIONES ABIERTAS". Se eliminan los duplicados por sym+tf+estrategia
-// conservando la fila con mayor posición (el portfolio global, que es la real).
+// tabla "POSICIONES ABIERTAS". Se eliminan los duplicados por sym+tf+dirección
+// priorizando siempre la fila marcada como REAL (posición en Binance live)
+// sobre cualquier posición paper del mismo par/timeframe.
 function dedupPositionRows(container: HTMLElement): void {
   const SYM = /^(BTC|ETH|SOL|BNB|LTC|XAU|XAG|WTI|NG|HG|PL)$/i
   const TF  = /^(1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w)$/i
@@ -13,7 +14,7 @@ function dedupPositionRows(container: HTMLElement): void {
     const rows = Array.from(tbl.querySelectorAll('tr')).filter(
       r => r.querySelectorAll('td').length >= 8
     )
-    const seen = new Map<string, { row: Element; size: number }>()
+    const seen = new Map<string, { row: Element; size: number; isReal: boolean }>()
 
     for (const row of rows) {
       const cells = Array.from(row.querySelectorAll('td'))
@@ -22,15 +23,18 @@ function dedupPositionRows(container: HTMLElement): void {
       const tfIdx  = cells.findIndex(c => TF.test(c.toUpperCase()))
       if (symIdx < 0 || tfIdx < 0) continue
 
-      const key  = `${cells[symIdx].toUpperCase()}::${cells[tfIdx].toUpperCase()}::${cells[tfIdx + 1] ?? ''}`
-      const size = parseFloat((cells.find(c => /\$[\d,]+/.test(c)) ?? '').replace(/[^0-9.]/g, '')) || 0
+      const key    = `${cells[symIdx].toUpperCase()}::${cells[tfIdx].toUpperCase()}::${cells[tfIdx + 1] ?? ''}`
+      const size   = parseFloat((cells.find(c => /\$[\d,]+/.test(c)) ?? '').replace(/[^0-9.]/g, '')) || 0
+      const isReal = /\bREAL\b/.test(row.textContent ?? '')
 
       if (seen.has(key)) {
         const prev = seen.get(key)!
-        if (size > prev.size) { prev.row.remove(); seen.set(key, { row, size }) }
+        // REAL > paper siempre; dentro del mismo tipo gana el de mayor tamaño
+        const keepCurrent = (!prev.isReal && isReal) || (prev.isReal === isReal && size > prev.size)
+        if (keepCurrent) { prev.row.remove(); seen.set(key, { row, size, isReal }) }
         else row.remove()
       } else {
-        seen.set(key, { row, size })
+        seen.set(key, { row, size, isReal })
       }
     }
   })
@@ -42,6 +46,8 @@ export default function HUDPage() {
 
   useEffect(() => {
     let cancelled = false
+    let observer: MutationObserver | null = null
+    let dedupTimer: ReturnType<typeof setTimeout> | null = null
 
     async function injectMotor() {
       try {
@@ -94,6 +100,25 @@ export default function HUDPage() {
         // Re-run after scripts execute in case they rebuilt rows
         if (containerRef.current && !cancelled) dedupPositionRows(containerRef.current)
 
+        // MutationObserver: re-aplica dedup cuando los scripts del motor
+        // actualicen la tabla vía polling/WebSocket (sin esto las filas
+        // duplicadas reaparecen en cada refresh del motor)
+        if (containerRef.current && !cancelled) {
+          observer = new MutationObserver(() => {
+            if (dedupTimer) clearTimeout(dedupTimer)
+            dedupTimer = setTimeout(() => {
+              if (containerRef.current && !cancelled) {
+                observer?.disconnect()
+                dedupPositionRows(containerRef.current)
+                if (containerRef.current && !cancelled) {
+                  observer?.observe(containerRef.current, { childList: true, subtree: true })
+                }
+              }
+            }, 150)
+          })
+          observer.observe(containerRef.current, { childList: true, subtree: true })
+        }
+
         if (!cancelled) setStatus('ok')
       } catch (e) {
         console.error('Motor proxy error:', e)
@@ -102,7 +127,11 @@ export default function HUDPage() {
     }
 
     injectMotor()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      observer?.disconnect()
+      if (dedupTimer) clearTimeout(dedupTimer)
+    }
   }, [])
 
   // El dashboard del motor genera parte de su navegación (ej. "Per-Model
