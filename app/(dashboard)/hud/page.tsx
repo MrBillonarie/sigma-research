@@ -25,12 +25,17 @@ function dedupPositionRows(container: HTMLElement): void {
 
       const key    = `${cells[symIdx].toUpperCase()}::${cells[tfIdx].toUpperCase()}::${cells[tfIdx + 1] ?? ''}`
       const size   = parseFloat((cells.find(c => /\$[\d,]+/.test(c)) ?? '').replace(/[^0-9.]/g, '')) || 0
-      const isReal = /\bREAL\b/.test(row.textContent ?? '')
+      // REAL puede aparecer como texto o como clase CSS (el motor usa text-transform:uppercase)
+      const rowText = row.textContent ?? ''
+      const rowHtml = row.innerHTML
+      const isReal  = /\breal\b/i.test(rowText) || /\blive\b/i.test(rowText) ||
+                      /class="[^"]*\blive\b/i.test(rowHtml) || /mode['":\s]+live/i.test(rowHtml)
 
       if (seen.has(key)) {
         const prev = seen.get(key)!
-        // REAL > paper siempre; dentro del mismo tipo gana el de mayor tamaño
-        const keepCurrent = (!prev.isReal && isReal) || (prev.isReal === isReal && size > prev.size)
+        // REAL/LIVE > paper siempre; si ambos iguales, gana el más pequeño
+        // (posición real en Binance siempre es menor que la simulación paper)
+        const keepCurrent = (!prev.isReal && isReal) || (prev.isReal === isReal && size < prev.size)
         if (keepCurrent) { prev.row.remove(); seen.set(key, { row, size, isReal }) }
         else row.remove()
       } else {
