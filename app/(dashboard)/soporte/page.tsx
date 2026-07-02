@@ -4,6 +4,12 @@ import { C, F, cardStyle } from '@/app/lib/constants'
 
 const MOTIVOS = ['Problema técnico', 'Duda sobre mi cuenta', 'Facturación / Plan', 'Sugerencia', 'Otro']
 
+interface ThreadMsg {
+  sender:     'user' | 'admin'
+  body:       string
+  created_at: string
+}
+
 interface Ticket {
   id:         string
   motivo:     string | null
@@ -12,6 +18,7 @@ interface Ticket {
   respuesta:  string | null
   created_at: string
   updated_at?: string
+  mensajes?:  ThreadMsg[]
 }
 
 const STATUS_LABEL: Record<Ticket['status'], string> = {
@@ -29,6 +36,35 @@ function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+// ─── Burbujas del hilo de conversación ────────────────────────────────────────
+function AdminBubble({ body }: { body: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+      <span style={{
+        width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(212,175,55,0.12)', border: `1px solid ${C.gold}55`,
+        color: C.gold, fontFamily: F.mono, fontSize: 13,
+      }}>Σ</span>
+      <div style={{ maxWidth: '85%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: '2px 10px 10px 10px', padding: '10px 12px' }}>
+        <div style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: '0.15em', color: C.gold, marginBottom: 6 }}>EQUIPO SIGMA</div>
+        <div style={{ fontFamily: F.mono, fontSize: 12, color: C.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{body}</div>
+      </div>
+    </div>
+  )
+}
+
+function UserBubble({ body }: { body: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+      <div style={{ maxWidth: '85%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: '10px 2px 10px 10px', padding: '10px 12px' }}>
+        <div style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: '0.15em', color: C.textDim, marginBottom: 6, textAlign: 'right' }}>TÚ</div>
+        <div style={{ fontFamily: F.mono, fontSize: 12, color: C.textDim, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{body}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function SoportePage() {
   const [tickets,  setTickets]  = useState<Ticket[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -37,6 +73,8 @@ export default function SoportePage() {
   const [sending,  setSending]  = useState(false)
   const [error,    setError]    = useState('')
   const [sent,     setSent]     = useState(false)
+  const [reply,        setReply]        = useState<Record<string, string>>({})
+  const [replySending, setReplySending] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -49,7 +87,30 @@ export default function SoportePage() {
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  // Carga inicial + refresh periódico para ver respuestas del equipo sin recargar
+  useEffect(() => {
+    load()
+    const id = setInterval(load, 45_000)
+    return () => clearInterval(id)
+  }, [load])
+
+  async function handleReply(ticketId: string) {
+    const body = (reply[ticketId] ?? '').trim()
+    if (!body || replySending) return
+    setReplySending(ticketId)
+    try {
+      const r = await fetch('/api/soporte', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ ticket_id: ticketId, mensaje: body }),
+      })
+      if (r.ok) {
+        setReply(prev => ({ ...prev, [ticketId]: '' }))
+        await load()
+      }
+    } catch { /* offline */ }
+    finally { setReplySending(null) }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -234,24 +295,58 @@ export default function SoportePage() {
                         {STATUS_LABEL[t.status]}
                       </span>
                     </div>
-                    <div style={{ fontFamily: F.mono, fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: t.respuesta ? 14 : 6, whiteSpace: 'pre-wrap' }}>
-                      {t.mensaje}
-                    </div>
-                    {t.respuesta && (
-                      <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-                        <span style={{
-                          width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: 'rgba(212,175,55,0.12)', border: `1px solid ${C.gold}55`,
-                          color: C.gold, fontFamily: F.mono, fontSize: 13,
-                        }}>Σ</span>
-                        <div style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: '2px 10px 10px 10px', padding: '10px 12px' }}>
-                          <div style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: '0.15em', color: C.gold, marginBottom: 6 }}>EQUIPO SIGMA</div>
-                          <div style={{ fontFamily: F.mono, fontSize: 12, color: C.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{t.respuesta}</div>
-                        </div>
+                    {/* Hilo de conversación */}
+                    {(() => {
+                      const thread: ThreadMsg[] = [
+                        { sender: 'user', body: t.mensaje, created_at: t.created_at },
+                        // Respuesta legacy (tickets previos al chat) si no está ya en el hilo
+                        ...(t.respuesta && !(t.mensajes ?? []).some(m => m.sender === 'admin' && m.body === t.respuesta)
+                          ? [{ sender: 'admin' as const, body: t.respuesta, created_at: t.updated_at ?? t.created_at }]
+                          : []),
+                        ...(t.mensajes ?? []),
+                      ]
+                      return thread.map((m, i) =>
+                        m.sender === 'admin'
+                          ? <AdminBubble key={i} body={m.body} />
+                          : <UserBubble  key={i} body={m.body} />
+                      )
+                    })()}
+
+                    {/* Responder (chat abierto hasta que se resuelva) */}
+                    {t.status !== 'resuelto' ? (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <input
+                          className="sop-area"
+                          value={reply[t.id] ?? ''}
+                          onChange={e => setReply(prev => ({ ...prev, [t.id]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleReply(t.id) } }}
+                          placeholder="Escribe tu respuesta…"
+                          maxLength={2000}
+                          style={{
+                            flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6,
+                            padding: '9px 12px', color: C.text, fontFamily: F.mono, fontSize: 12,
+                          }}
+                        />
+                        <button
+                          onClick={() => handleReply(t.id)}
+                          disabled={replySending === t.id || !(reply[t.id] ?? '').trim()}
+                          style={{
+                            background: 'rgba(212,175,55,0.12)', color: C.gold, border: `1px solid ${C.gold}55`,
+                            borderRadius: 6, padding: '9px 16px', fontFamily: F.mono, fontSize: 11,
+                            letterSpacing: '0.08em', cursor: 'pointer', flexShrink: 0,
+                            opacity: replySending === t.id || !(reply[t.id] ?? '').trim() ? 0.5 : 1,
+                          }}
+                        >
+                          {replySending === t.id ? '…' : 'RESPONDER ↵'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: F.mono, fontSize: 10, color: C.green, marginTop: 10, letterSpacing: '0.06em' }}>
+                        ✓ Ticket resuelto — si el problema persiste, crea una nueva consulta.
                       </div>
                     )}
-                    <div style={{ fontFamily: F.mono, fontSize: 10, color: C.muted }}>{fmtDate(t.created_at)}</div>
+
+                    <div style={{ fontFamily: F.mono, fontSize: 10, color: C.muted, marginTop: 10 }}>{fmtDate(t.created_at)}</div>
                   </div>
                 </div>
               ))}

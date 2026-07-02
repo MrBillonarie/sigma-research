@@ -42,6 +42,7 @@ interface TicketRow {
   status: 'pendiente' | 'visto' | 'resuelto'
   respuesta: string | null
   created_at: string
+  mensajes?: { sender: 'user' | 'admin'; body: string; created_at: string }[]
 }
 
 interface CampañaRow {
@@ -370,10 +371,11 @@ export default function AdminDashboard() {
     const json = await res.json()
     if (json.ok) {
       setTickets(prev => prev.map(t =>
-        t.id === id ? { ...t, status: status as TicketRow['status'], respuesta: respuesta ?? t.respuesta } : t
+        t.id === id ? { ...t, status: status as TicketRow['status'] } : t
       ))
-      setTicketMsg({ id, text: enviarEmail ? '✓ Respuesta enviada por email' : '✓ Estado actualizado', ok: true })
-      if (enviarEmail) setExpandedTicket(null)
+      if (respuesta) setRespuestas(prev => ({ ...prev, [id]: '' }))
+      setTicketMsg({ id, text: respuesta ? (enviarEmail ? '✓ Respuesta enviada (chat + email)' : '✓ Respuesta enviada al chat') : '✓ Estado actualizado', ok: true })
+      fetchTickets()
     } else {
       setTicketMsg({ id, text: json.error ?? 'Error', ok: false })
     }
@@ -1820,21 +1822,33 @@ export default function AdminDashboard() {
 
                         {isExpanded && (
                           <div className="px-5 pb-6 flex flex-col gap-4 border-t border-admin-border">
+                            {/* Hilo de conversación */}
                             <div className="mt-4">
-                              <div className="section-label text-text-dim text-xs mb-2">MENSAJE</div>
-                              <div className="bg-admin-bg border border-admin-border p-4 terminal-text text-sm text-text-dim leading-relaxed whitespace-pre-wrap">
-                                {t.mensaje}
+                              <div className="section-label text-text-dim text-xs mb-2">CONVERSACIÓN</div>
+                              <div className="flex flex-col gap-2">
+                                {[
+                                  { sender: 'user' as const, body: t.mensaje, created_at: t.created_at },
+                                  ...(t.respuesta && !(t.mensajes ?? []).some(m => m.sender === 'admin' && m.body === t.respuesta)
+                                    ? [{ sender: 'admin' as const, body: t.respuesta, created_at: t.created_at }]
+                                    : []),
+                                  ...(t.mensajes ?? []),
+                                ].map((m, i) => (
+                                  <div key={i} className={`p-4 terminal-text text-sm leading-relaxed whitespace-pre-wrap border ${
+                                    m.sender === 'admin'
+                                      ? 'bg-emerald-900/10 border-emerald-400/20 text-text-dim ml-6'
+                                      : 'bg-admin-bg border-admin-border text-text-dim mr-6'
+                                  }`}>
+                                    <div className={`section-label text-[10px] mb-1.5 ${m.sender === 'admin' ? 'text-emerald-400' : 'text-gold'}`}>
+                                      {m.sender === 'admin' ? 'Σ EQUIPO' : `@ ${t.nombre}`}
+                                      <span className="text-muted ml-2 normal-case tracking-normal">
+                                        {new Date(m.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    </div>
+                                    {m.body}
+                                  </div>
+                                ))}
                               </div>
                             </div>
-
-                            {t.respuesta && (
-                              <div>
-                                <div className="section-label text-emerald-400 text-xs mb-2">RESPUESTA ENVIADA</div>
-                                <div className="bg-emerald-900/10 border border-emerald-400/20 p-4 terminal-text text-sm text-text-dim leading-relaxed whitespace-pre-wrap">
-                                  {t.respuesta}
-                                </div>
-                              </div>
-                            )}
 
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="section-label text-text-dim text-xs">ESTADO:</span>
@@ -1854,29 +1868,36 @@ export default function AdminDashboard() {
 
                             <div>
                               <div className="section-label text-gold text-xs mb-2">
-                                {t.respuesta ? 'NUEVA RESPUESTA' : 'RESPONDER'}
+                                RESPONDER EN EL CHAT
                               </div>
                               <textarea
                                 rows={4}
                                 value={respuestas[t.id] ?? ''}
                                 onChange={e => setRespuestas(prev => ({ ...prev, [t.id]: e.target.value }))}
-                                placeholder="Escribe tu respuesta aquí…"
+                                placeholder="Escribe tu respuesta aquí… (el ticket queda EN REVISIÓN hasta marcarlo resuelto)"
                                 className="w-full bg-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-3 terminal-text text-text text-sm placeholder:text-muted transition-colors resize-none"
                               />
                               <div className="flex items-center gap-3 mt-3 flex-wrap">
                                 <button
-                                  onClick={() => updateTicket(t.id, 'resuelto', respuestas[t.id], true)}
+                                  onClick={() => updateTicket(t.id, 'visto', respuestas[t.id], true)}
                                   disabled={!respuestas[t.id]?.trim() || sendingTicket === t.id}
                                   className="section-label text-sm bg-gold text-bg px-6 py-2.5 hover:bg-gold-glow transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
-                                  {sendingTicket === t.id ? 'ENVIANDO…' : 'ENVIAR RESPUESTA'}
+                                  {sendingTicket === t.id ? 'ENVIANDO…' : 'ENVIAR (CHAT + EMAIL)'}
                                 </button>
                                 <button
-                                  onClick={() => updateTicket(t.id, 'resuelto', respuestas[t.id], false)}
-                                  disabled={sendingTicket === t.id}
+                                  onClick={() => updateTicket(t.id, 'visto', respuestas[t.id], false)}
+                                  disabled={!respuestas[t.id]?.trim() || sendingTicket === t.id}
                                   className="section-label text-xs text-text-dim border border-admin-border px-4 py-2.5 hover:border-gold hover:text-gold transition-colors disabled:opacity-40"
                                 >
-                                  MARCAR RESUELTO SIN EMAIL
+                                  ENVIAR SOLO AL CHAT
+                                </button>
+                                <button
+                                  onClick={() => updateTicket(t.id, 'resuelto')}
+                                  disabled={sendingTicket === t.id}
+                                  className="section-label text-xs text-emerald-400 border border-emerald-400/30 px-4 py-2.5 hover:bg-emerald-400/5 transition-colors disabled:opacity-40"
+                                >
+                                  ✓ MARCAR RESUELTO
                                 </button>
                               </div>
                             </div>
