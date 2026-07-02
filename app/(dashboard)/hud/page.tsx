@@ -162,13 +162,46 @@ export default function HUDPage() {
 
   return (
     <>
+      {/* Skin "quieto" — detalles estáticos del lado web (esquinas, sombras,
+          scrollbars). Vive en el <body>, gana la cascada frente a los estilos
+          del motor (en <head>) sin modificar nada del motor. No agrega ni
+          quita información: solo suaviza lo que ya está. */}
+      <style>{`
+        @keyframes hud-pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:0.55; transform:scale(0.96)} }
+        @keyframes hud-scan  { 0%{left:-40%} 100%{left:100%} }
+        #sigma-hud-root .card     { border-radius: 10px !important; box-shadow: 0 6px 18px rgba(0,0,0,0.28); }
+        #sigma-hud-root .kpi-card { border-radius: 8px !important; }
+        #sigma-hud-root .badge, #sigma-hud-root .pill, #sigma-hud-root .tf-pill { border-radius: 4px !important; }
+        #sigma-hud-root .matrix td, #sigma-hud-root .asset-box { border-radius: 6px !important; }
+        #sigma-hud-root ::-webkit-scrollbar { width: 8px; height: 8px; }
+        #sigma-hud-root ::-webkit-scrollbar-track { background: transparent; }
+        #sigma-hud-root ::-webkit-scrollbar-thumb { background: #242f55; border-radius: 4px; }
+        #sigma-hud-root ::-webkit-scrollbar-thumb:hover { background: rgba(201,162,39,0.45); }
+      `}</style>
+
       {status === 'loading' && (
         <div style={{
           position: 'fixed', inset: 0, background: '#020510',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'IBM Plex Mono',monospace", color: '#c9a227', zIndex: 9999
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 20, zIndex: 9999,
         }}>
-          Cargando SIGMA ENGINE…
+          <div style={{
+            fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#c9a227',
+            lineHeight: 1, animation: 'hud-pulse 1.6s ease-in-out infinite',
+            textShadow: '0 0 34px rgba(201,162,39,0.45)',
+          }}>
+            Σ
+          </div>
+          <div style={{ width: 180, height: 2, background: 'rgba(201,162,39,0.15)', borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
+            <div style={{
+              position: 'absolute', top: 0, bottom: 0, width: '40%',
+              background: 'linear-gradient(90deg, transparent, #c9a227, transparent)',
+              animation: 'hud-scan 1.4s ease-in-out infinite',
+            }} />
+          </div>
+          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '0.3em', color: 'rgba(201,162,39,0.7)' }}>
+            CONECTANDO AL MOTOR…
+          </div>
         </div>
       )}
       {status === 'error' && (
@@ -181,8 +214,14 @@ export default function HUDPage() {
         </div>
       )}
       <div
+        id="sigma-hud-root"
         ref={containerRef}
-        style={{ minHeight: '100vh', background: '#020510' }}
+        style={{
+          minHeight: '100vh', background: '#020510',
+          // Fade-in único al terminar de cargar — después nada se mueve
+          opacity: status === 'ok' ? 1 : 0,
+          transition: 'opacity 0.7s ease',
+        }}
       />
     </>
   )
