@@ -5,17 +5,32 @@ import { C, F } from '@/app/lib/constants'
 
 // ── Symbol config ──────────────────────────────────────────────────────────────
 
-const SYMBOLS = [
-  { label: 'BTC',  pair: 'BTCUSDT',  ws: 'btcusdt'  },
-  { label: 'ETH',  pair: 'ETHUSDT',  ws: 'ethusdt'  },
-  { label: 'SOL',  pair: 'SOLUSDT',  ws: 'solusdt'  },
-  { label: 'BNB',  pair: 'BNBUSDT',  ws: 'bnbusdt'  },
-  { label: 'LTC',  pair: 'LTCUSDT',  ws: 'ltcusdt'  },
-  { label: 'XAU',  pair: 'XAUUSDT',  ws: 'xauusdt'  },
-  { label: 'WTI',  pair: 'WTIUSDT',  ws: 'wtiusdt'  },
-] as const
+interface SymCfg {
+  label: string
+  src: 'binance' | 'yahoo'   // yahoo: sin par en Binance — klines vía /api/market/klines
+  pair?: string
+  ws?: string
+}
 
-type SymLabel = typeof SYMBOLS[number]['label']
+const SYMBOLS: SymCfg[] = [
+  // Motor 1 — crypto (Binance spot)
+  { label: 'BTC',  src: 'binance', pair: 'BTCUSDT', ws: 'btcusdt' },
+  { label: 'ETH',  src: 'binance', pair: 'ETHUSDT', ws: 'ethusdt' },
+  { label: 'SOL',  src: 'binance', pair: 'SOLUSDT', ws: 'solusdt' },
+  { label: 'BNB',  src: 'binance', pair: 'BNBUSDT', ws: 'bnbusdt' },
+  { label: 'LTC',  src: 'binance', pair: 'LTCUSDT', ws: 'ltcusdt' },
+  // Motor 2 — commodities (futuros vía Yahoo)
+  { label: 'XAU',  src: 'yahoo' },
+  { label: 'WTI',  src: 'yahoo' },
+  // Motor 3 — S&P 500 stocks (Yahoo)
+  { label: 'AAPL', src: 'yahoo' },
+  { label: 'NVDA', src: 'yahoo' },
+  { label: 'TSLA', src: 'yahoo' },
+  { label: 'JPM',  src: 'yahoo' },
+  { label: 'XOM',  src: 'yahoo' },
+]
+
+type SymLabel = string
 
 const TIMEFRAMES = ['15m', '1h', '4h', '1d'] as const
 type TF = typeof TIMEFRAMES[number]
@@ -145,21 +160,38 @@ export default function TerminalPage() {
 
   const symConfig = SYMBOLS.find(s => s.label === sym)!
 
+  // Deep-link: /terminal?symbol=AAPL (usado por la búsqueda del sidebar)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('symbol')?.toUpperCase()
+    if (q && SYMBOLS.some(s => s.label === q)) setSym(q)
+  }, [])
+
   // ── Fetch historical klines ──────────────────────────────────────────────────
 
-  const fetchKlines = useCallback(async (pair: string, interval: string) => {
+  const fetchKlines = useCallback(async (cfg: SymCfg, interval: string) => {
     setLoading(true)
     setError(null)
     try {
-      const url = `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=150`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`Binance ${res.status}`)
-      const raw: [number, string, string, string, string, string][] = await res.json()
-      const data: Kline[] = raw.map(k => ({
-        time:  Math.floor(k[0] / 1000) as unknown as number,
-        value: parseFloat(k[4]), // close price
-      }))
-      setKlines(data)
+      if (cfg.src === 'yahoo') {
+        const res = await fetch(`/api/market/klines?symbol=${cfg.label}&tf=${interval}`)
+        if (!res.ok) throw new Error(`Datos ${res.status}`)
+        const d = await res.json()
+        const data: Kline[] = Array.isArray(d.klines) ? d.klines : []
+        setKlines(data)
+        if (d.price != null) {
+          setStats({ price: d.price, change24h: d.change24h ?? 0, volume24h: d.volume24h ?? 0 })
+        }
+      } else {
+        const url = `https://api.binance.com/api/v3/klines?symbol=${cfg.pair}&interval=${interval}&limit=150`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`Binance ${res.status}`)
+        const raw: [number, string, string, string, string, string][] = await res.json()
+        const data: Kline[] = raw.map(k => ({
+          time:  Math.floor(k[0] / 1000) as unknown as number,
+          value: parseFloat(k[4]), // close price
+        }))
+        setKlines(data)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar datos')
       setKlines([])
@@ -189,13 +221,19 @@ export default function TerminalPage() {
   useEffect(() => {
     setLivePrice(null)
     setStats(null)
-    fetchKlines(symConfig.pair, TF_INTERVAL[tf])
-    fetchStats(symConfig.pair)
-  }, [sym, tf, symConfig.pair, fetchKlines, fetchStats])
+    fetchKlines(symConfig, TF_INTERVAL[tf])
+    if (symConfig.src === 'binance' && symConfig.pair) fetchStats(symConfig.pair)
+    // Yahoo no tiene WebSocket — refrescar por polling
+    if (symConfig.src === 'yahoo') {
+      const id = setInterval(() => fetchKlines(symConfig, TF_INTERVAL[tf]), 60_000)
+      return () => clearInterval(id)
+    }
+  }, [sym, tf, symConfig, fetchKlines, fetchStats])
 
-  // ── Live price WebSocket ─────────────────────────────────────────────────────
+  // ── Live price WebSocket (solo símbolos Binance) ────────────────────────────
 
   useEffect(() => {
+    if (symConfig.src !== 'binance' || !symConfig.ws) return
     let ws: WebSocket
     let dead = false
 
@@ -276,7 +314,7 @@ export default function TerminalPage() {
               lineHeight: 1,
             }}>
               <span style={{ color: C.gold }}>{sym}</span>
-              <span style={{ color: C.dimText, fontSize: '0.55em', marginLeft: 10 }}>/ USDT</span>
+              <span style={{ color: C.dimText, fontSize: '0.55em', marginLeft: 10 }}>/ {symConfig.src === 'binance' ? 'USDT' : 'USD'}</span>
             </h1>
 
             {/* Live price block */}
@@ -377,7 +415,7 @@ export default function TerminalPage() {
             },
             {
               label: 'PAR',
-              value: symConfig.pair,
+              value: symConfig.pair ?? `${symConfig.label}/USD`,
               color: C.dimText,
             },
           ].map(({ label, value, color }) => (

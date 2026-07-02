@@ -34,7 +34,7 @@ interface MotorDef {
 const MOTORS: MotorDef[] = [
   { id:1, name:'M1', label:'CRYPTO',          color:'#d4af37', syms:['BTC','ETH','SOL','BNB','LTC'],     status:'ACTIVO',       desc:'BTC · ETH · SOL · BNB · LTC — Futures perpetuos Binance' },
   { id:2, name:'M2', label:'COMMODITIES',     color:'#1D9E75', syms:['XAU','XAG','WTI','HG','NG','PL'], status:'ACTIVO',       desc:'XAU · XAG · WTI · HG · NG · PL — CFDs futuros yfinance' },
-  { id:3, name:'M3', label:'STOCKS US',       color:'#7a7f9a', syms:['SPY','QQQ','IWM'],                status:'PRÓXIMAMENTE', desc:'S&P 500 · Nasdaq 100 · Russell 2000 — vía ETFs, sin acciones individuales · Broker: IBKR' },
+  { id:3, name:'M3', label:'STOCKS US',       color:'#378ADD', syms:['AAPL','NVDA','TSLA','JPM','XOM'], status:'ACTIVO',       desc:'AAPL · NVDA · TSLA · JPM · XOM — Acciones S&P 500 · 15m/1h/4h/1d' },
   { id:4, name:'M4', label:'BONOS & MACRO',   color:'#7a7f9a', syms:['TLT','HYG','TBT','ZN','ZB'],       status:'PRÓXIMAMENTE', desc:'Treasury 20Y+ · High Yield · Notas/Bonos 10Y-30Y — duration y crédito · Broker: IBKR' },
   { id:5, name:'M5', label:'FUTUROS ÍNDICES', color:'#7a7f9a', syms:['MES','MNQ','MYM'],                status:'PRÓXIMAMENTE', desc:'S&P 500 · Nasdaq 100 · Dow Jones — micro-futuros CME · Broker: IBKR' },
   { id:6, name:'M6', label:'FOREX & ÍNDICES INTL', color:'#7a7f9a', syms:['EUR/USD','GBP/USD','USD/JPY','USD/CHF'], status:'PRÓXIMAMENTE', desc:'Majors vía IBKR IDEALPRO — DAX/FTSE/Nikkei en fase 2 (margen multi-moneda)' },
@@ -81,6 +81,7 @@ function motorOf(c: Champion): number {
   const s = champSym(c)
   if (MOTORS[0].syms.includes(s)) return 1
   if (MOTORS[1].syms.includes(s)) return 2
+  if (MOTORS[2].syms.includes(s)) return 3
   return 0
 }
 function champKey(c: Champion) {

@@ -74,7 +74,7 @@ interface SearchItem {
   icon?:     LucideIcon
 }
 
-const TICKER_LIST = ['BTC','ETH','SOL','BNB','XRP','ADA','AVAX','MATIC','DOT','LINK','SPX','XAU','NDX','DOGE','LTC']
+const TICKER_LIST = ['BTC','ETH','SOL','BNB','XRP','ADA','AVAX','MATIC','DOT','LINK','SPX','XAU','NDX','DOGE','LTC','AAPL','NVDA','TSLA','JPM','XOM']
 
 const ALL_ITEMS: SearchItem[] = [
   // Pages

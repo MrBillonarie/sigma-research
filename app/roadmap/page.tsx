@@ -243,7 +243,7 @@ const TIMELINE: { date: string; title: string; desc: string; status: Status }[] 
   {
     date: 'AHORA',
     title: 'Arquitectura multi-motor',
-    desc: 'Dos motores activos (Cripto + Commodities) corriendo 24/7 bajo un mismo meta-allocator de riesgo, con circuit breakers automáticos y trazabilidad completa de cada decisión.',
+    desc: 'Tres motores activos (Cripto + Commodities + Acciones US) corriendo 24/7 bajo un mismo meta-allocator de riesgo, con circuit breakers automáticos y trazabilidad completa de cada decisión.',
     status: 'progress',
   },
   {
@@ -253,10 +253,10 @@ const TIMELINE: { date: string; title: string; desc: string; status: Status }[] 
     status: 'progress',
   },
   {
-    date: 'PRÓXIMO',
+    date: 'AHORA',
     title: 'Motor 3 — Acciones US',
-    desc: 'SPY · QQQ · IWM (S&P 500, Nasdaq 100, Russell 2000) vía ETFs, sin acciones individuales. Broker: IBKR. Misma metodología de validación que cripto y commodities.',
-    status: 'next',
+    desc: 'AAPL · NVDA · TSLA · JPM · XOM — acciones individuales del S&P 500 en producción, con champions activos y la misma metodología de validación que cripto y commodities (walk-forward + Monte Carlo).',
+    status: 'progress',
   },
   {
     date: 'PRÓXIMO',

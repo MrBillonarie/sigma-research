@@ -237,13 +237,16 @@ export default function AdminDashboard() {
           champions.forEach((c: { sym?: string; grade?: string; cagr?: number }) => {
             const CRYPTO = ['BTC','ETH','SOL','BNB','LTC']
             const COMM   = ['XAU','XAG','WTI','HG','NG','PL']
+            const STOCKS = ['AAPL','NVDA','TSLA','JPM','XOM']
             const motor  = CRYPTO.includes((c.sym ?? '').toUpperCase()) ? 1
-              : COMM.includes((c.sym ?? '').toUpperCase()) ? 2 : 0
+              : COMM.includes((c.sym ?? '').toUpperCase()) ? 2
+              : STOCKS.includes((c.sym ?? '').toUpperCase()) ? 3 : 0
             if (motor > 0) { if (!byMotor[motor]) byMotor[motor] = []; byMotor[motor].push(c) }
           })
           const rows: ModeloRow[] = [
             { tag: 'M1-CRYPTO',  name: 'MOTOR 1 — CRYPTO',  status: 'PRODUCCIÓN', accuracy: `${byMotor[1]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[1]?.length ?? 0) > 0 },
             { tag: 'M2-COMM',    name: 'MOTOR 2 — COMMODITIES', status: 'PRODUCCIÓN', accuracy: `${byMotor[2]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[2]?.length ?? 0) > 0 },
+            { tag: 'M3-STOCKS',  name: 'MOTOR 3 — S&P 500 STOCKS', status: 'PRODUCCIÓN', accuracy: `${byMotor[3]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[3]?.length ?? 0) > 0 },
           ]
           setModelos(rows)
           return
