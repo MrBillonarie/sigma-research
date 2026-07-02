@@ -27,6 +27,7 @@ import {
   Bell,
   Zap,
   LifeBuoy,
+  Users,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,6 +58,7 @@ const navItems = [
   { label: 'Ingresos',       href: '/ingresos-pasivos', icon: Coins           },
   { label: 'Reportes',       href: '/mis-reportes',     icon: FileText        },
   { label: 'Motor',          href: '/motor-decision',   icon: Zap             },
+  { label: 'Community',      href: '/community-setups', icon: Users           },
   { label: 'Soporte',        href: '/soporte',          icon: LifeBuoy        },
 ]
 
@@ -91,6 +93,7 @@ const ALL_ITEMS: SearchItem[] = [
   { id: '/ingresos-pasivos', label: 'Ingresos',       href: '/ingresos-pasivos', category: 'Página', icon: Coins           },
   { id: '/mis-reportes',              label: 'Reportes',       href: '/mis-reportes',             category: 'Página',      icon: FileText        },
   { id: '/motor-decision',            label: 'Motor',          href: '/motor-decision',           category: 'Página',      icon: Zap,             keywords: ['motor','decision','señales','signals','allocator','reporte'] },
+  { id: '/community-setups',          label: 'Community',      href: '/community-setups',         category: 'Página',      icon: Users,           keywords: ['community','setups','comunidad','votos','ideas','trades'] },
   { id: '/perfil',                    label: 'Perfil',         href: '/perfil',                   category: 'Página',      icon: User            },
   { id: '/soporte',                   label: 'Soporte',        href: '/soporte',                  category: 'Página',      icon: LifeBuoy,        keywords: ['ticket','ayuda','contacto','soporte'] },
   { id: '/comparador/etfs',           label: 'ETFs',           href: '/comparador/etfs',          category: 'Comparador',  icon: TrendingUp      },

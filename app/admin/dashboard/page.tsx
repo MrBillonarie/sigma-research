@@ -84,14 +84,7 @@ const MARKETING_EMPTY: MarketingForm = {
   ctaUrl: '',
 }
 
-const mockModelos = [
-  { tag: 'HMM-01',   name: 'REGIME DETECTOR',  status: 'PRODUCCIÓN', accuracy: '91.2%', metric: 'Accuracy',        activo: true  },
-  { tag: 'GARCH-02', name: 'VOL FORECASTER',   status: 'PRODUCCIÓN', accuracy: '0.031', metric: 'MAE 30D',         activo: true  },
-  { tag: 'XGB-03',   name: 'MOMENTUM SCORE',   status: 'BETA',       accuracy: '2.41',  metric: 'Sharpe OOS',      activo: true  },
-  { tag: 'NLP-04',   name: 'SENTIMENT ALPHA',  status: 'BETA',       accuracy: '73.8%', metric: 'F1-Score',        activo: false },
-  { tag: 'STAT-05',  name: 'PAIRS TRADING',    status: 'PRODUCCIÓN', accuracy: '1.87',  metric: 'Sharpe OOS',      activo: true  },
-  { tag: 'VAR-06',   name: 'MACRO REGIME',     status: 'PRODUCCIÓN', accuracy: '84.1%', metric: 'Directional Acc', activo: true  },
-]
+type ModeloRow = { tag: string; name: string; status: string; accuracy: string; metric: string; activo: boolean }
 
 type Tab = 'resumen' | 'usuarios' | 'solicitudes' | 'modelos' | 'reportes' | 'soporte' | 'marketing'
 
@@ -137,10 +130,10 @@ function relativeTime(iso: string): string {
 
 export default function AdminDashboard() {
   const router  = useRouter()
-  const [tab,     setTab]     = useState<Tab>('resumen')
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [modelos, setModelos] = useState(mockModelos)
-  const [loading, setLoading] = useState(true)
+  const [tab,          setTab]          = useState<Tab>('resumen')
+  const [modelos,      setModelos]      = useState<ModeloRow[]>([])
+  const [modelosError, setModelosError] = useState<string | null>(null)
+  const [loading,      setLoading]      = useState(true)
 
   const [users,        setUsers]        = useState<UserRow[]>([])
   const [syncStatus,   setSyncStatus]   = useState<SyncStatus | null>(null)
@@ -232,15 +225,41 @@ export default function AdminDashboard() {
   }, [cmdkOpen])
 
   async function fetchModelosState() {
+    setModelosError(null)
     try {
+      // Intentar cargar champions reales desde el VPS
+      const vpsRes = await fetch('/api/vps/champions', { cache: 'no-store' })
+      if (vpsRes.ok) {
+        const champions = await vpsRes.json()
+        if (Array.isArray(champions) && champions.length > 0) {
+          // Construir vista de modelos a partir de los champions vivos
+          const byMotor: Record<number, typeof champions> = {}
+          champions.forEach((c: { sym?: string; grade?: string; cagr?: number }) => {
+            const CRYPTO = ['BTC','ETH','SOL','BNB','LTC']
+            const COMM   = ['XAU','XAG','WTI','HG','NG','PL']
+            const motor  = CRYPTO.includes((c.sym ?? '').toUpperCase()) ? 1
+              : COMM.includes((c.sym ?? '').toUpperCase()) ? 2 : 0
+            if (motor > 0) { if (!byMotor[motor]) byMotor[motor] = []; byMotor[motor].push(c) }
+          })
+          const rows: ModeloRow[] = [
+            { tag: 'M1-CRYPTO',  name: 'MOTOR 1 — CRYPTO',  status: 'PRODUCCIÓN', accuracy: `${byMotor[1]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[1]?.length ?? 0) > 0 },
+            { tag: 'M2-COMM',    name: 'MOTOR 2 — COMMODITIES', status: 'PRODUCCIÓN', accuracy: `${byMotor[2]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[2]?.length ?? 0) > 0 },
+          ]
+          setModelos(rows)
+          return
+        }
+      }
+      // Fallback: estado activo/inactivo desde /api/admin/modelos
       const res  = await fetch('/api/admin/modelos', { headers: ADMIN_HEADERS })
       const json = await res.json()
       if (json.modelos?.length) {
-        const map: Record<string, boolean> = {}
-        json.modelos.forEach((m: { tag: string; activo: boolean }) => { map[m.tag] = m.activo })
-        setModelos(prev => prev.map(m => map[m.tag] !== undefined ? { ...m, activo: map[m.tag] } : m))
+        setModelos(json.modelos)
+      } else {
+        setModelosError('Motor no disponible — el VPS no respondió o no hay champions activos.')
       }
-    } catch {}
+    } catch {
+      setModelosError('Motor no disponible — error de conexión con el VPS.')
+    }
   }
 
   async function fetchBizMetrics() {
@@ -1205,19 +1224,27 @@ export default function AdminDashboard() {
               {/* Estado modelos */}
               <div className="bg-admin-surface p-6 shadow-admin-glow">
                 <div className="section-label text-gold mb-4">ESTADO DE MODELOS</div>
-                <div className="grid md:grid-cols-3 gap-2 bg-admin-bg">
-                  {modelos.map(m => (
-                    <div key={m.tag} className="bg-admin-bg p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${m.activo ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                        <span className="terminal-text text-xs text-text">{m.name}</span>
+                {modelosError ? (
+                  <div className="terminal-text text-xs text-yellow-400/80 bg-yellow-400/5 border border-yellow-400/20 px-4 py-3">
+                    {modelosError}
+                  </div>
+                ) : modelos.length === 0 ? (
+                  <div className="terminal-text text-xs text-muted">Cargando estado del motor…</div>
+                ) : (
+                  <div className="grid md:grid-cols-3 gap-2 bg-admin-bg">
+                    {modelos.map(m => (
+                      <div key={m.tag} className="bg-admin-bg p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${m.activo ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                          <span className="terminal-text text-xs text-text">{m.name}</span>
+                        </div>
+                        <span className={`section-label text-xs ${m.activo ? 'text-emerald-400' : 'text-muted'}`}>
+                          {m.activo ? 'ON' : 'OFF'}
+                        </span>
                       </div>
-                      <span className={`section-label text-xs ${m.activo ? 'text-emerald-400' : 'text-muted'}`}>
-                        {m.activo ? 'ON' : 'OFF'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Feed de actividad reciente */}
@@ -1449,6 +1476,13 @@ export default function AdminDashboard() {
                 <h2 className="display-heading text-4xl text-text">MODELOS ML</h2>
               </div>
 
+              {modelosError ? (
+                <div className="terminal-text text-sm text-yellow-400/80 bg-yellow-400/5 border border-yellow-400/20 px-5 py-4">
+                  {modelosError}
+                </div>
+              ) : modelos.length === 0 ? (
+                <div className="terminal-text text-xs text-muted px-1 py-2">Cargando estado del motor…</div>
+              ) : null}
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2 bg-admin-bg">
                 {modelos.map(m => (
                   <div key={m.tag} className="bg-admin-surface p-5 shadow-admin-glow flex flex-col gap-3">

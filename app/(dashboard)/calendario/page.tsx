@@ -981,6 +981,24 @@ export default function CalendarioPage() {
 
               {/* Lista de eventos */}
               <div style={{ overflowY:'auto', maxHeight:'calc(100vh - 280px)' }}>
+                {/* Banner visible cuando se usan datos de referencia */}
+                {!loading && usingMock && (
+                  <div style={{
+                    margin:'10px 12px 0', padding:'10px 12px',
+                    background:'rgba(245,158,11,0.07)',
+                    border:'1px solid rgba(245,158,11,0.30)',
+                    display:'flex', alignItems:'flex-start', gap:8,
+                  }}>
+                    <svg width="13" height="13" viewBox="0 0 13 13" style={{ flexShrink:0, marginTop:1 }}>
+                      <circle cx="6.5" cy="6.5" r="6" fill="none" stroke="#f59e0b" strokeWidth="1.2"/>
+                      <line x1="6.5" y1="3.5" x2="6.5" y2="7.5" stroke="#f59e0b" strokeWidth="1.4" strokeLinecap="round"/>
+                      <circle cx="6.5" cy="9.5" r="0.8" fill="#f59e0b"/>
+                    </svg>
+                    <span style={{ fontFamily:'monospace', fontSize:10, color:'#f59e0b', lineHeight:1.5 }}>
+                      Mostrando eventos de referencia. Los datos en tiempo real requieren configuración de API (FRED / CoinMarketCal).
+                    </span>
+                  </div>
+                )}
                 {loading ? (
                   Array.from({ length: 5 }, (_, i) => (
                     <div key={i} style={{ padding:'14px 16px', borderBottom:`1px solid ${C.border}` }}>

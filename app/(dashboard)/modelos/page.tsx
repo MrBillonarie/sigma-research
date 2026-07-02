@@ -290,21 +290,31 @@ function MotorTabs({ selected, onSelect, counts }: {
         return (
           <button
             key={m.id}
-            onClick={()=>onSelect(m.id)}
+            onClick={isActive ? ()=>onSelect(m.id) : undefined}
+            disabled={!isActive}
+            title={!isActive ? 'Próximamente — en desarrollo' : undefined}
             style={{
               display:'flex', alignItems:'center', gap:7,
               padding:'10px 16px', background:'transparent', border:'none',
               borderBottom:`2px solid ${isSel?m.color:'transparent'}`,
-              cursor:'pointer', fontFamily:BEBAS, fontSize:14, letterSpacing:'0.04em',
+              cursor: isActive ? 'pointer' : 'not-allowed',
+              fontFamily:BEBAS, fontSize:14, letterSpacing:'0.04em',
               color: isSel ? m.color : (isActive?DIM:MUTED),
-              opacity: isActive||isSel ? 1 : 0.6,
+              opacity: isActive||isSel ? 1 : 0.4,
+              pointerEvents: isActive ? 'auto' : 'none',
             }}
           >
             M{m.id} · {m.label}
             {isActive && n>0 && (
               <span style={{ fontFamily:MONO, fontSize:9, color: isSel?m.color:MUTED, background:`${m.color}18`, borderRadius:8, padding:'1px 6px' }}>{n}</span>
             )}
-            {!isActive && <span style={{ fontFamily:MONO, fontSize:8, color:MUTED }}>PRÓX</span>}
+            {!isActive && (
+              <span style={{
+                fontFamily:MONO, fontSize:8, color:'#f59e0b',
+                background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.25)',
+                borderRadius:3, padding:'1px 5px', letterSpacing:'0.08em',
+              }}>PRÓXIMAMENTE</span>
+            )}
           </button>
         )
       })}

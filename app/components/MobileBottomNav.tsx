@@ -13,6 +13,7 @@ const PRIMARY = [
 ]
 
 const MORE_LINKS = [
+  { href: '/community-setups', label: 'Community' },
   { href: '/fire',             label: 'FIRE' },
   { href: '/journal',          label: 'Journal' },
   { href: '/calendario',       label: 'Calendario' },
