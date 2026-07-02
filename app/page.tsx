@@ -326,9 +326,9 @@ function VizRange({ color }: { color: string }) {
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 const tools = [
-  { id: '01', name: 'SIGMA ENGINE',      col: '#34d399', viz: VizPulse,  desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre BTC/ETH/SOL/BNB/XAU con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
+  { id: '01', name: 'SIGMA ENGINE',      col: '#34d399', viz: VizPulse,  desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre 16 activos — cripto, commodities y acciones US — con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
   { id: '02', name: 'MODELOS ML',        col: G,         viz: VizLadder, desc: 'Champions cuantitativos con grades A+/A/B/C. Cada modelo valida con robustness gate, OOS gate y Kelly sizing antes de activarse en producción.' },
-  { id: '03', name: 'MOTOR DECISIÓN',    col: '#60a5fa', viz: VizDial,   desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre ETFs, fondos mutuos, cripto y renta fija. Ajustado por régimen de mercado (risk-on/off).' },
+  { id: '03', name: 'MOTOR DECISIÓN',    col: '#60a5fa', viz: VizDial,   desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre cripto, commodities, acciones US y ETFs. Ajustado por régimen de mercado (risk-on/off).' },
   { id: '04', name: 'MONTE CARLO',       col: '#a78bfa', viz: VizCone,   desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
   { id: '05', name: 'SIMULADOR FIRE',    col: '#f59e0b', viz: VizAscend, desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
   { id: '06', name: 'SEÑALES LP',        col: '#f87171', viz: VizRange,  desc: 'Motor cuantitativo para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado por par.' },
@@ -337,11 +337,11 @@ const tools = [
 const plans = [
   {
     tier: 'ACCESO LIBRE', price: '$0',      period: 'siempre gratis', col: D,         fill: false, badge: null,            cta: 'CREAR CUENTA',  href: '/registro',
-    items: ['Dashboard completo', 'Journal de trades', 'Calculadora FIRE', 'Monte Carlo', 'Signal HUD', 'Comparadores'],
+    items: ['Dashboard completo', 'Journal de trades', 'Calculadora FIRE', 'Monte Carlo', 'Signal HUD', 'Terminal en vivo'],
   },
   {
     tier: 'PRO',           price: '$29',    period: 'USD / mes',      col: G,         fill: true,  badge: '★ MÁS POPULAR', cta: 'ACTIVAR PRO',   href: '/registro',
-    items: ['Todo lo anterior', 'Reportes PDF mensuales', 'Señales PRO.MACD activas', 'Equity curves actualizadas', 'Soporte prioritario'],
+    items: ['Todo lo anterior', 'Reportes PDF mensuales', 'Señales del motor en vivo (3 motores)', 'Equity curves actualizadas', 'Soporte prioritario'],
   },
   {
     tier: 'INSTITUTIONAL', price: 'Custom', period: 'cotizar',        col: '#60a5fa', fill: false, badge: null,            cta: 'VER API DOCS',  href: '/api-docs',
@@ -455,7 +455,7 @@ export default async function RootPage() {
           <div style={{ marginBottom: 36, border: `1px solid ${B}`, background: 'rgba(11,13,20,0.65)', maxWidth: 460, backdropFilter: 'blur(4px)', position: 'relative', ...reveal(600) }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}40, transparent)` }} />
             {([
-              { k: 'MERCADOS',     v: 'BTC · ETH · SOL · BNB · XAU',  accent: false, dot: false },
+              { k: 'MERCADOS',     v: '16 activos · cripto · commodities · stocks US',  accent: false, dot: false },
               { k: 'ESTRATEGIAS',  v: '70+ validadas · walk-forward OOS', accent: false, dot: false },
               { k: 'PAPER TRADING', v: paper ? `$${Math.round(paper.equity).toLocaleString('es-CL')}  ·  +${returnPct}%` : `$11.319  ·  +${returnPct}%`, accent: true, dot: false },
               { k: 'ESTADO',       v: `LIVE · ${regime}`, accent: true, dot: true },
@@ -514,14 +514,14 @@ export default async function RootPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b', flexShrink: 0 }} />
             <span style={{ fontFamily: 'monospace', fontSize: 9, color: G, letterSpacing: '0.22em' }}>
-              BETA CERRADA — {userCount} DE 100 CUPOS OCUPADOS
+              BETA CERRADA — {Math.min(userCount, 100)} DE 100 CUPOS OCUPADOS
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 100, height: 2, background: B, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${Math.min((userCount / 100) * 100, 100)}%`, background: `linear-gradient(90deg, ${G}80, ${G})` }} />
             </div>
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>{100 - userCount} restantes</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>{Math.max(0, 100 - userCount)} restantes</span>
             <Link href="/registro" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.18em', color: BG, background: G, padding: '5px 14px', textDecoration: 'none', flexShrink: 0 }}>
               UNIRSE →
             </Link>
@@ -564,7 +564,7 @@ export default async function RootPage() {
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56, gap: 24, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 14 }}>{'// PLATAFORMA · 9 HERRAMIENTAS'}</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 14 }}>{`// PLATAFORMA · ${tools.length} HERRAMIENTAS`}</div>
               <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(48px, 7vw, 88px)', color: T, lineHeight: 0.92, margin: 0 }}>
                 TODO LO QUE UN<br />
                 <span style={gMetal}>QUANT NECESITA</span>

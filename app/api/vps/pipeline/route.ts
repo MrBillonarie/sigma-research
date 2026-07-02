@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const VPS = process.env.VPS_URL ?? 'http://178.104.10.97:8080'
+const VPS = process.env.VPS_URL ?? process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
 
 export async function GET() {
   try {
