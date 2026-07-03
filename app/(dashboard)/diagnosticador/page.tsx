@@ -109,28 +109,97 @@ function BracketFrame({
 
 // ── Gauge cluster — "panel de signos vitales", agrupado en un solo
 // instrumento en vez de métricas sueltas flotando por la página. ─────────────
+
+// Llenado animado 0→valor (ease-out cúbico) al montar — instrumento encendiéndose
+function useGaugeAnim(target: number, delay = 300): number {
+  const [v, setV] = useState(0)
+  useEffect(() => {
+    let raf = 0
+    const t0  = performance.now() + delay
+    const dur = 1200
+    const tick = (now: number) => {
+      const p = Math.min(Math.max((now - t0) / dur, 0), 1)
+      setV(target * (1 - Math.pow(1 - p, 3)))
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, delay])
+  return v
+}
+
 function RiskGauge({ value, color, size = 84, label }: { value: number; color: string; size?: number; label?: string }) {
   const stroke = 8
   const r = size / 2 - stroke
   const circumference = 2 * Math.PI * r
   const clamped = Math.min(Math.max(value, 0), 100)
-  const offset = circumference * (1 - clamped / 100)
+  const anim    = useGaugeAnim(clamped)
+  const offset  = circumference * (1 - anim / 100)
+
+  // El número acompaña el llenado: si hay label numérico ("2.5%") cuenta su
+  // parte numérica; si no, cuenta el porcentaje del gauge
+  const labelNum = label ? parseFloat(label) : NaN
+  const suffix   = label ? label.replace(/[0-9.\-]/g, '') : '%'
+  const ratio    = clamped > 0 ? anim / clamped : 1
+  const shown    = label
+    ? (isNaN(labelNum) ? label : `${(labelNum * ratio).toFixed(labelNum % 1 !== 0 ? 1 : 0)}${suffix}`)
+    : `${Math.round(anim)}%`
+
+  // Ticks de escala tipo instrumento de aviación (12 marcas)
+  const c = size / 2
+  const ticks = Array.from({ length: 12 }, (_, i) => {
+    const a  = (i / 12) * Math.PI * 2
+    const r1 = r + stroke / 2 + 1.5
+    const r2 = r1 + 3
+    return {
+      x1: c + Math.cos(a) * r1, y1: c + Math.sin(a) * r1,
+      x2: c + Math.cos(a) * r2, y2: c + Math.sin(a) * r2,
+    }
+  })
+
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={stroke} />
+    <div style={{ position: 'relative', width: size + 10, height: size + 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width={size + 10} height={size + 10} viewBox={`-5 -5 ${size + 10} ${size + 10}`} style={{ transform: 'rotate(-90deg)' }}>
+        {ticks.map((tk, i) => (
+          <line key={i} x1={tk.x1} y1={tk.y1} x2={tk.x2} y2={tk.y2} stroke={C.border} strokeWidth={1.2} />
+        ))}
+        <circle cx={c} cy={c} r={r} fill="none" stroke={C.border} strokeWidth={stroke} />
         <circle
-          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          cx={c} cy={c} r={r} fill="none" stroke={color} strokeWidth={stroke}
           strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+          style={{ filter: `drop-shadow(0 0 5px ${color}90)` }}
         />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: F.display, fontSize: size * 0.22, color, lineHeight: 1, textShadow: numberEmboss }}>
-          {label ?? `${Math.round(clamped)}%`}
+        <span style={{ fontFamily: F.display, fontSize: size * 0.22, color, lineHeight: 1, textShadow: numberEmboss, fontVariantNumeric: 'tabular-nums' }}>
+          {shown}
         </span>
       </div>
     </div>
+  )
+}
+
+// ── ECG del trader — el pulso del diagnóstico ─────────────────────────────────
+// Un trazo de electrocardiograma recorrido por un pulso brillante. Ritmo y
+// amplitud reflejan el estado: estable si APTO, agitado si el win rate está
+// por debajo del mínimo.
+function ECGLine({ color, agitated, speed }: { color: string; agitated: boolean; speed: number }) {
+  const beat = agitated
+    ? 'l6,0 l3,-5 l3,5 l4,0 l3,-22 l4,34 l3,-12 l5,0 l4,6 l4,-6 l81,0'
+    : 'l10,0 l4,-4 l4,4 l6,0 l4,-16 l5,26 l4,-10 l8,0 l5,4 l5,-4 l65,0'
+  const d = 'M0,26 ' + Array(5).fill(beat).join(' ')
+  return (
+    <svg viewBox="0 0 600 40" preserveAspectRatio="none" style={{ width: '100%', height: 34, display: 'block' }} aria-hidden>
+      <path d={d} fill="none" stroke={color} strokeOpacity="0.16" strokeWidth="1.2" />
+      <path
+        d={d} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round"
+        style={{
+          strokeDasharray: '90 1400',
+          animation: `ecgTravel ${speed}s linear infinite`,
+          filter: `drop-shadow(0 0 4px ${color})`,
+        }}
+      />
+    </svg>
   )
 }
 
@@ -145,13 +214,23 @@ function GaugeStat({ title, children }: { title: string; children: React.ReactNo
   )
 }
 
-function VitalsPanel({ minWinRate, minWinColor, riskPerOp, riskPortfolio }: {
+function VitalsPanel({ minWinRate, minWinColor, riskPerOp, riskPortfolio, ecgColor, ecgAgitated, ecgSpeed }: {
   minWinRate: number; minWinColor: string; riskPerOp: number; riskPortfolio: number
+  ecgColor: string; ecgAgitated: boolean; ecgSpeed: number
 }) {
   return (
     <BracketFrame accent={C.violet} padding="20px 22px">
-      <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.violet, marginBottom: 18 }}>
-        {'◈ PANEL DE SIGNOS VITALES'}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.violet }}>
+          {'◈ PANEL DE SIGNOS VITALES'}
+        </span>
+        <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.2em', color: ecgColor }}>
+          ● PULSO
+        </span>
+      </div>
+      {/* ECG del trader — el pulso de tu diagnóstico */}
+      <div style={{ marginBottom: 14, borderBottom: `1px solid ${C.border}40`, paddingBottom: 6 }}>
+        <ECGLine color={ecgColor} agitated={ecgAgitated} speed={ecgSpeed} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-around', gap: 12, flexWrap: 'wrap' }}>
         <GaugeStat title="WR mínimo rentable">
@@ -170,7 +249,7 @@ function VitalsPanel({ minWinRate, minWinColor, riskPerOp, riskPortfolio }: {
 
 // ── Barra de diagnóstico — espectro continuo rojo→ámbar→verde con una aguja
 // marcando exactamente dónde está el win rate real respecto al mínimo. ───────
-function DiagnosisSpectrum({ current, breakeven, hasData }: { current: number; breakeven: number; hasData: boolean }) {
+function DiagnosisSpectrum({ current, breakeven, hasData, scanned }: { current: number; breakeven: number; hasData: boolean; scanned: boolean }) {
   const pos = (v: number) => Math.min(Math.max(v, 0), 100)
   const curPct = pos(current)
   const bePct = pos(breakeven)
@@ -180,21 +259,49 @@ function DiagnosisSpectrum({ current, breakeven, hasData }: { current: number; b
   const verdictColor = !hasData ? C.violet : gap >= 10 ? C.green : gap >= 0 ? C.gold : gap >= -10 ? C.amber : C.red
   const symbol = !hasData ? '–' : gap >= 0 ? '✓' : gap >= -10 ? '⚠' : '✕'
 
+  // Secuencia de escaneo: la línea barre el panel (0.1s–1.25s), la aguja viaja
+  // hasta tu posición (0.7s–2.2s), el veredicto aparece (1.5s) y el sello se
+  // estampa con burst al final (1.9s)
+  const needleTransition = 'left 1.5s cubic-bezier(0.22,1,0.36,1) 0.7s'
+
   return (
     <div>
-      {/* Sello — único elemento circular no-rectangular de la página,
-          semi-superpuesto al borde superior del marco, como un certificado */}
+      {/* Línea de escaneo — barre el panel una sola vez al cargar */}
+      {scanned && (
+        <div style={{
+          position: 'absolute', left: 6, right: 6, top: 0, height: 2, borderRadius: 2,
+          background: `linear-gradient(90deg, transparent, ${C.gold}, transparent)`,
+          boxShadow: `0 0 14px ${C.gold}`, opacity: 0, pointerEvents: 'none',
+          animation: 'diagScan 1.15s ease-in-out 0.1s forwards',
+        }} />
+      )}
+
+      {/* Burst del sello — anillo que explota al estamparse */}
+      {scanned && (
+        <div style={{
+          position: 'absolute', top: -42, left: '50%', width: 84, height: 84,
+          borderRadius: '50%', border: `2px solid ${verdictColor}`, pointerEvents: 'none',
+          opacity: 0, animation: 'sealBurst 0.7s ease-out 2.05s both',
+        }} />
+      )}
+
+      {/* Sello — se estampa al final de la secuencia, como un timbre */}
       <div style={{
         position: 'absolute', top: -42, left: '50%', transform: 'translateX(-50%)',
         width: 84, height: 84, borderRadius: '50%', background: C.bg,
         border: `3px solid ${verdictColor}`, boxShadow: `0 0 18px ${verdictColor}80, 0 4px 10px rgba(0,0,0,0.5)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 30, fontWeight: 700, color: verdictColor,
+        animation: scanned ? 'sealStamp 0.55s cubic-bezier(0.34,1.56,0.64,1) 1.9s both' : 'none',
       }}>
         {symbol}
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+      <div style={{
+        textAlign: 'center', marginBottom: 24,
+        opacity: scanned ? 1 : 0, transform: scanned ? 'none' : 'translateY(6px)',
+        transition: 'opacity 0.6s ease 1.5s, transform 0.6s ease 1.5s',
+      }}>
         <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.dimText, marginBottom: 8 }}>
           {'// DIAGNÓSTICO'}
         </div>
@@ -213,20 +320,25 @@ function DiagnosisSpectrum({ current, breakeven, hasData }: { current: number; b
         boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.45)' }}>
 
         {/* breakeven tick — el mínimo requerido, siempre visible */}
-        <div style={{ position: 'absolute', top: -5, bottom: -5, left: `${bePct}%`, width: 2, background: C.text, opacity: 0.75 }} />
-        <div style={{ position: 'absolute', top: -22, left: `${bePct}%`, transform: 'translateX(-50%)', fontFamily: 'monospace', fontSize: 9, color: C.textDim, whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'absolute', top: -5, bottom: -5, left: `${bePct}%`, width: 2, background: C.text, opacity: scanned ? 0.75 : 0, transition: 'opacity 0.4s ease 0.5s' }} />
+        <div style={{ position: 'absolute', top: -22, left: `${bePct}%`, transform: 'translateX(-50%)', fontFamily: 'monospace', fontSize: 9, color: C.textDim, whiteSpace: 'nowrap', opacity: scanned ? 1 : 0, transition: 'opacity 0.4s ease 0.5s' }}>
           mín. {breakeven.toFixed(0)}%
         </div>
 
-        {/* tu posición — solo si hay datos reales */}
+        {/* tu posición — la aguja viaja hasta tu win rate real */}
         {hasData && (
           <>
             <div style={{
-              position: 'absolute', top: '50%', left: `${curPct}%`, transform: 'translate(-50%,-50%)',
+              position: 'absolute', top: '50%', left: scanned ? `${curPct}%` : '0%', transform: 'translate(-50%,-50%)',
               width: 18, height: 18, borderRadius: '50%', background: C.bg,
               border: `3px solid ${verdictColor}`, boxShadow: `0 0 12px ${verdictColor}90`,
+              transition: needleTransition,
             }} />
-            <div style={{ position: 'absolute', top: 20, left: `${curPct}%`, transform: 'translateX(-50%)', fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: verdictColor, whiteSpace: 'nowrap' }}>
+            <div style={{
+              position: 'absolute', top: 20, left: scanned ? `${curPct}%` : '0%', transform: 'translateX(-50%)',
+              fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: verdictColor, whiteSpace: 'nowrap',
+              transition: needleTransition, opacity: scanned ? 1 : 0,
+            }}>
               {current.toFixed(0)}% actual
             </div>
           </>
@@ -267,6 +379,14 @@ export default function DiagnosticadorPage() {
 
   // ── Tooltip state ─────────────────────────────────────────────────────────
   const [tooltip, setTooltip] = useState<{ row: number; col: number; content: string } | null>(null)
+
+  // ── Secuencia de escaneo — arranca cuando terminan de cargar los datos ────
+  const [scanned, setScanned] = useState(false)
+  useEffect(() => {
+    if (loading) return
+    const t = setTimeout(() => setScanned(true), 150)
+    return () => clearTimeout(t)
+  }, [loading])
 
   // ── Load data from Supabase ────────────────────────────────────────────────
   useEffect(() => {
@@ -386,6 +506,13 @@ export default function DiagnosticadorPage() {
       usdOpt: (pctOpt / 100) * patrimonio,
     }
   }, [dbWinRate, rr, totalOps, riskPerOp, calcs.minWinRate, patrimonio])
+
+  // ── Estado del pulso (ECG) — mismo criterio del veredicto ─────────────────
+  const diagGap  = dbWinRate - calcs.minWinRate
+  const hasDiag  = hasRealData && dbWinRate > 0
+  const diagColor = !hasDiag ? C.violet : diagGap >= 10 ? C.green : diagGap >= 0 ? C.gold : diagGap >= -10 ? C.amber : C.red
+  const ecgAgitated = hasDiag && diagGap < 0
+  const ecgSpeed = !hasDiag ? 5 : diagGap >= 10 ? 4.2 : diagGap >= 0 ? 3.4 : diagGap >= -10 ? 2.6 : 1.9
 
   const reportDate = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })
 
@@ -597,6 +724,28 @@ ${hasRealData && dbWinRate > 0 ? `
         <style>{`
           .diag-btn:hover { filter: brightness(1.25); border-color: ${C.gold}80 !important; }
           .diag-input:focus { border-color: ${C.gold} !important; box-shadow: 0 0 0 1px ${C.gold}33; }
+          /* Secuencia de escaneo diagnóstico */
+          @keyframes diagScan {
+            0%   { top: 0;   opacity: 0; }
+            10%  { opacity: 0.95; }
+            85%  { opacity: 0.95; }
+            100% { top: 97%; opacity: 0; }
+          }
+          @keyframes sealStamp {
+            from { opacity: 0; transform: translateX(-50%) scale(1.9); }
+            to   { opacity: 1; transform: translateX(-50%) scale(1); }
+          }
+          @keyframes sealBurst {
+            from { opacity: 0.8; transform: translateX(-50%) scale(0.6); }
+            to   { opacity: 0;   transform: translateX(-50%) scale(1.9); }
+          }
+          /* Pulso viajando por el electrocardiograma */
+          @keyframes ecgTravel { to { stroke-dashoffset: -1490; } }
+          @media (prefers-reduced-motion: reduce) {
+            [style*="diagScan"], [style*="sealBurst"] { animation: none !important; opacity: 0 !important; }
+            [style*="sealStamp"] { animation: none !important; opacity: 1 !important; }
+            [style*="ecgTravel"] { animation: none !important; }
+          }
         `}</style>
 
         {/* ── Warning badge if no real data ──────────────────────────────── */}
@@ -626,6 +775,7 @@ ${hasRealData && dbWinRate > 0 ? `
                 current={dbWinRate}
                 breakeven={calcs.minWinRate}
                 hasData={hasRealData && dbWinRate > 0}
+                scanned={scanned}
               />
             </BracketFrame>
 
@@ -698,6 +848,9 @@ ${hasRealData && dbWinRate > 0 ? `
                 minWinColor={dbWinRate > 0 ? (dbWinRate > calcs.minWinRate ? C.green : C.red) : C.violet}
                 riskPerOp={riskPerOp}
                 riskPortfolio={riskPortfolio}
+                ecgColor={diagColor}
+                ecgAgitated={ecgAgitated}
+                ecgSpeed={ecgSpeed}
               />
 
               <div style={{ padding: '4px 2px' }}>
