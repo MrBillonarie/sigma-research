@@ -1,9 +1,8 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
-import HeroAnimation from '@/app/components/HeroAnimation'
 
 // useSearchParams() requires a Suspense boundary in Next.js 14 App Router
 function LoginForm() {
@@ -225,9 +224,128 @@ function LoginForm() {
   )
 }
 
-// ─── Panel derecho: el motor te recibe (solo desktop) ────────────────────────
+// ─── Constelación de mercados en 3D ──────────────────────────────────────────
+// Los 16 activos del motor como nodos sobre una esfera (fibonacci) rotando
+// lentamente, con conexiones entre vecinos y pulsos dorados viajando por las
+// aristas — el motor conectando mercados, literal.
+const CONSTELLATION_ASSETS = ['BTC', 'ETH', 'SOL', 'BNB', 'LTC', 'XAU', 'XAG', 'WTI', 'NG', 'HG', 'PL', 'AAPL', 'NVDA', 'TSLA', 'JPM', 'XOM']
+
+function MarketConstellation() {
+  const ref = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const N = CONSTELLATION_ASSETS.length
+    const nodes = CONSTELLATION_ASSETS.map((sym, i) => {
+      const y   = 1 - (i / (N - 1)) * 2
+      const r   = Math.sqrt(1 - y * y)
+      const phi = i * 2.399963 // ángulo áureo
+      return { sym, x: Math.cos(phi) * r, y, z: Math.sin(phi) * r }
+    })
+    const edges: [number, number][] = []
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y, dz = nodes[i].z - nodes[j].z
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 0.95) edges.push([i, j])
+    }
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let angle = 0.6
+    let rafId = 0
+    let pulse: { edge: [number, number]; t: number } | null = null
+    let lastPulse = 0
+
+    function resize() {
+      if (!canvas || !ctx) return
+      const dpr = window.devicePixelRatio || 1
+      canvas.width  = canvas.clientWidth * dpr
+      canvas.height = canvas.clientHeight * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    function frame(ts: number) {
+      if (!canvas || !ctx) return
+      const w = canvas.clientWidth, h = canvas.clientHeight
+      ctx.clearRect(0, 0, w, h)
+      const R  = Math.min(w, h) * 0.34
+      const cx = w * 0.52, cy = h * 0.42
+      const cos = Math.cos(angle), sin = Math.sin(angle)
+      const proj = nodes.map(n => {
+        const x = n.x * cos + n.z * sin
+        const z = -n.x * sin + n.z * cos
+        const s = 1.6 / (1.6 + z)
+        return { sx: cx + x * R * s, sy: cy + n.y * R * s * 0.92, z, s, sym: n.sym }
+      })
+
+      // Aristas — más brillantes cuanto más al frente
+      for (const [a, b] of edges) {
+        const A = proj[a], B = proj[b]
+        const alpha = Math.max(0.02, 0.24 - (A.z + B.z) * 0.09)
+        ctx.strokeStyle = `rgba(212,175,55,${alpha.toFixed(3)})`
+        ctx.lineWidth = 0.7
+        ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.stroke()
+      }
+
+      // Pulso dorado viajando por una arista (una señal cruzando el motor)
+      if (!reduced) {
+        if (!pulse && ts - lastPulse > 1500) {
+          pulse = { edge: edges[Math.floor(Math.random() * edges.length)], t: 0 }
+          lastPulse = ts
+        }
+        if (pulse) {
+          const [a, b] = pulse.edge
+          const A = proj[a], B = proj[b]
+          const px = A.sx + (B.sx - A.sx) * pulse.t
+          const py = A.sy + (B.sy - A.sy) * pulse.t
+          ctx.fillStyle = 'rgba(212,175,55,0.95)'
+          ctx.shadowColor = 'rgba(212,175,55,0.9)'
+          ctx.shadowBlur = 9
+          ctx.beginPath(); ctx.arc(px, py, 2.2, 0, Math.PI * 2); ctx.fill()
+          ctx.shadowBlur = 0
+          pulse.t += 0.018
+          if (pulse.t >= 1) pulse = null
+        }
+      }
+
+      // Nodos + etiquetas frontales
+      for (const p of proj) {
+        const alpha = Math.min(0.35 + Math.max(0, -p.z) * 0.6, 0.95)
+        ctx.fillStyle = `rgba(212,175,55,${alpha.toFixed(2)})`
+        ctx.beginPath(); ctx.arc(p.sx, p.sy, 1.5 + p.s * 1.4, 0, Math.PI * 2); ctx.fill()
+        if (p.z < 0.1) {
+          ctx.fillStyle = `rgba(232,233,240,${(0.22 + Math.max(0, -p.z) * 0.5).toFixed(2)})`
+          ctx.font = '9px monospace'
+          ctx.fillText(p.sym, p.sx + 6, p.sy + 3)
+        }
+      }
+
+      if (!reduced) angle += 0.0016
+      rafId = requestAnimationFrame(frame)
+    }
+    rafId = requestAnimationFrame(frame)
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return <canvas ref={ref} className="w-full h-full" aria-hidden />
+}
+
+// ─── Panel derecho: escena 3D del motor (solo desktop) ───────────────────────
 function LivePanel() {
   const [live, setLive] = useState<{ regime: string; signals: number } | null>(null)
+  const panelRef   = useRef<HTMLDivElement>(null)
+  const constRef   = useRef<HTMLDivElement>(null)
+  const floorRef   = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const rafRef     = useRef<number | null>(null)
 
   useEffect(() => {
     fetch('/api/vps/signals', { cache: 'no-store' })
@@ -243,16 +361,70 @@ function LivePanel() {
       .catch(() => {})
   }, [])
 
+  // Parallax por capas: cada plano se desplaza a su propia profundidad
+  function onMove(e: React.MouseEvent) {
+    const el = panelRef.current
+    if (!el || rafRef.current) return
+    const r  = el.getBoundingClientRect()
+    const nx = (e.clientX - r.left) / r.width - 0.5
+    const ny = (e.clientY - r.top) / r.height - 0.5
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      if (constRef.current)   constRef.current.style.transform   = `translate3d(${(nx * 16).toFixed(1)}px, ${(ny * 12).toFixed(1)}px, 0)`
+      if (floorRef.current)   floorRef.current.style.transform   = `translate3d(${(nx * 7).toFixed(1)}px, ${(ny * 5).toFixed(1)}px, 0)`
+      if (contentRef.current) contentRef.current.style.transform = `translate3d(${(-nx * 9).toFixed(1)}px, ${(-ny * 7).toFixed(1)}px, 0)`
+    })
+  }
+  function onLeave() {
+    for (const ref of [constRef, floorRef, contentRef]) {
+      if (ref.current) ref.current.style.transform = 'translate3d(0,0,0)'
+    }
+  }
+
   const regimeColor = live?.regime === 'BULL' ? 'text-emerald-400' : live?.regime === 'BEAR' ? 'text-red-400' : 'text-amber-400'
+  const layerStyle: React.CSSProperties = { transition: 'transform 0.18s ease-out', willChange: 'transform' }
 
   return (
-    <div className="hidden lg:flex relative w-[46%] overflow-hidden border-l border-border items-center">
-      {/* Equity curve animada + tickers en vivo (mismo componente del hero) */}
-      <HeroAnimation />
-      {/* Velo para que el texto respire sobre la animación */}
-      <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/40 to-transparent pointer-events-none" />
+    <div
+      ref={panelRef}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      className="hidden lg:flex relative w-[46%] overflow-hidden border-l border-border items-center"
+    >
+      <style>{`
+        @keyframes tronMove { from { background-position: 0 0; } to { background-position: 0 44px; } }
+        @media (prefers-reduced-motion: reduce) { .tron-floor { animation: none !important; } }
+      `}</style>
 
-      <div className="relative z-10 max-w-sm pl-14 pr-8">
+      {/* Capa 1 — constelación de mercados en 3D */}
+      <div ref={constRef} className="absolute inset-0" style={layerStyle}>
+        <MarketConstellation />
+      </div>
+
+      {/* Capa 2 — suelo Tron en perspectiva */}
+      <div ref={floorRef} className="absolute inset-x-0 bottom-0 h-[42%] pointer-events-none" style={{ ...layerStyle, perspective: '420px' }}>
+        <div
+          className="tron-floor absolute top-0"
+          style={{
+            left: '-40%', right: '-40%', bottom: '-70%',
+            transform: 'rotateX(62deg)',
+            transformOrigin: 'top center',
+            backgroundImage: 'linear-gradient(rgba(212,175,55,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.15) 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
+            animation: 'tronMove 4.5s linear infinite',
+            maskImage: 'linear-gradient(to bottom, transparent, black 24%, black 78%, transparent)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 24%, black 78%, transparent)',
+          }}
+        />
+        {/* Resplandor del horizonte */}
+        <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(to bottom, rgba(212,175,55,0.09), transparent)' }} />
+      </div>
+
+      {/* Velo para que el texto respire sobre la escena */}
+      <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/35 to-transparent pointer-events-none" />
+
+      {/* Capa 3 — contenido (se mueve en contra: profundidad) */}
+      <div ref={contentRef} className="relative z-10 max-w-sm pl-14 pr-8" style={layerStyle}>
         <div className="flex items-center gap-2.5 mb-7">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
           <span className="terminal-text text-[10px] text-emerald-400 tracking-[0.28em]">SIGMA ENGINE · OPERANDO</span>
