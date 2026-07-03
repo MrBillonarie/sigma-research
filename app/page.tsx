@@ -40,6 +40,7 @@ interface Champion {
 interface RawModel {
   sym: string; tf: string; strategy: string; grade: string; type?: string
   wr: number; cagr: number; dd: number; is_champion?: boolean
+  robustness_action?: string
 }
 interface HistoryTrade {
   sym: string; direction: string; status: string; equity_after?: number
@@ -112,7 +113,10 @@ async function getPageData() {
       // resultados de backtest estadísticamente inválidos) que no deben
       // mostrarse en público como si fueran resultados de producción.
       champions: ((pub?.top_models ?? []) as RawModel[])
-        .filter(m => m.is_champion)
+        // is_champion no basta: el feed marca como champion modelos que el
+        // gate de robustez BLOQUEÓ (ej. XAU donchian con CAGR 5221% inválido).
+        // Solo mostrar los que el motor dejó pasar a producción.
+        .filter(m => m.is_champion && m.robustness_action !== 'BLOCKED')
         .slice(0, 6)
         .map(m => ({ sym: m.sym, tf: m.tf, strategy: m.strategy, grade: m.grade, wr: m.wr, cagr: m.cagr, dd: m.dd, direction: m.type })),
       history:       ((pub?.history   ?? []) as HistoryTrade[]).filter(t => t.equity_after != null),
