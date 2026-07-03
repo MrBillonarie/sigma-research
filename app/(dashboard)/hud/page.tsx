@@ -7,10 +7,20 @@ import { dedupePositions, computeNotional } from '@/app/lib/dedupePositions'
 import { MOTOR_GROUPS } from '@/app/lib/motorGroups'
 import type { TradesResponse, SignalsResponse, MatrixCellData } from '@/app/types/hud'
 
-const HIDE_LEGACY_IDS = [
-  'kpi-strip', 'open-positions-section',
-  'matrix-section', 'matrix-section-m2', 'matrix-section-m3',
-]
+// Estas dos se reemplazan por completo (KpiStrip/PositionsTable nativos
+// cubren el 100% de lo que mostraban) — se ocultan enteras.
+const HIDE_LEGACY_IDS = ['kpi-strip', 'open-positions-section']
+
+// Las matrices, en cambio, comparten la MISMA tabla con la fila "Ponderado"
+// y la línea "Portafolio operable" (CAGR/WR/DD/PF/Calmar/EV agregados) — no
+// son un contenedor aparte. MotorMatrix.tsx solo reemplaza la grilla por
+// slot; el resumen ponderado sigue viniendo del scrape porque esa lógica de
+// agregación no se reimplementa acá (ver Fase 2a: riesgo de tocar selección
+// de campeón/portfolio). Por eso acá se ocultan sólo las filas de activo
+// (las que tienen <td class="asset-col">), dejando visibles "Ponderado",
+// "Portafolio operable" y el contexto macro que vienen después en la misma
+// tabla.
+const MATRIX_SECTION_IDS = ['matrix-section', 'matrix-section-m2', 'matrix-section-m3']
 
 export default function HUDPage() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -118,6 +128,16 @@ export default function HUDPage() {
       for (const id of HIDE_LEGACY_IDS) {
         const el = container.querySelector(`#${id}`) as HTMLElement | null
         if (el && el.style.display !== 'none') el.style.display = 'none'
+      }
+      for (const id of MATRIX_SECTION_IDS) {
+        const section = container.querySelector(`#${id}`) as HTMLElement | null
+        if (!section) continue
+        section.querySelectorAll('tr').forEach(tr => {
+          const row = tr as HTMLElement
+          if (row.querySelector('.asset-col') && row.style.display !== 'none') {
+            row.style.display = 'none'
+          }
+        })
       }
     }
 
