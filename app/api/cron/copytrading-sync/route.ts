@@ -6,7 +6,7 @@ import { toBinanceSymbol, directionToSide, computeSizeUsd } from '@/lib/copytrad
 import { placeFuturesMarketOrder, getSymbolInfo, roundToStepSize } from '@/lib/binanceFutures'
 
 const VPS  = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
-const PASS = '0808'
+const PASS = process.env.VPS_MOTOR_PASS ?? ''
 
 function makeSb() {
   return createClient(

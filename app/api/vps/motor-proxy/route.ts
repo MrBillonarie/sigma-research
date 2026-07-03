@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
-const PASS = process.env.VPS_MOTOR_PASS ?? '0808'
+const PASS = process.env.VPS_MOTOR_PASS
 
 function makeClient() {
   const cookieStore = cookies()
@@ -39,6 +39,15 @@ export async function GET() {
         <h2>SIGMA ENGINE — requiere sesión</h2>
       </body></html>`,
       { status: 401, headers: { 'Content-Type': 'text/html' } }
+    )
+  }
+
+  if (!PASS) {
+    console.error('VPS_MOTOR_PASS no está configurada — abortando login al motor.')
+    return new NextResponse(
+      `<html><body style="background:#020510;color:#c9a227;font-family:monospace;padding:40px">
+        <h2>SIGMA ENGINE — configuración incompleta</h2></body></html>`,
+      { status: 503, headers: { 'Content-Type': 'text/html' } }
     )
   }
 

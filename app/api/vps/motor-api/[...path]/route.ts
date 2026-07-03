@@ -47,7 +47,6 @@ async function proxy(req: NextRequest, path: string) {
     headers: {
       'Content-Type': ct,
       'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': '*',
     },
   })
 }
