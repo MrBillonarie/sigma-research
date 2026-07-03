@@ -1,29 +1,32 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-// Equity curve — deterministic points (no hydration mismatch)
+// ─── Terreno de rendimiento 3D ────────────────────────────────────────────────
+// La cresta frontal del terreno ES la equity curve original (misma silueta de
+// marca), extruida en profundidad como una cordillera wireframe dorada que
+// ondea lentamente. Canvas 2D con proyección en perspectiva, oclusión sólida
+// (pintado back-to-front) y niebla de profundidad.
+//
+// Robustez de primer impacto:
+//  - entrada coreografiada: el relieve se levanta desde un plano liso (2s)
+//  - un solo requestAnimationFrame; pausa si el hero sale del viewport o la
+//    pestaña se oculta (IntersectionObserver + document.hidden)
+//  - prefers-reduced-motion → un frame estático, sin loop ni cometa
+//  - determinista (sin Math.random en render) — sin saltos entre cargas
+
+// Silueta de la equity curve original — y en px del viewBox 800×380 de antes
 const POINTS = [
-  [0,300],[40,280],[80,295],[120,260],[160,240],[200,255],[240,220],
-  [280,200],[320,215],[360,185],[400,170],[440,155],[480,168],[520,140],
-  [560,120],[600,130],[640,105],[680,90],[720,100],[760,78],[800,60],
+  [0, 300], [40, 280], [80, 295], [120, 260], [160, 240], [200, 255], [240, 220],
+  [280, 200], [320, 215], [360, 185], [400, 170], [440, 155], [480, 168], [520, 140],
+  [560, 120], [600, 130], [640, 105], [680, 90], [720, 100], [760, 78], [800, 60],
 ]
 
-function pointsToPath(pts: number[][]): string {
-  if (!pts.length) return ''
-  const [sx, sy] = pts[0]
-  let d = `M ${sx} ${sy}`
-  for (let i = 1; i < pts.length; i++) {
-    const [cx, cy] = pts[i - 1]
-    const [nx, ny] = pts[i]
-    const mx = (cx + nx) / 2
-    d += ` C ${mx} ${cy} ${mx} ${ny} ${nx} ${ny}`
-  }
-  return d
-}
+const GOLD = '212,175,55'
+const BG   = '4,5,10'
 
-const PATH_D    = pointsToPath(POINTS)
-const LAST_PT   = POINTS[POINTS.length - 1]
-const FILL_PATH = PATH_D + ` L ${LAST_PT[0]} 380 L 0 380 Z`
+const COLS  = 46   // resolución horizontal de la malla
+const ROWS  = 24   // filas de profundidad
+const FOCAL = 2.1  // fuerza de la perspectiva
 
 const SYMBOLS   = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
 const SYM_LABEL: Record<string, string> = { BTCUSDT: 'BTC', ETHUSDT: 'ETH', SOLUSDT: 'SOL', BNBUSDT: 'BNB' }
@@ -37,18 +40,15 @@ const FALLBACK  = [
 interface Ticker { sym: string; price: string; change: string; up: boolean }
 
 export default function HeroAnimation() {
-  const [drawn,    setDrawn]    = useState(false)
-  const [visible,  setVisible]  = useState(false)
-  const [scanning, setScanning] = useState(false)
-  const [tick,     setTick]     = useState(0)
-  const [tickers,  setTickers]  = useState<Ticker[]>(FALLBACK)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [drawn,   setDrawn]   = useState(false)
+  const [tick,    setTick]    = useState(0)
+  const [tickers, setTickers] = useState<Ticker[]>(FALLBACK)
 
+  // Fade del ticker strip cuando el terreno ya se levantó
   useEffect(() => {
-    const t1 = setTimeout(() => setVisible(true),  100)
-    const t2 = setTimeout(() => setDrawn(true),    200)
-    // Scanner starts after the draw animation completes (2.4s draw + 400ms buffer)
-    const t3 = setTimeout(() => setScanning(true), 2800)
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    const t = setTimeout(() => setDrawn(true), 1200)
+    return () => clearTimeout(t)
   }, [])
 
   // Live prices from Binance public API
@@ -81,139 +81,241 @@ export default function HeroAnimation() {
     return () => clearInterval(id)
   }, [tickers.length])
 
-  // Shared draw animation — all 3 plasma layers use this
-  const drawStyle = {
-    strokeDasharray:  1400,
-    strokeDashoffset: drawn ? 0 : 1400,
-    transition:       'stroke-dashoffset 2.4s cubic-bezier(0.4,0,0.2,1)',
-  }
+  // ── Render del terreno ────────────────────────────────────────────────────
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const cv = canvas, cx2d = ctx
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    // Perfil de elevación de la marca (0..1), muestreado a COLS columnas
+    const profile: number[] = []
+    for (let c = 0; c <= COLS; c++) {
+      const px = (c / COLS) * 800
+      let j = 0
+      while (j < POINTS.length - 2 && POINTS[j + 1][0] < px) j++
+      const [x0, y0] = POINTS[j]
+      const [x1, y1] = POINTS[j + 1]
+      const tt = Math.min(Math.max((px - x0) / ((x1 - x0) || 1), 0), 1)
+      profile.push((300 - (y0 + (y1 - y0) * tt)) / 240)
+    }
+
+    // Ruido de valor determinista — el relieve profundo de la cordillera
+    const rand = (i: number, j: number) => {
+      const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453
+      return s - Math.floor(s)
+    }
+    const smooth = (v: number) => v * v * (3 - 2 * v)
+    const noise2 = (x: number, y: number) => {
+      const xi = Math.floor(x), yi = Math.floor(y)
+      const xf = smooth(x - xi), yf = smooth(y - yi)
+      const a = rand(xi, yi),     b = rand(xi + 1, yi)
+      const c = rand(xi, yi + 1), d = rand(xi + 1, yi + 1)
+      return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf
+    }
+
+    // Altura del terreno: marca al frente, cordillera al fondo, ondeo lento
+    function heightAt(c: number, z: number, t: number): number {
+      const brand = profile[c] * Math.max(0, 1 - z * 0.62) * 0.78
+      const ridge = noise2(c * 0.34 + 2.7, z * 5.6 + 1.3) * (0.20 + z * 0.55)
+      const wave  = Math.sin(c * 0.31 + z * 6.5 + t * 0.35) * 0.03 * (0.25 + z)
+      return brand + ridge * 0.6 + wave
+    }
+
+    let raf = 0
+    let inView = true
+    const start = performance.now()
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 }
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1
+      cv.width  = cv.clientWidth * dpr
+      cv.height = cv.clientHeight * dpr
+      cx2d.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    const onMouse = (e: MouseEvent) => {
+      mouse.tx = e.clientX / window.innerWidth - 0.5
+      mouse.ty = e.clientY / window.innerHeight - 0.5
+    }
+    if (!reduced) window.addEventListener('mousemove', onMouse)
+
+    // Pausa cuando el hero sale de pantalla — el primer impacto no debe
+    // seguir cobrando CPU tres secciones más abajo
+    const io = new IntersectionObserver(([e]) => {
+      const was = inView
+      inView = e.isIntersecting
+      if (inView && !was && !reduced) raf = requestAnimationFrame(frame)
+    }, { threshold: 0.05 })
+    io.observe(cv)
+
+    function drawScene(t: number) {
+      const W = cv.clientWidth, H = cv.clientHeight
+      if (W === 0 || H === 0) return
+      cx2d.clearRect(0, 0, W, H)
+
+      // Entrada: el relieve se levanta desde un plano liso
+      const reveal = reduced ? 1 : Math.min(1, Math.max(0, (t - 0.2) / 2.0))
+      const rev    = 1 - Math.pow(1 - reveal, 3)
+
+      // Parallax suavizado
+      mouse.x += (mouse.tx - mouse.x) * 0.055
+      mouse.y += (mouse.ty - mouse.y) * 0.055
+
+      const horizonY = H * 0.30
+      const baseY    = H * 0.88
+      const centerX  = W * 0.56
+      const AMP      = H * 0.36 * rev
+
+      // Resplandor del horizonte
+      const hg = cx2d.createLinearGradient(0, horizonY - 24, 0, horizonY + 90)
+      hg.addColorStop(0,   `rgba(${GOLD},0)`)
+      hg.addColorStop(0.4, `rgba(${GOLD},${(0.05 * rev).toFixed(3)})`)
+      hg.addColorStop(1,   `rgba(${GOLD},0)`)
+      cx2d.fillStyle = hg
+      cx2d.fillRect(0, horizonY - 24, W, 114)
+
+      let frontPts: Array<[number, number]> = []
+
+      // Filas de atrás hacia adelante (oclusión sólida)
+      for (let r = ROWS - 1; r >= 0; r--) {
+        const z = r / (ROWS - 1)                    // 0 = frente · 1 = horizonte
+        const s = 1 / (1 + z * FOCAL)
+        const rowY   = horizonY + (baseY - horizonY) * Math.pow(s, 1.18) + mouse.y * 13 * z
+        const halfW  = W * 0.56 * (0.34 + 0.66 * s)
+        const xShift = mouse.x * 30 * z
+
+        const pts: Array<[number, number]> = []
+        for (let c = 0; c <= COLS; c++) {
+          const xN = c / COLS - 0.5
+          const sx = centerX + xN * 2 * halfW + xShift
+          const sy = rowY - heightAt(c, z, t) * AMP * s
+          pts.push([sx, sy])
+        }
+        if (r === 0) frontPts = pts
+
+        // Banda de oclusión: la montaña tapa lo que tiene detrás
+        cx2d.beginPath()
+        cx2d.moveTo(pts[0][0], pts[0][1])
+        for (let c = 1; c <= COLS; c++) cx2d.lineTo(pts[c][0], pts[c][1])
+        cx2d.lineTo(pts[COLS][0], H + 4)
+        cx2d.lineTo(pts[0][0], H + 4)
+        cx2d.closePath()
+        cx2d.fillStyle = `rgba(${BG},0.92)`
+        cx2d.fill()
+
+        // Línea de la fila — niebla de profundidad
+        const alpha = (0.07 + (1 - z) * 0.34) * rev
+        cx2d.strokeStyle = `rgba(${GOLD},${alpha.toFixed(3)})`
+        cx2d.lineWidth   = 0.6 + (1 - z) * 0.8
+        cx2d.beginPath()
+        cx2d.moveTo(pts[0][0], pts[0][1])
+        for (let c = 1; c <= COLS; c++) cx2d.lineTo(pts[c][0], pts[c][1])
+        cx2d.stroke()
+      }
+
+      // ── Cresta frontal: la firma de marca con tratamiento plasma ──
+      if (frontPts.length) {
+        const crest = () => {
+          cx2d.beginPath()
+          cx2d.moveTo(frontPts[0][0], frontPts[0][1])
+          for (let c = 1; c <= COLS; c++) cx2d.lineTo(frontPts[c][0], frontPts[c][1])
+        }
+        // Aura ancha
+        cx2d.save()
+        cx2d.shadowColor = `rgba(${GOLD},0.85)`
+        cx2d.shadowBlur  = 16
+        cx2d.strokeStyle = `rgba(${GOLD},${(0.85 * rev).toFixed(3)})`
+        cx2d.lineWidth   = 2
+        crest(); cx2d.stroke()
+        cx2d.restore()
+        // Núcleo caliente
+        cx2d.strokeStyle = `rgba(255,252,215,${(0.8 * rev).toFixed(3)})`
+        cx2d.lineWidth   = 0.8
+        crest(); cx2d.stroke()
+
+        const [ex, ey] = frontPts[COLS]
+
+        // Cometa recorriendo la cresta (arranca tras la entrada, vuelta de 10s)
+        if (!reduced && t > 2.8) {
+          const u = ((t - 2.8) % 10) / 10
+          const cometAt = (uu: number): [number, number] => {
+            const f = Math.min(Math.max(uu, 0), 1) * COLS
+            const i0 = Math.floor(f), i1 = Math.min(i0 + 1, COLS)
+            const ft = f - i0
+            return [
+              frontPts[i0][0] + (frontPts[i1][0] - frontPts[i0][0]) * ft,
+              frontPts[i0][1] + (frontPts[i1][1] - frontPts[i0][1]) * ft,
+            ]
+          }
+          // Cola
+          for (let k = 1; k <= 3; k++) {
+            const [tx2, ty2] = cometAt(u - k * 0.022)
+            cx2d.fillStyle = `rgba(${GOLD},${(0.38 / k).toFixed(3)})`
+            cx2d.beginPath(); cx2d.arc(tx2, ty2, 3.4 - k * 0.7, 0, Math.PI * 2); cx2d.fill()
+          }
+          // Cabeza
+          const [hx, hy] = cometAt(u)
+          cx2d.save()
+          cx2d.shadowColor = `rgba(${GOLD},0.95)`
+          cx2d.shadowBlur  = 14
+          cx2d.fillStyle   = 'rgba(255,255,255,0.95)'
+          cx2d.beginPath(); cx2d.arc(hx, hy, 3.6, 0, Math.PI * 2); cx2d.fill()
+          cx2d.restore()
+
+          // Anillo expandiéndose cuando el cometa llega al pico
+          if (u > 0.965 || u < 0.08) {
+            const ph = u > 0.9 ? (u - 0.965) / 0.115 : (u + 0.035) / 0.115
+            cx2d.strokeStyle = `rgba(${GOLD},${(0.5 * (1 - ph)).toFixed(3)})`
+            cx2d.lineWidth = 1.4
+            cx2d.beginPath(); cx2d.arc(ex, ey, 5 + ph * 14, 0, Math.PI * 2); cx2d.stroke()
+          }
+        }
+
+        // Punto final vivo — el rendimiento de hoy
+        cx2d.save()
+        cx2d.shadowColor = `rgba(${GOLD},0.9)`
+        cx2d.shadowBlur  = 12
+        cx2d.fillStyle   = `rgba(${GOLD},${(0.95 * rev).toFixed(3)})`
+        cx2d.beginPath(); cx2d.arc(ex, ey, 4.4, 0, Math.PI * 2); cx2d.fill()
+        cx2d.restore()
+      }
+    }
+
+    function frame(now: number) {
+      if (!inView) return
+      if (!document.hidden) drawScene((now - start) / 1000)
+      raf = requestAnimationFrame(frame)
+    }
+
+    if (reduced) {
+      // Un frame estático — todo el relieve, sin loop
+      drawScene(1000)
+    } else {
+      raf = requestAnimationFrame(frame)
+    }
+
+    return () => {
+      cancelAnimationFrame(raf)
+      io.disconnect()
+      window.removeEventListener('resize', resize)
+      window.removeEventListener('mousemove', onMouse)
+    }
+  }, [])
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
 
-      {/* ── Chart ─────────────────────────────────────────────────────────── */}
-      <div
-        className="absolute right-0 top-0 h-full transition-opacity duration-1000 hero-chart"
-        style={{ opacity: visible ? 1 : 0, width: '55%' }}
-      >
-        <svg viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet" className="w-full h-full" fill="none">
-          <defs>
-            {/* Area fill gradient */}
-            <linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor="#d4af37" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#d4af37" stopOpacity="0"    />
-            </linearGradient>
-
-            {/* Line gradient — fades in from left */}
-            <linearGradient id="eqLine" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%"   stopColor="#d4af37" stopOpacity="0"   />
-              <stop offset="35%"  stopColor="#d4af37" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#d4af37" stopOpacity="1"   />
-            </linearGradient>
-
-            {/* ── A: Plasma filters ───────────────────────────────────────── */}
-
-            {/* Outer aura — wide, soft blur */}
-            <filter id="aura" x="-15%" y="-600%" width="130%" height="1300%">
-              <feGaussianBlur stdDeviation="9" />
-            </filter>
-
-            {/* Body glow — medium blur */}
-            <filter id="glow" x="-20%" y="-300%" width="140%" height="700%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-
-            {/* ── E: Scanner dot halo ─────────────────────────────────────── */}
-            {/* Wide golden halo around the scanner head */}
-            <filter id="scanHalo" x="-800%" y="-800%" width="1700%" height="1700%">
-              <feGaussianBlur stdDeviation="8" result="blur" />
-              <feColorMatrix
-                type="matrix"
-                values="1 0 0 0 0.95  0 0.9 0 0 0.75  0 0 0 0 0.2  0 0 0 1 0"
-                in="blur" result="colored"
-              />
-              <feMerge>
-                <feMergeNode in="colored" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          {/* Area fill */}
-          <path d={FILL_PATH} fill="url(#eqFill)" />
-
-          {/* ══ A: PLASMA LINE — 3 layers ════════════════════════════════════ */}
-
-          {/* Layer 1 — wide aura (blurred, dim, gold) */}
-          <path
-            d={PATH_D} fill="none"
-            stroke="#d4af37" strokeWidth="14" strokeOpacity="0.28"
-            strokeLinejoin="round" filter="url(#aura)"
-            style={drawStyle}
-          />
-
-          {/* Layer 2 — body (gradient L→R, medium glow) */}
-          <path
-            d={PATH_D} fill="none"
-            stroke="url(#eqLine)" strokeWidth="2.2"
-            strokeLinejoin="round" filter="url(#glow)"
-            style={drawStyle}
-          />
-
-          {/* Layer 3 — hot core (near-white, razor thin, no filter for crispness) */}
-          <path
-            d={PATH_D} fill="none"
-            stroke="rgba(255,252,215,0.80)" strokeWidth="0.75"
-            strokeLinejoin="round"
-            style={drawStyle}
-          />
-
-          {/* ══ E: SCANNER DOT — comet traveling the curve ═══════════════════ */}
-          {scanning && (
-            <>
-              {/* Comet tail — 3 fading circles lagging behind the head.
-                  Offsets escalados ×2 junto con dur, para mantener la misma
-                  distancia visual de la cola ahora que la vuelta es más lenta. */}
-              {([
-                { begin: '0.36s', r: 3.5, opacity: 0.40, color: '#f2c94c' },
-                { begin: '0.70s', r: 2.5, opacity: 0.20, color: '#d4af37' },
-                { begin: '1.16s', r: 1.8, opacity: 0.09, color: '#d4af37' },
-              ] as Array<{ begin: string; r: number; opacity: number; color: string }>).map((dot, i) => (
-                <circle key={i} r={dot.r} fill={dot.color} fillOpacity={dot.opacity}>
-                  <animateMotion
-                    dur="10s"
-                    begin={dot.begin}
-                    repeatCount="indefinite"
-                    path={PATH_D}
-                  />
-                </circle>
-              ))}
-
-              {/* Scanner head — bright white with golden halo */}
-              <circle r="4" fill="white" fillOpacity="0.95" filter="url(#scanHalo)">
-                <animateMotion
-                  dur="10s"
-                  begin="0s"
-                  repeatCount="indefinite"
-                  path={PATH_D}
-                />
-              </circle>
-            </>
-          )}
-
-          {/* Live endpoint dot — el flash se sincroniza con la llegada real del
-              cometa (vuelta de 10s — la mitad de frecuencia que antes), en vez
-              de pulsar en su propio ciclo desconectado. */}
-          {drawn && (
-            <>
-              <circle cx={LAST_PT[0]} cy={LAST_PT[1]} r="5"  fill="#d4af37" filter="url(#glow)" />
-              <circle cx={LAST_PT[0]} cy={LAST_PT[1]} r="5"  fill="#d4af37" opacity="0.6"
-                style={{ animation: 'ping 10s cubic-bezier(0,0,0.2,1) 10s infinite' }}
-              />
-            </>
-          )}
-        </svg>
+      {/* ── Terreno 3D ─────────────────────────────────────────────────────── */}
+      <div className="absolute right-0 top-0 h-full hero-chart" style={{ width: '58%' }}>
+        <canvas ref={canvasRef} className="w-full h-full" />
+        {/* Fundido hacia el lado del headline para que el texto respire */}
+        <div className="absolute inset-y-0 left-0 w-40" style={{ background: 'linear-gradient(90deg, #04050a, transparent)' }} />
       </div>
 
       {/* ── Live ticker strip ─────────────────────────────────────────────── */}
@@ -237,15 +339,10 @@ export default function HeroAnimation() {
       </div>
 
       <style>{`
-        @keyframes ping {
-          0%   { transform: scale(1);   opacity: 0.6; }
-          15%  { transform: scale(2.5); opacity: 0;   }
-          100% { transform: scale(2.5); opacity: 0;   }
-        }
-        /* En mobile el headline ocupa todo el ancho — el chart se atenúa para
-           que el texto no compita visualmente contra el cometa detrás. */
+        /* En mobile el headline ocupa todo el ancho — el terreno se atenúa para
+           que el texto no compita visualmente contra la escena detrás. */
         @media (max-width: 640px) {
-          .hero-chart { opacity: 0.28 !important; width: 78% !important; }
+          .hero-chart { opacity: 0.26 !important; width: 82% !important; }
         }
       `}</style>
     </div>
