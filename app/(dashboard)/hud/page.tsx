@@ -1,64 +1,78 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import KpiStrip from '@/app/components/hud/KpiStrip'
-import PositionsTable from '@/app/components/hud/PositionsTable'
-import MotorMatrix from '@/app/components/hud/MotorMatrix'
-import { dedupePositions, computeNotional } from '@/app/lib/dedupePositions'
-import { MOTOR_GROUPS } from '@/app/lib/motorGroups'
-import type { TradesResponse, SignalsResponse, MatrixCellData } from '@/app/types/hud'
 
-// Estas dos se reemplazan por completo (KpiStrip/PositionsTable nativos
-// cubren el 100% de lo que mostraban) — se ocultan enteras.
-const HIDE_LEGACY_IDS = ['kpi-strip', 'open-positions-section']
+// El motor tiene dos trackers paralelos (portfolio global + per-modelo) que
+// pueden emitir una fila por separado para el mismo trade abierto en la
+// tabla "POSICIONES ABIERTAS". Se eliminan los duplicados por sym+tf+dirección
+// priorizando siempre la fila marcada como REAL (posición en Binance live)
+// sobre cualquier posición paper del mismo par/timeframe.
+function dedupPositionRows(container: HTMLElement): void {
+  const SYM = /^(BTC|ETH|SOL|BNB|LTC|XAU|XAG|WTI|NG|HG|PL)$/i
+  const TF  = /^(1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w)$/i
 
-// Las matrices, en cambio, comparten la MISMA tabla con la fila "Ponderado"
-// y la línea "Portafolio operable" (CAGR/WR/DD/PF/Calmar/EV agregados) — no
-// son un contenedor aparte. MotorMatrix.tsx solo reemplaza la grilla por
-// slot; el resumen ponderado sigue viniendo del scrape porque esa lógica de
-// agregación no se reimplementa acá (ver Fase 2a: riesgo de tocar selección
-// de campeón/portfolio). Por eso acá se ocultan sólo las filas de activo
-// (las que tienen <td class="asset-col">), dejando visibles "Ponderado",
-// "Portafolio operable" y el contexto macro que vienen después en la misma
-// tabla.
-const MATRIX_SECTION_IDS = ['matrix-section', 'matrix-section-m2', 'matrix-section-m3']
+  container.querySelectorAll('table').forEach(tbl => {
+    const rows = Array.from(tbl.querySelectorAll('tr')).filter(
+      r => r.querySelectorAll('td').length >= 8
+    )
+    const seen = new Map<string, { row: Element; size: number; isReal: boolean }>()
+
+    for (const row of rows) {
+      const el = row as HTMLElement
+      const cells = Array.from(row.querySelectorAll('td'))
+        .map(td => td.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+
+      // Contrato explícito: el motor emite data-sym/data-tf/data-dir/data-mode/
+      // data-strategy en el <tr> (ver dashboard.py, tabla de posiciones abiertas).
+      // Si están presentes se usan tal cual — nada de adivinar por texto. Si faltan
+      // (fuente vieja sin desplegar el cambio, u otra tabla ajena) cae a la
+      // heurística anterior basada en regex sobre el contenido de las celdas.
+      const hasContract = !!(el.dataset.sym && el.dataset.tf && el.dataset.mode)
+
+      let sym: string, tf: string, disambig: string, isReal: boolean
+      if (hasContract) {
+        sym      = el.dataset.sym!.toUpperCase()
+        tf       = el.dataset.tf!.toUpperCase()
+        disambig = `${el.dataset.dir ?? ''}::${el.dataset.strategy ?? ''}`
+        isReal   = el.dataset.mode === 'live'
+      } else {
+        const symIdx = cells.findIndex(c => SYM.test(c))
+        const tfIdx  = cells.findIndex(c => TF.test(c.toUpperCase()))
+        if (symIdx < 0 || tfIdx < 0) continue
+        sym      = cells[symIdx].toUpperCase()
+        tf       = cells[tfIdx].toUpperCase()
+        disambig = cells[tfIdx + 1] ?? ''
+        // REAL puede aparecer como texto o como clase CSS (el motor usa text-transform:uppercase)
+        const rowText = row.textContent ?? ''
+        const rowHtml = row.innerHTML
+        isReal = /\breal\b/i.test(rowText) || /\blive\b/i.test(rowText) ||
+                 /class="[^"]*\blive\b/i.test(rowHtml) || /mode['":\s]+live/i.test(rowHtml)
+      }
+
+      const key  = `${sym}::${tf}::${disambig}`
+      const size = parseFloat((cells.find(c => /\$[\d,]+/.test(c)) ?? '').replace(/[^0-9.]/g, '')) || 0
+
+      if (seen.has(key)) {
+        const prev = seen.get(key)!
+        // REAL/LIVE > paper siempre; si ambos iguales, gana el más pequeño
+        // (posición real en Binance siempre es menor que la simulación paper)
+        const keepCurrent = (!prev.isReal && isReal) || (prev.isReal === isReal && size < prev.size)
+        if (keepCurrent) { prev.row.remove(); seen.set(key, { row, size, isReal }) }
+        else row.remove()
+      } else {
+        seen.set(key, { row, size, isReal })
+      }
+    }
+  })
+}
 
 export default function HUDPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
-  const [trades, setTrades] = useState<TradesResponse | null>(null)
-  const [signals, setSignals] = useState<SignalsResponse | null>(null)
-  const [matrixCells, setMatrixCells] = useState<MatrixCellData[]>([])
-
-  // ── Datos nativos: KPI strip + tabla de posiciones + matrices Motor 1/2/3 ──
-  // Reemplaza el scrape+dedup del HTML del motor para estas secciones — se
-  // piden como JSON tipado y se renderizan con componentes React reales.
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      try {
-        const [tRes, sRes, mRes] = await Promise.all([
-          fetch('/api/vps/trades', { cache: 'no-store' }),
-          fetch('/api/vps/signals', { cache: 'no-store' }),
-          fetch('/api/vps/matrix-data', { cache: 'no-store' }),
-        ])
-        if (cancelled) return
-        if (tRes.ok) setTrades(await tRes.json())
-        if (sRes.ok) setSignals(await sRes.json())
-        if (mRes.ok) setMatrixCells(await mRes.json())
-      } catch (e) {
-        console.error('HUD data fetch error:', e)
-      }
-    }
-
-    load()
-    const interval = setInterval(load, 20_000)
-    return () => { cancelled = true; clearInterval(interval) }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
     let observer: MutationObserver | null = null
+    let dedupTimer: ReturnType<typeof setTimeout> | null = null
 
     async function injectMotor() {
       try {
@@ -70,12 +84,14 @@ export default function HUDPage() {
         const parser = new DOMParser()
         const doc = parser.parseFromString(html, 'text/html')
 
+        // ── 1. Inject <style> blocks ───────────────────────────────────────
         doc.querySelectorAll('style').forEach(s => {
           const el = document.createElement('style')
           el.textContent = s.textContent
           document.head.appendChild(el)
         })
 
+        // ── 2. Inject <link rel="stylesheet"> ─────────────────────────────
         doc.querySelectorAll('link[rel="stylesheet"]').forEach(l => {
           const el = document.createElement('link')
           el.rel = 'stylesheet'
@@ -83,11 +99,13 @@ export default function HUDPage() {
           document.head.appendChild(el)
         })
 
+        // ── 3. Inject body HTML ────────────────────────────────────────────
         if (containerRef.current) {
           containerRef.current.innerHTML = doc.body.innerHTML
-          hideLegacySections(containerRef.current)
+          dedupPositionRows(containerRef.current)
         }
 
+        // ── 4. Execute <script> tags in order ─────────────────────────────
         const scripts = Array.from(doc.querySelectorAll('script'))
         for (const oldScript of scripts) {
           await new Promise<void>(resolve => {
@@ -104,15 +122,24 @@ export default function HUDPage() {
           })
         }
 
-        if (containerRef.current && !cancelled) hideLegacySections(containerRef.current)
+        // Re-run after scripts execute in case they rebuilt rows
+        if (containerRef.current && !cancelled) dedupPositionRows(containerRef.current)
 
-        // MutationObserver: el motor reescribe #kpi-strip y
-        // #open-positions-section via polling/JS — hay que re-ocultarlos
-        // cada vez que el motor los actualiza, o reaparecen visualmente
-        // duplicando lo que ya se muestra nativo arriba.
+        // MutationObserver: re-aplica dedup cuando los scripts del motor
+        // actualicen la tabla vía polling/WebSocket (sin esto las filas
+        // duplicadas reaparecen en cada refresh del motor)
         if (containerRef.current && !cancelled) {
           observer = new MutationObserver(() => {
-            if (containerRef.current) hideLegacySections(containerRef.current)
+            if (dedupTimer) clearTimeout(dedupTimer)
+            dedupTimer = setTimeout(() => {
+              if (containerRef.current && !cancelled) {
+                observer?.disconnect()
+                dedupPositionRows(containerRef.current)
+                if (containerRef.current && !cancelled) {
+                  observer?.observe(containerRef.current, { childList: true, subtree: true })
+                }
+              }
+            }, 150)
           })
           observer.observe(containerRef.current, { childList: true, subtree: true })
         }
@@ -124,27 +151,11 @@ export default function HUDPage() {
       }
     }
 
-    function hideLegacySections(container: HTMLElement) {
-      for (const id of HIDE_LEGACY_IDS) {
-        const el = container.querySelector(`#${id}`) as HTMLElement | null
-        if (el && el.style.display !== 'none') el.style.display = 'none'
-      }
-      for (const id of MATRIX_SECTION_IDS) {
-        const section = container.querySelector(`#${id}`) as HTMLElement | null
-        if (!section) continue
-        section.querySelectorAll('tr').forEach(tr => {
-          const row = tr as HTMLElement
-          if (row.querySelector('.asset-col') && row.style.display !== 'none') {
-            row.style.display = 'none'
-          }
-        })
-      }
-    }
-
     injectMotor()
     return () => {
       cancelled = true
       observer?.disconnect()
+      if (dedupTimer) clearTimeout(dedupTimer)
     }
   }, [])
 
@@ -168,17 +179,6 @@ export default function HUDPage() {
     container.addEventListener('click', onClick)
     return () => container.removeEventListener('click', onClick)
   }, [])
-
-  const positions = trades ? dedupePositions(trades.open) : []
-  const equity = trades?.portfolio?.equity || 10000
-  const floatEquity = trades?.portfolio?.float_equity ?? equity
-  const floatingPct = equity > 0 ? (floatEquity - equity) / equity * 100 : 0
-  const signalModels = signals?.signals ?? []
-  const activeSignals = signalModels.filter(m => m.signal).length
-  const totalModels = signalModels.length
-  const leverage = equity > 0
-    ? positions.reduce((sum, p) => sum + computeNotional(p, equity), 0) / equity
-    : 0
 
   return (
     <>
@@ -291,34 +291,14 @@ export default function HUDPage() {
       )}
       <div
         id="sigma-hud-root"
+        ref={containerRef}
         style={{
-          minHeight: '100vh', background: '#04050a', padding: status === 'ok' ? '20px 20px 0' : 0,
+          minHeight: '100vh', background: '#04050a',
+          // Fade-in único al terminar de cargar — después nada se mueve
           opacity: status === 'ok' ? 1 : 0,
           transition: 'opacity 0.7s ease',
         }}
-      >
-        {status === 'ok' && trades && (
-          <KpiStrip
-            floatingPct={floatingPct}
-            winRate={trades.stats?.win_rate ?? 0}
-            wins={trades.stats?.wins ?? 0}
-            losses={trades.stats?.losses ?? 0}
-            activeSignals={activeSignals}
-            totalModels={totalModels}
-            regime={signals?.regime ?? '?'}
-            leverage={leverage}
-          />
-        )}
-        {status === 'ok' && trades && (
-          <div style={{ marginBottom: 20 }}>
-            <PositionsTable positions={positions} equity={equity} />
-          </div>
-        )}
-        {status === 'ok' && matrixCells.length > 0 && MOTOR_GROUPS.map(group => (
-          <MotorMatrix key={group.id} label={group.label} assets={group.assets} cells={matrixCells} />
-        ))}
-        <div ref={containerRef} />
-      </div>
+      />
     </>
   )
 }
