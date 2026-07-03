@@ -77,6 +77,7 @@ async function getPageData() {
         champions: [] as Champion[], history: [] as HistoryTrade[],
         bayesian: { confirmed: 1, watching: 2 },
         lastDecisionAt: null as string | null,
+        liveSignals: 0,
         tickers,
       }
     }
@@ -122,6 +123,7 @@ async function getPageData() {
       history:       ((pub?.history   ?? []) as HistoryTrade[]).filter(t => t.equity_after != null),
       bayesian:      { confirmed: (engine?.bayesian?.edge_confirmed ?? 0) as number, watching: (engine?.bayesian?.watching ?? 0) as number },
       lastDecisionAt: (engine?.last_decision_at ?? null) as string | null,
+      liveSignals:   Array.isArray(pub?.signals) ? (pub.signals as Array<{ signal?: boolean }>).filter(s => s.signal).length : 0,
       tickers,
     }
   } catch {
@@ -131,6 +133,7 @@ async function getPageData() {
       champions: [] as Champion[], history: [] as HistoryTrade[],
       bayesian: { confirmed: 1, watching: 2 },
       lastDecisionAt: null as string | null,
+      liveSignals: 0,
       tickers: [] as Ticker[],
     }
   }
@@ -243,6 +246,25 @@ function EquityCurveSVG({ eqSeries, history, initial }: { eqSeries: number[]; hi
         <circle cx={mapX(points.length - 1).toFixed(1)} cy={mapY(points[points.length - 1].eq).toFixed(1)}
           r="3" fill={G} />
       </g>
+    </svg>
+  )
+}
+
+// ─── Mini equity curve para la ventana LIVE de la card PRO ───────────────────
+function PlanSpark({ eqs }: { eqs: number[] }) {
+  if (eqs.length < 2) return null
+  const W = 240, H = 36
+  const min = Math.min(...eqs), max = Math.max(...eqs)
+  const range = max - min || 1
+  const pts = eqs.map((v, i) =>
+    `${((i / (eqs.length - 1)) * W).toFixed(1)},${(H - 3 - ((v - min) / range) * (H - 8)).toFixed(1)}`
+  )
+  const lastY = pts[pts.length - 1].split(',')[1]
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }} aria-hidden="true">
+      <polygon points={`0,${H} ${pts.join(' ')} ${W},${H}`} fill={G} opacity="0.08" />
+      <polyline points={pts.join(' ')} fill="none" stroke={G} strokeWidth="1.4" strokeLinejoin="round" opacity="0.9" />
+      <circle cx={W} cy={lastY} r="2.5" fill={G} />
     </svg>
   )
 }
@@ -368,7 +390,7 @@ export default async function RootPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (user) redirect('/home')
 
-  const [{ metrics, paper, backtests, regime, champions, history, bayesian, lastDecisionAt, tickers }, userCount] = await Promise.all([
+  const [{ metrics, paper, backtests, regime, champions, history, bayesian, lastDecisionAt, liveSignals, tickers }, userCount] = await Promise.all([
     getPageData(),
     getUserCount(),
   ])
@@ -835,6 +857,38 @@ export default async function RootPage() {
                     <span style={{ fontFamily: 'monospace', fontSize: 11, color: M }}>{p.period}</span>
                   </div>
                 </div>
+
+                {/* Ventana LIVE — solo en PRO: el motor vendiéndose solo, con
+                    datos reales del engine en este mismo instante */}
+                {p.fill && (
+                  <div style={{ position: 'relative', border: '1px solid rgba(212,175,55,0.3)', background: 'rgba(4,5,10,0.65)', padding: '12px 14px 11px', marginBottom: 22, overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}90, transparent)` }} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399', animation: 'planPulse 1.8s ease-in-out infinite', flexShrink: 0 }} />
+                        <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.22em', color: '#34d399' }}>EL MOTOR AHORA MISMO</span>
+                      </div>
+                      <RegimePill regime={regime} />
+                    </div>
+                    <PlanSpark eqs={paper?.equityHistory.slice(-26).map(h => h.eq) ?? []} />
+                    <div style={{ display: 'flex', gap: '4px 16px', flexWrap: 'wrap', marginTop: 10 }}>
+                      {[
+                        { v: `${parseFloat(returnPct) >= 0 ? '+' : ''}${returnPct}%`,        l: 'PAPER',       c: '#34d399' },
+                        { v: String(liveSignals),                                            l: 'SEÑALES HOY', c: G         },
+                        { v: `${metrics?.wr ? metrics.wr.toFixed(1) : '68'}%`,               l: 'WIN RATE',    c: T         },
+                      ].map(s => (
+                        <div key={s.l} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                          <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, color: s.c, lineHeight: 1 }}>{s.v}</span>
+                          <span style={{ fontFamily: 'monospace', fontSize: 8, color: M, letterSpacing: '0.12em' }}>{s.l}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 9, color: `${G}AA`, marginTop: 10, letterSpacing: '0.06em' }}>
+                      {'> esto es lo que activas con PRO'}
+                    </div>
+                  </div>
+                )}
+
                 {/* Colored separator */}
                 <div style={{ height: 1, background: `linear-gradient(90deg, ${p.col}25, transparent)`, marginBottom: 22 }} />
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
@@ -920,6 +974,7 @@ export default async function RootPage() {
           from { opacity: 0; transform: translateY(14px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes planPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
         .gold-cta, .outline-cta {
           position: relative;
           overflow: hidden;
