@@ -11,34 +11,71 @@ const GROUPS = [
     id: 'herramientas',
     label: 'Herramientas',
     links: [
-      { label: 'HUD',         href: '/hud',        desc: 'Señales en vivo' },
-      { label: 'Portafolio',  href: '/portafolio', desc: 'Dashboard de portafolio' },
-      { label: 'Journal',     href: '/journal',    desc: 'Registro de trades' },
-      { label: 'Calendario',  href: '/calendario', desc: 'Eventos macro' },
-      { label: 'Monte Carlo', href: '/montecarlo', desc: 'Simulación de trayectorias' },
-      { label: 'LP DeFi',     href: '/lp-defi',    desc: 'Calculador PancakeSwap v3' },
+      { label: 'HUD',         href: '/hud',        desc: 'Señales en vivo',            viz: 'pulse'  },
+      { label: 'Portafolio',  href: '/portafolio', desc: 'Dashboard de portafolio',    viz: 'ascend' },
+      { label: 'Journal',     href: '/journal',    desc: 'Registro de trades',         viz: 'bars'   },
+      { label: 'Calendario',  href: '/calendario', desc: 'Eventos macro',              viz: 'dots'   },
+      { label: 'Monte Carlo', href: '/montecarlo', desc: 'Simulación de trayectorias', viz: 'cone'   },
+      { label: 'LP DeFi',     href: '/lp-defi',    desc: 'Calculador PancakeSwap v3',  viz: 'range'  },
     ],
   },
   {
     id: 'recursos',
     label: 'Recursos',
     links: [
-      { label: 'Recursos',   href: '/recursos', desc: 'Todas las herramientas' },
-      { label: 'Reportes',   href: '/reportes', desc: 'Análisis cuantitativo' },
-      { label: 'FAQ',        href: '/faq',      desc: 'Preguntas frecuentes' },
+      { label: 'Recursos',   href: '/recursos', desc: 'Todas las herramientas',  viz: 'grid' },
+      { label: 'Reportes',   href: '/reportes', desc: 'Análisis cuantitativo',   viz: 'doc'  },
+      { label: 'FAQ',        href: '/faq',      desc: 'Preguntas frecuentes',    viz: 'dial' },
     ],
   },
   {
     id: 'empresa',
     label: 'Empresa',
     links: [
-      { label: 'Quiénes somos', href: '/quienes-somos', desc: 'Nuestro equipo y misión' },
-      { label: 'Roadmap',       href: '/roadmap',       desc: 'Hitos y metas del motor' },
-      { label: 'White Paper',   href: '/white-paper',   desc: 'Metodología y track record' },
-      { label: 'Contacto',      href: '/contacto',       desc: 'Habla con nosotros' },
+      { label: 'Quiénes somos', href: '/quienes-somos', desc: 'Nuestro equipo y misión',      viz: 'team'   },
+      { label: 'Roadmap',       href: '/roadmap',       desc: 'Hitos y metas del motor',      viz: 'road'   },
+      { label: 'White Paper',   href: '/white-paper',   desc: 'Metodología y track record',   viz: 'sigma'  },
+      { label: 'Contacto',      href: '/contacto',       desc: 'Habla con nosotros',           viz: 'signal' },
     ],
   },
 ] as const
+
+// ─── Micro-visuales del mega-menu ─────────────────────────────────────────────
+// Cada herramienta se muestra, no solo se nombra. Monocromo con currentColor:
+// heredan el gris tenue del item y se encienden en dorado al hover.
+function MiniViz({ type }: { type: string }) {
+  const p = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  switch (type) {
+    case 'pulse': // HUD — latido de señal
+      return <svg width="30" height="16" viewBox="0 0 30 16"><path {...p} d="M0,8 L7,8 L10,3 L14,13 L17,8 L23,8 L25,5 L30,8" opacity="0.9" /></svg>
+    case 'ascend': // Portafolio — equity ascendente
+      return <svg width="30" height="16" viewBox="0 0 30 16"><path {...p} d="M1,14 Q15,14 21,5" opacity="0.9" /><circle cx="21" cy="5" r="2" fill="currentColor" stroke="none" /></svg>
+    case 'bars': // Journal — barras de trades
+      return <svg width="30" height="16" viewBox="0 0 30 16">{[5, 9, 13, 16].map((h, i) => <rect key={i} x={i * 7 + 2} y={16 - h} width="4" height={h} fill="currentColor" opacity={0.35 + i * 0.2} rx="1" />)}</svg>
+    case 'dots': // Calendario — grilla de eventos
+      return <svg width="30" height="16" viewBox="0 0 30 16">{[0, 1, 2, 3].map(c => [0, 1].map(r => <circle key={`${c}-${r}`} cx={c * 8 + 3} cy={r * 8 + 4} r="1.8" fill="currentColor" opacity={c === 2 && r === 1 ? 1 : 0.35} />))}</svg>
+    case 'cone': // Monte Carlo — abanico de trayectorias
+      return <svg width="30" height="16" viewBox="0 0 30 16">{[2, 5, 8, 11, 14].map((y, i) => <line key={i} x1="1" y1="8" x2="29" y2={y} stroke="currentColor" strokeWidth={i === 2 ? 1.5 : 1} opacity={i === 2 ? 0.9 : 0.3} />)}</svg>
+    case 'range': // LP DeFi — banda de rango
+      return <svg width="30" height="16" viewBox="0 0 30 16"><line x1="0" y1="8" x2="30" y2="8" stroke="currentColor" strokeWidth="1" opacity="0.3" /><rect x="8" y="5" width="14" height="6" rx="1.5" fill="currentColor" opacity="0.2" stroke="currentColor" strokeOpacity="0.6" strokeWidth="1" /><line x1="16" y1="1" x2="16" y2="15" stroke="currentColor" strokeWidth="1.4" opacity="0.9" /></svg>
+    case 'grid': // Recursos — retícula
+      return <svg width="30" height="16" viewBox="0 0 30 16">{[0, 1, 2].map(c => [0, 1].map(r => <rect key={`${c}-${r}`} x={c * 9 + 3} y={r * 8 + 1.5} width="6" height="5.5" rx="1" fill="currentColor" opacity={0.3 + (c + r) * 0.15} />))}</svg>
+    case 'doc': // Reportes — documento con líneas
+      return <svg width="30" height="16" viewBox="0 0 30 16"><rect x="8" y="1" width="14" height="14" rx="1.5" {...p} opacity="0.6" /><line x1="11" y1="5.5" x2="19" y2="5.5" stroke="currentColor" strokeWidth="1.2" opacity="0.9" /><line x1="11" y1="8.5" x2="19" y2="8.5" stroke="currentColor" strokeWidth="1.2" opacity="0.5" /><line x1="11" y1="11.5" x2="16" y2="11.5" stroke="currentColor" strokeWidth="1.2" opacity="0.5" /></svg>
+    case 'dial': // FAQ — indicador
+      return <svg width="30" height="16" viewBox="0 0 30 16"><circle cx="15" cy="8" r="6.5" {...p} opacity="0.5" /><line x1="15" y1="8" x2="19" y2="4.5" {...p} opacity="0.9" /><circle cx="15" cy="8" r="1.4" fill="currentColor" stroke="none" /></svg>
+    case 'team': // Quiénes somos — nodos conectados
+      return <svg width="30" height="16" viewBox="0 0 30 16"><circle cx="9" cy="8" r="3" {...p} opacity="0.9" /><circle cx="21" cy="8" r="3" {...p} opacity="0.5" /><line x1="12" y1="8" x2="18" y2="8" stroke="currentColor" strokeWidth="1.2" opacity="0.4" /></svg>
+    case 'road': // Roadmap — hitos en línea
+      return <svg width="30" height="16" viewBox="0 0 30 16"><line x1="2" y1="8" x2="28" y2="8" stroke="currentColor" strokeWidth="1" opacity="0.3" />{[6, 15, 24].map((x, i) => <circle key={i} cx={x} cy="8" r="2.2" fill={i < 2 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.2" opacity={i < 2 ? 0.9 : 0.5} />)}</svg>
+    case 'sigma': // White paper — la firma
+      return <svg width="30" height="16" viewBox="0 0 30 16"><path {...p} d="M20,3 L11,3 L16,8 L11,13 L20,13" opacity="0.9" /></svg>
+    case 'signal': // Contacto — ondas
+      return <svg width="30" height="16" viewBox="0 0 30 16"><circle cx="10" cy="8" r="1.6" fill="currentColor" stroke="none" /><path {...p} d="M14,4 Q18,8 14,12" opacity="0.7" /><path {...p} d="M18,2 Q24,8 18,14" opacity="0.4" /></svg>
+    default:
+      return null
+  }
+}
 
 type GroupId = typeof GROUPS[number]['id']
 
@@ -138,6 +175,23 @@ export default function Navbar() {
         scrolled || menuOpen ? 'bg-bg/95 backdrop-blur-md border-b border-border' : 'bg-transparent'
       }`}
     >
+      {/* Coreografía del mega-menu: panel con fade+slide+escala, items en cascada,
+          barrido dorado al hover. Respetando prefers-reduced-motion. */}
+      <style>{`
+        @keyframes navPanelIn { from { opacity: 0; transform: translateY(7px) scale(0.985); } to { opacity: 1; transform: none; } }
+        @keyframes navItemIn  { from { opacity: 0; transform: translateX(-7px); } to { opacity: 1; transform: none; } }
+        .nav-sweep::after {
+          content: ''; position: absolute; inset: 0; pointer-events: none;
+          background: linear-gradient(100deg, transparent 32%, rgba(212,175,55,0.09) 50%, transparent 68%);
+          transform: translateX(-110%);
+        }
+        .nav-sweep:hover::after { transform: translateX(110%); transition: transform 0.5s ease; }
+        @media (prefers-reduced-motion: reduce) {
+          .nav-sweep::after { display: none; }
+          [style*="navPanelIn"], [style*="navItemIn"] { animation: none !important; opacity: 1 !important; transform: none !important; }
+        }
+      `}</style>
+
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
 
         {/* ── Logo ─────────────────────────────────────────────────────────── */}
@@ -175,10 +229,22 @@ export default function Navbar() {
                 <Chevron open={activeGroup === group.id} />
               </button>
 
-              {/* Dropdown */}
+              {/* Dropdown — mega-menu con marco terminal y entrada coreografiada */}
               {activeGroup === group.id && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 min-w-[220px]">
-                  <div className="bg-surface border border-gold/20 relative overflow-hidden">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3">
+                  <div
+                    className="relative overflow-hidden bg-surface/90 backdrop-blur-xl border border-gold/20 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.7)]"
+                    style={{
+                      width: group.id === 'herramientas' ? 460 : 290,
+                      animation: 'navPanelIn 0.18s cubic-bezier(0.16,1,0.3,1) both',
+                    }}
+                  >
+                    {/* Corner brackets — mira de terminal */}
+                    <span className="pointer-events-none absolute top-0 left-0 w-3 h-3 border-t border-l border-gold/70" />
+                    <span className="pointer-events-none absolute top-0 right-0 w-3 h-3 border-t border-r border-gold/70" />
+                    <span className="pointer-events-none absolute bottom-0 left-0 w-3 h-3 border-b border-l border-gold/70" />
+                    <span className="pointer-events-none absolute bottom-0 right-0 w-3 h-3 border-b border-r border-gold/70" />
+
                     {/* Scan line */}
                     <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
 
@@ -189,27 +255,44 @@ export default function Navbar() {
                       </span>
                     </div>
 
-                    {group.links.map(l => (
-                      <Link
-                        key={l.href}
-                        href={l.href}
-                        className={`flex flex-col px-4 py-2.5 transition-colors duration-150 group/item border-l-2 ${
-                          isActive(l.href)
-                            ? 'bg-gold/8 border-gold'
-                            : 'border-transparent hover:bg-gold/5 hover:border-gold/50'
-                        }`}
-                        onClick={() => setActiveGroup(null)}
-                      >
-                        <span className={`section-label transition-colors ${
-                          isActive(l.href) ? 'text-gold' : 'text-text-dim group-hover/item:text-gold'
-                        }`}>
-                          {l.label}
-                        </span>
-                        <span className="terminal-text text-xs text-muted mt-0.5 group-hover/item:text-text-dim transition-colors">
-                          {l.desc}
-                        </span>
-                      </Link>
-                    ))}
+                    <div className={group.id === 'herramientas' ? 'grid grid-cols-2 py-1' : 'flex flex-col py-1'}>
+                      {group.links.map((l, i) => (
+                        <Link
+                          key={l.href}
+                          href={l.href}
+                          className={`nav-sweep relative flex items-start gap-3 px-4 py-3 transition-colors duration-150 group/item border-l-2 overflow-hidden ${
+                            isActive(l.href)
+                              ? 'bg-gold/8 border-gold'
+                              : 'border-transparent hover:bg-gold/5 hover:border-gold/50'
+                          }`}
+                          style={{ animation: 'navItemIn 0.28s ease both', animationDelay: `${60 + i * 30}ms` }}
+                          onClick={() => setActiveGroup(null)}
+                        >
+                          {/* Micro-visual de la herramienta */}
+                          <span className={`mt-0.5 flex h-7 w-11 shrink-0 items-center justify-center rounded-[3px] border bg-bg/50 transition-colors duration-200 ${
+                            isActive(l.href) ? 'text-gold border-gold/40' : 'text-text-dim border-border group-hover/item:text-gold group-hover/item:border-gold/40'
+                          }`}>
+                            <MiniViz type={l.viz} />
+                          </span>
+
+                          <span className="flex min-w-0 flex-col">
+                            <span className={`section-label transition-colors ${
+                              isActive(l.href) ? 'text-gold' : 'text-text-dim group-hover/item:text-gold'
+                            }`}>
+                              {l.label}
+                            </span>
+                            <span className="terminal-text text-xs text-muted mt-0.5 group-hover/item:text-text-dim transition-colors">
+                              {l.desc}
+                            </span>
+                          </span>
+
+                          {/* Flecha que se desliza al hover */}
+                          <span className="ml-auto self-center text-gold text-xs opacity-0 -translate-x-1 transition-all duration-200 group-hover/item:opacity-100 group-hover/item:translate-x-0">
+                            →
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
 
                     {/* Bottom accent */}
                     <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/15 to-transparent" />
