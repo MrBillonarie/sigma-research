@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
+import HeroAnimation from '@/app/components/HeroAnimation'
 
 // useSearchParams() requires a Suspense boundary in Next.js 14 App Router
 function LoginForm() {
@@ -17,6 +18,8 @@ function LoginForm() {
   const [needsConfirm, setNeedsConfirm] = useState(false)
   const [resending,    setResending]    = useState(false)
   const [resendMsg,     setResendMsg]   = useState('')
+  // Secuencia de acceso tipo terminal en el botón de submit
+  const [phase, setPhase] = useState<null | 'verifying' | 'granted' | 'opening'>(null)
 
   // El link de confirmación/recuperación puede llegar acá expirado o ya
   // usado (app/auth/callback/route.ts lo manda con ?error=...) — antes este
@@ -43,6 +46,7 @@ function LoginForm() {
     if (Object.keys(e).length) return
 
     setLoading(true)
+    setPhase('verifying')
     setNeedsConfirm(false)
     setResendMsg('')
 
@@ -58,21 +62,30 @@ function LoginForm() {
       if (guardRes.status === 429) {
         const j = await guardRes.json().catch(() => ({}))
         setLoading(false)
+        setPhase(null)
         setErrors({ form: j.error ?? 'Demasiados intentos. Espera unos minutos.' })
         return
       }
     } catch { /* si el guard no responde, seguir con el login normal */ }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
 
     if (error) {
+      setLoading(false)
+      setPhase(null)
       setErrors({ form: traducirError(error) })
       if (error.message?.includes('Email not confirmed') || (error as { code?: string }).code === 'email_not_confirmed') {
         setNeedsConfirm(true)
       }
       return
     }
+
+    // Ceremonia de entrada: la sesión ya existe, la secuencia solo acompaña
+    // el redirect (que igual tomaría unos cientos de ms).
+    setPhase('granted')
+    await new Promise(r => setTimeout(r, 650))
+    setPhase('opening')
+    await new Promise(r => setTimeout(r, 550))
 
     // Hard navigation so the browser sends cookies in the new request,
     // letting the middleware verify the session correctly.
@@ -174,13 +187,20 @@ function LoginForm() {
           </div>
         )}
 
-        {/* Submit */}
+        {/* Submit — con secuencia de acceso tipo terminal */}
         <button
           type="submit"
           disabled={loading}
-          className="mt-1 bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`mt-1 section-label py-3 transition-all duration-300 disabled:cursor-not-allowed ${
+            phase === 'granted' || phase === 'opening'
+              ? 'bg-emerald-400 text-bg'
+              : 'bg-gold text-bg hover:bg-gold-glow disabled:opacity-70'
+          }`}
         >
-          {loading ? 'INGRESANDO…' : 'INICIAR SESIÓN'}
+          {phase === 'verifying' ? '> VERIFICANDO CREDENCIALES…'
+            : phase === 'granted' ? '✓ ACCESO CONCEDIDO'
+            : phase === 'opening' ? '> ABRIENDO TERMINAL…'
+            : 'INICIAR SESIÓN'}
         </button>
 
         {/* Divider */}
@@ -205,48 +225,108 @@ function LoginForm() {
   )
 }
 
-export default function LoginPage() {
-  return (
-    <main className="min-h-screen bg-bg bg-grid-pattern bg-grid flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+// ─── Panel derecho: el motor te recibe (solo desktop) ────────────────────────
+function LivePanel() {
+  const [live, setLive] = useState<{ regime: string; signals: number } | null>(null)
 
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-7 h-7 border border-gold flex items-center justify-center">
-            <span className="display-heading text-gold text-sm leading-none">Σ</span>
-          </div>
-          <Link href="/" className="display-heading text-xl tracking-widest text-text">
-            SQUANT DESK
-          </Link>
+  useEffect(() => {
+    fetch('/api/vps/signals', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (d?.regime) {
+          setLive({
+            regime:  String(d.regime).toUpperCase(),
+            signals: Array.isArray(d.signals) ? d.signals.length : 0,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const regimeColor = live?.regime === 'BULL' ? 'text-emerald-400' : live?.regime === 'BEAR' ? 'text-red-400' : 'text-amber-400'
+
+  return (
+    <div className="hidden lg:flex relative w-[46%] overflow-hidden border-l border-border items-center">
+      {/* Equity curve animada + tickers en vivo (mismo componente del hero) */}
+      <HeroAnimation />
+      {/* Velo para que el texto respire sobre la animación */}
+      <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/40 to-transparent pointer-events-none" />
+
+      <div className="relative z-10 max-w-sm pl-14 pr-8">
+        <div className="flex items-center gap-2.5 mb-7">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
+          <span className="terminal-text text-[10px] text-emerald-400 tracking-[0.28em]">SIGMA ENGINE · OPERANDO</span>
         </div>
 
-        {/* Suspense required by useSearchParams in Next.js 14 App Router */}
-        <Suspense fallback={
-          <div className="glass-card p-8 flex items-center justify-center">
-            <span className="section-label text-text-dim">Cargando…</span>
-          </div>
-        }>
-          <LoginForm />
-        </Suspense>
+        <h2 className="display-heading text-5xl leading-[0.95] text-text mb-5" style={{ textWrap: 'balance' }}>
+          EL MOTOR<br />
+          <span className="gold-text">NO DUERME.</span>
+        </h2>
 
-        <p className="terminal-text text-center text-text-dim mt-6">
-          ¿No tienes cuenta?{' '}
-          <Link href="/registro" className="text-gold hover:text-gold-glow transition-colors">
-            CREAR CUENTA
-          </Link>
+        <p className="terminal-text text-sm text-text-dim leading-relaxed mb-8">
+          3 motores · 16 activos · decisiones validadas out-of-sample, las 24 horas.
         </p>
 
-        {/* Acceso admin — discreto, solo visible para quien lo busca */}
-        <div className="mt-10 flex justify-center">
-          <Link
-            href="/admin"
-            className="terminal-text text-xs text-muted hover:text-gold transition-colors duration-300 select-none tracking-widest"
-            tabIndex={-1}
-          >
-            · · ·
-          </Link>
+        {live && (
+          <div className="flex flex-wrap gap-x-7 gap-y-2 terminal-text text-xs text-text-dim">
+            <span>RÉGIMEN <span className={`font-bold ${regimeColor}`}>{live.regime}</span></span>
+            <span><span className="text-gold font-bold">{live.signals}</span> SEÑALES ACTIVAS</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <main className="min-h-screen bg-bg flex">
+
+      {/* ── Columna del formulario ── */}
+      <div className="flex-1 bg-grid-pattern bg-grid flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+
+          {/* Logo */}
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="w-7 h-7 border border-gold flex items-center justify-center">
+              <span className="display-heading text-gold text-sm leading-none">Σ</span>
+            </div>
+            <Link href="/" className="display-heading text-xl tracking-widest text-text">
+              SQUANT DESK
+            </Link>
+          </div>
+
+          {/* Suspense required by useSearchParams in Next.js 14 App Router */}
+          <Suspense fallback={
+            <div className="glass-card p-8 flex items-center justify-center">
+              <span className="section-label text-text-dim">Cargando…</span>
+            </div>
+          }>
+            <LoginForm />
+          </Suspense>
+
+          <p className="terminal-text text-center text-text-dim mt-6">
+            ¿No tienes cuenta?{' '}
+            <Link href="/registro" className="text-gold hover:text-gold-glow transition-colors">
+              CREAR CUENTA
+            </Link>
+          </p>
+
+          {/* Acceso admin — discreto, solo visible para quien lo busca */}
+          <div className="mt-10 flex justify-center">
+            <Link
+              href="/admin"
+              className="terminal-text text-xs text-muted hover:text-gold transition-colors duration-300 select-none tracking-widest"
+              tabIndex={-1}
+            >
+              · · ·
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* ── Panel del motor en vivo ── */}
+      <LivePanel />
     </main>
   )
 }
