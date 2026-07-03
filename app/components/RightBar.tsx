@@ -17,10 +17,17 @@ const T = {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-const SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB'] as const
+// Universos reales de los 3 motores de SIGMA — el usuario elige cuál ver
+const SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB', 'LTC'] as const
 type Sym = typeof SYMBOLS[number]
 
-const SYM_LABEL: Record<Sym, string> = { BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', BNB: 'BNB' }
+const SYM_LABEL: Record<Sym, string> = { BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', BNB: 'BNB', LTC: 'LTC' }
+
+const M2_ASSETS = ['XAU', 'XAG', 'WTI', 'HG', 'NG', 'PL'] as const
+const M3_ASSETS = ['AAPL', 'NVDA', 'TSLA', 'JPM', 'XOM', 'SPX'] as const
+type MotorTab = 'm1' | 'm2' | 'm3'
+
+interface ExtQuote { price: number; change24h: number; spark: number[] }
 
 // ─── Motor live trades ────────────────────────────────────────────────────────
 interface OpenTrade {
@@ -55,7 +62,6 @@ function motorGradeColor(g?: string) {
 }
 
 interface Ticker { price: number; change24h: number; flash: 'up' | 'down' | null }
-interface ExtTicker { price: number; change24h: number; marketOpen: boolean }
 
 interface PriceAlert {
   id: string; symbol: Sym; condition: 'ABOVE' | 'BELOW'
@@ -80,7 +86,6 @@ const SESSIONS = [
 
 const SYM_STREAM = SYMBOLS.map(s => `${s.toLowerCase()}usdt@ticker`).join('/')
 const WS_URL     = `wss://stream.binance.com:9443/stream?streams=${SYM_STREAM}`
-const EXT_POLL_MS = 30_000
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function fmtPrice(n: number): string {
@@ -119,10 +124,23 @@ export default function RightBar() {
     ETH: { price: 0, change24h: 0, flash: null },
     SOL: { price: 0, change24h: 0, flash: null },
     BNB: { price: 0, change24h: 0, flash: null },
+    LTC: { price: 0, change24h: 0, flash: null },
   })
-  const [spx, setSpx] = useState<ExtTicker | null>(null)
-  const [xau, setXau] = useState<ExtTicker | null>(null)
   const [sparks, setSparks] = useState<Record<string, number[]>>({})
+  // Selector de motor en PRECIOS — la elección se recuerda entre sesiones
+  const [motorTab, setMotorTabState] = useState<MotorTab>(() => {
+    if (typeof window === 'undefined') return 'm1'
+    try {
+      const s = window.localStorage.getItem('sigma_rb_motor')
+      return s === 'm2' || s === 'm3' ? s : 'm1'
+    } catch { return 'm1' }
+  })
+  const setMotorTab = (t: MotorTab) => {
+    setMotorTabState(t)
+    try { localStorage.setItem('sigma_rb_motor', t) } catch {}
+  }
+  // Cotizaciones M2/M3 vía proxy Yahoo (precio + %24h + sparkline)
+  const [extData, setExtData] = useState<Record<string, ExtQuote>>({})
   const [alerts,     setAlerts]     = useState<PriceAlert[]>([])
   const [showForm,   setShowForm]   = useState(false)
   const [formSym,    setFormSym]    = useState<Sym>('BTC')
@@ -241,13 +259,13 @@ export default function RightBar() {
     }
   }, [connect])
 
-  // Sparklines 24h — un fetch al montar + refresh cada 5 min
+  // Sparklines 24h de cripto (M1) — un fetch al montar + refresh cada 5 min
   useEffect(() => {
     let dead = false
     async function loadSparks() {
       const next: Record<string, number[]> = {}
-      await Promise.all([
-        ...SYMBOLS.map(async s => {
+      await Promise.all(
+        SYMBOLS.map(async s => {
           try {
             const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}USDT&interval=30m&limit=48`)
             if (!r.ok) return
@@ -255,15 +273,7 @@ export default function RightBar() {
             next[s] = raw.map(k => parseFloat(k[4]))
           } catch {}
         }),
-        ...(['XAU', 'SPX'] as const).map(async s => {
-          try {
-            const r = await fetch(`/api/market/klines?symbol=${s}&tf=1h`)
-            if (!r.ok) return
-            const d = await r.json()
-            if (Array.isArray(d.klines)) next[s] = d.klines.slice(-24).map((k: { value: number }) => k.value)
-          } catch {}
-        }),
-      ])
+      )
       if (!dead && Object.keys(next).length) setSparks(prev => ({ ...prev, ...next }))
     }
     loadSparks()
@@ -271,21 +281,36 @@ export default function RightBar() {
     return () => { dead = true; clearInterval(id) }
   }, [])
 
-  // Poll SPX + XAU (spot) from server-side proxy every 30s
+  // Cotizaciones del motor seleccionado (M2 commodities / M3 stocks) vía el
+  // proxy Yahoo — solo se piden los activos de la pestaña activa, refresh 60s
   useEffect(() => {
-    async function poll() {
-      try {
-        const res = await fetch('/api/market')
-        if (!res.ok) return
-        const { spx: s, xau: x } = await res.json()
-        if (s) setSpx(s)
-        if (x) setXau(x)
-      } catch {}
+    if (motorTab === 'm1') return
+    const list: readonly string[] = motorTab === 'm2' ? M2_ASSETS : M3_ASSETS
+    let dead = false
+    async function load() {
+      const results = await Promise.all(list.map(async sym => {
+        try {
+          const r = await fetch(`/api/market/klines?symbol=${sym}&tf=1h`)
+          if (!r.ok) return null
+          const d = await r.json()
+          return [sym, {
+            price:     Number(d.price ?? 0),
+            change24h: Number(d.change24h ?? 0),
+            spark:     Array.isArray(d.klines) ? d.klines.slice(-24).map((k: { value: number }) => k.value) : [],
+          }] as const
+        } catch { return null }
+      }))
+      if (dead) return
+      setExtData(prev => {
+        const next = { ...prev }
+        for (const it of results) if (it) next[it[0]] = it[1]
+        return next
+      })
     }
-    poll()
-    const id = setInterval(poll, EXT_POLL_MS)
-    return () => clearInterval(id)
-  }, [])
+    load()
+    const id = setInterval(load, 60_000)
+    return () => { dead = true; clearInterval(id) }
+  }, [motorTab])
 
   function addAlert() {
     const p = parseFloat(formPrice)
@@ -445,10 +470,47 @@ export default function RightBar() {
           )}
         </div>
 
-        {/* ══ PRECIOS ══ */}
+        {/* ══ PRECIOS — separados por motor ══ */}
         <Section label="PRECIOS" />
+
+        {/* Selector de motor — la elección se recuerda */}
+        <div style={{ display: 'flex', gap: 4, padding: '8px 10px', borderBottom: `1px solid ${T.border}` }}>
+          {([['m1', 'M1·CRYPTO'], ['m2', 'M2·COMM'], ['m3', 'M3·STOCKS']] as const).map(([id, lbl]) => {
+            const active = motorTab === id
+            return (
+              <button
+                key={id}
+                onClick={() => setMotorTab(id)}
+                style={{
+                  flex: 1, fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.06em',
+                  padding: '4px 2px', borderRadius: 3, cursor: 'pointer',
+                  background: active ? 'rgba(212,175,55,0.12)' : 'transparent',
+                  border: `1px solid ${active ? T.gold : T.border}`,
+                  color: active ? T.gold : T.dimText,
+                  transition: 'color 0.15s, border-color 0.15s, background 0.15s',
+                }}
+              >
+                {lbl}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Aviso de mercado cerrado para stocks (NYSE ~13:30–20:00 UTC, L-V) */}
+        {motorTab === 'm3' && (() => {
+          const d = utcNow.getUTCDay()
+          const h = utcNow.getUTCHours() + utcNow.getUTCMinutes() / 60
+          const open = d >= 1 && d <= 5 && h >= 13.5 && h < 20
+          return !open ? (
+            <div style={{ padding: '5px 12px', borderBottom: `1px solid ${T.border}`, fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.1em', color: T.muted }}>
+              ◦ NYSE CERRADO · último cierre
+            </div>
+          ) : null
+        })()}
+
         <div style={{ padding: '0 0 8px' }}>
-          {SYMBOLS.map(sym => {
+          {/* M1 — cripto en tiempo real (Binance WS) */}
+          {motorTab === 'm1' && SYMBOLS.map(sym => {
             const t    = tickers[sym]
             const up   = t.change24h >= 0
             const bg   = t.flash === 'up' ? T.green + '22' : t.flash === 'down' ? T.red + '22' : 'transparent'
@@ -470,50 +532,36 @@ export default function RightBar() {
             )
           })}
 
-          {/* XAU/USD spot — polled from server proxy */}
-          <div style={{ padding: '7px 12px', borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: T.gold }}>XAU</span>
-              {xau ? (
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: xau.change24h >= 0 ? T.green : T.red }}>
-                  {xau.change24h >= 0 ? '▲' : '▼'} {Math.abs(xau.change24h).toFixed(2)}%
-                </span>
-              ) : (
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>—</span>
-              )}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
-                {xau ? fmtPrice(xau.price) : '—'}
-              </span>
-              <Spark data={sparks['XAU']} up={(xau?.change24h ?? 0) >= 0} />
-            </div>
-          </div>
-
-          {/* SP500 — polled from server proxy */}
-          <div style={{ padding: '7px 12px', borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: T.gold }}>SPX</span>
-                {spx && !spx.marketOpen && (
-                  <span style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: '0.1em', color: T.muted, border: `1px solid ${T.muted}40`, padding: '1px 4px' }}>CERRADO</span>
-                )}
+          {/* M2 / M3 — commodities y stocks vía proxy Yahoo */}
+          {motorTab !== 'm1' && (motorTab === 'm2' ? M2_ASSETS : M3_ASSETS).map(sym => {
+            const q  = extData[sym]
+            const up = (q?.change24h ?? 0) >= 0
+            return (
+              <div key={sym} style={{ padding: '7px 12px', borderBottom: `1px solid ${T.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: T.gold }}>{sym}</span>
+                    {sym === 'SPX' && (
+                      <span style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: '0.1em', color: T.muted, border: `1px solid ${T.muted}40`, padding: '1px 4px' }}>ÍNDICE</span>
+                    )}
+                  </div>
+                  {q ? (
+                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: up ? T.green : T.red }}>
+                      {up ? '▲' : '▼'} {Math.abs(q.change24h).toFixed(2)}%
+                    </span>
+                  ) : (
+                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>…</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
+                    {q && q.price > 0 ? fmtPrice(q.price) : '—'}
+                  </span>
+                  <Spark data={q?.spark} up={up} />
+                </div>
               </div>
-              {spx ? (
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: spx.change24h >= 0 ? T.green : T.red }}>
-                  {spx.change24h >= 0 ? '▲' : '▼'} {Math.abs(spx.change24h).toFixed(2)}%
-                </span>
-              ) : (
-                <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>—</span>
-              )}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
-                {spx ? fmtPrice(spx.price) : '—'}
-              </span>
-              <Spark data={sparks['SPX']} up={(spx?.change24h ?? 0) >= 0} />
-            </div>
-          </div>
+            )
+          })}
         </div>
 
         {/* ══ ALERTAS ══ */}

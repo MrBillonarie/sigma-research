@@ -7,8 +7,12 @@ import { NextRequest, NextResponse } from 'next/server'
 const YAHOO_SYM: Record<string, string> = {
   AAPL: 'AAPL', NVDA: 'NVDA', TSLA: 'TSLA', JPM: 'JPM', XOM: 'XOM',
   XAU: 'GC=F',   // futuros oro COMEX — XAUUSD=X es poco confiable en Yahoo
+  XAG: 'SI=F',   // futuros plata COMEX
   WTI: 'CL=F',   // futuros crudo NYMEX
-  SPX: '^GSPC',  // S&P 500 index — sparkline del RightBar
+  NG:  'NG=F',   // futuros gas natural NYMEX
+  HG:  'HG=F',   // futuros cobre COMEX
+  PL:  'PL=F',   // futuros platino NYMEX
+  SPX: '^GSPC',  // S&P 500 index — referencia del M3 en el RightBar
 }
 
 // tf de la UI → (interval, range) de Yahoo. Yahoo no tiene 4h: se agregan velas 1h.
