@@ -169,15 +169,29 @@ export default function HUDPage() {
         if (!cancelled) setStatus('ok')
       } catch (e) {
         console.error('Motor proxy error:', e)
-        if (!cancelled) setStatus('error')
+        // Reintento automatico con backoff antes de pedirle al usuario que
+        // recargue a mano -- cubre caidas cortas del motor (deploy, restart)
+        // sin que el usuario tenga que hacer nada. Solo afecta el camino de
+        // falla, no cambia nada del render normal.
+        if (!cancelled && retryCount < 3) {
+          retryCount += 1
+          const delay = retryCount * 3000
+          retryTimer = setTimeout(() => { if (!cancelled) injectMotor() }, delay)
+        } else if (!cancelled) {
+          setStatus('error')
+        }
       }
     }
+
+    let retryCount = 0
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
 
     injectMotor()
     return () => {
       cancelled = true
       observer?.disconnect()
       if (dedupTimer) clearTimeout(dedupTimer)
+      if (retryTimer) clearTimeout(retryTimer)
     }
   }, [])
 
