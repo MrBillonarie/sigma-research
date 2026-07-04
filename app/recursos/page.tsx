@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { HeroRecursos, ModuleCard } from './visuals'
 
 export const metadata: Metadata = {
   title: 'Recursos',
@@ -77,48 +78,14 @@ export default function RecursosPage() {
   return (
     <main className="bg-bg min-h-screen">
 
-      {/* Hero */}
-      <section className="pt-40 pb-24 px-6 bg-grid-pattern bg-grid relative overflow-hidden">
-        <div className="absolute inset-0 bg-radial-gold pointer-events-none" />
-        <div className="max-w-7xl mx-auto relative">
-          <div className="section-label text-gold mb-6">{'// SQUANT DESK · HERRAMIENTAS'}</div>
-          <h1 className="display-heading text-6xl sm:text-8xl lg:text-[9rem] text-text leading-none mb-8">
-            TODOS LOS
-            <br />
-            <span className="gold-text">RECURSOS</span>
-          </h1>
-          <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-xl">
-            Infraestructura cuantitativa para inversores independientes en LATAM.
-            Motor real, datos reales, sin conflictos de interés.
-          </p>
-        </div>
-      </section>
+      {/* Hero — título 3D extruido + suelo con fuga + brasas */}
+      <HeroRecursos />
 
-      {/* Tools grid */}
-      <section className="py-24 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col gap-px bg-border">
+      {/* Vitrina 3D de módulos */}
+      <section className="pb-24 px-6">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-5">
           {tools.map((t) => (
-            <div key={t.tag} className="bg-surface p-8 flex flex-col md:flex-row gap-8">
-              {/* Left: tag + name + desc */}
-              <div className="flex flex-col gap-3 md:w-1/3">
-                <span className="terminal-text text-xs text-gold border border-gold/20 px-2 py-0.5 self-start">
-                  {t.tag}
-                </span>
-                <h2 className="display-heading text-3xl text-text">{t.name}</h2>
-                <p className="terminal-text text-sm text-text-dim leading-relaxed">{t.desc}</p>
-              </div>
-
-              {/* Right: detail + cta */}
-              <div className="flex flex-col gap-6 md:w-2/3 md:border-l md:border-border md:pl-8">
-                <p className="terminal-text text-sm text-text-dim leading-relaxed">{t.detail}</p>
-                <Link
-                  href={t.href}
-                  className="self-start section-label text-sm px-6 py-2.5 border border-gold text-gold hover:bg-gold hover:text-bg transition-all duration-200"
-                >
-                  {t.cta}
-                </Link>
-              </div>
-            </div>
+            <ModuleCard key={t.tag} tool={t} />
           ))}
         </div>
       </section>
