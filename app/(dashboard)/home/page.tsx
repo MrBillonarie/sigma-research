@@ -67,7 +67,7 @@ interface Trade {
 interface PassivePos { ingresoMensual: number }
 type PortfolioRow = Record<string, number>
 
-// ─── Sparkline SVG ────────────────────────────────────────────────────────────
+// ─── Sparkline SVG — se traza sola al entrar (encendido) ──────────────────────
 function Sparkline({ data, w = 64, h = 22 }: { data: number[]; w?: number; h?: number }) {
   if (data.length < 2) return null
   const min = Math.min(...data)
@@ -82,10 +82,38 @@ function Sparkline({ data, w = 64, h = 22 }: { data: number[]; w?: number; h?: n
   const trend = data.at(-1)! >= data[0] ? C.green : C.red
   return (
     <svg width={w} height={h} style={{ display: 'block', overflow: 'visible', flexShrink: 0 }}>
-      <polyline points={pts} fill="none" stroke={trend} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={last[0]} cy={last[1]} r="2.5" fill={trend} />
+      <polyline className="sp-draw" pathLength={1} points={pts} fill="none" stroke={trend} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <circle className="sp-dotin" cx={last[0]} cy={last[1]} r="2.5" fill={trend} />
     </svg>
   )
+}
+
+// ─── CountUp — anima de valor previo → target con ease-out cúbico ─────────────
+function useCountUp(target: number, dur = 1200) {
+  const [v, setV] = useState(0)
+  const vRef    = useRef(0)
+  const fromRef = useRef(0)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      vRef.current = target; fromRef.current = target; setV(target)
+      return
+    }
+    const from = fromRef.current
+    let raf = 0
+    let t0: number | null = null
+    const tick = (t: number) => {
+      if (t0 === null) t0 = t
+      const p = Math.min(1, (t - t0) / dur)
+      const val = from + (target - from) * (1 - Math.pow(1 - p, 3))
+      vRef.current = val
+      setV(val)
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else fromRef.current = target
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); fromRef.current = vRef.current }
+  }, [target, dur])
+  return v
 }
 
 // ─── Mini bar chart (últimos N resultados) ────────────────────────────────────
@@ -218,6 +246,12 @@ export default function DashboardHome() {
   useEffect(() => {
     const t = setTimeout(() => setHeaderDrawn(true), 150)
     return () => clearTimeout(t)
+  }, [])
+
+  // Movimiento reducido — apaga cometa y brasas (elementos SMIL/decorativos)
+  const [rm, setRm] = useState(false)
+  useEffect(() => {
+    setRm(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   }, [])
 
   // TRM en vivo
@@ -431,6 +465,13 @@ export default function DashboardHome() {
     }
   }, [portfolio, positions, trades, fireTarget, now, storedTotal, trm, calendarEvents])
 
+  // Encendido cinemático — los KPIs cuentan de 0 → valor real al cargar
+  const cTotal   = useCountUp(loading ? 0 : D.totalUSD)
+  const cMonth   = useCountUp(loading ? 0 : D.monthPnL)
+  const cWin     = useCountUp(loading ? 0 : D.winRate)
+  const cPassive = useCountUp(loading ? 0 : D.monthlyPassive)
+  const cFire    = useCountUp(loading ? 0 : D.firePct, 1500)
+
   // Spotlight results
   const spotResults = useMemo(() => {
     const q = spotQuery.toLowerCase()
@@ -518,12 +559,42 @@ export default function DashboardHome() {
           background:linear-gradient(105deg,transparent,${C.gold}12,transparent); transition:left .55s ease }
         .tool-card:hover .tc-sweep { left:125% }
 
+        /* ── Encendido cinemático ── */
+        .hg-sweep { background:linear-gradient(110deg,${C.gold} 0%,${C.glow} 30%,#fff3cf 42%,${C.gold} 54%,${C.glow} 100%);
+          background-size:250% 100%; -webkit-background-clip:text; background-clip:text;
+          animation: hgSweep 1.7s .25s cubic-bezier(0.4,0,0.2,1) both }
+        @keyframes hgSweep { from { background-position:115% 0 } to { background-position:0% 0 } }
+        .sp-draw  { stroke-dasharray:1; stroke-dashoffset:1; animation: spDraw 1.1s .35s ease-out forwards }
+        @keyframes spDraw { to { stroke-dashoffset:0 } }
+        .sp-dotin { opacity:0; animation: spDotIn .35s 1.3s ease forwards }
+        @keyframes spDotIn { to { opacity:1 } }
+        .hg-ember { position:absolute; width:3px; height:3px; border-radius:50%; background:${C.glow};
+          box-shadow:0 0 6px ${C.gold}; opacity:0; pointer-events:none; z-index:0;
+          animation: hgEmber 7s linear infinite }
+        @keyframes hgEmber {
+          0%   { transform:translateY(14px) scale(0.8); opacity:0 }
+          18%  { opacity:.45 }
+          60%  { opacity:.22 }
+          100% { transform:translateY(-72px) scale(1.1); opacity:0 }
+        }
+        .hg-ring { padding:2px; border-radius:50%; position:relative }
+        .hg-ring::before { content:''; position:absolute; inset:0; border-radius:50%;
+          background:conic-gradient(from 0deg, transparent 8%, ${C.gold}cc 22%, ${C.glow} 28%, transparent 45%);
+          animation: hgSpin 5.5s linear infinite }
+        .hg-ring > div { position:relative }
+        @keyframes hgSpin { to { transform:rotate(360deg) } }
+
         @media (prefers-reduced-motion: reduce) {
           .h3d, .h3d.h3d-on { transform:none !important; transition:none }
           .h3d-back, .h3d-front { transform:none !important }
           .h3d-shine { display:none }
           .tc-sweep { display:none }
           .tool-card, .tool-card:hover { transform:none }
+          .hg-sweep { animation:none; background-position:0% 0 }
+          .sp-draw  { animation:none; stroke-dashoffset:0 }
+          .sp-dotin { animation:none; opacity:1 }
+          .hg-ember { display:none }
+          .hg-ring::before { animation:none }
         }
       `}</style>
 
@@ -573,13 +644,31 @@ export default function DashboardHome() {
                 strokeLinejoin="round" filter="url(#homeHeaderGlow)"
                 style={{ strokeDasharray:700, strokeDashoffset: headerDrawn ? 0 : 700, transition:'stroke-dashoffset 1.6s cubic-bezier(0.4,0,0.2,1)' }}
               />
+              {/* Cometa — recorre la curva tras el trazado, luego reaparece cada ~11s */}
+              {!rm && (
+                <circle r="2.4" fill={C.glow} filter="url(#homeHeaderGlow)" opacity="0">
+                  <animateMotion dur="11s" begin="1.9s" repeatCount="indefinite" path={HEADER_CURVE_D} keyPoints="0;1;1" keyTimes="0;0.26;1" calcMode="linear" />
+                  <animate attributeName="opacity" values="0;0.95;0.95;0;0" keyTimes="0;0.04;0.22;0.28;1" dur="11s" begin="1.9s" repeatCount="indefinite" />
+                </circle>
+              )}
             </svg>
+            {/* Brasas doradas — ascienden lento desde la zona del saludo */}
+            {!rm && [
+              { l: '6%',  t: 58, d: 0.0, s: 6.5 },
+              { l: '15%', t: 74, d: 2.1, s: 8.0 },
+              { l: '24%', t: 50, d: 4.3, s: 7.2 },
+              { l: '33%', t: 80, d: 1.2, s: 9.0 },
+              { l: '42%', t: 62, d: 5.4, s: 7.8 },
+              { l: '51%', t: 72, d: 3.2, s: 6.8 },
+            ].map((e, i) => (
+              <span key={i} className="hg-ember" aria-hidden style={{ left: e.l, top: e.t, animationDelay: `${e.d}s`, animationDuration: `${e.s}s` }} />
+            ))}
             <div style={{ position:'relative', zIndex:1 }}>
               <div style={{ fontFamily:'monospace', fontSize:11, letterSpacing:'0.3em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>
                 {'// SIGMA RESEARCH · MORNING BRIEFING'}
               </div>
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(32px,5vw,60px)', lineHeight:0.95, letterSpacing:'0.04em', marginBottom:8 }}>
-                <span style={{ background:`linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                <span className="hg-sweep" style={{ WebkitTextFillColor:'transparent' }}>
                   {greeting}
                 </span>
               </div>
@@ -604,9 +693,11 @@ export default function DashboardHome() {
                 </button>
               </div>
             </div>
-            {/* Avatar */}
-            <div style={{ width:44, height:44, borderRadius:'50%', flexShrink:0, background:`linear-gradient(135deg,${C.gold}44,${C.gold}1a)`, border:`1.5px solid ${C.gold}66`, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:18, color:C.gold, letterSpacing:'0.05em', userSelect:'none' }}>
-              {initials}
+            {/* Avatar — anillo dorado giratorio, mismo lenguaje que /perfil */}
+            <div className="hg-ring" style={{ flexShrink:0 }}>
+              <div style={{ width:44, height:44, borderRadius:'50%', background:`linear-gradient(135deg,${C.gold}44,${C.gold}1a), ${C.bg}`, border:`1.5px solid ${C.gold}66`, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:18, color:C.gold, letterSpacing:'0.05em', userSelect:'none' }}>
+                {initials}
+              </div>
             </div>
           </div>
 
@@ -663,7 +754,7 @@ export default function DashboardHome() {
                 <div className="h3d-front" style={{ position:'relative', display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
                   {loading ? <Sk w={90} h={32} /> : (
                     <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:34, lineHeight:1, background:`linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', textShadow:numberEmboss }}>
-                      {fmtUSD(D.totalUSD)}
+                      {fmtUSD(cTotal)}
                     </div>
                   )}
                   <Sparkline data={D.sparkCum} />
@@ -675,34 +766,34 @@ export default function DashboardHome() {
             </div>
 
             {/* PnL Mes */}
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'50ms' }}>
+            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'90ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PNL DEL MES</div>
               <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
-                {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.monthPnL >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(D.monthPnL)}</div>}
+                {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.monthPnL >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(cMonth)}</div>}
                 {!loading && D.sparkMonthCum.length > 1 && <Sparkline data={D.sparkMonthCum} w={56} h={22} />}
               </div>
               <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{D.monthTradesCount} trades este mes</div>
             </div>
 
             {/* Win Rate */}
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'100ms' }}>
+            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'180ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>WIN RATE MES</div>
               <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
-                {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.winRate >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(D.winRate)}</div>}
+                {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.winRate >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(cWin)}</div>}
                 {!loading && D.last10Results.length > 0 && <MiniBarChart data={D.last10Results} w={52} h={22} />}
               </div>
               {D.streak > 1 && !loading && <div style={{ fontFamily:'monospace', fontSize:10, color:C.green }}>🔥 {D.streak}W STREAK</div>}
             </div>
 
             {/* Ingreso pasivo */}
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'150ms' }}>
+            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'270ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>INGRESO/MES</div>
-              {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:C.green, lineHeight:1, marginBottom:6, textShadow:numberEmboss }}>{fmtUSD(D.monthlyPassive)}</div>}
+              {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:C.green, lineHeight:1, marginBottom:6, textShadow:numberEmboss }}>{fmtUSD(cPassive)}</div>}
               <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>ingreso pasivo</div>
             </div>
 
             {/* FIRE */}
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'200ms' }}>
+            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'360ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PROGRESO FIRE</div>
               {loading ? <Sk w={80} h={28} /> : !fireConfigured ? (
                 <Link href="/fire" style={{ textDecoration:'none' }}>
@@ -712,9 +803,9 @@ export default function DashboardHome() {
                 </Link>
               ) : (
                 <>
-                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:C.gold, lineHeight:1, marginBottom:8, textShadow:numberEmboss }}>{pct(D.firePct)}</div>
+                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:C.gold, lineHeight:1, marginBottom:8, textShadow:numberEmboss }}>{pct(cFire)}</div>
                   <div style={{ height:3, background:C.border, borderRadius:2, marginBottom:4 }}>
-                    <div style={{ width:`${D.firePct}%`, height:'100%', background:`linear-gradient(90deg,${C.gold},${C.glow})`, borderRadius:2, transition:'width .5s' }} />
+                    <div style={{ width:`${cFire}%`, height:'100%', background:`linear-gradient(90deg,${C.gold},${C.glow})`, borderRadius:2 }} />
                   </div>
                   <div style={{ fontFamily:'monospace', fontSize:9, color:C.dimText }}>
                     meta {fmtUSD(D.FIRE_TARGET)}{D.fireYears != null && D.fireYears > 0 ? ` · ~${D.fireYears}a` : ''}
@@ -754,7 +845,7 @@ export default function DashboardHome() {
           {/* ══ QUICK SUMMARY BAR ══ */}
           <div className="sp-summary-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:40 }}>
 
-            <div style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14 }}>
+            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14, animationDelay:'420ms' }}>
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.gold, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>★</div>
               <div>
                 <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>MEJOR TRADE DEL MES</div>
@@ -767,7 +858,7 @@ export default function DashboardHome() {
               </div>
             </div>
 
-            <div style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14 }}>
+            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14, animationDelay:'480ms' }}>
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:D.weekPnL >= 0 ? C.green : C.red, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>
                 {D.weekPnL >= 0 ? '▲' : '▼'}
               </div>
@@ -782,7 +873,7 @@ export default function DashboardHome() {
               </div>
             </div>
 
-            <div style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14 }}>
+            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14, animationDelay:'540ms' }}>
               <div style={{ flexShrink:0 }}>
                 {D.nextEvent ? (
                   <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, lineHeight:1, textAlign:'center', width:20,
@@ -915,7 +1006,7 @@ export default function DashboardHome() {
                   <span style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:20, color:C.gold, lineHeight:1, textShadow:numberEmboss }}>{fmtUSD(D.totalUSD)}</span>
                 </div>
                 <div style={{ height:3, background:C.border, borderRadius:2 }}>
-                  <div style={{ width:`${D.firePct}%`, height:'100%', background:`linear-gradient(90deg,${C.gold},${C.glow})`, borderRadius:2, transition:'width .5s' }} />
+                  <div style={{ width:`${cFire}%`, height:'100%', background:`linear-gradient(90deg,${C.gold},${C.glow})`, borderRadius:2 }} />
                 </div>
                 <div style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, marginTop:4 }}>
                   FIRE {pct(D.firePct)} · meta {fmtUSD(D.FIRE_TARGET)}
