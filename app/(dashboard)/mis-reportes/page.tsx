@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/app/lib/supabase'
 import { C } from '@/app/lib/constants'
 
@@ -344,12 +344,107 @@ function getSectionNote(num: string, portfolio: PortfolioRow | null, total: numb
   }
 }
 
+// ── Visual: secuencia de compilación del dossier ─────────────────────────────
+const GEN_STEPS = [
+  'leyendo portfolio registrado',
+  'compilando 6 secciones de análisis',
+  'renderizando 9 páginas',
+  'firmando documento',
+]
+
+const MESES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC']
+
+function mesLabel(fecha?: string) {
+  if (!fecha) return ''
+  const [yy, mm] = fecha.split('-')
+  const m = parseInt(mm, 10)
+  if (!yy || !m || m < 1 || m > 12) return fecha
+  return `${MESES[m - 1]} ${yy}`
+}
+
+// Réplica CSS en miniatura de la portada real del PDF, con tilt 3D al mouse.
+function DossierCover({ total, email, dateStr }: { total: number; email: string; dateStr: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [tilt, setTilt] = useState({ rx: 0, ry: 0, sx: 50, sy: 30, on: false })
+
+  function onMove(e: React.MouseEvent) {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const px = (e.clientX - r.left) / r.width
+    const py = (e.clientY - r.top) / r.height
+    setTilt({ rx: -(py - 0.5) * 12, ry: (px - 0.5) * 16, sx: px * 100, sy: py * 100, on: true })
+  }
+
+  return (
+    <div style={{ perspective: 700, flexShrink: 0 }}>
+      <div
+        ref={ref}
+        onMouseMove={onMove}
+        onMouseLeave={() => setTilt({ rx: 0, ry: 0, sx: 50, sy: 30, on: false })}
+        style={{
+          width: 186, height: 258, position: 'relative',
+          background: 'linear-gradient(180deg,#0c0e16,#07080d)',
+          border: `1px solid ${tilt.on ? 'rgba(212,175,55,0.45)' : C.border}`,
+          transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
+          transition: tilt.on ? 'border-color 0.2s' : 'transform 0.45s ease, border-color 0.2s',
+          boxShadow: tilt.on ? '0 22px 44px rgba(0,0,0,0.6)' : '0 12px 28px rgba(0,0,0,0.45)',
+          padding: '14px 16px', display: 'flex', flexDirection: 'column',
+          willChange: 'transform', userSelect: 'none',
+        }}
+      >
+        {/* barra dorada superior — como en el PDF */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C.gold},#a88c25)` }} />
+        {/* brillo metálico que sigue al mouse */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: `radial-gradient(220px circle at ${tilt.sx}% ${tilt.sy}%, rgba(212,175,55,0.10), transparent 65%)`,
+          opacity: tilt.on ? 1 : 0, transition: 'opacity 0.3s',
+        }} />
+
+        <div style={{ fontFamily: 'monospace', fontSize: 6.5, letterSpacing: '0.22em', color: C.muted, marginBottom: 14 }}>
+          {'// SQUANT DESK · ANÁLISIS PERSONAL'}
+        </div>
+        <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 30, lineHeight: 0.95, letterSpacing: '0.04em' }}>
+          <div style={{ color: C.gold }}>SQUANT</div>
+          <div style={{ color: C.text }}>DESK</div>
+        </div>
+        <div style={{ height: 1, background: `linear-gradient(90deg,${C.gold},transparent)`, margin: '10px 0' }} />
+        <div style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: '0.14em', color: C.text, lineHeight: 1.7 }}>
+          REPORTE DE ANÁLISIS<br />
+          <span style={{ color: C.gold }}>PERSONAL DE PORTAFOLIO</span>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 6, letterSpacing: '0.2em', color: C.muted, marginBottom: 3 }}>
+            {total > 0 ? 'PATRIMONIO REGISTRADO' : 'PLAN'}
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: C.gold, marginBottom: 6 }}>
+            {total > 0 ? fmt(total) : 'PRO'}
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: 6.5, color: C.dimText }}>{dateStr}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 6.5, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email || '—'}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MisReportesPage() {
   const [reportes,    setReportes]    = useState<ReporteRow[]>([])
   const [loading,     setLoading]     = useState(true)
   const [generating,  setGenerating]  = useState(false)
+  const [genStep,     setGenStep]     = useState(-1)   // -1 idle · 0..n paso actual · n+ = listo
   const [userEmail,   setUserEmail]   = useState('')
   const [portfolio,   setPortfolio]   = useState<PortfolioRow | null>(null)
+
+  const totalPatrimonio = portfolio
+    ? Object.keys(PLATFORM_LABELS).reduce((s, k) => s + ((portfolio as unknown as Record<string, number>)[k] ?? 0), 0)
+    : 0
+  const hoyStr = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -368,9 +463,19 @@ export default function MisReportesPage() {
 
   async function handleGenerate() {
     setGenerating(true)
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const stepMs = reduced ? 0 : 460
     try {
+      // secuencia visual de compilación — la generación real ocurre al final, intacta
+      for (let i = 0; i < GEN_STEPS.length; i++) {
+        setGenStep(i)
+        if (stepMs) await new Promise(r => setTimeout(r, stepMs))
+      }
       await generatePDF(userEmail, portfolio)
+      setGenStep(GEN_STEPS.length)
+      await new Promise(r => setTimeout(r, reduced ? 800 : 2400))
     } finally {
+      setGenStep(-1)
       setGenerating(false)
     }
   }
@@ -399,42 +504,72 @@ export default function MisReportesPage() {
               {'// GENERAR ANÁLISIS PERSONAL'}
             </span>
           </div>
-          <div style={{ padding: '28px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
-            <div style={{ maxWidth: 520 }}>
+          <div style={{ padding: '28px 24px', display: 'flex', alignItems: 'stretch', gap: 32, flexWrap: 'wrap' }}>
+            <DossierCover total={totalPatrimonio} email={userEmail} dateStr={hoyStr} />
+
+            <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column' }}>
               <div style={{ fontFamily: 'monospace', fontSize: 13, color: C.text, marginBottom: 8 }}>
                 Reporte PDF con tu portfolio actual
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.8 }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.8, maxWidth: 520 }}>
                 Genera un PDF personalizado con tus datos de portfolio registrados, distribución de capital por plataforma
                 y las 6 secciones de análisis de SQuant Desk. Se descarga directamente en tu dispositivo.
               </div>
-              <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
-                {['Portafolio multi-plataforma', 'Distribución de capital', '6 secciones de análisis', 'Descarga instantánea'].map(tag => (
-                  <span key={tag} style={{ fontFamily: 'monospace', fontSize: 10, color: GREEN, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', padding: '3px 10px' }}>
-                    ✓ {tag}
-                  </span>
-                ))}
+
+              {/* consola de compilación / chips */}
+              <div style={{ flex: 1, margin: '16px 0', minHeight: 96 }}>
+                {genStep < 0 ? (
+                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    {['Portafolio multi-plataforma', 'Distribución de capital', '6 secciones de análisis', 'Descarga instantánea'].map(tag => (
+                      <span key={tag} style={{ fontFamily: 'monospace', fontSize: 10, color: GREEN, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', padding: '3px 10px', alignSelf: 'flex-start' }}>
+                        ✓ {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ background: '#07080d', border: `1px solid ${C.border}`, padding: '14px 16px', fontFamily: 'monospace', fontSize: 11, lineHeight: 2 }}>
+                    {GEN_STEPS.map((s, i) => (
+                      i > genStep ? null : (
+                        <div key={s} style={{ color: i < genStep ? C.dimText : C.gold, display: 'flex', gap: 8 }}>
+                          <span style={{ color: C.gold }}>{'>'}</span>
+                          <span style={{ flex: 1 }}>{s}…</span>
+                          {i < genStep
+                            ? <span style={{ color: GREEN }}>✓</span>
+                            : genStep < GEN_STEPS.length && <span className="rep-blink" style={{ color: C.gold }}>▓</span>}
+                        </div>
+                      )
+                    ))}
+                    {genStep >= GEN_STEPS.length && (
+                      <div style={{ color: GREEN, marginTop: 4 }}>✓ DOSSIER GENERADO · DESCARGA INICIADA</div>
+                    )}
+                  </div>
+                )}
               </div>
+
+              <button
+                onClick={handleGenerate}
+                disabled={generating || loading}
+                className="rep-genbtn"
+                style={{
+                  padding: '15px 36px',
+                  background: generating ? 'transparent' : C.gold,
+                  color: generating ? C.gold : C.bg,
+                  border: `1px solid ${C.gold}`,
+                  fontFamily: "'Bebas Neue',Impact,sans-serif",
+                  fontSize: 20, letterSpacing: '0.1em',
+                  cursor: generating || loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap',
+                  alignSelf: 'flex-start',
+                  minWidth: 240,
+                }}
+              >
+                {generating
+                  ? (genStep >= GEN_STEPS.length ? '✓ LISTO' : '⟳ COMPILANDO DOSSIER…')
+                  : '↓ GENERAR MI ANÁLISIS'}
+              </button>
             </div>
-            <button
-              onClick={handleGenerate}
-              disabled={generating || loading}
-              style={{
-                padding: '16px 36px',
-                background: generating ? 'transparent' : C.gold,
-                color: generating ? C.gold : C.bg,
-                border: `1px solid ${C.gold}`,
-                fontFamily: "'Bebas Neue',Impact,sans-serif",
-                fontSize: 20, letterSpacing: '0.1em',
-                cursor: generating || loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.5 : 1,
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-                minWidth: 220,
-              }}
-            >
-              {generating ? '⟳ GENERANDO PDF…' : '↓ GENERAR MI ANÁLISIS'}
-            </button>
           </div>
         </div>
 
@@ -461,50 +596,70 @@ export default function MisReportesPage() {
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: C.border }}>
-              {reportes.map(r => {
-                const disponible = !!r.url_pdf
-                const num        = String(r.numero).padStart(3, '0')
-                const fileName   = `SIGMA_Reporte_Mensual_#${num}_${r.fecha?.slice(0, 7) ?? ''}.pdf`
-                return (
-                  <div key={r.id} style={{ background: C.bg, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 36, color: C.gold, lineHeight: 1, minWidth: 56, flexShrink: 0 }}>
-                      #{num}
-                    </span>
-                    <div style={{ flex: 1, minWidth: 180 }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: 13, color: C.text, marginBottom: 4 }}>{r.titulo}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginBottom: 4 }}>{r.descripcion}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted }}>{r.fecha}</div>
-                    </div>
-                    <span style={{
-                      fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.18em', padding: '4px 12px', flexShrink: 0,
-                      background: disponible ? 'rgba(52,211,153,0.1)'  : 'rgba(107,114,128,0.12)',
-                      color:      disponible ? '#34d399'               : '#6b7280',
-                      border:     `1px solid ${disponible ? 'rgba(52,211,153,0.25)' : 'rgba(107,114,128,0.2)'}`,
+            <div style={{ background: C.bg, padding: '28px 24px 20px', borderTop: 'none' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 20 }}>
+                {reportes.map(r => {
+                  const disponible = !!r.url_pdf
+                  const num        = String(r.numero).padStart(3, '0')
+                  const fileName   = `SIGMA_Reporte_Mensual_#${num}_${r.fecha?.slice(0, 7) ?? ''}.pdf`
+                  return (
+                    <div key={r.id} className={`rep-card${disponible ? ' avail' : ''}`} style={{
+                      position: 'relative', display: 'flex', flexDirection: 'column',
+                      background: disponible ? 'linear-gradient(180deg,#0c0e16,#07080d)' : '#08090e',
+                      border: disponible ? `1px solid ${C.border}` : `1px dashed rgba(107,114,128,0.35)`,
+                      padding: '16px 16px 14px', minHeight: 250, overflow: 'hidden',
                     }}>
-                      {disponible ? 'DISPONIBLE' : 'PRÓXIMAMENTE'}
-                    </span>
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      {disponible ? (
-                        <>
-                          <a href={`/api/reportes/${r.id}/download`} download={fileName}
-                            style={{ padding: '9px 18px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                            ↓ DESCARGAR
-                          </a>
-                          <a href={r.url_pdf} target="_blank" rel="noopener noreferrer"
-                            style={{ padding: '9px 18px', background: 'transparent', color: C.dimText, border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                            VISUALIZAR
-                          </a>
-                        </>
-                      ) : (
-                        <span style={{ padding: '9px 18px', fontFamily: 'monospace', fontSize: 11, color: C.muted, border: `1px solid ${C.border}` }}>
-                          PRÓXIMAMENTE
-                        </span>
-                      )}
+                      {/* filo dorado superior solo si está disponible */}
+                      {disponible && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C.gold},#a88c25)` }} />}
+                      {/* Σ marca de agua */}
+                      <div aria-hidden style={{ position: 'absolute', right: -6, bottom: -18, fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 120, lineHeight: 1, color: disponible ? 'rgba(212,175,55,0.05)' : 'rgba(139,143,168,0.05)', pointerEvents: 'none' }}>Σ</div>
+                      {/* cinta de estado */}
+                      <span style={{
+                        position: 'absolute', top: disponible ? 10 : 8, right: 10,
+                        fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.16em', padding: '3px 8px',
+                        background: disponible ? 'rgba(212,175,55,0.12)' : 'rgba(107,114,128,0.12)',
+                        color:      disponible ? C.gold : '#6b7280',
+                        border:     `1px solid ${disponible ? 'rgba(212,175,55,0.3)' : 'rgba(107,114,128,0.2)'}`,
+                      }}>
+                        {disponible ? 'DISPONIBLE' : 'PRÓXIMAMENTE'}
+                      </span>
+
+                      <div style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.2em', color: C.muted, marginBottom: 10 }}>EDICIÓN</div>
+                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 44, lineHeight: 0.9, color: disponible ? C.gold : '#4b5063' }}>#{num}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.18em', color: C.dimText, marginTop: 4, marginBottom: 10 }}>{mesLabel(r.fecha)}</div>
+
+                      <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.text, lineHeight: 1.5, marginBottom: 4 }}>{r.titulo}</div>
+                      <div style={{
+                        fontFamily: 'monospace', fontSize: 10, color: C.dimText, lineHeight: 1.6,
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>{r.descripcion}</div>
+
+                      <div style={{ flex: 1 }} />
+
+                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, marginTop: 12, display: 'flex', gap: 8 }}>
+                        {disponible ? (
+                          <>
+                            <a href={`/api/reportes/${r.id}/download`} download={fileName}
+                              style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                              ↓ DESCARGAR
+                            </a>
+                            <a href={r.url_pdf} target="_blank" rel="noopener noreferrer" title="Visualizar en el navegador"
+                              style={{ padding: '8px 12px', background: 'transparent', color: C.dimText, border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                              VER
+                            </a>
+                          </>
+                        ) : (
+                          <span style={{ flex: 1, textAlign: 'center', padding: '8px 0', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', color: C.muted, border: `1px dashed ${C.border}` }}>
+                            EN PREPARACIÓN
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
+              {/* línea de estante */}
+              <div style={{ height: 1, marginTop: 20, background: `linear-gradient(90deg,transparent,${C.border} 15%,${C.border} 85%,transparent)` }} />
             </div>
           )}
         </div>
@@ -536,6 +691,22 @@ export default function MisReportesPage() {
         </div>
 
       </div>
+
+      <style>{`
+        .rep-card { transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease; }
+        .rep-card.avail:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+          border-color: rgba(212,175,55,0.45);
+        }
+        .rep-genbtn:not(:disabled):hover { box-shadow: 0 0 24px rgba(212,175,55,0.35); }
+        .rep-blink { animation: repBlink 0.9s steps(2) infinite; }
+        @keyframes repBlink { 50% { opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) {
+          .rep-card, .rep-card.avail:hover { transform: none; transition: none; }
+          .rep-blink { animation: none; }
+        }
+      `}</style>
     </div>
   )
 }
