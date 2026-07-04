@@ -132,12 +132,32 @@ export default function MotorMatrix({ label, assets, cells }: MotorMatrixProps) 
 
   if (tfs.length === 0) return null
 
-  // OJO: no se agrega fila "Ponderado" ni "Portafolio operable" acá a
-  // proposito -- esas siguen viniendo del scrape del motor (dashboard.py las
-  // computa con peso por trades + filtro de robustness, logica que no se
-  // reimplementa por el mismo criterio de riesgo del resto de esta migracion).
-  // hud/page.tsx oculta solo las filas .asset-col de la tabla original,
-  // dejando esas dos filas visibles debajo de esta grilla nativa.
+  // Ponderado por columna -- APROXIMADO: promedio simple entre todos los
+  // modelos long/short con datos en esa columna, ponderado por trades. NO
+  // reproduce el filtro por robustness (BLOCKED excluido) ni el tie-break
+  // long-vs-short que usa dashboard.py para su "Ponderado" real -- esa
+  // logica vive junto a la seleccion de campeon/portfolio, que se decidio
+  // no tocar. Es una cifra de referencia, no la oficial del motor.
+  const weighted = tfs.map(tf => {
+    const vals = assets
+      .map(sym => bySlot.get(`${sym}::${tf}`))
+      .flatMap(c => {
+        const out: { cagr: number; wr: number; trades: number }[] = []
+        if (c?.long) out.push({ cagr: c.long.cagr ?? 0, wr: c.long.wr ?? 0, trades: c.long.trades ?? 0 })
+        if (c?.short) out.push({ cagr: c.short.cagr ?? 0, wr: c.short.wr ?? 0, trades: c.short.trades ?? 0 })
+        return out
+      })
+    if (vals.length === 0) return null
+    const totalT = vals.reduce((s, v) => s + v.trades, 0)
+    const avgCagr = vals.reduce((s, v) => s + v.cagr, 0) / vals.length
+    const wWr = totalT > 0 ? vals.reduce((s, v) => s + v.wr * v.trades, 0) / totalT : 0
+    return { cagr: avgCagr, wr: wWr, trades: totalT, n: vals.length }
+  })
+  const allVals = weighted.filter((w): w is NonNullable<typeof w> => w != null)
+  const totalTrades = allVals.reduce((s, w) => s + w.trades, 0)
+  const totalSlots = allVals.reduce((s, w) => s + w.n, 0)
+  const portCagr = allVals.length > 0 ? allVals.reduce((s, w) => s + w.cagr * w.n, 0) / totalSlots : 0
+  const portWr = totalTrades > 0 ? allVals.reduce((s, w) => s + w.wr * w.trades, 0) / totalTrades : 0
 
   return (
     <div style={{
@@ -178,6 +198,36 @@ export default function MotorMatrix({ label, assets, cells }: MotorMatrixProps) 
                 {tfs.map(tf => <Cell key={tf} cell={bySlot.get(`${sym}::${tf}`)} />)}
               </tr>
             ))}
+            <tr>
+              <td style={{ borderTop: '2px solid #242f55', padding: '7px 8px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#7a8db5', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                  Ponderado ~
+                </span>
+              </td>
+              {weighted.map((w, i) => (
+                <td key={i} style={{ textAlign: 'center', borderTop: '2px solid #242f55', padding: '7px 4px' }}>
+                  {w ? (
+                    <>
+                      <div style={{ color: cCagr(w.cagr), fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>
+                        {w.cagr >= 0 ? '+' : ''}{w.cagr.toFixed(1)}%
+                      </div>
+                      <div style={{ fontSize: 10, color: '#2ecc71' }}>WR {w.wr.toFixed(0)}%</div>
+                      <div style={{ fontSize: 10, color: '#7a8db5' }}>{w.trades}T</div>
+                    </>
+                  ) : <span style={{ color: '#242f55' }}>—</span>}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td colSpan={tfs.length + 1} style={{ padding: '8px 10px', borderTop: '1px solid #141b38', fontSize: 11, color: '#7a8db5' }}>
+                Portafolio (aprox., todos los slots con dato): <b style={{ fontFamily: MONO, color: cCagr(portCagr), fontWeight: 700, fontSize: 13 }}>
+                  {portCagr >= 0 ? '+' : ''}{portCagr.toFixed(1)}%
+                </b>
+                {' '}·{' '} WR <b style={{ fontFamily: MONO, color: '#2ecc71', fontWeight: 700, fontSize: 12 }}>{portWr.toFixed(0)}%</b>
+                {' '}·{' '} Trades <b style={{ fontFamily: MONO, color: '#dde3f5', fontSize: 12 }}>{totalTrades}</b>
+                {' '}·{' '} Slots <b style={{ fontFamily: MONO, color: GOLD, fontSize: 12 }}>{totalSlots}</b>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

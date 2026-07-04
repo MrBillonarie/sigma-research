@@ -7,18 +7,18 @@ import { dedupePositions, computeNotional } from '@/app/lib/dedupePositions'
 import { MOTOR_GROUPS } from '@/app/lib/motorGroups'
 import type { TradesResponse, SignalsResponse, MatrixCellData } from '@/app/types/hud'
 
-// Estas dos se reemplazan por completo (KpiStrip/PositionsTable nativos
-// cubren el 100% de lo que mostraban) — se ocultan enteras.
-const HIDE_LEGACY_IDS = ['kpi-strip', 'open-positions-section']
-
-// Las matrices comparten la MISMA tabla con la fila "Ponderado" y la línea
-// "Portafolio operable" (CAGR/WR/DD/PF/Calmar/EV agregados, con peso por
-// trades + filtro de robustness) — no son un contenedor aparte. MotorMatrix
-// nativo solo reemplaza la grilla por slot; esas dos filas siguen viniendo
-// del scrape porque esa agregación no se reimplementa (mismo criterio de
-// riesgo de toda esta migración: no tocar lógica de selección de campeón/
-// portfolio). Por eso acá se ocultan sólo las <tr> con un asset-col.
-const MATRIX_SECTION_IDS = ['matrix-section', 'matrix-section-m2', 'matrix-section-m3']
+// Se reemplazan por completo por los componentes nativos — se ocultan
+// enteras. (Antes se intentó ocultar solo las filas de activo dentro de
+// las matrices para heredar la fila "Ponderado" real del scrape, pero como
+// el bloque scrapeado se inyecta DESPUÉS de todos los componentes nativos
+// -no en el mismo lugar de la página- esas filas quedaban huérfanas, muy
+// abajo, separadas por el resto del scrape (panel de riesgo, etc.) — se
+// veía deshilachado. MotorMatrix.tsx ahora calcula su propio "Ponderado ~"
+// aproximado a partir de matrix_data.json, así la tarjeta queda autocontenida.)
+const HIDE_LEGACY_IDS = [
+  'kpi-strip', 'open-positions-section',
+  'matrix-section', 'matrix-section-m2', 'matrix-section-m3',
+]
 
 export default function HUDPage() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -122,16 +122,6 @@ export default function HUDPage() {
       for (const id of HIDE_LEGACY_IDS) {
         const el = container.querySelector(`#${id}`) as HTMLElement | null
         if (el && el.style.display !== 'none') el.style.display = 'none'
-      }
-      for (const id of MATRIX_SECTION_IDS) {
-        const section = container.querySelector(`#${id}`) as HTMLElement | null
-        if (!section) continue
-        section.querySelectorAll('tr').forEach(tr => {
-          const row = tr as HTMLElement
-          if (row.querySelector('.asset-col') && row.style.display !== 'none') {
-            row.style.display = 'none'
-          }
-        })
       }
     }
 
