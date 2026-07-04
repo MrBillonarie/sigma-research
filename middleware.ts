@@ -1,6 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Origen real detras de Caddy -- request.nextUrl.clone() resuelve mal el
+// host mientras corre bajo `next start` autohospedado (siempre localhost:3000),
+// rompiendo cualquier redirect. Reconstruimos con los headers forwarded.
+function getOrigin(request: NextRequest): string {
+  const proto = request.headers.get('x-forwarded-proto') ?? request.nextUrl.protocol.replace(':', '')
+  const host  = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? request.nextUrl.host
+  return `${proto}://${host}`
+}
+
 // Rutas que no requieren sesión — todo lo demás queda bloqueado
 const PUBLIC = new Set([
   '/',
@@ -82,9 +91,7 @@ export async function middleware(request: NextRequest) {
       pathname === '/community-setups' || pathname.startsWith('/community-setups/') ||
       pathname === '/lp-signal' || pathname.startsWith('/lp-signal/') ||
       pathname === '/comparador' || pathname.startsWith('/comparador/')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/home'
-    url.search   = ''
+    const url = new URL('/home', getOrigin(request))
     return NextResponse.redirect(url)
   }
 
@@ -96,9 +103,7 @@ export async function middleware(request: NextRequest) {
     const sessionCookie = request.cookies.get('sigma_admin_session')?.value ?? ''
     const valid = await verifyAdminSession(sessionCookie)
     if (!valid) {
-      const adminUrl = request.nextUrl.clone()
-      adminUrl.pathname = '/admin'
-      adminUrl.search   = ''
+      const adminUrl = new URL('/admin', getOrigin(request))
       return NextResponse.redirect(adminUrl)
     }
     return NextResponse.next()
@@ -126,9 +131,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
-    loginUrl.search   = ''
+    const loginUrl = new URL('/login', getOrigin(request))
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
   }
