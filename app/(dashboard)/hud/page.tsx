@@ -1,6 +1,28 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 
+// ── Decision de arquitectura (2026-07-03) ───────────────────────────────────
+// Esta pagina scrapea el HTML del motor (DOMParser + innerHTML) en vez de
+// pedirle datos JSON y dibujar componentes React propios. Es fragil en
+// teoria (si el motor renombra una clase/id, algo que dependa de eso puede
+// romperse), pero se intento migrar a componentes nativos (KPI strip, tabla
+// de posiciones, matrices Motor 1/2/3) y NINGUN intento de igualar el diseno
+// exacto convencio en revision visual, ni siquiera calcando colores/fuentes/
+// umbrales 1:1 de dashboard.py -- un problema real encontrado tarde fue que
+// el header institucional del motor va ANTES del kpi-strip en el scrape,
+// pero los componentes nativos se renderizaban antes de todo el bloque
+// inyectado, invirtiendo el orden de lectura de la pagina.
+//
+// Decision: seguir scrapeando (cero riesgo visual, es literalmente el mismo
+// HTML) y en cambio blindar los puntos frágiles puntuales con cambios
+// aditivos que no tocan el render: atributos data-sym/data-tf/data-dir/
+// data-mode/data-strategy en las filas de posiciones (ver dedupPositionRows
+// abajo) + hud_reskin_canary.py en el motor (corre cada 15 min, avisa por
+// Telegram si el motor cambia algo de lo que este reskin depende, antes de
+// que lo note un usuario). Los componentes nativos abandonados quedan en
+// app/components/hud/ por si se retoma esto con mas tiempo para iterar el
+// diseno en vivo junto al usuario, en vez de a ciegas por captura de pantalla.
+
 // El motor tiene dos trackers paralelos (portfolio global + per-modelo) que
 // pueden emitir una fila por separado para el mismo trade abierto en la
 // tabla "POSICIONES ABIERTAS". Se eliminan los duplicados por sym+tf+dirección
