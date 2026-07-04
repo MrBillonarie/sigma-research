@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
@@ -116,6 +116,71 @@ function LiveDot({ size = 8 }: { size?: number }) {
 // ─── Skeleton shimmer ─────────────────────────────────────────────────────────
 function Sk({ w, h }: { w: number | string; h: number }) {
   return <span className="sp-shimmer" style={{ display: 'block', width: w, height: h, borderRadius: 2 }} />
+}
+
+// ─── Hero 3D — tilt + parallax por capas via CSS vars (sin re-render) ─────────
+function Hero3D({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  function onMove(e: React.MouseEvent) {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const el = ref.current
+    if (!el) return
+    const r  = el.getBoundingClientRect()
+    const px = (e.clientX - r.left) / r.width - 0.5
+    const py = (e.clientY - r.top) / r.height - 0.5
+    el.style.setProperty('--px', px.toFixed(3))
+    el.style.setProperty('--py', py.toFixed(3))
+    el.style.setProperty('--mx', `${((px + 0.5) * 100).toFixed(1)}%`)
+    el.style.setProperty('--my', `${((py + 0.5) * 100).toFixed(1)}%`)
+    el.classList.add('h3d-on')
+  }
+  function onLeave() {
+    const el = ref.current
+    if (!el) return
+    el.style.setProperty('--px', '0')
+    el.style.setProperty('--py', '0')
+    el.classList.remove('h3d-on')
+  }
+
+  return (
+    <div style={{ perspective: 800 }}>
+      <div
+        ref={ref}
+        className="sp-fadein h3d"
+        onMouseMove={onMove}
+        onMouseLeave={onLeave}
+        style={{ ...heroCardStyle, padding: '20px 22px', animationDelay: '0ms', position: 'relative', overflow: 'hidden' }}
+      >
+        <span className="h3d-shine" aria-hidden />
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ─── Mini-visual monocromo por herramienta — lenguaje del mega-menú ───────────
+function ToolViz({ id }: { id: string }) {
+  const s = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  const viz = (() => {
+    switch (id) {
+      case 'hud':        return <polyline {...s} points="1,10 5.5,10 8,4 12,16 14.5,10 19,10" />
+      case 'terminal':   return <g {...s}><line x1="4" y1="17" x2="4" y2="9" /><line x1="8.5" y1="17" x2="8.5" y2="5" /><line x1="13" y1="17" x2="13" y2="11" /><line x1="17.5" y1="17" x2="17.5" y2="7" /></g>
+      case 'journal':    return <g {...s}><line x1="3" y1="5" x2="13" y2="5" /><line x1="3" y1="10" x2="17" y2="10" /><line x1="3" y1="15" x2="10" y2="15" /><circle cx="16.5" cy="5" r="1.4" /></g>
+      case 'montecarlo': return <g {...s}><line x1="3" y1="16" x2="17" y2="4" opacity="0.9" /><line x1="3" y1="16" x2="18" y2="8" opacity="0.65" /><line x1="3" y1="16" x2="18" y2="12" opacity="0.45" /><line x1="3" y1="16" x2="17" y2="16" opacity="0.3" /></g>
+      case 'fire':       return <g {...s}><path d="M 4 16 A 7 7 0 0 1 16 9" /><line x1="10" y1="14" x2="14.5" y2="8" /><circle cx="10" cy="14" r="1.2" /></g>
+      case 'modelos':    return <g {...s}><circle cx="5" cy="6" r="1.5" /><circle cx="15" cy="5" r="1.5" /><circle cx="10" cy="12" r="1.5" /><circle cx="16" cy="15" r="1.5" /><line x1="6.2" y1="7" x2="8.8" y2="11" /><line x1="13.8" y1="6" x2="11.2" y2="11" /><line x1="11.3" y1="13" x2="14.7" y2="14.5" /></g>
+      case 'reportes':   return <g {...s}><rect x="4" y="3" width="12" height="14" /><line x1="7" y1="7" x2="13" y2="7" /><line x1="7" y1="10" x2="13" y2="10" /><line x1="7" y1="13" x2="11" y2="13" /></g>
+      case 'lp-defi':    return <g {...s}><path d="M 10 3 C 10 3 5 9 5 12.5 A 5 5 0 0 0 15 12.5 C 15 9 10 3 10 3 Z" /></g>
+      case 'calendario': return <g {...s}><rect x="3" y="4" width="14" height="13" /><line x1="3" y1="8" x2="17" y2="8" /><line x1="6.5" y1="2.5" x2="6.5" y2="5.5" /><line x1="13.5" y1="2.5" x2="13.5" y2="5.5" /><circle cx="13" cy="12.5" r="1.3" fill="currentColor" stroke="none" /></g>
+      default:           return <text x="10" y="15" textAnchor="middle" fontSize="13" fill="currentColor" fontFamily="'Bebas Neue',Impact,sans-serif">Σ</text>
+    }
+  })()
+  return (
+    <span className="tviz" aria-hidden>
+      <svg width="20" height="20" viewBox="0 0 20 20">{viz}</svg>
+    </span>
+  )
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -425,8 +490,41 @@ export default function DashboardHome() {
         .sp-ping    { animation: sp-ping 1.6s cubic-bezier(0,0,.2,1) infinite }
         .sp-shimmer { background: linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%); background-size:200% 100%; animation:sp-shimmer 1.4s ease infinite }
         .sp-fadein  { animation: sp-fadein .4s ease both }
-        .tool-card  { transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease }
+        .tool-card  { transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; overflow:hidden }
         .tool-card:hover { transform:translateY(-3px); box-shadow:${C.shadowHero}; border-color:${C.gold}40 }
+
+        /* ── Hero 3D: tilt + parallax por capas ── */
+        .h3d { --px:0; --py:0; --mx:50%; --my:30%;
+          transform: rotateX(calc(var(--py) * -6deg)) rotateY(calc(var(--px) * 8deg));
+          transition: transform .5s ease; will-change: transform }
+        .h3d.h3d-on { transition: transform .1s ease-out }
+        .h3d-back  { transform: translate(calc(var(--px) * -8px), calc(var(--py) * -7px)); transition: transform .25s ease }
+        .h3d-front { transform: translate(calc(var(--px) *  5px), calc(var(--py) *  4px)); transition: transform .25s ease }
+        .h3d-shine { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .35s;
+          background: radial-gradient(280px circle at var(--mx) var(--my), ${C.gold}18, transparent 65%) }
+        .h3d.h3d-on .h3d-shine { opacity:1 }
+
+        /* ── Tool cards: identidad visual ── */
+        .tviz { width:36px; height:36px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+          border:1px solid ${C.border}; color:${C.dimText};
+          transition: color .2s, border-color .2s, box-shadow .2s }
+        .tool-card:hover .tviz { color:${C.gold}; border-color:${C.gold}55; box-shadow:0 0 14px ${C.gold}22 }
+        .tool-card::before, .tool-card::after { content:''; position:absolute; width:10px; height:10px;
+          opacity:.28; transition: opacity .2s, border-color .2s; pointer-events:none }
+        .tool-card::before { top:7px; left:7px; border-top:1px solid ${C.gold}; border-left:1px solid ${C.gold} }
+        .tool-card::after  { bottom:7px; right:7px; border-bottom:1px solid ${C.gold}; border-right:1px solid ${C.gold} }
+        .tool-card:hover::before, .tool-card:hover::after { opacity:.9 }
+        .tc-sweep { position:absolute; top:0; bottom:0; width:55%; left:-75%; pointer-events:none;
+          background:linear-gradient(105deg,transparent,${C.gold}12,transparent); transition:left .55s ease }
+        .tool-card:hover .tc-sweep { left:125% }
+
+        @media (prefers-reduced-motion: reduce) {
+          .h3d, .h3d.h3d-on { transform:none !important; transition:none }
+          .h3d-back, .h3d-front { transform:none !important }
+          .h3d-shine { display:none }
+          .tc-sweep { display:none }
+          .tool-card, .tool-card:hover { transform:none }
+        }
       `}</style>
 
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
@@ -557,11 +655,12 @@ export default function DashboardHome() {
               {/* Capas fantasma — profundidad apilada detrás del hero (glassmorphism) */}
               <div style={{ position:'absolute', inset:0, transform:'translate(7px,9px)', background:`${C.gold}07`, border:`1px solid ${C.gold}14`, borderRadius:C.radiusMd, zIndex:-2 }} />
               <div style={{ position:'absolute', inset:0, transform:'translate(3px,4px)', background:`${C.gold}0a`, border:`1px solid ${C.gold}1c`, borderRadius:C.radiusMd, zIndex:-1 }} />
-              <div className="sp-fadein" style={{ ...heroCardStyle, padding:'20px 22px', animationDelay:'0ms', position:'relative', overflow:'hidden' }}>
-                {/* Watermark Σ — medallón grabado, no solo texto con opacidad baja */}
-                <span style={{ position:'absolute', right:-6, bottom:-22, fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:120, lineHeight:1, color:C.gold, opacity:0.09, textShadow:`0 2px 3px rgba(0,0,0,0.5), 0 -1px 0 rgba(255,255,255,0.15), 0 0 24px ${C.gold}40`, pointerEvents:'none', userSelect:'none' }}>Σ</span>
+              <Hero3D>
+                {/* Watermark Σ — capa de fondo: se mueve contra el mouse (profundidad) */}
+                <span className="h3d-back" style={{ position:'absolute', right:-6, bottom:-22, fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:120, lineHeight:1, color:C.gold, opacity:0.09, textShadow:`0 2px 3px rgba(0,0,0,0.5), 0 -1px 0 rgba(255,255,255,0.15), 0 0 24px ${C.gold}40`, pointerEvents:'none', userSelect:'none' }}>Σ</span>
                 <div style={{ position:'relative', fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PATRIMONIO</div>
-                <div style={{ position:'relative', display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
+                {/* Cifra + sparkline — capa frontal: flota hacia el mouse */}
+                <div className="h3d-front" style={{ position:'relative', display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
                   {loading ? <Sk w={90} h={32} /> : (
                     <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:34, lineHeight:1, background:`linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', textShadow:numberEmboss }}>
                       {fmtUSD(D.totalUSD)}
@@ -572,7 +671,7 @@ export default function DashboardHome() {
                 <div style={{ position:'relative', fontFamily:'monospace', fontSize:10, color: hasDailyTrades ? (D.dailyPnL >= 0 ? C.green : C.red) : C.muted }}>
                   {hasDailyTrades ? `${fmtDiff(D.dailyPnL)} / ${D.dailyPnL >= 0 ? '+' : ''}${D.dailyPct.toFixed(2)}% hoy` : '— sin operaciones hoy'}
                 </div>
-              </div>
+              </Hero3D>
             </div>
 
             {/* PnL Mes */}
@@ -734,6 +833,9 @@ export default function DashboardHome() {
                   style={{ ...cardStyle, background:C.surface, padding:'20px 20px', textDecoration:'none', display:'flex', flexDirection:'column', gap:0, position:'relative' }}
                   title={tool.key ? `[${tool.key}] ${tool.label}` : undefined}
                 >
+                  {/* Barrido de luz al hover */}
+                  <span className="tc-sweep" aria-hidden />
+
                   {/* Live dot top-right */}
                   {tool.isLive && (
                     <div style={{ position:'absolute', top:14, right:14, display:'flex', alignItems:'center', gap:5 }}>
@@ -741,20 +843,23 @@ export default function DashboardHome() {
                     </div>
                   )}
 
-                  {/* Label + shortcut key */}
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
-                    <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color:C.text, letterSpacing:'0.05em', lineHeight:1 }}>
-                      {tool.label}
+                  {/* Viz + label + shortcut key */}
+                  <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+                    <ToolViz id={tool.id} />
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                        <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color:C.text, letterSpacing:'0.05em', lineHeight:1 }}>
+                          {tool.label}
+                        </div>
+                        {tool.key && (
+                          <kbd style={{ fontFamily:'monospace', fontSize:8, color:C.dimText, background:C.bg, border:`1px solid ${C.border}`, padding:'1px 4px', lineHeight:'14px', flexShrink:0, opacity:0.65 }}>
+                            {tool.key}
+                          </kbd>
+                        )}
+                      </div>
+                      <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{tool.sub}</div>
                     </div>
-                    {tool.key && (
-                      <kbd style={{ fontFamily:'monospace', fontSize:8, color:C.dimText, background:C.bg, border:`1px solid ${C.border}`, padding:'1px 4px', lineHeight:'14px', flexShrink:0, opacity:0.65 }}>
-                        {tool.key}
-                      </kbd>
-                    )}
                   </div>
-
-                  {/* Description */}
-                  <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, marginBottom:10 }}>{tool.sub}</div>
 
                   {/* Live badge */}
                   {badge && (
