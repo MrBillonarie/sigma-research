@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 const VPS  = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
-const PASS = '0808'
+const PASS = process.env.VPS_MOTOR_PASS ?? ''
 
 function makeClient() {
   const cookieStore = cookies()
