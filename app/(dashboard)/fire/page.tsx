@@ -106,6 +106,50 @@ function Label({ text }: { text: string }) {
   return <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>{text}</div>
 }
 
+// ─── Camino 3D al objetivo — plano en perspectiva con compuertas ─────────────
+function FireRoad({ progress, color, capital, target }: { progress: number; color: string; capital: number; target: number }) {
+  const pct = Math.min(Math.max(progress, 0), 100)
+  return (
+    <div style={{ padding: '18px 18px 10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>TU CAMINO AL OBJETIVO</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color }}>{pct.toFixed(1)}%</span>
+      </div>
+
+      <div className="fr-wrap">
+        <div className="fr-plane">
+          {/* recorrido iluminado */}
+          <div className="fr-fill" style={{ width: `${pct}%` }} />
+          {/* textura del camino avanzando hacia el portal */}
+          <div className="fr-dashes" aria-hidden />
+          {/* compuertas intermedias */}
+          {[25, 50, 75].map(ms => (
+            <div key={ms} className={`fr-gate${pct >= ms ? ' fr-lit' : ''}`} style={{ left: `${ms}%` }}>
+              <span className="fr-post fr-pl" /><span className="fr-beam" /><span className="fr-post fr-pr" />
+              <span className="fr-glabel">{ms}%</span>
+            </div>
+          ))}
+          {/* portal de la meta */}
+          <div className={`fr-gate fr-portal${pct >= 100 ? ' fr-lit' : ''}`} style={{ left: '100%' }}>
+            <span className="fr-post fr-pl" /><span className="fr-beam" /><span className="fr-post fr-pr" />
+            <span className="fr-glabel">META</span>
+            <span className="fr-halo" aria-hidden />
+          </div>
+          {/* tu posición — faro que avanza */}
+          <div className="fr-marker" style={{ left: `${pct}%` }}>
+            <span className="fr-ray" />
+            <span className="fr-orb" />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 2 }}>
+        <span>{fmt(capital)}</span><span>Meta: {fmtK(target)}</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function FirePage() {
   const { totalUSD: portfolioTotal, ready: portfolioReady } = usePortfolio()
@@ -225,6 +269,54 @@ export default function FirePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
+      <style>{`
+        /* ── Camino 3D al objetivo ── */
+        .fr-wrap { position:relative; height:104px; perspective:520px; overflow:hidden; margin-top:2px; }
+        .fr-plane { position:absolute; left:24px; right:34px; bottom:4px; height:140px;
+          transform: rotateX(52deg); transform-origin:50% 100%; transform-style:preserve-3d;
+          background: linear-gradient(180deg, transparent 30%, rgba(212,175,55,0.04));
+          border-top:1px solid rgba(212,175,55,0.14); border-bottom:1px solid rgba(212,175,55,0.10); }
+        .fr-fill { position:absolute; top:0; bottom:0; left:0;
+          background: linear-gradient(90deg, rgba(212,175,55,0.10), rgba(212,175,55,0.26));
+          border-right: 2px solid rgba(240,204,90,0.7); box-shadow: 0 0 22px rgba(212,175,55,0.18);
+          transition: width .5s ease; }
+        .fr-dashes { position:absolute; inset:0; pointer-events:none;
+          background-image: repeating-linear-gradient(90deg, rgba(212,175,55,0.10) 0 2px, transparent 2px 42px);
+          animation: frMove 2.8s linear infinite; }
+        @keyframes frMove { to { background-position: 42px 0; } }
+
+        .fr-gate { position:absolute; bottom:38%; width:0; transform: rotateX(-52deg); transform-origin:50% 100%; }
+        .fr-post { position:absolute; bottom:0; width:2px; height:26px; background:#3a3f55; transition: background .3s, box-shadow .3s; }
+        .fr-pl { left:-13px; } .fr-pr { left:11px; }
+        .fr-beam { position:absolute; bottom:26px; left:-13px; width:26px; height:2px; background:#3a3f55; transition: background .3s, box-shadow .3s; }
+        .fr-glabel { position:absolute; bottom:32px; left:0; transform:translateX(-50%);
+          font-family:monospace; font-size:8px; letter-spacing:0.12em; color:#3a3f55; transition:color .3s; white-space:nowrap; }
+        .fr-lit .fr-post, .fr-lit .fr-beam { background:#d4af37; box-shadow:0 0 10px rgba(212,175,55,0.55); }
+        .fr-lit .fr-glabel { color:#f0cc5a; }
+
+        .fr-portal .fr-post { height:38px; }
+        .fr-portal .fr-pl { left:-17px; } .fr-portal .fr-pr { left:15px; }
+        .fr-portal .fr-beam { bottom:38px; left:-17px; width:34px; }
+        .fr-portal .fr-glabel { bottom:44px; color:#7a7f9a; }
+        .fr-halo { position:absolute; bottom:0; left:-24px; width:48px; height:48px; pointer-events:none;
+          background: radial-gradient(circle at 50% 100%, rgba(212,175,55,0.22), transparent 70%); }
+        .fr-portal.fr-lit .fr-halo { background: radial-gradient(circle at 50% 100%, rgba(52,211,153,0.35), transparent 70%); }
+        .fr-portal.fr-lit .fr-post, .fr-portal.fr-lit .fr-beam { background:#34d399; box-shadow:0 0 14px rgba(52,211,153,0.6); }
+        .fr-portal.fr-lit .fr-glabel { color:#34d399; }
+
+        .fr-marker { position:absolute; bottom:38%; width:0; transform: rotateX(-52deg); transform-origin:50% 100%; transition:left .5s ease; }
+        .fr-ray { position:absolute; bottom:0; left:-1px; width:2px; height:30px;
+          background: linear-gradient(180deg, transparent, rgba(240,204,90,0.9)); }
+        .fr-orb { position:absolute; bottom:-4px; left:-4px; width:8px; height:8px; border-radius:50%;
+          background:#f0cc5a; box-shadow:0 0 12px rgba(212,175,55,0.9); animation: frPulse 1.6s ease-in-out infinite; }
+        @keyframes frPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.35); } }
+
+        @media (prefers-reduced-motion: reduce) {
+          .fr-dashes { animation:none; }
+          .fr-orb { animation:none; }
+          .fr-fill, .fr-marker { transition:none; }
+        }
+      `}</style>
       <div className="dash-content" style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}
@@ -342,26 +434,8 @@ export default function FirePage() {
               </div>
             </div>
 
-            {/* Progress — camino con hitos, no una barra de carga genérica */}
-            <div style={{ padding: '18px 18px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>TU CAMINO AL OBJETIVO</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color: m.color }}>{progress.toFixed(1)}%</span>
-              </div>
-              <div style={{ position: 'relative', height: 8, background: C.border, borderRadius: 4 }}>
-                <div style={{ height: '100%', width: `${progress}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.glow})`, transition: 'width 0.5s', borderRadius: 4 }} />
-                {[25, 50, 75, 100].map(milestone => (
-                  <div key={milestone} style={{
-                    position: 'absolute', top: -3, left: `${milestone}%`, transform: 'translateX(-50%)',
-                    width: 2, height: 14, borderRadius: 1,
-                    background: progress >= milestone ? C.gold : C.muted,
-                  }} />
-                ))}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 10 }}>
-                <span>{fmt(capital)}</span><span>Meta: {fmtK(target)}</span>
-              </div>
-            </div>
+            {/* Progress — camino 3D en perspectiva con compuertas */}
+            <FireRoad progress={progress} color={m.color} capital={capital} target={target} />
 
             {/* Chart */}
             <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
