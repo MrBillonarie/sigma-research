@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface KellyLedger {
@@ -86,6 +86,67 @@ function motorOf(c: Champion): number {
 }
 function champKey(c: Champion) {
   return `${c.sym}-${c.tf}-${c.strategy}-${c.type}-${c.slot}`
+}
+
+// ─── CountUp — anima de valor previo → target con ease-out cúbico ─────────────
+function useCountUp(target: number, dur = 1000) {
+  const [v, setV] = useState(0)
+  const vRef    = useRef(0)
+  const fromRef = useRef(0)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      vRef.current = target; fromRef.current = target; setV(target)
+      return
+    }
+    const from = fromRef.current
+    let raf = 0
+    let t0: number | null = null
+    const tick = (t: number) => {
+      if (t0 === null) t0 = t
+      const p = Math.min(1, (t - t0) / dur)
+      const val = from + (target - from) * (1 - Math.pow(1 - p, 3))
+      vRef.current = val
+      setV(val)
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else fromRef.current = target
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); fromRef.current = vRef.current }
+  }, [target, dur])
+  return v
+}
+
+// ─── Tilt 3D para el #1 del podio — CSS vars al DOM, sin re-renders ───────────
+function TiltWrap({ children, style, delay }: { children: React.ReactNode; style?: React.CSSProperties; delay?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  function onMove(e: React.MouseEvent) {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const el = ref.current
+    if (!el) return
+    const r  = el.getBoundingClientRect()
+    const px = (e.clientX - r.left) / r.width - 0.5
+    const py = (e.clientY - r.top) / r.height - 0.5
+    el.style.setProperty('--px', px.toFixed(3))
+    el.style.setProperty('--py', py.toFixed(3))
+    el.style.setProperty('--mx', `${((px + 0.5) * 100).toFixed(1)}%`)
+    el.style.setProperty('--my', `${((py + 0.5) * 100).toFixed(1)}%`)
+    el.classList.add('mdl-on')
+  }
+  function onLeave() {
+    const el = ref.current
+    if (!el) return
+    el.style.setProperty('--px', '0')
+    el.style.setProperty('--py', '0')
+    el.classList.remove('mdl-on')
+  }
+  return (
+    <div style={{ perspective: 750, ...style }} className="mdl-in">
+      <div ref={ref} className="mdl-tilt" onMouseMove={onMove} onMouseLeave={onLeave} style={{ animationDelay: delay }}>
+        <span className="mdl-tilt-shine" aria-hidden />
+        {children}
+      </div>
+    </div>
+  )
 }
 
 // ─── Panel de detalles (expandible) ──────────────────────────────────────────
@@ -193,9 +254,16 @@ const RANK_STYLE: Record<number, { bg:string; fg:string }> = {
   3: { bg:'linear-gradient(135deg,#e8a565,#b5651d)', fg:'#1f0d00' },
 }
 
+// Marcos metálicos del podio (borde con gradiente via padding-box/border-box)
+const PODIUM_FRAME: Record<number, { grad:string; glow:string; wm:string }> = {
+  1: { grad:'linear-gradient(135deg,#ffe9a8,#d4af37 40%,#8a7222)', glow:`0 0 26px ${GOLD}33, 0 14px 34px rgba(0,0,0,0.5)`, wm:'rgba(212,175,55,0.07)' },
+  2: { grad:'linear-gradient(135deg,#f0f2f7,#9aa3b5 45%,#5c6474)', glow:'0 10px 26px rgba(0,0,0,0.45)',                    wm:'rgba(154,163,181,0.06)' },
+  3: { grad:'linear-gradient(135deg,#e8a565,#b5651d 45%,#6e3c10)', glow:'0 10px 26px rgba(0,0,0,0.45)',                    wm:'rgba(181,101,29,0.07)'  },
+}
+
 // ─── Tarjeta de champion (vitrina) ───────────────────────────────────────────
-function ChampCard({ c, rank, motorColor, expanded, onToggle }: {
-  c:Champion; rank?:number; motorColor:string; expanded:boolean; onToggle:()=>void
+function ChampCard({ c, rank, motorColor, expanded, onToggle, podium }: {
+  c:Champion; rank?:number; motorColor:string; expanded:boolean; onToggle:()=>void; podium?:boolean
 }) {
   const d = champDir(c)
   const isShort = d==='short', isAdapt = d==='adaptive'
@@ -206,6 +274,12 @@ function ChampCard({ c, rank, motorColor, expanded, onToggle }: {
   const wr = c.wr!=null ? (c.wr<=1?c.wr*100:c.wr) : null
   const wftClr = c.wft_verdict==='PASS' ? GRN : c.wft_verdict==='FAIL' ? RED : MUTED
   const rs = rank ? RANK_STYLE[rank] : undefined
+  const frame = podium && rank ? PODIUM_FRAME[rank] : undefined
+  const isFirst = podium && rank===1
+  const kpiSize = isFirst ? 21 : 16
+  const symSize = isFirst ? 27 : 20
+
+  const baseBg = isChamp ? `linear-gradient(160deg,${GOLD}12,${SURF} 55%)` : SURF
 
   return (
     <div
@@ -213,67 +287,81 @@ function ChampCard({ c, rank, motorColor, expanded, onToggle }: {
       tabIndex={0}
       onClick={onToggle}
       onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') onToggle() }}
-      className={`modelos-champ-card${rank===1?' modelos-champ-card--rank1':''}`}
+      className={`modelos-champ-card${isFirst?' modelos-champ-card--rank1':''}`}
       style={{
         position:'relative',
-        gridColumn: expanded ? '1 / -1' : undefined,
-        background: isChamp ? `linear-gradient(160deg,${GOLD}12,${SURF} 55%)` : SURF,
-        border: `1px solid ${isChamp?GOLD+'70':motorColor+'30'}`,
-        boxShadow: isChamp ? `0 0 14px ${GOLD}22` : 'none',
-        borderRadius: 6, padding:'12px 14px', cursor:'pointer',
+        gridColumn: !podium && expanded ? '1 / -1' : undefined,
+        ...(frame ? {
+          overflow:'hidden',
+          border:'1px solid transparent',
+          background:`${`linear-gradient(160deg,${rank===1?GOLD+'14':SURF},${SURF} 60%)`} padding-box, ${frame.grad} border-box`,
+          boxShadow: frame.glow,
+        } : {
+          background: baseBg,
+          border: `1px solid ${isChamp?GOLD+'70':motorColor+'30'}`,
+          boxShadow: isChamp ? `0 0 14px ${GOLD}22` : 'none',
+        }),
+        borderRadius: 6, padding: isFirst ? '16px 18px' : '12px 14px', cursor:'pointer',
         display:'flex', flexDirection:'column', gap:8,
       }}
     >
+      {/* Símbolo grabado de fondo — solo podio */}
+      {frame && (
+        <span aria-hidden style={{ position:'absolute', right:-4, bottom:-18, fontFamily:BEBAS, fontSize: isFirst?96:72, lineHeight:1, color:frame.wm, pointerEvents:'none', userSelect:'none' }}>
+          {champSym(c)}
+        </span>
+      )}
       {rs && (
         <span style={{
-          position:'absolute', top:-9, right:12,
-          fontFamily:BEBAS, fontSize:11, letterSpacing:'0.05em',
+          position:'absolute', top:podium?10:-9, right:12,
+          fontFamily:BEBAS, fontSize:podium?13:11, letterSpacing:'0.05em',
           color:rs.fg, background:rs.bg,
-          padding:'2px 8px', borderRadius:10, boxShadow:'0 2px 6px rgba(0,0,0,0.45)',
-        }}>#{rank}</span>
+          padding:podium?'3px 10px':'2px 8px', borderRadius:10, boxShadow:'0 2px 6px rgba(0,0,0,0.45)',
+          zIndex:1,
+        }}>{podium && rank===1 ? '★ #1' : `#${rank}`}</span>
       )}
 
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, position:'relative' }}>
         <span style={{ fontFamily:MONO, fontSize:10, color:gc, fontWeight:700, border:`1px solid ${gc}60`, borderRadius:3, padding:'1px 5px' }}>{c.grade??'?'}</span>
-        <span style={{ fontFamily:BEBAS, fontSize:20, color:'#e8e9f0', letterSpacing:'0.04em', lineHeight:1 }}>{champSym(c)}</span>
+        <span style={{ fontFamily:BEBAS, fontSize:symSize, color:'#e8e9f0', letterSpacing:'0.04em', lineHeight:1 }}>{champSym(c)}</span>
         <span style={{ fontFamily:MONO, fontSize:10, color:GOLD }}>{champTF(c).toUpperCase()}</span>
-        {c.signal && <span style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:GRN, boxShadow:`0 0 6px ${GRN}` }} />}
-        <span style={{ marginLeft: c.signal?0:'auto', fontFamily:MONO, fontSize:11, color:MUTED, transform:expanded?'rotate(180deg)':'none', transition:'transform 0.15s' }}>▾</span>
+        {c.signal && <span style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:GRN, boxShadow:`0 0 6px ${GRN}`, marginRight:rs&&podium?52:0 }} />}
+        <span style={{ marginLeft: c.signal?0:'auto', fontFamily:MONO, fontSize:11, color:MUTED, transform:expanded?'rotate(180deg)':'none', transition:'transform 0.15s', marginRight:!c.signal&&rs&&podium?52:0 }}>▾</span>
       </div>
 
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, position:'relative' }}>
         <span style={{ fontFamily:MONO, fontSize:9, color:dirClr, background:`${dirClr}14`, padding:'2px 6px', borderRadius:3 }}>{dirLbl}</span>
         <span style={{ fontFamily:MONO, fontSize:10, color:DIM, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
           {fmtStrat(c.strategy)}
         </span>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, paddingTop:8, borderTop:`1px solid ${BDR}` }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, paddingTop:8, borderTop:`1px solid ${BDR}`, position:'relative' }}>
         <div>
           <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.1em' }}>CAGR</div>
-          <div style={{ fontFamily:BEBAS, fontSize:16, color:c.cagr!=null?(c.cagr>=0?GRN:RED):MUTED }}>{p0(c.cagr)}</div>
+          <div style={{ fontFamily:BEBAS, fontSize:kpiSize, color:c.cagr!=null?(c.cagr>=0?GRN:RED):MUTED }}>{p0(c.cagr)}</div>
         </div>
         <div>
           <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.1em' }}>WIN RT</div>
-          <div style={{ fontFamily:BEBAS, fontSize:16, color:wr!=null?(wr>=60?GRN:wr>=50?GOLD:RED):MUTED }}>{wr!=null?`${wr.toFixed(1)}%`:'—'}</div>
+          <div style={{ fontFamily:BEBAS, fontSize:kpiSize, color:wr!=null?(wr>=60?GRN:wr>=50?GOLD:RED):MUTED }}>{wr!=null?`${wr.toFixed(1)}%`:'—'}</div>
         </div>
         <div>
           <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.1em' }}>MAX DD</div>
-          <div style={{ fontFamily:BEBAS, fontSize:16, color:RED }}>{p1(c.dd)}</div>
+          <div style={{ fontFamily:BEBAS, fontSize:kpiSize, color:RED }}>{p1(c.dd)}</div>
         </div>
         <div>
           <div style={{ fontFamily:MONO, fontSize:8, color:MUTED, letterSpacing:'0.1em' }}>TRADES</div>
-          <div style={{ fontFamily:BEBAS, fontSize:16, color:'#e8e9f0' }}>{c.trades?.toLocaleString()??'—'}</div>
+          <div style={{ fontFamily:BEBAS, fontSize:kpiSize, color:'#e8e9f0' }}>{c.trades?.toLocaleString()??'—'}</div>
         </div>
       </div>
 
-      <div style={{ display:'flex', gap:8, fontFamily:MONO, fontSize:9 }}>
+      <div style={{ display:'flex', gap:8, fontFamily:MONO, fontSize:9, position:'relative' }}>
         <span style={{ color: c.val_mc!=null&&c.val_mc>=80?GRN:GOLD }}>MC {c.val_mc!=null?`${c.val_mc.toFixed(0)}%`:'—'}</span>
         <span style={{ color:MUTED }}>·</span>
         <span style={{ color: wftClr }}>WFT {c.wft_verdict||'—'}</span>
       </div>
 
-      {expanded && <div onClick={e=>e.stopPropagation()} style={{ marginTop:4, marginLeft:-14, marginRight:-14, marginBottom:-12 }}><DetailPanel c={c} /></div>}
+      {expanded && <div onClick={e=>e.stopPropagation()} style={{ marginTop:4, marginLeft:isFirst?-18:-14, marginRight:isFirst?-18:-14, marginBottom:isFirst?-16:-12, position:'relative' }}><DetailPanel c={c} /></div>}
     </div>
   )
 }
@@ -296,13 +384,17 @@ function MotorTabs({ selected, onSelect, counts }: {
             title={!isActive ? 'Próximamente — en desarrollo' : undefined}
             style={{
               display:'flex', alignItems:'center', gap:7,
-              padding:'10px 16px', background:'transparent', border:'none',
+              padding:'10px 16px', border:'none',
+              background: isSel ? `linear-gradient(180deg,transparent 55%,${m.color}14)` : 'transparent',
               borderBottom:`2px solid ${isSel?m.color:'transparent'}`,
+              boxShadow: isSel ? `0 8px 20px -10px ${m.color}aa` : 'none',
+              textShadow: isSel ? `0 0 14px ${m.color}66` : 'none',
               cursor: isActive ? 'pointer' : 'not-allowed',
               fontFamily:BEBAS, fontSize:14, letterSpacing:'0.04em',
               color: isSel ? m.color : (isActive?DIM:MUTED),
               opacity: isActive||isSel ? 1 : 0.4,
               pointerEvents: isActive ? 'auto' : 'none',
+              transition:'color .2s, background .2s, box-shadow .2s',
             }}
           >
             M{m.id} · {m.label}
@@ -323,15 +415,25 @@ function MotorTabs({ selected, onSelect, counts }: {
   )
 }
 
-// ─── Ticker de resumen ────────────────────────────────────────────────────────
+// ─── Ticker de resumen — los números cuentan al cargar/cambiar de motor ──────
 function TickerBar({ champs }: { champs:Champion[] }) {
-  if (!champs.length) return null
   const aPlus  = champs.filter(c=>c.grade==='A+').length
   const aGrd   = champs.filter(c=>c.grade==='A').length
   const longs  = champs.filter(c=>champDir(c)==='long').length
   const shorts = champs.filter(c=>champDir(c)==='short').length
   const sigs   = champs.filter(c=>c.signal).length
-  const avgC   = champs.reduce((s,c)=>s+(c.cagr??0),0)/champs.length
+  const avgC   = champs.length ? champs.reduce((s,c)=>s+(c.cagr??0),0)/champs.length : 0
+
+  // hooks siempre antes del return condicional
+  const cN   = useCountUp(champs.length, 850)
+  const cAp  = useCountUp(aPlus, 850)
+  const cA   = useCountUp(aGrd, 850)
+  const cLg  = useCountUp(longs, 900)
+  const cSh  = useCountUp(shorts, 900)
+  const cSig = useCountUp(sigs, 950)
+  const cAvg = useCountUp(avgC, 1100)
+
+  if (!champs.length) return null
 
   const Item = ({ l, v, c }:{l:string; v:string; c:string}) => (
     <span style={{ display:'flex', alignItems:'baseline', gap:5, whiteSpace:'nowrap' }}>
@@ -343,13 +445,13 @@ function TickerBar({ champs }: { champs:Champion[] }) {
 
   return (
     <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap', padding:'2px 2px 16px' }}>
-      <Item l="CHAMPIONS" v={champs.length.toString()} c={GOLD} /><Sep/>
-      <Item l="A+" v={aPlus.toString()} c="#ffd700" />
-      <Item l="A" v={aGrd.toString()} c={GRN} /><Sep/>
-      <Item l="LONGS" v={longs.toString()} c={GRN} />
-      <Item l="SHORTS" v={shorts.toString()} c={RED} /><Sep/>
-      <Item l="CAGR PROM" v={p0(avgC)} c={GRN} />
-      <Item l="CON SEÑAL" v={sigs.toString()} c={sigs>0?GRN:MUTED} />
+      <Item l="CHAMPIONS" v={Math.round(cN).toString()} c={GOLD} /><Sep/>
+      <Item l="A+" v={Math.round(cAp).toString()} c="#ffd700" />
+      <Item l="A" v={Math.round(cA).toString()} c={GRN} /><Sep/>
+      <Item l="LONGS" v={Math.round(cLg).toString()} c={GRN} />
+      <Item l="SHORTS" v={Math.round(cSh).toString()} c={RED} /><Sep/>
+      <Item l="CAGR PROM" v={p0(cAvg)} c={GRN} />
+      <Item l="CON SEÑAL" v={Math.round(cSig).toString()} c={sigs>0?GRN:MUTED} />
     </div>
   )
 }
@@ -410,18 +512,60 @@ function ChampionsBoard({ motor, champs }: { motor:MotorDef; champs:Champion[] }
           </button>
         ))}
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
-        {filtered.map((c,i)=>{
-          const k = champKey(c)
-          return (
-            <ChampCard
-              key={k} c={c} motorColor={motor.color}
-              rank={i<3?i+1:undefined}
-              expanded={expandedKey===k} onToggle={()=>toggle(k)}
-            />
-          )
-        })}
-      </div>
+      {filtered.length >= 3 ? (
+        <>
+          {/* ── Podio top 3 — #1 al centro, elevado ── */}
+          <div className="mdl-podium" key={`p-${motor.id}-${filter}`}>
+            {[1, 0, 2].map(idx => {
+              const c = filtered[idx]
+              const k = champKey(c)
+              const card = (
+                <ChampCard
+                  c={c} motorColor={motor.color} rank={idx+1} podium
+                  expanded={expandedKey===k} onToggle={()=>toggle(k)}
+                />
+              )
+              const span = expandedKey===k ? '1 / -1' : undefined
+              return idx===0 ? (
+                <TiltWrap key={k} style={{ gridColumn: span }} delay="80ms">{card}</TiltWrap>
+              ) : (
+                <div key={k} className="mdl-in mdl-side" style={{ gridColumn: span, animationDelay: idx===1?'0ms':'160ms' }}>{card}</div>
+              )
+            })}
+          </div>
+          {/* ── Resto de champions ── */}
+          {filtered.length > 3 && (
+            <div key={`g-${motor.id}-${filter}`} style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
+              {filtered.slice(3).map((c,i)=>{
+                const k = champKey(c)
+                return (
+                  <div key={k} className="mdl-in" style={{ gridColumn: expandedKey===k?'1 / -1':undefined, animationDelay:`${220+Math.min(i,10)*50}ms` }}>
+                    <ChampCard
+                      c={c} motorColor={motor.color}
+                      expanded={expandedKey===k} onToggle={()=>toggle(k)}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <div key={`g-${motor.id}-${filter}`} style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
+          {filtered.map((c,i)=>{
+            const k = champKey(c)
+            return (
+              <div key={k} className="mdl-in" style={{ gridColumn: expandedKey===k?'1 / -1':undefined, animationDelay:`${Math.min(i,10)*50}ms` }}>
+                <ChampCard
+                  c={c} motorColor={motor.color}
+                  rank={i<3?i+1:undefined}
+                  expanded={expandedKey===k} onToggle={()=>toggle(k)}
+                />
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -465,8 +609,44 @@ export default function ModelosPage() {
         .modelos-champ-card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0,0,0,0.4); }
         .modelos-champ-card--rank1 { animation: modelosChampPulse 2.6s ease-in-out infinite; }
         @keyframes modelosChampPulse {
-          0%, 100% { box-shadow: 0 0 14px rgba(212,175,55,0.22); }
-          50%      { box-shadow: 0 0 28px rgba(212,175,55,0.55); }
+          0%, 100% { box-shadow: 0 0 18px rgba(212,175,55,0.25), 0 14px 34px rgba(0,0,0,0.5); }
+          50%      { box-shadow: 0 0 32px rgba(212,175,55,0.55), 0 14px 34px rgba(0,0,0,0.5); }
+        }
+
+        /* ── Podio top 3 ── */
+        .mdl-podium { display:grid; grid-template-columns:1fr 1.18fr 1fr; gap:14px; align-items:start; margin-bottom:18px; }
+        .mdl-side { margin-top:28px; }
+        @media (max-width:760px) {
+          .mdl-podium { grid-template-columns:1fr; }
+          .mdl-side { margin-top:0; }
+        }
+
+        /* ── Cascada de entrada ── */
+        .mdl-in { animation: mdlIn .42s ease both; }
+        @keyframes mdlIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+        /* ── Tilt 3D del #1 ── */
+        .mdl-tilt { --px:0; --py:0; --mx:50%; --my:30%; position:relative;
+          transform: rotateX(calc(var(--py) * -5deg)) rotateY(calc(var(--px) * 7deg));
+          transition: transform .5s ease; will-change: transform; }
+        .mdl-tilt.mdl-on { transition: transform .1s ease-out; }
+        .mdl-tilt-shine { position:absolute; inset:0; z-index:2; opacity:0; transition:opacity .35s; pointer-events:none; border-radius:6px;
+          background: radial-gradient(280px circle at var(--mx) var(--my), rgba(212,175,55,.13), transparent 65%); }
+        .mdl-tilt.mdl-on .mdl-tilt-shine { opacity:1; }
+
+        /* ── Loader encendido ── */
+        .mdl-pulse { animation: mdlPulse 1.5s ease-in-out infinite; }
+        @keyframes mdlPulse { 0%,100% { opacity:.45; transform:scale(.96); } 50% { opacity:1; transform:scale(1.04); } }
+        .mdl-scan { animation: mdlScan 1.2s ease-in-out infinite alternate; }
+        @keyframes mdlScan { from { transform:translateX(-10px); } to { transform:translateX(102px); } }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mdl-in { animation:none; }
+          .mdl-tilt { transform:none !important; transition:none; }
+          .mdl-tilt-shine { display:none; }
+          .mdl-pulse, .mdl-scan { animation:none; }
+          .modelos-champ-card--rank1 { animation:none; }
+          .modelos-champ-card:hover { transform:none; }
         }
       `}</style>
       <div style={{ maxWidth:1200, margin:'0 auto', padding:'88px 24px 64px' }}>
@@ -494,11 +674,24 @@ export default function ModelosPage() {
         {/* Tabs de motor */}
         <MotorTabs selected={selMotor} onSelect={setSelMotor} counts={counts} />
 
-        {/* Ticker de resumen del motor seleccionado */}
-        {!loading && <TickerBar champs={motorChamps} />}
+        {loading ? (
+          /* Encendido — conectando al motor */
+          <div style={{ padding:'72px 0', textAlign:'center' }}>
+            <div className="mdl-pulse" style={{ fontFamily:BEBAS, fontSize:56, color:GOLD, lineHeight:1 }}>Σ</div>
+            <div style={{ fontFamily:MONO, fontSize:10, letterSpacing:'0.32em', color:MUTED, marginTop:14 }}>CONECTANDO AL MOTOR…</div>
+            <div style={{ width:140, height:2, margin:'16px auto 0', background:BDR, overflow:'hidden', borderRadius:2 }}>
+              <div className="mdl-scan" style={{ width:48, height:'100%', background:`linear-gradient(90deg,transparent,${GOLD},transparent)` }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Ticker de resumen del motor seleccionado */}
+            <TickerBar champs={motorChamps} />
 
-        {/* Tablero del motor seleccionado */}
-        <ChampionsBoard motor={motor} champs={motorChamps} />
+            {/* Tablero del motor seleccionado */}
+            <ChampionsBoard motor={motor} champs={motorChamps} />
+          </>
+        )}
 
       </div>
     </div>
