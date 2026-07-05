@@ -393,7 +393,7 @@ const inputStyle: React.CSSProperties = {
   transition: 'border-color 0.15s, box-shadow 0.15s',
 }
 
-function MetricCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+function MetricCard({ label, value, sub, color }: { label: string; value: React.ReactNode; sub?: string; color?: string }) {
   return (
     <div style={{ ...cardStyle, background: C.bg, padding: '14px 16px' }}>
       <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 6 }}>{label}</div>
@@ -431,6 +431,323 @@ function resultAccent(magnitude: number, color: string): { border: string; bg: s
   const t = Math.min(Math.max(magnitude, 0), 1)
   const alpha = Math.round(8 + t * 22).toString(16).padStart(2, '0') // 08..1e
   return { border: color, bg: `${color}${alpha}` }
+}
+
+// ── CountUp — anima de valor previo → target con ease-out cúbico ─────────────
+function useCountUp(target: number, dur = 1100) {
+  const [v, setV] = useState(0)
+  const vRef    = useRef(0)
+  const fromRef = useRef(0)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      vRef.current = target; fromRef.current = target; setV(target)
+      return
+    }
+    const from = fromRef.current
+    let raf = 0
+    let t0: number | null = null
+    const tick = (t: number) => {
+      if (t0 === null) t0 = t
+      const p = Math.min(1, (t - t0) / dur)
+      const val = from + (target - from) * (1 - Math.pow(1 - p, 3))
+      vRef.current = val
+      setV(val)
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else fromRef.current = target
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); fromRef.current = vRef.current }
+  }, [target, dur])
+  return v
+}
+
+function CountText({ target, format }: { target: number; format: (v: number) => string }) {
+  const v = useCountUp(target)
+  return <>{format(v)}</>
+}
+
+// ── Barra SL → Entrada → TP del trade abierto (posición del precio en vivo) ──
+function OpenLevelBar({ entry, sl, tp, pnlPct, direction }: {
+  entry: number; sl: number; tp: number; pnlPct: number; direction: 'long' | 'short'
+}) {
+  if (!entry || !sl || !tp) return null
+  const price = direction === 'long' ? entry * (1 + pnlPct / 100) : entry * (1 - pnlPct / 100)
+  const lo = Math.min(sl, tp), hi = Math.max(sl, tp)
+  const span = hi - lo || 1
+  const pos = (v: number) => Math.min(98, Math.max(2, ((v - lo) / span) * 100))
+  const slLeft = sl < tp
+  return (
+    <div style={{ paddingTop: 4 }}>
+      <div style={{ position: 'relative', height: 6, borderRadius: 3, background: `linear-gradient(90deg, ${slLeft ? C.red : C.green}30, ${C.border} 45%, ${C.border} 55%, ${slLeft ? C.green : C.red}30)` }}>
+        {/* entrada */}
+        <div style={{ position: 'absolute', top: -3, left: `${pos(entry)}%`, transform: 'translateX(-50%)', width: 2, height: 12, background: C.dimText }} />
+        {/* precio actual */}
+        <div className="j-price" style={{
+          position: 'absolute', top: -4, left: `${pos(price)}%`, transform: 'translateX(-50%)',
+          width: 14, height: 14, borderRadius: '50%',
+          background: pnlPct >= 0 ? C.green : C.red,
+          boxShadow: `0 0 12px ${pnlPct >= 0 ? C.green : C.red}`,
+          border: `2px solid ${C.bg}`, transition: 'left 0.6s ease',
+        }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 9, color: C.muted, marginTop: 6 }}>
+        <span style={{ color: slLeft ? C.red : C.green }}>{slLeft ? 'SL' : 'TP'} ${fmtN(lo)}</span>
+        <span style={{ color: C.dimText }}>entrada ${fmtN(entry)}</span>
+        <span style={{ color: slLeft ? C.green : C.red }}>{slLeft ? 'TP' : 'SL'} ${fmtN(hi)}</span>
+      </div>
+    </div>
+  )
+}
+
+// ── Equity curve cinematográfica — canvas con trazo progresivo, valle del
+// max drawdown sombreado y punto final pulsante. ──────────────────────────────
+function EquityCanvas({ curve, ddIdx, ddPct }: {
+  curve: { date: string; equity: number; win: boolean }[]; ddIdx: number; ddPct: number
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const hoverRef  = useRef<number | null>(null)
+  const dataRef   = useRef({ curve, ddIdx, ddPct })
+  const startRef  = useRef(0)
+
+  useEffect(() => {
+    dataRef.current = { curve, ddIdx, ddPct }
+    startRef.current = typeof performance !== 'undefined' ? performance.now() : 0
+  }, [curve, ddIdx, ddPct])
+
+  useEffect(() => {
+    const cv = canvasRef.current
+    if (!cv) return
+    const ctx = cv.getContext('2d')
+    if (!ctx) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let raf = 0, visible = true, W = 0, H = 0
+    const ML = 64, MR = 20, MT = 20, MB = 26
+
+    function resize() {
+      if (!cv) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      W = cv.clientWidth; H = cv.clientHeight
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr)
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+    resize()
+    const ro = new ResizeObserver(resize); ro.observe(cv)
+    const io = new IntersectionObserver(es => { visible = es[0].isIntersecting }, { threshold: 0.05 }); io.observe(cv)
+
+    function scene(now: number) {
+      const { curve: A, ddIdx: DD, ddPct: DDP } = dataRef.current
+      const n = A.length
+      if (n < 2 || W === 0) return
+      const p = reduced ? 1 : 1 - Math.pow(1 - Math.min(1, (now - startRef.current) / 1300), 3)
+      const pulse = reduced ? 0 : Math.sin(now / 480)
+
+      const vals = A.map(a => a.equity)
+      let minV = Math.min(0, ...vals), maxV = Math.max(...vals)
+      const pad = (maxV - minV) * 0.1 || 1
+      minV -= pad; maxV += pad
+      const xs = (i: number) => ML + (i / (n - 1)) * (W - ML - MR)
+      const ys = (v: number) => MT + (1 - (v - minV) / (maxV - minV)) * (H - MT - MB)
+
+      ctx!.clearRect(0, 0, W, H)
+
+      // grid + labels y
+      ctx!.font = '9px monospace'; ctx!.textAlign = 'right'
+      for (let g = 0; g <= 4; g++) {
+        const v = minV + ((maxV - minV) / 4) * g
+        const y = ys(v)
+        ctx!.strokeStyle = 'rgba(212,175,55,0.06)'; ctx!.lineWidth = 1; ctx!.setLineDash([3, 5])
+        ctx!.beginPath(); ctx!.moveTo(ML, y); ctx!.lineTo(W - MR, y); ctx!.stroke(); ctx!.setLineDash([])
+        ctx!.fillStyle = C.dimText
+        ctx!.fillText(`$${Math.round(v).toLocaleString('en-US')}`, ML - 8, y + 3)
+      }
+      // labels x (~6 fechas)
+      ctx!.textAlign = 'center'
+      const stepX = Math.max(1, Math.floor((n - 1) / 6))
+      for (let i = 0; i < n; i += stepX) {
+        ctx!.fillStyle = C.muted
+        ctx!.fillText(A[i].date.slice(5), xs(i), H - 8)
+      }
+      // línea de cero si hay negativos
+      if (minV < 0) {
+        const zy = ys(0)
+        ctx!.strokeStyle = 'rgba(232,233,240,0.14)'; ctx!.setLineDash([5, 5])
+        ctx!.beginPath(); ctx!.moveTo(ML, zy); ctx!.lineTo(W - MR, zy); ctx!.stroke(); ctx!.setLineDash([])
+      }
+
+      // valle del max drawdown — región sombreada del pico previo al fondo
+      if (DDP > 0.5 && DD > 0) {
+        let peakIdx = 0
+        for (let i = 1; i <= DD; i++) if (A[i].equity > A[peakIdx].equity) peakIdx = i
+        if (peakIdx < DD) {
+          const x0 = xs(peakIdx), x1 = xs(DD)
+          ctx!.fillStyle = 'rgba(248,113,113,0.07)'
+          ctx!.fillRect(x0, MT, x1 - x0, H - MT - MB)
+          ctx!.font = '600 9px monospace'; ctx!.textAlign = 'center'
+          ctx!.fillStyle = C.red
+          ctx!.fillText(`MAX DD -${DDP.toFixed(1)}%`, (x0 + x1) / 2, H - MB - 6)
+        }
+      }
+
+      // trazo progresivo con clip
+      const revealX = ML + p * (W - ML - MR)
+      ctx!.save()
+      ctx!.beginPath(); ctx!.rect(ML - 2, 0, revealX - ML + 4, H); ctx!.clip()
+      // área
+      const grad = ctx!.createLinearGradient(0, MT, 0, H - MB)
+      grad.addColorStop(0, 'rgba(212,175,55,0.28)')
+      grad.addColorStop(1, 'rgba(212,175,55,0.02)')
+      ctx!.beginPath()
+      ctx!.moveTo(xs(0), ys(Math.max(0, minV) === 0 && minV < 0 ? 0 : minV))
+      ctx!.lineTo(xs(0), ys(A[0].equity))
+      for (let i = 1; i < n; i++) ctx!.lineTo(xs(i), ys(A[i].equity))
+      ctx!.lineTo(xs(n - 1), ys(minV < 0 ? 0 : minV))
+      ctx!.closePath()
+      ctx!.fillStyle = grad
+      ctx!.fill()
+      // línea con glow
+      ctx!.save()
+      ctx!.shadowColor = C.gold; ctx!.shadowBlur = 10
+      ctx!.strokeStyle = C.glow; ctx!.lineWidth = 2.2; ctx!.lineJoin = 'round'
+      ctx!.beginPath()
+      ctx!.moveTo(xs(0), ys(A[0].equity))
+      for (let i = 1; i < n; i++) ctx!.lineTo(xs(i), ys(A[i].equity))
+      ctx!.stroke()
+      ctx!.restore()
+      ctx!.restore()
+
+      // punto final pulsante + etiqueta
+      if (p >= 0.98) {
+        const fx = xs(n - 1), fy = ys(A[n - 1].equity)
+        ctx!.strokeStyle = `rgba(212,175,55,${0.35 - pulse * 0.15})`
+        ctx!.lineWidth = 1.5
+        ctx!.beginPath(); ctx!.arc(fx, fy, 7 + pulse * 2.5, 0, Math.PI * 2); ctx!.stroke()
+        ctx!.save()
+        ctx!.shadowColor = C.gold; ctx!.shadowBlur = 10
+        ctx!.fillStyle = C.glow
+        ctx!.beginPath(); ctx!.arc(fx, fy, 3.5, 0, Math.PI * 2); ctx!.fill()
+        ctx!.restore()
+        const lbl = `${A[n - 1].equity >= 0 ? '+' : '-'}$${Math.abs(Math.round(A[n - 1].equity)).toLocaleString('en-US')}`
+        ctx!.font = '700 11px monospace'
+        ctx!.textAlign = 'right'
+        ctx!.fillStyle = A[n - 1].equity >= 0 ? C.green : C.red
+        ctx!.fillText(lbl, fx - 12, Math.max(fy - 10, MT + 12))
+      }
+
+      // hover crosshair + tooltip
+      const hi = hoverRef.current
+      if (hi !== null && hi >= 0 && hi < n) {
+        const hx = xs(hi), hv = A[hi].equity, hy = ys(hv)
+        ctx!.strokeStyle = 'rgba(232,233,240,0.14)'; ctx!.lineWidth = 1
+        ctx!.beginPath(); ctx!.moveTo(hx, MT); ctx!.lineTo(hx, H - MB); ctx!.stroke()
+        ctx!.fillStyle = A[hi].win ? C.green : C.red
+        ctx!.beginPath(); ctx!.arc(hx, hy, 3.5, 0, Math.PI * 2); ctx!.fill()
+        const delta = hi > 0 ? hv - A[hi - 1].equity : hv
+        const lines = [A[hi].date, `PnL acum: ${hv >= 0 ? '+' : '-'}$${Math.abs(hv).toFixed(2)}`, `trade: ${delta >= 0 ? '+' : '-'}$${Math.abs(delta).toFixed(2)}`]
+        ctx!.font = '600 10px monospace'
+        const bw = Math.max(...lines.map(t => ctx!.measureText(t).width)) + 20
+        let bx = hx + 12
+        if (bx + bw > W - 6) bx = hx - bw - 12
+        ctx!.fillStyle = 'rgba(11,13,20,0.95)'
+        ctx!.fillRect(bx, MT + 6, bw, 52)
+        ctx!.strokeStyle = 'rgba(212,175,55,0.35)'
+        ctx!.strokeRect(bx + 0.5, MT + 6.5, bw - 1, 51)
+        ctx!.textAlign = 'left'
+        ctx!.fillStyle = C.dimText; ctx!.fillText(lines[0], bx + 10, MT + 21)
+        ctx!.fillStyle = C.glow;    ctx!.fillText(lines[1], bx + 10, MT + 37)
+        ctx!.fillStyle = delta >= 0 ? C.green : C.red
+        ctx!.fillText(lines[2], bx + 10, MT + 52)
+      }
+    }
+
+    function loop(now: number) {
+      if (visible && !document.hidden) scene(now)
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+
+    function onMove(e: MouseEvent) {
+      const r = cv!.getBoundingClientRect()
+      const n = dataRef.current.curve.length
+      const x = e.clientX - r.left
+      const L = 64, R = r.width - 20
+      if (x < L - 6 || x > R + 6 || n < 2) { hoverRef.current = null; return }
+      hoverRef.current = Math.round(((x - L) / (R - L)) * (n - 1))
+    }
+    function onLeave() { hoverRef.current = null }
+    cv.addEventListener('mousemove', onMove)
+    cv.addEventListener('mouseleave', onLeave)
+    return () => {
+      cancelAnimationFrame(raf); ro.disconnect(); io.disconnect()
+      cv.removeEventListener('mousemove', onMove)
+      cv.removeEventListener('mouseleave', onLeave)
+    }
+  }, [])
+
+  return (
+    <div style={{ height: 280 }}>
+      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }} />
+    </div>
+  )
+}
+
+// ── Mapa de calor por hora (24 celdas) ────────────────────────────────────────
+function HourHeat({ byHour }: { byHour: { hour: number; trades: number; wins: number }[] }) {
+  const maxN = Math.max(1, ...byHour.map(r => r.trades))
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4 }}>
+      {byHour.map(r => {
+        const wr = r.trades > 0 ? (r.wins / r.trades) * 100 : 0
+        const int = r.trades > 0 ? 0.14 + (r.trades / maxN) * 0.5 : 0
+        const color = wr >= 50 ? C.green : C.red
+        return (
+          <div key={r.hour}
+            title={r.trades > 0 ? `${String(r.hour).padStart(2, '0')}:00 UTC · ${r.trades} trades · ${wr.toFixed(0)}% WR` : `${String(r.hour).padStart(2, '0')}:00 UTC · sin trades`}
+            style={{
+              padding: '7px 4px', textAlign: 'center', borderRadius: 3, cursor: 'default',
+              background: r.trades > 0 ? `${color}${Math.round(int * 255).toString(16).padStart(2, '0')}` : `${C.border}40`,
+              border: `1px solid ${r.trades > 0 ? `${color}50` : C.border}`,
+            }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 8, color: r.trades > 0 ? C.text : C.muted }}>{String(r.hour).padStart(2, '0')}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: r.trades > 0 ? color : C.muted }}>
+              {r.trades > 0 ? `${wr.toFixed(0)}%` : '·'}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Mapa de calor por día de semana (7 celdas) ────────────────────────────────
+function DowHeat({ byDow }: { byDow: { dow: number; trades: number; wins: number; pnlNeto: number }[] }) {
+  const maxP = Math.max(1, ...byDow.map(r => Math.abs(r.pnlNeto)))
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+      {byDow.map(r => {
+        const wr = r.trades > 0 ? (r.wins / r.trades) * 100 : 0
+        const pos = r.pnlNeto >= 0
+        const color = pos ? C.green : C.red
+        const int = r.trades > 0 ? 0.14 + (Math.abs(r.pnlNeto) / maxP) * 0.5 : 0
+        return (
+          <div key={r.dow}
+            title={r.trades > 0 ? `${DOW_NAMES[r.dow]} · ${r.trades} trades · ${wr.toFixed(0)}% WR · ${fmtUsd(r.pnlNeto)}` : `${DOW_NAMES[r.dow]} · sin trades`}
+            style={{
+              padding: '8px 4px', textAlign: 'center', borderRadius: 3, cursor: 'default',
+              background: r.trades > 0 ? `${color}${Math.round(int * 255).toString(16).padStart(2, '0')}` : `${C.border}40`,
+              border: `1px solid ${r.trades > 0 ? `${color}50` : C.border}`,
+            }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 9, color: r.trades > 0 ? C.text : C.muted }}>{DOW_NAMES[r.dow]}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: r.trades > 0 ? color : C.muted }}>
+              {r.trades > 0 ? `${wr.toFixed(0)}%` : '·'}
+            </div>
+            {r.trades > 0 && (
+              <div style={{ fontFamily: 'monospace', fontSize: 8, color: C.dimText }}>{r.pnlNeto >= 0 ? '+' : '-'}${Math.abs(Math.round(r.pnlNeto))}</div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -989,7 +1306,22 @@ export default function JournalPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono,'DM Mono',monospace)" }}>
-      <style>{`.j-input:focus{border-color:${C.gold}!important;box-shadow:0 0 0 1px ${C.gold}33}`}</style>
+      <style>{`
+        .j-input:focus{border-color:${C.gold}!important;box-shadow:0 0 0 1px ${C.gold}33}
+        .j-ping { animation: jPing 1.6s cubic-bezier(0,0,.2,1) infinite }
+        @keyframes jPing { 75%,100% { transform:scale(2.4); opacity:0 } }
+        .j-breathe { animation: jBreathe 2.4s ease-in-out infinite }
+        @keyframes jBreathe { 0%,100% { transform:scale(1) } 50% { transform:scale(1.035) } }
+        .j-live-sweep { position:absolute; top:0; bottom:0; width:45%; left:-60%; pointer-events:none;
+          background:linear-gradient(105deg,transparent,${C.gold}0a,transparent);
+          animation: jSweep 5.5s ease-in-out infinite }
+        @keyframes jSweep { 0%,55% { left:-60% } 85%,100% { left:115% } }
+        .j-in { animation: jIn .38s ease both }
+        @keyframes jIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+        @media (prefers-reduced-motion: reduce) {
+          .j-ping, .j-breathe, .j-live-sweep, .j-in { animation:none }
+        }
+      `}</style>
       <div className="dash-content" style={{ maxWidth: 1200, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}
@@ -1069,26 +1401,33 @@ export default function JournalPage() {
               const slPct = t.entry > 0 ? Math.abs(((t.sl - t.entry) / t.entry) * 100) : 0
               const tpPct = t.entry > 0 ? Math.abs(((t.tp - t.entry) / t.entry) * 100) : 0
               return (
-              <div key={i} style={{ ...cardStyle, background: C.surface, borderLeft: `3px solid ${C.gold}`, padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20 }}>
+              <div key={i} className="j-live" style={{ ...cardStyle, background: `linear-gradient(160deg,${C.gold}0c,${C.surface} 55%)`, borderLeft: `3px solid ${C.gold}`, padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', overflow: 'hidden' }}>
+                {/* barrido sutil de fondo — la tarjeta está viva */}
+                <div className="j-live-sweep" aria-hidden />
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20, position: 'relative' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.gold, boxShadow: `0 0 8px ${C.gold}` }} />
+                    <span style={{ position: 'relative', display: 'inline-flex', width: 8, height: 8 }}>
+                      <span className="j-ping" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.gold, opacity: 0.5 }} />
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: C.gold, boxShadow: `0 0 8px ${C.gold}` }} />
+                    </span>
                     <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: C.gold }}>EN VIVO · NO REALIZADO</span>
                   </div>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color: C.text }}>{t.sym}</div>
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, padding: '2px 8px', color: t.direction === 'long' ? C.green : C.red, border: `1px solid ${t.direction === 'long' ? C.green : C.red}40` }}>
-                    {t.direction.toUpperCase()}
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: C.text }}>{t.sym}</div>
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, padding: '2px 8px', color: t.direction === 'long' ? C.green : C.red, background: `${t.direction === 'long' ? C.green : C.red}12`, border: `1px solid ${t.direction === 'long' ? C.green : C.red}40` }}>
+                    {t.direction === 'long' ? '▲ LONG' : '▼ SHORT'}
                   </span>
                   <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{t.strategy.replace(/_/g, ' ')} · {t.grade} · {t.tf}</div>
                   <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                    <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color: t.pnlUsd >= 0 ? C.green : C.red, textShadow: numberEmboss }}>
+                    <div className="j-breathe" style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 30, color: t.pnlUsd >= 0 ? C.green : C.red, textShadow: `${numberEmboss}, 0 0 18px ${t.pnlUsd >= 0 ? C.green : C.red}40` }}>
                       {fmt(t.pnlUsd)}
                     </div>
                     <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct.toFixed(2)}%</div>
                   </div>
                 </div>
+                {/* Dónde va el precio dentro del rango SL → TP */}
+                <OpenLevelBar entry={t.entry} sl={t.sl} tp={t.tp} pnlPct={t.pnl_pct} direction={t.direction} />
                 {/* Pequeño resumen de la posición — contexto, no solo el P&L */}
-                <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, paddingTop: 8, borderTop: `1px solid ${C.border}`, position: 'relative' }}>
                   Abierta hace {elapsedSince(t.opened_at)} · Entry <span style={{ color: C.text }}>${fmtN(t.entry)}</span>
                   {' · '}SL <span style={{ color: C.red }}>${fmtN(t.sl)}</span> <span style={{ color: C.muted }}>(-{slPct.toFixed(1)}%)</span>
                   {' · '}TP <span style={{ color: C.green }}>${fmtN(t.tp)}</span> <span style={{ color: C.muted }}>(+{tpPct.toFixed(1)}%)</span>
@@ -1111,72 +1450,26 @@ export default function JournalPage() {
                   )}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 10 }}>
                     <MetricCard label="Capital base" value={`$${fmtN(motorCapital)}`} sub={portfolioCapital > 0 ? 'tu portafolio' : 'referencia'} />
-                    <MetricCard label="Total Trades" value={motorAnalytics.totalTrades.toString()} />
-                    <MetricCard label="Win Rate" value={`${motorAnalytics.winRate.toFixed(1)}%`} color={motorAnalytics.winRate >= 50 ? C.green : C.red} />
-                    <MetricCard label="Profit Factor" value={motorAnalytics.profitFactor >= 999 ? '∞' : motorAnalytics.profitFactor.toFixed(2)} color={motorAnalytics.profitFactor >= 1.5 ? C.green : motorAnalytics.profitFactor >= 1 ? C.yellow : C.red} />
-                    <MetricCard label="PnL Neto" value={fmtUsd(motorAnalytics.pnlNeto)} color={motorAnalytics.pnlNeto >= 0 ? C.green : C.red} />
-                    <MetricCard label="Max Drawdown" value={`${motorAnalytics.maxDrawdownPct.toFixed(1)}%`} color={C.red} />
+                    <MetricCard label="Total Trades" value={<CountText target={motorAnalytics.totalTrades} format={v => Math.round(v).toString()} />} />
+                    <MetricCard label="Win Rate" value={<CountText target={motorAnalytics.winRate} format={v => `${v.toFixed(1)}%`} />} color={motorAnalytics.winRate >= 50 ? C.green : C.red} />
+                    <MetricCard label="Profit Factor" value={motorAnalytics.profitFactor >= 999 ? '∞' : <CountText target={motorAnalytics.profitFactor} format={v => v.toFixed(2)} />} color={motorAnalytics.profitFactor >= 1.5 ? C.green : motorAnalytics.profitFactor >= 1 ? C.yellow : C.red} />
+                    <MetricCard label="PnL Neto" value={<CountText target={motorAnalytics.pnlNeto} format={fmtUsd} />} color={motorAnalytics.pnlNeto >= 0 ? C.green : C.red} />
+                    <MetricCard label="Max Drawdown" value={<CountText target={motorAnalytics.maxDrawdownPct} format={v => `${v.toFixed(1)}%`} />} color={C.red} />
                     <MetricCard label="Expectancy" value={fmtUsd(motorAnalytics.expectancy)} sub="por trade" color={motorAnalytics.expectancy >= 0 ? C.green : C.red} />
                     <MetricCard label="Sharpe Ratio" value={motorAnalytics.sharpe.toFixed(2)} sub="anualizado rf=0" color={motorAnalytics.sharpe >= 1 ? C.green : motorAnalytics.sharpe >= 0 ? C.yellow : C.red} />
-                    <MetricCard label="Equity actual" value={`$${fmtN(motorEquityFinal)}`} color={C.gold} />
+                    <MetricCard label="Equity actual" value={<CountText target={motorEquityFinal} format={v => `$${fmtN(v)}`} />} color={C.gold} />
                   </div>
                 </AnalysisSection>
 
                 {/* Equity curve */}
                 <AnalysisSection n={2} title="EQUITY CURVE — TU CAPITAL SIGUIENDO AL MOTOR">
-                  {motorAnalytics.equityCurve.length > 1 ? (() => {
-                    const n = motorAnalytics.equityCurve.length
-                    const haloData = motorAnalytics.equityCurve.map((p, i) => i === n - 1 ? p.equity : null)
-                    return (
-                      <div style={{ height: 280 }}>
-                        <Line
-                          data={{
-                            labels: motorAnalytics.equityCurve.map(p => p.date),
-                            datasets: [
-                              {
-                                label: 'halo', data: haloData, borderColor: 'transparent', backgroundColor: 'transparent',
-                                pointRadius: motorAnalytics.equityCurve.map((_, i) => i === n - 1 ? 16 : 0),
-                                pointBackgroundColor: `${C.gold}22`, pointBorderColor: 'transparent', order: 3,
-                              },
-                              {
-                                label: 'glow', data: motorAnalytics.equityCurve.map(p => p.equity), borderColor: `${C.gold}30`, backgroundColor: 'transparent',
-                                fill: false, tension: 0.3, borderWidth: 7, pointRadius: 0, order: 2,
-                              },
-                              {
-                                label: 'Tu equity', data: motorAnalytics.equityCurve.map(p => p.equity), borderColor: C.gold,
-                                backgroundColor: (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
-                                  const { chart } = ctx
-                                  const { ctx: c2d, chartArea } = chart
-                                  if (!chartArea) return `${C.gold}20`
-                                  const g = c2d.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
-                                  g.addColorStop(0, `${C.gold}45`)
-                                  g.addColorStop(1, `${C.gold}00`)
-                                  return g
-                                },
-                                fill: true, tension: 0.3, borderWidth: 2,
-                                pointRadius: motorAnalytics.equityCurve.map((_, i) => i === n - 1 ? 6 : i === motorAnalytics.maxDrawdownIdx ? 5 : 3),
-                                pointBackgroundColor: motorAnalytics.equityCurve.map((p, i) => i === n - 1 ? C.gold : i === motorAnalytics.maxDrawdownIdx ? C.red : (p.win ? C.green : C.red)),
-                                pointBorderColor: motorAnalytics.equityCurve.map((p, i) => i === n - 1 ? '#fff7d6' : i === motorAnalytics.maxDrawdownIdx ? C.red : (p.win ? C.green : C.red)),
-                                pointBorderWidth: motorAnalytics.equityCurve.map((_, i) => i === n - 1 ? 2 : 1),
-                                order: 1,
-                              },
-                            ],
-                          }}
-                          options={{
-                            responsive: true, maintainAspectRatio: false,
-                            plugins: {
-                              legend: { display: true, labels: { color: C.dimText, font: { family: 'monospace', size: 10 }, boxWidth: 14, filter: item => item.text !== 'halo' && item.text !== 'glow' } },
-                              tooltip: { ...chartTooltipDefaults, filter: item => item.dataset.label !== 'halo' && item.dataset.label !== 'glow' },
-                            },
-                            scales: {
-                              x: { ...xScaleDefaults, ticks: { ...xScaleDefaults.ticks, maxTicksLimit: 10 } },
-                              y: { ...yScaleDefaults, ticks: { ...yScaleDefaults.ticks, callback: (v: number | string) => `$${Number(v).toFixed(0)}` } },
-                            },
-                          }}
-                        />
-                      </div>
-                    )
-                  })() : (
+                  {motorAnalytics.equityCurve.length > 1 ? (
+                    <EquityCanvas
+                      curve={motorAnalytics.equityCurve}
+                      ddIdx={motorAnalytics.maxDrawdownIdx}
+                      ddPct={motorAnalytics.maxDrawdownPct}
+                    />
+                  ) : (
                     <div style={{ padding: 32, textAlign: 'center', fontFamily: 'monospace', fontSize: 11, color: C.muted }}>Insuficientes datos para graficar</div>
                   )}
                 </AnalysisSection>
@@ -1224,45 +1517,16 @@ export default function JournalPage() {
                       </table>
                     </div>
                     <div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>POR HORA UTC (top activas)</div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11 }}>
-                        <thead><tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                          {['Hora', 'N', 'WR%'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: C.muted, fontWeight: 400, fontSize: 9 }}>{h}</th>)}
-                        </tr></thead>
-                        <tbody>
-                          {motorAnalytics.byHour.filter(r => r.trades > 0).sort((a, b) => b.trades - a.trades).slice(0, 10).map(row => {
-                            const wr = (row.wins / row.trades) * 100
-                            return (
-                              <tr key={row.hour} style={{ borderBottom: `1px solid ${C.border}20`, background: wr >= 60 ? `${C.green}08` : 'transparent' }}>
-                                <td style={{ padding: '5px 8px', color: C.text }}>{String(row.hour).padStart(2, '0')}:00</td>
-                                <td style={{ padding: '5px 8px', color: C.dimText }}>{row.trades}</td>
-                                <td style={{ padding: '5px 8px', color: wr >= 50 ? C.green : C.red }}>{wr.toFixed(0)}%</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>
+                        POR HORA UTC <span style={{ color: C.muted, letterSpacing: 0 }}>· color = win rate · brillo = actividad</span>
+                      </div>
+                      <HourHeat byHour={motorAnalytics.byHour} />
                     </div>
                     <div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>POR DÍA DE SEMANA</div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 11 }}>
-                        <thead><tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                          {['Día', 'N', 'WR%', 'PnL'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: C.muted, fontWeight: 400, fontSize: 9 }}>{h}</th>)}
-                        </tr></thead>
-                        <tbody>
-                          {motorAnalytics.byDow.filter(r => r.trades > 0).map(row => {
-                            const wr = (row.wins / row.trades) * 100
-                            return (
-                              <tr key={row.dow} style={{ borderBottom: `1px solid ${C.border}20`, background: row.pnlNeto > 0 ? `${C.green}08` : 'transparent' }}>
-                                <td style={{ padding: '5px 8px', color: C.text }}>{DOW_NAMES[row.dow]}</td>
-                                <td style={{ padding: '5px 8px', color: C.dimText }}>{row.trades}</td>
-                                <td style={{ padding: '5px 8px', color: wr >= 50 ? C.green : C.red }}>{wr.toFixed(0)}%</td>
-                                <td style={{ padding: '5px 8px', color: row.pnlNeto >= 0 ? C.green : C.red }}>{fmtUsd(row.pnlNeto)}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>
+                        POR DÍA DE SEMANA <span style={{ color: C.muted, letterSpacing: 0 }}>· color = PnL · brillo = magnitud</span>
+                      </div>
+                      <DowHeat byDow={motorAnalytics.byDow} />
                     </div>
                     <div>
                       <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.15em', marginBottom: 8 }}>POR MES</div>
@@ -1299,19 +1563,23 @@ export default function JournalPage() {
                           ))}
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody key={`mp-${motorPage}`}>
                         {motorPageData.map((t, i) => {
                           const isWin = t.pnl_pct >= 0
                           const accentColor = isWin ? C.green : C.red
                           const accent = resultAccent(Math.abs(t.pnl_pct) / 8, accentColor)
                           const baseBg = i % 2 === 1 ? C.surface2 : 'transparent'
                           return (
-                            <tr key={`${t.sym}-${t.opened_at}`} style={{ borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${accent.border}`, background: baseBg, transition: 'background 0.15s' }}
+                            <tr key={`${t.sym}-${t.opened_at}`} className="j-in" style={{ borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${accent.border}`, background: baseBg, transition: 'background 0.15s', animationDelay: `${Math.min(i, 14) * 35}ms` }}
                               onMouseEnter={e => (e.currentTarget.style.background = accent.bg)}
                               onMouseLeave={e => (e.currentTarget.style.background = baseBg)}>
                               <td style={{ padding: '10px 14px', color: C.dimText, whiteSpace: 'nowrap' }}>{(t.closed_at ?? '').slice(0, 16).replace('T', ' ')}</td>
                               <td style={{ padding: '10px 14px', color: C.text, fontWeight: 600 }}>{t.sym}</td>
-                              <td style={{ padding: '10px 14px', color: t.direction === 'long' ? C.green : C.red, fontWeight: 700 }}>{t.direction.toUpperCase()}</td>
+                              <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontSize: 10, padding: '2px 7px', color: t.direction === 'long' ? C.green : C.red, background: `${t.direction === 'long' ? C.green : C.red}12`, border: `1px solid ${t.direction === 'long' ? C.green : C.red}35` }}>
+                                  {t.direction === 'long' ? '▲ LONG' : '▼ SHORT'}
+                                </span>
+                              </td>
                               <td style={{ padding: '10px 14px', color: C.dimText }}>{t.strategy.replace(/_/g, ' ')}</td>
                               <td style={{ padding: '10px 14px', color: C.gold }}>{t.grade}</td>
                               <td style={{ padding: '10px 14px', color: isWin ? C.green : C.red, fontVariantNumeric: 'tabular-nums' }}>{isWin ? '+' : ''}{t.pnl_pct.toFixed(2)}%</td>
