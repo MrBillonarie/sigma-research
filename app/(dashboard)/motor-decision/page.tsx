@@ -20,6 +20,51 @@ const AllocationDonut = dynamic(() => import('./components/AllocationDonut'), {
 const STORAGE_KEY   = 'sigma_motor_profile'
 const AUTO_INTERVAL = 30 * 60 * 1000
 
+// ─── CountUp — encendido de cifras ────────────────────────────────────────────
+function useCountUp(target: number, dur = 1300) {
+  const [v, setV] = useState(0)
+  const fromRef = useRef(0)
+  const vRef = useRef(0)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setV(target); fromRef.current = target; vRef.current = target
+      return
+    }
+    const from = fromRef.current
+    let raf = 0
+    let t0: number | null = null
+    const tick = (t: number) => {
+      if (t0 === null) t0 = t
+      const p = Math.min(1, (t - t0) / dur)
+      const val = from + (target - from) * (1 - Math.pow(1 - p, 3))
+      vRef.current = val
+      setV(val)
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else fromRef.current = target
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); fromRef.current = vRef.current }
+  }, [target, dur])
+  return v
+}
+
+// ─── Reveal al scroll — cada sección entra una sola vez ───────────────────────
+function Reveal({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setOn(true); return }
+    const io = new IntersectionObserver(es => {
+      if (es[0].isIntersecting) { setOn(true); io.disconnect() }
+    }, { threshold: 0.08 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  return <div ref={ref} className={on ? 'md-rv md-rv-in' : 'md-rv'}>{children}</div>
+}
+
 function LoadingSkeleton() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -97,16 +142,41 @@ export default function MotorDecisionPage() {
   const MONO  = 'var(--font-dm-mono, monospace)'
   const BEBAS = "'Bebas Neue', Impact, sans-serif"
 
+  // Color del régimen — tiñe el ambiente de toda la página
+  const regimeColor = data?.regime === 'risk-on' ? '#1D9E75' : data?.regime === 'risk-off' ? '#f87171' : '#7a7f9a'
+  // Encendido: el capital cuenta desde 0 al cargar
+  const animCapital = useCountUp(portfolioUSD, 1400)
+
   return (
     <PageErrorBoundary section="Motor de Decisión">
     <div className="dash-content" style={{
       minHeight: '100vh', background: '#04050a',
       paddingBottom: '64px', maxWidth: 1280, margin: '0 auto', width: '100%',
+      position: 'relative',
     }}>
+      <style>{`
+        .md-rv { opacity: 0; transform: translateY(14px); transition: opacity .55s ease, transform .55s ease; }
+        .md-rv-in { opacity: 1; transform: none; }
+        .md-regime { animation: mdRegime 2.4s ease-in-out infinite; }
+        @keyframes mdRegime { 0%,100% { box-shadow: 0 0 10px var(--rc, transparent); } 50% { box-shadow: 0 0 22px var(--rc, transparent); } }
+        @media (prefers-reduced-motion: reduce) {
+          .md-rv { opacity: 1; transform: none; transition: none; }
+          .md-regime { animation: none; }
+        }
+      `}</style>
+
+      {/* Ambiente del régimen — glow superior que respira con el mercado */}
+      <div aria-hidden style={{
+        position: 'absolute', top: -120, left: '50%', transform: 'translateX(-50%)',
+        width: 900, height: 420, pointerEvents: 'none',
+        background: `radial-gradient(ellipse at 50% 0%, ${regimeColor}14, transparent 65%)`,
+        transition: 'background 1.2s ease',
+      }} />
+
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 28, position: 'relative' }}>
         {/* Eyebrow */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
           <div style={{
             width: 8, height: 8, borderRadius: '50%',
             background: '#1D9E75', boxShadow: '0 0 8px #1D9E75',
@@ -117,25 +187,26 @@ export default function MotorDecisionPage() {
           <span style={{ fontSize: 9, fontFamily: MONO, letterSpacing: '0.15em', color: '#d4af37', background: 'rgba(212,175,55,0.10)', border: '1px solid rgba(212,175,55,0.25)', padding: '2px 8px', borderRadius: 3 }}>
             {profile.toUpperCase()}
           </span>
-          {data && (() => {
-            const rColor = data.regime === 'risk-on' ? '#1D9E75' : data.regime === 'risk-off' ? '#f87171' : '#7a7f9a'
-            return (
-              <span style={{
-                fontSize: 10, fontFamily: MONO, letterSpacing: 1,
-                padding: '2px 10px', borderRadius: 4,
-                background: `${rColor}18`,
-                color: rColor,
-                border: `1px solid ${rColor}40`,
-              }}>
-                {data.regime === 'risk-on' ? '▲' : data.regime === 'risk-off' ? '▼' : '◆'} {data.regimeLabel}
-              </span>
-            )
-          })()}
+          {data && (
+            <span className="md-regime" style={{
+              fontSize: 11, fontFamily: MONO, letterSpacing: 1, fontWeight: 700,
+              padding: '4px 14px', borderRadius: 4,
+              background: `${regimeColor}18`,
+              color: regimeColor,
+              border: `1px solid ${regimeColor}55`,
+              ['--rc' as string]: `${regimeColor}30`,
+            }}>
+              {data.regime === 'risk-on' ? '▲' : data.regime === 'risk-off' ? '▼' : '◆'} {data.regimeLabel}
+            </span>
+          )}
         </div>
 
-        {/* Title */}
-        <h1 style={{ margin: '0 0 4px', fontSize: 32, fontFamily: BEBAS, letterSpacing: 2, color: '#e8e9f0' }}>
-          SIGMA MOTOR FINANCIERO
+        {/* Title — estilo landing */}
+        <h1 style={{ margin: '0 0 6px', fontSize: 'clamp(38px, 5vw, 60px)', fontFamily: BEBAS, letterSpacing: '0.03em', lineHeight: 0.95 }}>
+          <span style={{ color: '#e8e9f0' }}>SIGMA MOTOR</span>{' '}
+          <span style={{ background: 'linear-gradient(135deg,#d4af37,#f0cc5a,#a88c25)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            FINANCIERO
+          </span>
         </h1>
         <p style={{ margin: '0 0 16px', fontSize: 12, color: '#7a7f9a', fontFamily: MONO }}>
           Rotación cross-market · Flujo de capital · Señales de decisión
@@ -195,6 +266,7 @@ export default function MotorDecisionPage() {
       </div>
 
       {/* ── Selector de perfil ──────────────────────────────────────────── */}
+      <Reveal>
       <section style={{ marginBottom: 24 }}>
         <SectionLabel>PERFIL DE INVERSOR</SectionLabel>
         <ProfileSelector
@@ -204,8 +276,10 @@ export default function MotorDecisionPage() {
           loading={loading}
         />
       </section>
+      </Reveal>
 
       {/* ── Capital disponible ───────────────────────────────────────────── */}
+      <Reveal>
       <section style={{ marginBottom: 24 }}>
         <SectionLabel>CAPITAL DISPONIBLE</SectionLabel>
         <div style={{
@@ -218,7 +292,7 @@ export default function MotorDecisionPage() {
             </div>
             <div style={{ fontSize: 28, fontFamily: BEBAS, letterSpacing: 1, color: portfolioUSD > 0 ? '#1D9E75' : '#3a3f55' }}>
               {portfolioUSD > 0
-                ? `$${portfolioUSD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} USD`
+                ? `$${Math.round(animCapital).toLocaleString('en-US')} USD`
                 : '— Sin datos de portafolio'}
             </div>
           </div>
@@ -241,6 +315,7 @@ export default function MotorDecisionPage() {
           )}
         </div>
       </section>
+      </Reveal>
 
       {error && (
         <div style={{
@@ -258,6 +333,7 @@ export default function MotorDecisionPage() {
       ) : data ? (
         <>
           {/* ── KPIs ─────────────────────────────────────────────────────── */}
+          <Reveal>
           <section style={{ marginBottom: 24 }}>
             <SectionLabel>MÉTRICAS DEL PORTAFOLIO</SectionLabel>
             <MetricCards
@@ -269,8 +345,10 @@ export default function MotorDecisionPage() {
               capital={portfolioUSD}
             />
           </section>
+          </Reveal>
 
           {/* ── Donut + Flujo ────────────────────────────────────────────── */}
+          <Reveal>
           <section style={{ marginBottom: 24 }}>
             <SectionLabel>ASIGNACIÓN Y FLUJO CROSS-MARKET</SectionLabel>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -278,14 +356,18 @@ export default function MotorDecisionPage() {
               <FlowIndicator   signals={data.flowSignals}  flowScore={data.flowScore} />
             </div>
           </section>
+          </Reveal>
 
           {/* ── Tabla de señales ─────────────────────────────────────────── */}
+          <Reveal>
           <section style={{ marginBottom: 24 }}>
             <SectionLabel>SEÑALES POR ACTIVO</SectionLabel>
             <SignalTable assets={data.signals} capital={portfolioUSD} currency="USD" allocation={data.allocation} />
           </section>
+          </Reveal>
 
           {/* ── CTA Reporte ──────────────────────────────────────────────── */}
+          <Reveal>
           <div style={{
             background: 'linear-gradient(135deg, rgba(29,158,117,0.08), rgba(55,138,221,0.08))',
             border: '1px solid #1a1d2e', borderRadius: 12,
@@ -312,6 +394,7 @@ export default function MotorDecisionPage() {
               📄 Generar y Descargar Reporte PDF
             </Link>
           </div>
+          </Reveal>
         </>
       ) : null}
 
