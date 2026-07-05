@@ -262,6 +262,8 @@ export default function MonteCarloPage() {
   const [csvError,  setCsvError]  = useState('')
   const [saving,    setSaving]    = useState(false)
   const [savedMsg,  setSavedMsg]  = useState('')
+  const [simStep,   setSimStep]   = useState(-1)  // -1 idle · 0..2 paso de la secuencia
+  const [simCount,  setSimCount]  = useState(0)   // runs de la sesión
   const fileRef = useRef<HTMLInputElement>(null)
 
   const target = targetM * 1_000_000
@@ -289,15 +291,28 @@ export default function MonteCarloPage() {
   const runSim = useCallback(() => {
     setRunning(true)
     const params = { capital, μPct, σPct, years, nSims }
+    // Secuencia cinemática: los pasos se muestran ANTES del cálculo bloqueante
+    // (el simulate real corre al final, en el paso "percentiles").
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const stepMs = reduced ? 0 : 380
+    setSimStep(0)
     setTimeout(() => {
-      try {
-        const res = simulate(capital, μPct / 100, σPct / 100, years, nSims, target)
-        setResult(res)
-        setSimulatedParams(params)
-      } finally {
-        setRunning(false)
-      }
-    }, 0)
+      setSimStep(1)
+      setTimeout(() => {
+        setSimStep(2)
+        setTimeout(() => {
+          try {
+            const res = simulate(capital, μPct / 100, σPct / 100, years, nSims, target)
+            setResult(res)
+            setSimulatedParams(params)
+            setSimCount(c => c + 1)
+          } finally {
+            setRunning(false)
+            setSimStep(-1)
+          }
+        }, stepMs)
+      }, stepMs)
+    }, stepMs)
   }, [capital, μPct, σPct, years, nSims, target])
 
   // Solo capital/μ/σ/horizonte/n° simulaciones requieren volver a simular
@@ -389,6 +404,16 @@ export default function MonteCarloPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
+      <style>{`
+        .mc-in { animation: mcIn .45s ease both; }
+        @keyframes mcIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+        .mc-blink { animation: mcBlink .9s steps(2) infinite; }
+        @keyframes mcBlink { 50% { opacity:0; } }
+        @media (prefers-reduced-motion: reduce) {
+          .mc-in { animation:none; }
+          .mc-blink { animation:none; }
+        }
+      `}</style>
       <div className="dash-content" style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}
@@ -511,7 +536,7 @@ export default function MonteCarloPage() {
               style={{
                 marginTop: 4,
                 padding: '14px 0',
-                background: running ? C.border : C.gold,
+                background: running ? C.border : `linear-gradient(135deg, ${C.glow}, ${C.gold} 55%, #a88c25)`,
                 color: running ? C.dimText : C.bg,
                 border: 'none',
                 cursor: running ? 'wait' : 'pointer',
@@ -521,10 +546,10 @@ export default function MonteCarloPage() {
                 transition: 'background 0.15s, box-shadow 0.15s',
                 boxShadow: running ? 'none' : `0 0 20px rgba(212,175,55,0.25)`,
               }}
-              onMouseEnter={e => { if (!running) (e.target as HTMLButtonElement).style.background = C.glow }}
-              onMouseLeave={e => { if (!running) (e.target as HTMLButtonElement).style.background = C.gold }}
+              onMouseEnter={e => { if (!running) (e.target as HTMLButtonElement).style.boxShadow = '0 0 32px rgba(212,175,55,0.5)' }}
+              onMouseLeave={e => { if (!running) (e.target as HTMLButtonElement).style.boxShadow = '0 0 20px rgba(212,175,55,0.25)' }}
             >
-              {running ? 'SIMULANDO…' : `SIMULAR ${nSims.toLocaleString()}`}
+              {running ? '⟳ SIMULANDO…' : `⚡ SIMULAR ${nSims.toLocaleString()}`}
             </button>
 
             {/* Save run */}
@@ -551,6 +576,11 @@ export default function MonteCarloPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}` }}>
               <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: C.dimText }}>
                 TRAYECTORIAS GBM
+                {simCount > 0 && (
+                  <span style={{ marginLeft: 10, fontSize: 9, letterSpacing: '0.12em', color: C.gold, border: `1px solid ${C.gold}35`, padding: '2px 7px' }}>
+                    RUN #{simCount}
+                  </span>
+                )}
               </span>
               {running ? (
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.gold }}>
@@ -572,12 +602,24 @@ export default function MonteCarloPage() {
             {result && !running && simulatedParams ? (
               <McChart result={result} capital={simulatedParams.capital} target={target} years={simulatedParams.years} nSims={simulatedParams.nSims} />
             ) : running ? (
-              <div style={{ height: 440, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: C.bg }}>
-                <div style={{ width: 48, height: 48, border: `2px solid ${C.border}`, borderTopColor: C.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>
-                  Generando {nSims.toLocaleString()} × {years * 12} trayectorias GBM…
-                </span>
-                <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+              <div style={{ height: 440, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg }}>
+                <div style={{ background: '#07080d', border: `1px solid ${C.border}`, padding: '20px 26px', fontFamily: 'monospace', fontSize: 12, lineHeight: 2.2, minWidth: 380 }}>
+                  {[
+                    'generando ruido Box-Muller (Z~N(0,1))',
+                    `integrando ${nSims.toLocaleString()} trayectorias GBM`,
+                    'calculando percentiles P10 / P50 / P90',
+                  ].map((s, i) => (
+                    i > simStep ? null : (
+                      <div key={s} style={{ color: i < simStep ? C.dimText : C.gold, display: 'flex', gap: 10 }}>
+                        <span style={{ color: C.gold }}>{'>'}</span>
+                        <span style={{ flex: 1 }}>{s}…</span>
+                        {i < simStep
+                          ? <span style={{ color: C.green }}>✓</span>
+                          : <span className="mc-blink" style={{ color: C.gold }}>▓</span>}
+                      </div>
+                    )
+                  ))}
+                </div>
               </div>
             ) : (
               <div style={{ height: 440, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg }}>
@@ -591,7 +633,7 @@ export default function MonteCarloPage() {
                 El año en el subtítulo viene de simulatedParams (lo que de
                 verdad se simuló), no del slider en vivo. */}
             {stats && simulatedParams && !running && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '18px 18px 0' }}>
+              <div key={`st-${simCount}`} className="mc-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '18px 18px 0', animationDelay: '250ms' }}>
                 <StatCard
                   label="P10 · Peor escenario"
                   value={fmtShort(stats.p10)}
@@ -618,14 +660,14 @@ export default function MonteCarloPage() {
                 escenario porque es una lectura distinta (no un monto, una chance).
                 Se recalcula en vivo (liveProb), por eso no requiere `simulatedParams`. */}
             {result && !running && (
-              <div style={{ padding: '16px 18px 0' }}>
+              <div key={`pb-${simCount}`} className="mc-in" style={{ padding: '16px 18px 0', animationDelay: '420ms' }}>
                 <ProbPanel prob={liveProb} target={target} />
               </div>
             )}
 
             {/* Extended stats row */}
             {stats && !running && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '16px 18px 18px' }}>
+              <div key={`ex-${simCount}`} className="mc-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '16px 18px 18px', animationDelay: '560ms' }}>
                 {[
                   ['Retorno anual implícito',  `${stats.annualReturn.toFixed(2)}%`],
                   ['Volatilidad anual (σ√12)', `${stats.annualVol.toFixed(2)}%`],
