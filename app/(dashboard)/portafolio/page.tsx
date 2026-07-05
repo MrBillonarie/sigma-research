@@ -139,12 +139,133 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-// ─── Gauge circular de riesgo — firma visual propia de esta página ────────────
+// ─── CountUp — anima de valor previo → target con ease-out cúbico ─────────────
+function useCountUp(target: number, dur = 1200) {
+  const [v, setV] = useState(0)
+  const vRef    = useRef(0)
+  const fromRef = useRef(0)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      vRef.current = target; fromRef.current = target; setV(target)
+      return
+    }
+    const from = fromRef.current
+    let raf = 0
+    let t0: number | null = null
+    const tick = (t: number) => {
+      if (t0 === null) t0 = t
+      const p = Math.min(1, (t - t0) / dur)
+      const val = from + (target - from) * (1 - Math.pow(1 - p, 3))
+      vRef.current = val
+      setV(val)
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else fromRef.current = target
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); fromRef.current = vRef.current }
+  }, [target, dur])
+  return v
+}
+
+function CountText({ target, format }: { target: number; format: (v: number) => string }) {
+  const v = useCountUp(target)
+  return <>{format(v)}</>
+}
+
+// ─── Reveal al scroll — cada sección entra una sola vez ───────────────────────
+function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setOn(true); return }
+    const io = new IntersectionObserver(es => {
+      if (es[0].isIntersecting) { setOn(true); io.disconnect() }
+    }, { threshold: 0.1 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  return (
+    <div ref={ref} className={on ? 'pf-rv pf-rv-in' : 'pf-rv'} style={{ transitionDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  )
+}
+
+// ─── Sombras de color para los lingotes 3D ────────────────────────────────────
+function shade(hex: string, f: number): string {
+  const r = Math.min(255, Math.round(parseInt(hex.slice(1, 3), 16) * f))
+  const g = Math.min(255, Math.round(parseInt(hex.slice(3, 5), 16) * f))
+  const b = Math.min(255, Math.round(parseInt(hex.slice(5, 7), 16) * f))
+  return `rgb(${r},${g},${b})`
+}
+
+// ─── Bóveda 3D — cada plataforma es un lingote cuyo ancho es su % ─────────────
+function VaultShelf({ segments }: { segments: { name: string; color: string; usd: number; pct: number; monthlyIncome: number }[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  function onMove(e: React.MouseEvent) {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    el.style.setProperty('--px', ((e.clientX - r.left) / r.width - 0.5).toFixed(3))
+    el.style.setProperty('--py', ((e.clientY - r.top) / r.height - 0.5).toFixed(3))
+  }
+  function onLeave() {
+    const el = ref.current
+    if (!el) return
+    el.style.setProperty('--px', '0')
+    el.style.setProperty('--py', '0')
+  }
+  const visible = segments.filter(s => s.usd > 0 && s.pct > 0)
+  return (
+    <div style={{ perspective: 900, marginBottom: 18 }}>
+      <div ref={ref} className="pf-vault" onMouseMove={onMove} onMouseLeave={onLeave}>
+        <div className="pf-shelf">
+          {visible.map(seg => {
+            const h = Math.round(46 + Math.min(seg.pct, 60) * 0.7)
+            const extr = Array.from({ length: 7 }, (_, k) => `${k + 1}px ${-(k + 1)}px 0 ${shade(seg.color, 0.6 - k * 0.05)}`).join(', ')
+            return (
+              <div
+                key={seg.name}
+                className="pf-ingot"
+                title={`${seg.name}: ${fmtUSD(seg.usd)} · ${pct(seg.pct)}${seg.monthlyIncome > 0 ? ` · ${fmtUSD(seg.monthlyIncome)}/mes` : ''}`}
+                style={{
+                  flexGrow: seg.pct, flexBasis: 0, minWidth: 38, height: h,
+                  background: `linear-gradient(180deg, ${shade(seg.color, 1.25)} 0%, ${seg.color} 42%, ${shade(seg.color, 0.68)} 100%)`,
+                  boxShadow: extr,
+                }}
+              >
+                <span className="pf-ingot-shine" aria-hidden />
+                {seg.pct >= 7 && (
+                  <span style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: '#04050a', letterSpacing: '0.04em', position: 'relative' }}>
+                    {pct(seg.pct)}
+                  </span>
+                )}
+                {seg.pct >= 16 && (
+                  <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(4,5,10,0.75)', letterSpacing: '0.08em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90%', position: 'relative' }}>
+                    {seg.name}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <div className="pf-shelf-line" aria-hidden />
+        <div className="pf-shelf-glow" aria-hidden />
+      </div>
+    </div>
+  )
+}
+
+// ─── Gauge circular de riesgo — la aguja barre desde 0 al entrar ──────────────
 function RiskGauge({ value, color, size = 84 }: { value: number; color: string; size?: number }) {
+  const av = useCountUp(value, 1300)
   const stroke = 8
   const r = size / 2 - stroke
   const circumference = 2 * Math.PI * r
-  const clamped = Math.min(Math.max(value, 0), 100)
+  const clamped = Math.min(Math.max(av, 0), 100)
   const offset = circumference * (1 - clamped / 100)
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
@@ -153,7 +274,6 @@ function RiskGauge({ value, color, size = 84 }: { value: number; color: string; 
         <circle
           cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
           strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
         />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -476,9 +596,45 @@ export default function PortfolioPage() {
   const hasSavedData   = totalCurrent > 0 || D.totalUSD > 0
   const activeProfile  = quizResult ? PROFILE_DATA[quizResult] : null
 
+  // Encendido: el % FIRE cuenta y la barra se llena con el mismo valor animado
+  const fireAnim = useCountUp(D.firePct, 1500)
+
   // ─── Render ──────────────────────────────────────────────────────���────────
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
+      <style>{`
+        /* ── Reveal al scroll ── */
+        .pf-rv { opacity: 0; transform: translateY(14px); transition: opacity .55s ease, transform .55s ease; }
+        .pf-rv-in { opacity: 1; transform: none; }
+
+        /* ── Bóveda 3D ── */
+        .pf-vault { --px:0; --py:0; padding: 22px 14px 0 8px;
+          transform: rotateX(calc(var(--py) * -4deg)) rotateY(calc(var(--px) * 6deg));
+          transition: transform .45s ease; will-change: transform; }
+        .pf-shelf { display: flex; align-items: flex-end; gap: 7px; }
+        .pf-ingot { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+          border-radius: 2px; cursor: default; overflow: hidden;
+          transition: transform .25s ease, filter .25s ease; }
+        .pf-ingot:hover { transform: translateY(-7px); filter: brightness(1.12); z-index: 2; }
+        .pf-ingot-shine { position: absolute; inset: 0; pointer-events: none;
+          background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.22) 46%, transparent 62%);
+          background-size: 250% 100%; background-position: 120% 0; }
+        .pf-ingot:hover .pf-ingot-shine { animation: pfShine .7s ease forwards; }
+        @keyframes pfShine { to { background-position: -30% 0; } }
+        .pf-shelf-line { height: 1px; margin-top: 0;
+          background: linear-gradient(90deg, transparent, ${C.gold}55 12%, ${C.gold}55 88%, transparent); }
+        .pf-shelf-glow { height: 22px;
+          background: linear-gradient(180deg, ${C.gold}12, transparent);
+          -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .pf-rv { opacity: 1; transform: none; transition: none; }
+          .pf-vault { transform: none !important; }
+          .pf-ingot, .pf-ingot:hover { transform: none; transition: none; }
+          .pf-ingot-shine { display: none; }
+        }
+      `}</style>
       <div className="dash-content" style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* ── HEADER ── */}
@@ -551,14 +707,15 @@ export default function PortfolioPage() {
             {/* ── 1. KPI CARDS ── */}
             <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
               {[
-                { label: 'Total Patrimonio', value: fmtUSD(D.totalUSD),  sub: 'USD equiv.',       color: C.gold, hero: true },
+                // Encendido: los 4 KPIs cuentan desde 0 al cargar (CountText).
+                { label: 'Total Patrimonio', value: <CountText target={D.totalUSD} format={fmtUSD} />,  sub: 'USD equiv.',       color: C.gold, hero: true },
                 // No hay historial real de patrimonio guardado (solo el snapshot
                 // actual) — estos 3 se derivan de una curva simulada que ancla en
                 // tu total real de hoy. Antes se mostraban con la misma seriedad
                 // visual que el resto, sin ningún aviso de que no son datos reales.
-                { label: 'Rentabilidad YTD', value: `${ytdReturn > 0 ? '+' : ''}${ytdReturn.toFixed(2)}%`, sub: 'estimado · vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red, hero: false },
-                { label: 'Sharpe Ratio',     value: sharpe.toFixed(2),    sub: 'estimado · 12M rolling',      color: sharpe >= 1.5 ? C.green : sharpe >= 0.8 ? C.text : C.red, hero: false },
-                { label: 'Max Drawdown',     value: `${(maxDD * 100).toFixed(2)}%`, sub: 'estimado · 24M window', color: C.red, hero: false },
+                { label: 'Rentabilidad YTD', value: <CountText target={ytdReturn} format={v => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`} />, sub: 'estimado · vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red, hero: false },
+                { label: 'Sharpe Ratio',     value: <CountText target={sharpe} format={v => v.toFixed(2)} />,    sub: 'estimado · 12M rolling',      color: sharpe >= 1.5 ? C.green : sharpe >= 0.8 ? C.text : C.red, hero: false },
+                { label: 'Max Drawdown',     value: <CountText target={maxDD * 100} format={v => `${v.toFixed(2)}%`} />, sub: 'estimado · 24M window', color: C.red, hero: false },
               ].map(({ label, value, sub, color, hero }) => (
                 <div key={label} style={{ ...(hero ? heroCardStyle : cardStyle), background: hero ? undefined : C.surface, padding: '20px 22px' }}>
                   <Label text={label} />
@@ -571,19 +728,11 @@ export default function PortfolioPage() {
               ))}
             </div>
 
-            {/* ── 2. COMPOSICIÓN — protagonista, sube antes del gráfico ── */}
+            {/* ── 2. COMPOSICIÓN — bóveda 3D: cada plataforma es un lingote ── */}
+            <Reveal>
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>COMPOSICIÓN DEL PATRIMONIO</SectionTitle>
-              <div style={{ display: 'flex', height: 40, borderRadius: C.radiusSm, overflow: 'hidden', marginBottom: 18, background: C.border, boxShadow: C.shadowCard }}>
-                {D.allSegments.map(seg => seg.pct > 0 && (
-                  <div key={seg.name} title={`${seg.name}: ${pct(seg.pct)}`}
-                    style={{ width: `${seg.pct}%`, background: seg.color, transition: 'width 0.5s ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {seg.pct > 9 && (
-                      <span style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: '#04050a', letterSpacing: '0.05em' }}>{pct(seg.pct)}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <VaultShelf segments={D.allSegments} />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 16 }}>
                 {D.allSegments.map(seg => seg.usd > 0 && (
                   <StackCard key={seg.name} accent={seg.color}>
@@ -603,7 +752,10 @@ export default function PortfolioPage() {
               </div>
             </div>
 
+            </Reveal>
+
             {/* ── 3. CAPITAL EVOLUTION CHART ── */}
+            <Reveal>
             <div style={{ ...cardStyle, background: C.surface, marginBottom: 24, overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>EVOLUCIÓN DE CAPITAL · 24 MESES</span>
@@ -611,14 +763,16 @@ export default function PortfolioPage() {
               </div>
               <TerminalChart labels={MONTHS.slice(0, 24)} total={totalHistory} platforms={platformHistories} />
             </div>
+            </Reveal>
 
             {/* ── 4. KPIs × 4 (portfolio totals) ── */}
+            <Reveal>
             <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 40 }}>
               {[
-                { label: 'Patrimonio Total USD', value: fmtUSD(D.totalUSD),       color: C.gold  },
-                { label: 'Patrimonio Total CLP', value: fmtCLP(D.totalCLP),       color: C.gold  },
-                { label: 'Ingreso Pasivo / mes', value: fmtUSD(D.passiveMonthly), color: C.green },
-                { label: 'Yield Efectivo',       value: pct(D.yieldRatio),        color: C.green },
+                { label: 'Patrimonio Total USD', value: <CountText target={D.totalUSD} format={fmtUSD} />,       color: C.gold  },
+                { label: 'Patrimonio Total CLP', value: <CountText target={D.totalCLP} format={fmtCLP} />,       color: C.gold  },
+                { label: 'Ingreso Pasivo / mes', value: <CountText target={D.passiveMonthly} format={fmtUSD} />, color: C.green },
+                { label: 'Yield Efectivo',       value: <CountText target={D.yieldRatio} format={pct} />,        color: C.green },
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ ...cardStyle, background: C.surface, padding: '20px 22px' }}>
                   <Label text={label} />
@@ -626,9 +780,11 @@ export default function PortfolioPage() {
                 </div>
               ))}
             </div>
+            </Reveal>
 
             {/* ── 5. BINANCE FUTURES POSITIONS ── */}
             <style>{`@keyframes skp{0%{background-position:-200% 0}100%{background-position:200% 0}}.skp{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:skp 1.4s ease infinite;border-radius:2px}`}</style>
+            <Reveal>
             <div style={{ ...cardStyle, marginBottom: 24, overflow: 'hidden' }}>
               <div style={{ background: C.surface, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
@@ -681,7 +837,10 @@ export default function PortfolioPage() {
               </div>
             </div>
 
+            </Reveal>
+
             {/* ── 6. BINANCE SPOT BALANCES ── */}
+            <Reveal>
             <div style={{ ...cardStyle, marginBottom: 40, overflow: 'hidden' }}>
               <div style={{ background: C.surface, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
@@ -714,7 +873,10 @@ export default function PortfolioPage() {
               </div>
             </div>
 
+            </Reveal>
+
             {/* ── 7. DETAIL TABLE ── */}
+            <Reveal>
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>DETALLE POR PLATAFORMA</SectionTitle>
               <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden', overflowX: 'auto' }}>
@@ -767,7 +929,10 @@ export default function PortfolioPage() {
               </div>
             </div>
 
+            </Reveal>
+
             {/* ── 8. CONCENTRATION & RISK — gauges circulares, firma propia de esta página ── */}
+            <Reveal>
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>CONCENTRACIÓN Y RIESGO</SectionTitle>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
@@ -791,17 +956,20 @@ export default function PortfolioPage() {
               </div>
             </div>
 
+            </Reveal>
+
             {/* ── 9. FIRE PROGRESS ── */}
+            <Reveal>
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>PROGRESO FIRE</SectionTitle>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={{ ...cardStyle, background: C.surface, padding: '24px 22px' }}>
                   <Label text={`Meta FIRE — $${D.FIRE_GOAL_MONTHLY.toLocaleString('es-CL')}/mes · Regla 4%`} />
                   <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.firePct >= 100 ? C.green : C.gold, lineHeight: 1, marginBottom: 8 }}>
-                    {pct(D.firePct)}
+                    {pct(fireAnim)}
                   </div>
                   <div style={{ height: 6, background: C.border, borderRadius: 3, marginBottom: 14 }}>
-                    <div style={{ width: `${D.firePct}%`, height: '100%', borderRadius: 3, background: D.firePct >= 100 ? C.green : `linear-gradient(90deg,${C.gold},${C.glow})`, transition: 'width 0.6s ease' }} />
+                    <div style={{ width: `${fireAnim}%`, height: '100%', borderRadius: 3, background: D.firePct >= 100 ? C.green : `linear-gradient(90deg,${C.gold},${C.glow})` }} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>
                     <span>Actual: <span style={{ color: C.text }}>{fmtUSD(D.totalUSD)}</span></span>
@@ -827,6 +995,7 @@ export default function PortfolioPage() {
                 </div>
               </div>
             </div>
+            </Reveal>
 
           </>
         )}
