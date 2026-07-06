@@ -19,13 +19,12 @@ export default function ConditionalShell({ children }: { children: React.ReactNo
   const isDashboard = DASHBOARD_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
 
   const showShell = !isAdmin && !isDashboard
-  const isLanding = pathname === '/'
 
   return (
     <>
       {showShell && <Navbar />}
       {children}
-      {showShell && <Footer dark={isLanding} />}
+      {showShell && <Footer dark />}
     </>
   )
 }

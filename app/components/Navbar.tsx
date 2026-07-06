@@ -102,8 +102,9 @@ export default function Navbar() {
   const navRef    = useRef<HTMLDivElement>(null)
   const pathname  = usePathname()
   const router    = useRouter()
-  // Landing oscuro (Cyan Deck): solo en '/'. El resto del sitio sigue claro.
-  const L = pathname === '/'
+  // Sitio público oscuro (Cyan Deck) en todas las páginas de marketing.
+  // (El dashboard/admin no montan este Navbar; ver ConditionalShell.)
+  const L = true
 
   // ── Scroll shadow ────────────────────────────────────────────────────────
   useEffect(() => {

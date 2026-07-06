@@ -10,13 +10,13 @@ export const metadata: Metadata = {
     'Institutional-grade quantitative platform for independent operators. Validated models, real data, no conflicts of interest.',
 }
 
-const G  = '#d4af37'
-const BG = '#04050a'
-const S  = '#0b0d14'
-const B  = '#1a1d2e'
-const T  = '#e8e9f0'
-const D  = '#7a7f9a'
-const M  = '#4a5068'
+const G  = '#39e2e6'
+const BG = '#080a0f'
+const S  = '#0e1119'
+const B  = '#202634'
+const T  = '#eef1f7'
+const D  = '#9aa4b6'
+const M  = '#5f6a7d'
 const DIM = '#5a6080'
 
 const STATS = [
@@ -30,9 +30,9 @@ const CAPS = [
   { id:'01', name:'SIGNAL HUD',        col:'#34d399', desc:'Real-time signals from the Decision Engine. HMM regime, market bias, confidence per asset class.' },
   { id:'02', name:'TRADE JOURNAL',     col:'#f59e0b', desc:'Binance Futures CSV import + manual entry. Sharpe, Max DD, Profit Factor. PDF & CSV export.' },
   { id:'03', name:'PORTFOLIO',         col:'#3b82f6', desc:'IBKR, Binance Spot/Futures, Fintual, Santander, Cash. Consolidated in USD/CLP in real time.' },
-  { id:'04', name:'FIRE + MONTECARLO', col:'#d4af37', desc:'4% rule. 2,000 GBM trajectories. P10/P50/P90 percentiles. 20-year projection.' },
+  { id:'04', name:'FIRE + MONTECARLO', col:'#39e2e6', desc:'4% rule. 2,000 GBM trajectories. P10/P50/P90 percentiles. 20-year projection.' },
   { id:'05', name:'QUANT ENGINE',      col:'#a78bfa', desc:'4 ML models: HMM-01, XGB-03, STAT-05, GARCH-02. Score 0–100, net EV, Kelly fraction.' },
-  { id:'06', name:'COMPARATORS',       col:'#f87171', desc:'Global ETFs, Chilean Mutual Funds CMF, Fixed Income DAP, LP DeFi PancakeSwap v3.' },
+  { id:'06', name:'COMPARATORS',       col:'#ff5d6c', desc:'Global ETFs, Chilean Mutual Funds CMF, Fixed Income DAP, LP DeFi PancakeSwap v3.' },
   { id:'07', name:'LP SIGNAL',         col:'#06b6d4', desc:'Uniswap v3 concentrated liquidity signals. Kelly-sized ranges, Monte Carlo fee projection, IL breakeven.' },
   { id:'08', name:'PASSIVE INCOME',    col:'#10b981', desc:'Staking, DeFi, dividends and bots catalog. APY comparison, compound growth and impermanent loss calculator.' },
   { id:'09', name:'NOTIFICATIONS',     col:'#8b5cf6', desc:'Real-time alerts via Supabase Realtime. Urgent signals pinned, toast system with 6-second auto-dismiss.' },
@@ -51,7 +51,7 @@ const PLANS = [
     items:['Full dashboard','Trade journal','FIRE calculator','Monte Carlo','Signal HUD','Comparators'] },
   { tier:'PRO',          price:'$29',  period:'USD / month',   accent:G,         textAccent:G,  fill:true,  badge:'★ MOST POPULAR', cta:'ACTIVATE PRO',  href:'/en/registro',
     items:['Everything in free','Monthly PDF reports','Active PRO.MACD signals','Updated equity curves','Priority support'] },
-  { tier:'INSTITUTIONAL',price:'Custom',period:'quote',        accent:'#3b82f6', textAccent:'#60a5fa', fill:false, badge:null,      cta:'CONTACT US',    href:'/en/contacto',
+  { tier:'INSTITUTIONAL',price:'Custom',period:'quote',        accent:'#3b82f6', textAccent:'#4f92ff', fill:false, badge:null,      cta:'CONTACT US',    href:'/en/contacto',
     items:['Everything in PRO','Full API access','Custom models','White label available','SLA guaranteed'] },
 ]
 
@@ -66,10 +66,10 @@ export default async function EnPage() {
       {/* ══ HERO ══ */}
       <section style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden', borderBottom: `1px solid ${B}` }}>
         <div style={{ position:'absolute', inset:0, pointerEvents:'none',
-          backgroundImage:`linear-gradient(rgba(212,175,55,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,0.03) 1px,transparent 1px)`,
+          backgroundImage:`linear-gradient(rgba(57,226,230,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(57,226,230,0.03) 1px,transparent 1px)`,
           backgroundSize:'60px 60px' }} />
         <div style={{ position:'absolute', inset:0, pointerEvents:'none',
-          background:`radial-gradient(ellipse 80% 80% at -5% 50%, rgba(212,175,55,0.12) 0%, transparent 55%)` }} />
+          background:`radial-gradient(ellipse 80% 80% at -5% 50%, rgba(57,226,230,0.12) 0%, transparent 55%)` }} />
 
         <HeroAnimation />
 
@@ -87,9 +87,9 @@ export default async function EnPage() {
           </div>
 
           <div style={{ marginBottom:36 }}>
-            <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", letterSpacing:'0.02em', lineHeight:0.88 }}>
+            <div style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", letterSpacing:'0.02em', lineHeight:0.88 }}>
               <div style={{ fontSize:'clamp(72px,12vw,140px)', color:T }}>QUANTITATIVE</div>
-              <div style={{ fontSize:'clamp(72px,12vw,140px)', background:`linear-gradient(135deg, ${G} 0%, #f0cc5a 35%, ${G} 65%, #8a6a10 100%)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>EDGE</div>
+              <div style={{ fontSize:'clamp(72px,12vw,140px)', background:`linear-gradient(135deg, ${G} 0%, #5eeaf0 35%, ${G} 65%, #2f6bd6 100%)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>EDGE</div>
               <div style={{ fontSize:'clamp(48px,8vw,96px)', color:D, marginTop:4 }}>FOR INDEPENDENT OPERATORS</div>
             </div>
           </div>
@@ -100,10 +100,10 @@ export default async function EnPage() {
 
           <div style={{ display:'flex', gap:14, flexWrap:'wrap', marginBottom:64 }}>
             <Link href="/en/registro" style={{
-              background:`linear-gradient(135deg, ${G}, #c9a227)`,
+              background:`linear-gradient(135deg, ${G}, #2f6bd6)`,
               color:BG, fontFamily:'monospace', fontSize:11, letterSpacing:'0.22em',
               padding:'15px 40px', textDecoration:'none', display:'inline-block',
-              boxShadow:`0 0 32px rgba(212,175,55,0.25)`,
+              boxShadow:`0 0 32px rgba(57,226,230,0.25)`,
             }}>
               CREATE FREE ACCOUNT
             </Link>
@@ -121,7 +121,7 @@ export default async function EnPage() {
             {[
               { dot:'#34d399', text:'No credit card required' },
               { dot:G,         text:'Trader community'       },
-              { dot:'#60a5fa', text:'Binance live data'      },
+              { dot:'#4f92ff', text:'Binance live data'      },
             ].map(b => (
               <div key={b.text} style={{ display:'flex', alignItems:'center', gap:7 }}>
                 <span style={{ width:5, height:5, borderRadius:'50%', background:b.dot, flexShrink:0 }} />
@@ -140,7 +140,7 @@ export default async function EnPage() {
               <div key={s.label} style={{ background:BG, padding:'48px 36px', position:'relative', overflow:'hidden' }}>
                 <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:`linear-gradient(90deg, ${G}, transparent)` }} />
                 <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.28em', color:M, textTransform:'uppercase', marginBottom:16 }}>{s.label}</div>
-                <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:62, color:G, lineHeight:1, letterSpacing:'0.02em', marginBottom:8 }}>{s.value}</div>
+                <div style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize:62, color:G, lineHeight:1, letterSpacing:'0.02em', marginBottom:8 }}>{s.value}</div>
                 <div style={{ fontFamily:'monospace', fontSize:9, color:M, letterSpacing:'0.1em' }}>{s.detail}</div>
               </div>
             ))}
@@ -157,12 +157,12 @@ export default async function EnPage() {
           <div style={{ display:'grid', gridTemplateColumns:'1fr auto', alignItems:'flex-end', marginBottom:64, gap:32 }}>
             <div>
               <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.3em', color:G, marginBottom:16 }}>{'// PLATFORM · 9 TOOLS'}</div>
-              <h2 style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(48px,7vw,88px)', color:T, lineHeight:0.92, margin:0 }}>
+              <h2 style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize:'clamp(48px,7vw,88px)', color:T, lineHeight:0.92, margin:0 }}>
                 EVERYTHING A<br />
-                <span style={{ background:`linear-gradient(135deg,${G},#f0cc5a,#a88c25)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>QUANT NEEDS</span>
+                <span style={{ background:`linear-gradient(135deg,${G},#5eeaf0,#2f6bd6)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>QUANT NEEDS</span>
               </h2>
             </div>
-            <Link href="/en/registro" style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', color:G, border:`1px solid rgba(212,175,55,0.25)`, padding:'10px 18px', textDecoration:'none', whiteSpace:'nowrap' }}>
+            <Link href="/en/registro" style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', color:G, border:`1px solid rgba(57,226,230,0.25)`, padding:'10px 18px', textDecoration:'none', whiteSpace:'nowrap' }}>
               SEE ALL →
             </Link>
           </div>
@@ -171,7 +171,7 @@ export default async function EnPage() {
               <div key={c.id} style={{ background:S, padding:'36px 30px', position:'relative', overflow:'hidden' }}>
                 <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:c.col }} />
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-                  <span style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:34, color:T, letterSpacing:'0.03em' }}>{c.name}</span>
+                  <span style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize:34, color:T, letterSpacing:'0.03em' }}>{c.name}</span>
                   <span style={{ fontFamily:'monospace', fontSize:9, color:c.col, background:`${c.col}15`, border:`1px solid ${c.col}40`, padding:'2px 8px', flexShrink:0, marginLeft:8 }}>{c.id}</span>
                 </div>
                 <p style={{ fontFamily:'monospace', fontSize:11, color:D, lineHeight:1.8, margin:0 }}>{c.desc}</p>
@@ -187,17 +187,17 @@ export default async function EnPage() {
           <div className="landing-mod-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:80, alignItems:'center' }}>
             <div>
               <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.3em', color:G, marginBottom:16 }}>{'// QUANTITATIVE ENGINE'}</div>
-              <h2 style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(42px,5vw,72px)', color:T, lineHeight:0.92, margin:'0 0 28px' }}>
+              <h2 style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize:'clamp(42px,5vw,72px)', color:T, lineHeight:0.92, margin:'0 0 28px' }}>
                 FOUR MODELS.<br />
-                <span style={{ background:`linear-gradient(135deg,${G},#f0cc5a)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>OOS VALIDATED.</span>
+                <span style={{ background:`linear-gradient(135deg,${G},#5eeaf0)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>OOS VALIDATED.</span>
               </h2>
               <p style={{ fontFamily:'monospace', fontSize:12, color:D, lineHeight:1.9, marginBottom:32 }}>
                 Strict walk-forward testing — completely separate training and validation windows. Published metrics: accuracy, OOS Sharpe, MAE. Updated daily at NY market close.
               </p>
               <div style={{ display:'flex', gap:20 }}>
-                {[{v:'4',c:G,l:'LIVE MODELS'},{v:'30m',c:'#34d399',l:'REFRESH RATE'},{v:'22d',c:'#60a5fa',l:'ACCURACY WINDOW'}].map(s => (
+                {[{v:'4',c:G,l:'LIVE MODELS'},{v:'30m',c:'#34d399',l:'REFRESH RATE'},{v:'22d',c:'#4f92ff',l:'ACCURACY WINDOW'}].map(s => (
                   <div key={s.l} style={{ textAlign:'center' }}>
-                    <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:40, color:s.c }}>{s.v}</div>
+                    <div style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize:40, color:s.c }}>{s.v}</div>
                     <div style={{ fontFamily:'monospace', fontSize:9, color:M, letterSpacing:'0.15em' }}>{s.l}</div>
                   </div>
                 ))}
@@ -213,13 +213,13 @@ export default async function EnPage() {
               </div>
               {MODELS.map((m, i) => (
                 <div key={m.tag} style={{ padding:'18px 20px', borderBottom: i < MODELS.length - 1 ? `1px solid ${B}` : 'none', display:'flex', alignItems:'center', gap:16 }}>
-                  <span style={{ width:7, height:7, borderRadius:'50%', background: m.live ? '#34d399' : '#fbbf24', boxShadow: m.live ? '0 0 8px #34d399' : 'none', flexShrink:0 }} />
+                  <span style={{ width:7, height:7, borderRadius:'50%', background: m.live ? '#34d399' : '#ffb454', boxShadow: m.live ? '0 0 8px #34d399' : 'none', flexShrink:0 }} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:'monospace', fontSize:10, color:G, letterSpacing:'0.1em' }}>{m.tag}</div>
                     <div style={{ fontFamily:'monospace', fontSize:12, color:T, marginTop:2 }}>{m.name}</div>
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>
-                    <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color: m.live ? T : M, lineHeight:1 }}>{m.metric}</div>
+                    <div style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize:22, color: m.live ? T : M, lineHeight:1 }}>{m.metric}</div>
                     <div style={{ fontFamily:'monospace', fontSize:9, color:M, letterSpacing:'0.08em' }}>{m.unit}</div>
                   </div>
                 </div>
@@ -235,8 +235,8 @@ export default async function EnPage() {
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:64, flexWrap:'wrap', gap:20 }}>
             <div>
               <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.3em', color:G, marginBottom:16 }}>{'// ACCESS PLANS'}</div>
-              <h2 style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(48px,6vw,80px)', color:T, lineHeight:0.92, margin:0 }}>
-                CHOOSE YOUR <span style={{ background:`linear-gradient(135deg,${G},#f0cc5a)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>PLAN</span>
+              <h2 style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize:'clamp(48px,6vw,80px)', color:T, lineHeight:0.92, margin:0 }}>
+                CHOOSE YOUR <span style={{ background:`linear-gradient(135deg,${G},#5eeaf0)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>PLAN</span>
               </h2>
             </div>
             <div style={{ fontFamily:'monospace', fontSize:9, color:M, letterSpacing:'0.15em', textAlign:'right' }}>NO LOCK-IN<br />CANCEL ANYTIME</div>
@@ -246,11 +246,11 @@ export default async function EnPage() {
               <div key={p.tier} style={{ background:S, padding:'44px 32px', position:'relative', display:'flex', flexDirection:'column',
                 outline: p.fill ? `2px solid ${p.accent}` : 'none', outlineOffset:-2 }}>
                 {p.badge && <div style={{ position:'absolute', top:-1, left:24, fontFamily:'monospace', fontSize:9, letterSpacing:'0.18em', background:p.accent, color:BG, padding:'4px 12px' }}>{p.badge}</div>}
-                {p.fill && <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:`linear-gradient(90deg,${G},#f0cc5a)` }} />}
+                {p.fill && <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:`linear-gradient(90deg,${G},#5eeaf0)` }} />}
                 <div style={{ marginBottom:28 }}>
                   <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.25em', color:p.textAccent, marginBottom:14 }}>{p.tier}</div>
                   <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:4 }}>
-                    <span style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:60, color:p.textAccent, lineHeight:1 }}>{p.price}</span>
+                    <span style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize:60, color:p.textAccent, lineHeight:1 }}>{p.price}</span>
                     <span style={{ fontFamily:'monospace', fontSize:11, color:M }}>{p.period}</span>
                   </div>
                 </div>
@@ -266,10 +266,10 @@ export default async function EnPage() {
                   display:'block', textAlign:'center', padding:'14px',
                   fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em',
                   textDecoration:'none',
-                  background: p.fill ? `linear-gradient(135deg,${p.accent},#c9a227)` : 'transparent',
+                  background: p.fill ? `linear-gradient(135deg,${p.accent},#2f6bd6)` : 'transparent',
                   color: p.fill ? BG : p.textAccent,
                   border: `1px solid ${p.accent}`,
-                  boxShadow: p.fill ? `0 0 24px rgba(212,175,55,0.2)` : 'none',
+                  boxShadow: p.fill ? `0 0 24px rgba(57,226,230,0.2)` : 'none',
                 }}>{p.cta}</Link>
               </div>
             ))}
@@ -281,16 +281,16 @@ export default async function EnPage() {
       <section style={{ padding:'112px 32px 80px', background:S, borderBottom:`1px solid ${B}` }}>
         <div style={{ maxWidth:720, margin:'0 auto', textAlign:'center' }}>
           <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.3em', color:G, marginBottom:20 }}>{'// START TODAY'}</div>
-          <h2 style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", lineHeight:0.88, margin:'0 0 28px' }}>
+          <h2 style={{ fontFamily:"-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", lineHeight:0.88, margin:'0 0 28px' }}>
             <span style={{ display:'block', fontSize:'clamp(56px,9vw,120px)', color:T }}>OPERATE WITH</span>
-            <span style={{ display:'block', fontSize:'clamp(56px,9vw,120px)', background:`linear-gradient(135deg,${G},#f0cc5a,#a88c25)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>REAL EDGE</span>
+            <span style={{ display:'block', fontSize:'clamp(56px,9vw,120px)', background:`linear-gradient(135deg,${G},#5eeaf0,#2f6bd6)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>REAL EDGE</span>
           </h2>
           <p style={{ fontFamily:'monospace', fontSize:12, color:D, lineHeight:1.9, marginBottom:44 }}>
             Free account in 30 seconds. No credit card required.<br />
             Immediate access to all dashboard tools.
           </p>
           <div style={{ display:'flex', gap:14, justifyContent:'center', flexWrap:'wrap', marginBottom:64 }}>
-            <Link href="/en/registro" style={{ background:`linear-gradient(135deg,${G},#c9a227)`, color:BG, fontFamily:'monospace', fontSize:11, letterSpacing:'0.22em', padding:'16px 44px', textDecoration:'none', boxShadow:`0 0 40px rgba(212,175,55,0.3)` }}>
+            <Link href="/en/registro" style={{ background:`linear-gradient(135deg,${G},#2f6bd6)`, color:BG, fontFamily:'monospace', fontSize:11, letterSpacing:'0.22em', padding:'16px 44px', textDecoration:'none', boxShadow:`0 0 40px rgba(57,226,230,0.3)` }}>
               CREATE FREE ACCOUNT
             </Link>
             <Link href="/en/login" style={{ border:`1px solid ${B}`, color:D, background:'rgba(255,255,255,0.02)', fontFamily:'monospace', fontSize:11, letterSpacing:'0.18em', padding:'16px 28px', textDecoration:'none' }}>
