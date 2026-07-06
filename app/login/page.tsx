@@ -381,7 +381,6 @@ function LivePanel() {
     }
   }
 
-  const regimeColor = live?.regime === 'BULL' ? 'text-emerald-400' : live?.regime === 'BEAR' ? 'text-red-400' : 'text-amber-400'
   const layerStyle: React.CSSProperties = { transition: 'transform 0.18s ease-out', willChange: 'transform' }
 
   return (
@@ -389,7 +388,7 @@ function LivePanel() {
       ref={panelRef}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
-      className="hidden lg:flex relative w-[46%] overflow-hidden border-l border-[#1a1d2e] items-center"
+      className="hidden lg:flex relative w-[46%] overflow-hidden items-center"
     >
       <style>{`
         @keyframes tronMove { from { background-position: 0 0; } to { background-position: 0 44px; } }
@@ -420,29 +419,29 @@ function LivePanel() {
         <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(to bottom, rgba(212,175,55,0.09), transparent)' }} />
       </div>
 
-      {/* Velo para que el texto respire sobre la escena */}
-      <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/35 to-transparent pointer-events-none" />
+      {/* Velo suave desde la izquierda (lado oscuro) — funde sin corte duro */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(90deg, rgba(4,5,10,0.55) 0%, rgba(4,5,10,0.12) 30%, transparent 55%)' }} />
 
       {/* Capa 3 — contenido (se mueve en contra: profundidad) */}
       <div ref={contentRef} className="relative z-10 max-w-sm pl-14 pr-8" style={layerStyle}>
         <div className="flex items-center gap-2.5 mb-7">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-          <span className="terminal-text text-[10px] text-emerald-400 tracking-[0.28em]">SIGMA ENGINE · OPERANDO</span>
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0a7f52', boxShadow: '0 0 10px rgba(10,127,82,0.7)' }} />
+          <span className="terminal-text text-[10px] tracking-[0.28em]" style={{ color: '#0a7f52' }}>SIGMA ENGINE · OPERANDO</span>
         </div>
 
-        <h2 className="display-heading text-5xl leading-[0.95] text-[#e8e9f0] mb-5" style={{ textWrap: 'balance' }}>
+        <h2 className="display-heading text-5xl leading-[0.95] mb-5" style={{ textWrap: 'balance', color: '#17150f' }}>
           EL MOTOR<br />
-          <span className="gold-text">NO DUERME.</span>
+          <span style={{ color: '#8a6d15' }}>NO DUERME.</span>
         </h2>
 
-        <p className="terminal-text text-sm text-[#7a7f9a] leading-relaxed mb-8">
+        <p className="terminal-text text-sm leading-relaxed mb-8" style={{ color: '#514c40' }}>
           3 motores · 16 activos · decisiones validadas out-of-sample, las 24 horas.
         </p>
 
         {live && (
-          <div className="flex flex-wrap gap-x-7 gap-y-2 terminal-text text-xs text-[#7a7f9a]">
-            <span>RÉGIMEN <span className={`font-bold ${regimeColor}`}>{live.regime}</span></span>
-            <span><span className="text-[#d4af37] font-bold">{live.signals}</span> SEÑALES ACTIVAS</span>
+          <div className="flex flex-wrap gap-x-7 gap-y-2 terminal-text text-xs" style={{ color: '#514c40' }}>
+            <span>RÉGIMEN <span className="font-bold" style={{ color: live.regime?.toUpperCase().includes('BEAR') ? '#c1322f' : live.regime?.toUpperCase().includes('BULL') ? '#0a7f52' : '#8a6d15' }}>{live.regime}</span></span>
+            <span><span className="font-bold" style={{ color: '#17150f' }}>{live.signals}</span> SEÑALES ACTIVAS</span>
           </div>
         )}
       </div>
@@ -452,9 +451,11 @@ function LivePanel() {
 
 export default function LoginPage() {
   return (
-    <main className="min-h-screen bg-[#04050a] flex" style={{
-      // El login se mantiene en tema oscuro aunque el sitio público sea claro:
-      // se redefinen los tokens en este subárbol para las clases var-based.
+    <main className="min-h-screen flex" style={{
+      // Degradé de unión: el formulario (izq) sobre tinta oscura funde
+      // suavemente hacia el papel claro del panel del motor (der).
+      background: 'linear-gradient(100deg, #04050a 0%, #04050a 40%, #2a2620 52%, #cfc9bd 64%, #f5f2ec 78%, #f5f2ec 100%)',
+      // Tokens en oscuro para las clases var-based del formulario (izq).
       ['--bg' as string]: '#04050a', ['--surface' as string]: '#0b0d14',
       ['--border' as string]: '#1a1d2e', ['--border-2' as string]: '#252840',
       ['--gold' as string]: '#d4af37', ['--gold-glow' as string]: '#f0cc5a',
