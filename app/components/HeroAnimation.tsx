@@ -19,7 +19,7 @@ const POINTS = [
   [560, 120], [600, 130], [640, 105], [680, 90], [720, 100], [760, 78], [800, 60],
 ]
 
-const GOLD = '23,21,15'   // tinta editorial (RGB de #17150f) — grafico monocromo
+const GOLD = '57,226,230'  // acento cian (RGB de #39e2e6) — velas 3D sobre oscuro
 const N_CANDLES = 24
 
 const SYMBOLS   = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
@@ -212,12 +212,12 @@ export default function HeroAnimation() {
         const up = c.up
 
         // Mecha (detrás del cuerpo)
-        g.strokeStyle = up ? `rgba(${GOLD},${(0.55 * a).toFixed(3)})` : `rgba(211,48,66,${(0.4 * a).toFixed(3)})`
+        g.strokeStyle = up ? `rgba(${GOLD},${(0.55 * a).toFixed(3)})` : `rgba(255,93,108,${(0.4 * a).toFixed(3)})`
         g.lineWidth = 1
         g.beginPath(); g.moveTo(xm, yHi); g.lineTo(xm, yLo); g.stroke()
 
         // Cara lateral derecha (sombra)
-        g.fillStyle = up ? `rgba(${GOLD},${(0.13 * a).toFixed(3)})` : `rgba(211,48,66,${(0.09 * a).toFixed(3)})`
+        g.fillStyle = up ? `rgba(${GOLD},${(0.13 * a).toFixed(3)})` : `rgba(255,93,108,${(0.09 * a).toFixed(3)})`
         g.beginPath()
         g.moveTo(x + bodyW, yTop)
         g.lineTo(x + bodyW + ox, yTop + oy)
@@ -226,7 +226,7 @@ export default function HeroAnimation() {
         g.closePath(); g.fill()
 
         // Tapa superior (luz)
-        g.fillStyle = up ? `rgba(250,247,240,${(0.30 * a).toFixed(3)})` : `rgba(211,48,66,${(0.20 * a).toFixed(3)})`
+        g.fillStyle = up ? `rgba(250,247,240,${(0.30 * a).toFixed(3)})` : `rgba(255,93,108,${(0.20 * a).toFixed(3)})`
         g.beginPath()
         g.moveTo(x, yTop)
         g.lineTo(x + ox, yTop + oy)
@@ -241,12 +241,12 @@ export default function HeroAnimation() {
           grad.addColorStop(0, `rgba(${GOLD},${(0.34 * a).toFixed(3)})`)
           grad.addColorStop(1, `rgba(${GOLD},${(0.16 * a).toFixed(3)})`)
         } else {
-          grad.addColorStop(0, `rgba(211,48,66,${(0.24 * a).toFixed(3)})`)
-          grad.addColorStop(1, `rgba(211,48,66,${(0.10 * a).toFixed(3)})`)
+          grad.addColorStop(0, `rgba(255,93,108,${(0.24 * a).toFixed(3)})`)
+          grad.addColorStop(1, `rgba(255,93,108,${(0.10 * a).toFixed(3)})`)
         }
         g.fillStyle = grad
         g.fillRect(x, yTop, bodyW, bodyH)
-        g.strokeStyle = up ? `rgba(${GOLD},${(0.75 * a).toFixed(3)})` : `rgba(211,48,66,${(0.5 * a).toFixed(3)})`
+        g.strokeStyle = up ? `rgba(${GOLD},${(0.75 * a).toFixed(3)})` : `rgba(255,93,108,${(0.5 * a).toFixed(3)})`
         g.lineWidth = 1
         g.strokeRect(x, yTop, bodyW, bodyH)
       }
@@ -314,7 +314,7 @@ export default function HeroAnimation() {
             g.save()
             g.shadowColor = `rgba(${GOLD},0.95)`
             g.shadowBlur  = 14
-            g.fillStyle   = 'rgba(23,21,15,0.95)'
+            g.fillStyle   = 'rgba(234,252,255,0.95)'
             g.beginPath(); g.arc(hx, hy, 3.5, 0, Math.PI * 2); g.fill()
             g.restore()
             // Anillo al llegar al pico
@@ -356,7 +356,7 @@ export default function HeroAnimation() {
       <div className="absolute right-0 top-0 h-full hero-chart" style={{ width: '58%' }}>
         <canvas ref={canvasRef} className="w-full h-full" />
         {/* Fundido hacia el lado del headline para que el texto respire */}
-        <div className="absolute inset-y-0 left-0 w-40" style={{ background: 'linear-gradient(90deg, #f5f2ec, transparent)' }} />
+        <div className="absolute inset-y-0 left-0 w-40" style={{ background: 'linear-gradient(90deg, #080a0f, transparent)' }} />
       </div>
 
       {/* ── Live ticker strip ─────────────────────────────────────────────── */}
@@ -370,9 +370,9 @@ export default function HeroAnimation() {
             className="flex items-center gap-2 transition-all duration-500"
             style={{ opacity: Math.abs(i - tick) < 3 ? 1 : 0.3 }}
           >
-            <span className="terminal-text text-[10px] text-[#55506a] tracking-widest">{t.sym}</span>
-            <span className="terminal-text text-[11px] text-[#1b1723] num tabular-nums">{t.price}</span>
-            <span className={`terminal-text text-[10px] num ${t.up ? 'text-[#0b8f63]' : 'text-[#d33042]'}`}>
+            <span className="terminal-text text-[10px] text-[#7a8598] tracking-widest">{t.sym}</span>
+            <span className="terminal-text text-[11px] text-[#eef1f7] num tabular-nums">{t.price}</span>
+            <span className={`terminal-text text-[10px] num ${t.up ? 'text-[#2fd39a]' : 'text-[#ff5d6c]'}`}>
               {t.change}
             </span>
           </div>

@@ -58,35 +58,50 @@ const social = [
   },
 ]
 
-export default function Footer() {
+export default function Footer({ dark = false }: { dark?: boolean }) {
   const year = new Date().getFullYear()
 
+  // Landing oscuro (Cyan Deck) vs. resto del sitio claro (Editorial).
+  const c = dark ? {
+    root:  'bg-[#0a0c12] border-t border-white/10',
+    logoB: 'border-[#39e2e6]', logoT: 'text-[#39e2e6]',
+    body:  'text-[#9aa4b6]', head: 'text-white',
+    link:  'text-[#9aa4b6] hover:text-[#39e2e6]',
+    line:  'border-white/10', muted: 'text-[#6b7688]', accent: 'text-[#2fd39a]', dotBg: 'bg-[#2fd39a]',
+  } : {
+    root:  'bg-[#f8f5ef] border-t border-[#e7dfd0]',
+    logoB: 'border-[#b8912a]', logoT: 'text-[#b8912a]',
+    body:  'text-[#55506a]', head: 'text-[#17150f]',
+    link:  'text-[#55506a] hover:text-[#17150f]',
+    line:  'border-[#e7dfd0]', muted: 'text-[#8b8494]', accent: 'text-[#0b8f63]', dotBg: 'bg-[#0b8f63]',
+  }
+
   return (
-    <footer className="bg-[#f8f5ef] border-t border-[#e7dfd0] px-6 py-16">
+    <footer className={`${c.root} px-6 py-16`}>
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
 
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center gap-3 mb-4 w-fit">
-              <div className="w-7 h-7 border border-[#b8912a] flex items-center justify-center">
-                <span className="display-heading text-[#b8912a] text-sm leading-none">Σ</span>
+              <div className={`w-7 h-7 flex items-center justify-center border ${c.logoB}`}>
+                <span className={`display-heading text-sm leading-none ${c.logoT}`}>Σ</span>
               </div>
-              <span className="display-heading text-xl tracking-widest text-[#b8912a]">SQUANT DESK</span>
+              <span className={`display-heading text-xl tracking-widest ${c.logoT}`}>SQUANT DESK</span>
             </Link>
-            <p className="terminal-text text-[#55506a] text-sm leading-relaxed max-w-xs">
+            <p className={`terminal-text text-sm leading-relaxed max-w-xs ${c.body}`}>
               Inteligencia cuantitativa de grado institucional. Construido sobre datos reales,
               diseñado para resultados reales.
             </p>
             <div className="flex items-center gap-2 mt-4">
-              <span className="w-2 h-2 rounded-full bg-[#0b8f63] animate-pulse" />
-              <span className="terminal-text text-xs text-[#0b8f63]">Plataforma operativa</span>
+              <span className={`w-2 h-2 rounded-full animate-pulse ${c.dotBg}`} />
+              <span className={`terminal-text text-xs ${c.accent}`}>Plataforma operativa</span>
             </div>
             <div className="flex gap-4 mt-4">
               {social.map(s => (
                 <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
                   aria-label={s.label} title={s.label}
-                  className="text-[#55506a] hover:text-[#17150f] transition-colors">
+                  className={`transition-colors ${c.link}`}>
                   {s.icon}
                 </a>
               ))}
@@ -95,11 +110,11 @@ export default function Footer() {
 
           {/* Herramientas */}
           <div>
-            <div className="section-label text-[#17150f] mb-4">Herramientas</div>
+            <div className={`section-label mb-4 ${c.head}`}>Herramientas</div>
             <ul className="space-y-2.5">
               {herramientas.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#17150f] transition-colors">
+                  <Link href={l.href} className={`terminal-text text-sm transition-colors ${c.link}`}>
                     {l.label}
                   </Link>
                 </li>
@@ -109,11 +124,11 @@ export default function Footer() {
 
           {/* Empresa */}
           <div>
-            <div className="section-label text-[#17150f] mb-4">Empresa</div>
+            <div className={`section-label mb-4 ${c.head}`}>Empresa</div>
             <ul className="space-y-2.5">
               {empresa.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#17150f] transition-colors">
+                  <Link href={l.href} className={`terminal-text text-sm transition-colors ${c.link}`}>
                     {l.label}
                   </Link>
                 </li>
@@ -123,7 +138,7 @@ export default function Footer() {
 
           {/* Cuenta + Trust */}
           <div>
-            <div className="section-label text-[#17150f] mb-4">Cuenta</div>
+            <div className={`section-label mb-4 ${c.head}`}>Cuenta</div>
             <ul className="space-y-2.5 mb-6">
               {[
                 { label: 'Crear cuenta gratis', href: '/registro' },
@@ -132,26 +147,26 @@ export default function Footer() {
                 { label: 'Contactar equipo',     href: '/contacto' },
               ].map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#17150f] transition-colors">
+                  <Link href={l.href} className={`terminal-text text-sm transition-colors ${c.link}`}>
                     {l.label}
                   </Link>
                 </li>
               ))}
             </ul>
-            <div className="flex flex-col gap-2 border-t border-[#e7dfd0] pt-4">
+            <div className={`flex flex-col gap-2 pt-4 border-t ${c.line}`}>
               {['🔒 Datos cifrados TLS 1.3', '🛡️ Sin venta de datos', '📊 Modelos validados OOS'].map(b => (
-                <span key={b} className="terminal-text text-xs text-[#8b8494]">{b}</span>
+                <span key={b} className={`terminal-text text-xs ${c.muted}`}>{b}</span>
               ))}
             </div>
           </div>
         </div>
 
         {/* Bottom */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-[#e7dfd0]">
-          <span className="terminal-text text-xs text-[#8b8494]" suppressHydrationWarning>
+        <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t ${c.line}`}>
+          <span className={`terminal-text text-xs ${c.muted}`} suppressHydrationWarning>
             © {year} SQuant Desk. Todos los derechos reservados.
           </span>
-          <span className="terminal-text text-xs text-[#8b8494]">
+          <span className={`terminal-text text-xs ${c.muted}`}>
             Solo informativo. No constituye asesoramiento financiero.
           </span>
         </div>

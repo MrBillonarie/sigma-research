@@ -102,6 +102,8 @@ export default function Navbar() {
   const navRef    = useRef<HTMLDivElement>(null)
   const pathname  = usePathname()
   const router    = useRouter()
+  // Landing oscuro (Cyan Deck): solo en '/'. El resto del sitio sigue claro.
+  const L = pathname === '/'
 
   // ── Scroll shadow ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -172,7 +174,9 @@ export default function Navbar() {
     <nav
       ref={navRef}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled || menuOpen ? 'bg-[#f8f5ef]/95 backdrop-blur-md border-b border-[#e7dfd0]' : 'bg-transparent'
+        scrolled || menuOpen
+          ? (L ? 'bg-[#0a0c12]/90 backdrop-blur-md border-b border-white/10' : 'bg-[#f8f5ef]/95 backdrop-blur-md border-b border-[#e7dfd0]')
+          : 'bg-transparent'
       }`}
     >
       {/* Coreografía del mega-menu: panel con fade+slide+escala, items en cascada,
@@ -196,10 +200,10 @@ export default function Navbar() {
 
         {/* ── Logo ─────────────────────────────────────────────────────────── */}
         <Link href="/" className="flex items-center gap-3 shrink-0">
-          <div className="w-7 h-7 border border-[#b8912a] flex items-center justify-center">
-            <span className="display-heading text-[#b8912a] text-sm leading-none">Σ</span>
+          <div className={`w-7 h-7 flex items-center justify-center border ${L ? 'border-[#39e2e6]' : 'border-[#b8912a]'}`}>
+            <span className={`display-heading text-sm leading-none ${L ? 'text-[#39e2e6]' : 'text-[#b8912a]'}`}>Σ</span>
           </div>
-          <span className="display-heading text-xl tracking-widest text-[#b8912a]">SIGMA RESEARCH</span>
+          <span className={`display-heading text-xl tracking-widest ${L ? 'text-[#39e2e6]' : 'text-[#b8912a]'}`}>SIGMA RESEARCH</span>
         </Link>
 
         {/* ── Desktop nav ──────────────────────────────────────────────────── */}
@@ -222,7 +226,9 @@ export default function Navbar() {
                 aria-expanded={activeGroup === group.id}
                 aria-haspopup="true"
                 className={`section-label transition-colors duration-200 flex items-center gap-1 ${
-                  groupIsActive(group) ? 'text-[#17150f]' : 'text-[#55506a] hover:text-[#17150f]'
+                  L
+                    ? (groupIsActive(group) ? 'text-white' : 'text-[#9aa4b6] hover:text-[#39e2e6]')
+                    : (groupIsActive(group) ? 'text-[#17150f]' : 'text-[#55506a] hover:text-[#17150f]')
                 }`}
               >
                 {group.label.toUpperCase()}
@@ -303,11 +309,13 @@ export default function Navbar() {
           ))}
 
           {/* ── Language switcher ──────────────────────────────────────────── */}
-          <div className="flex items-center gap-1 border border-[#e7dfd0] rounded-sm overflow-hidden">
+          <div className={`flex items-center gap-1 rounded-sm overflow-hidden border ${L ? 'border-white/15' : 'border-[#e7dfd0]'}`}>
             <Link
               href="/"
               className={`terminal-text text-[10px] px-2.5 py-1 transition-colors ${
-                !pathname.startsWith('/en') ? 'bg-[#17150f] text-white' : 'text-[#55506a] hover:text-[#17150f]'
+                !pathname.startsWith('/en')
+                  ? (L ? 'bg-[#39e2e6] text-[#04121e]' : 'bg-[#17150f] text-white')
+                  : (L ? 'text-[#9aa4b6] hover:text-white' : 'text-[#55506a] hover:text-[#17150f]')
               }`}
             >
               ES
@@ -315,7 +323,9 @@ export default function Navbar() {
             <Link
               href="/en"
               className={`terminal-text text-[10px] px-2.5 py-1 transition-colors ${
-                pathname.startsWith('/en') ? 'bg-[#17150f] text-white' : 'text-[#55506a] hover:text-[#17150f]'
+                pathname.startsWith('/en')
+                  ? (L ? 'bg-[#39e2e6] text-[#04121e]' : 'bg-[#17150f] text-white')
+                  : (L ? 'text-[#9aa4b6] hover:text-white' : 'text-[#55506a] hover:text-[#17150f]')
               }`}
             >
               EN
@@ -328,13 +338,13 @@ export default function Navbar() {
               <>
                 <Link
                   href="/perfil"
-                  className="section-label transition-colors duration-200 text-[#55506a] hover:text-[#17150f]"
+                  className={`section-label transition-colors duration-200 ${L ? 'text-[#9aa4b6] hover:text-white' : 'text-[#55506a] hover:text-[#17150f]'}`}
                 >
                   MI CUENTA
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="border border-[#17150f]/40 px-4 py-2 section-label text-[#17150f] hover:bg-[#17150f] hover:text-white transition-all duration-200"
+                  className={`px-4 py-2 section-label border transition-all duration-200 ${L ? 'border-[#39e2e6]/50 text-[#39e2e6] hover:bg-[#39e2e6] hover:text-[#04121e]' : 'border-[#17150f]/40 text-[#17150f] hover:bg-[#17150f] hover:text-white'}`}
                 >
                   SALIR
                 </button>
@@ -344,15 +354,19 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   className={`section-label transition-colors duration-200 ${
-                    isActive('/login') ? 'text-[#17150f]' : 'text-[#55506a] hover:text-[#17150f]'
+                    L
+                      ? (isActive('/login') ? 'text-white' : 'text-[#9aa4b6] hover:text-white')
+                      : (isActive('/login') ? 'text-[#17150f]' : 'text-[#55506a] hover:text-[#17150f]')
                   }`}
                 >
                   LOGIN
                 </Link>
                 <Link
                   href="/registro"
-                  className={`border border-[#17150f]/40 px-4 py-2 section-label transition-all duration-200 ${
-                    isActive('/registro') ? 'bg-[#17150f] text-white' : 'text-[#17150f] hover:bg-[#17150f] hover:text-white'
+                  className={`px-4 py-2 section-label border transition-all duration-200 ${
+                    L
+                      ? (isActive('/registro') ? 'bg-[#39e2e6] text-[#04121e] border-[#39e2e6]' : 'border-[#39e2e6]/50 text-[#39e2e6] hover:bg-[#39e2e6] hover:text-[#04121e]')
+                      : (isActive('/registro') ? 'bg-[#17150f] text-white border-[#17150f]/40' : 'border-[#17150f]/40 text-[#17150f] hover:bg-[#17150f] hover:text-white')
                   }`}
                 >
                   REGISTRO
@@ -369,9 +383,9 @@ export default function Navbar() {
           aria-label="Toggle menu"
           aria-expanded={menuOpen}
         >
-          <span className={`w-5 h-px bg-[#17150f] transition-all duration-200 ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
-          <span className={`w-5 h-px bg-[#17150f] transition-all duration-200 ${menuOpen ? 'opacity-0' : ''}`} />
-          <span className={`w-5 h-px bg-[#17150f] transition-all duration-200 ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+          <span className={`w-5 h-px transition-all duration-200 ${L ? 'bg-white' : 'bg-[#17150f]'} ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
+          <span className={`w-5 h-px transition-all duration-200 ${L ? 'bg-white' : 'bg-[#17150f]'} ${menuOpen ? 'opacity-0' : ''}`} />
+          <span className={`w-5 h-px transition-all duration-200 ${L ? 'bg-white' : 'bg-[#17150f]'} ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
         </button>
       </div>
 
@@ -380,14 +394,16 @@ export default function Navbar() {
           para que el contenido de la pagina (hero, etc.) no asome debajo del
           panel cuando este es mas corto que el viewport. */}
       {menuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-16 h-[calc(100dvh-4rem)] bg-[#ffffff] overflow-y-auto px-6 py-4 flex flex-col gap-1">
+        <div className={`md:hidden fixed inset-x-0 top-16 h-[calc(100dvh-4rem)] overflow-y-auto px-6 py-4 flex flex-col gap-1 ${L ? 'bg-[#0a0c12]' : 'bg-[#ffffff]'}`}>
 
           {GROUPS.map(group => (
             <div key={group.id}>
               {/* Group header */}
               <button
                 className={`w-full section-label text-left flex items-center justify-between py-3 transition-colors ${
-                  groupIsActive(group) ? 'text-[#17150f]' : 'text-[#55506a] hover:text-[#17150f]'
+                  L
+                    ? (groupIsActive(group) ? 'text-white' : 'text-[#9aa4b6] hover:text-[#39e2e6]')
+                    : (groupIsActive(group) ? 'text-[#17150f]' : 'text-[#55506a] hover:text-[#17150f]')
                 }`}
                 onClick={() => toggleMobile(group.id)}
               >
@@ -397,13 +413,15 @@ export default function Navbar() {
 
               {/* Group links */}
               {mobileGroup === group.id && (
-                <div className="pl-4 flex flex-col border-l border-[#e7dfd0] mb-1">
+                <div className={`pl-4 flex flex-col mb-1 border-l ${L ? 'border-white/12' : 'border-[#e7dfd0]'}`}>
                   {group.links.map(l => (
                     <Link
                       key={l.href}
                       href={l.href}
                       className={`section-label py-2.5 transition-colors ${
-                        isActive(l.href) ? 'text-[#17150f]' : 'text-[#55506a] hover:text-[#17150f]'
+                        L
+                          ? (isActive(l.href) ? 'text-white' : 'text-[#9aa4b6] hover:text-[#39e2e6]')
+                          : (isActive(l.href) ? 'text-[#17150f]' : 'text-[#55506a] hover:text-[#17150f]')
                       }`}
                     >
                       {l.label}
@@ -415,42 +433,39 @@ export default function Navbar() {
           ))}
 
           {/* Language switcher mobile */}
-          <div className="flex items-center gap-2 pt-3 mt-1 border-t border-[#e7dfd0]">
-            <span className="terminal-text text-xs text-[#55506a]">Idioma:</span>
-            <Link href="/" className={`section-label px-3 py-1 transition-colors ${!pathname.startsWith('/en') ? 'bg-[#17150f] text-white' : 'text-[#55506a] hover:text-[#17150f] border border-[#e7dfd0]'}`}>ES</Link>
-            <Link href="/en" className={`section-label px-3 py-1 transition-colors ${pathname.startsWith('/en') ? 'bg-[#17150f] text-white' : 'text-[#55506a] hover:text-[#17150f] border border-[#e7dfd0]'}`}>EN</Link>
+          <div className={`flex items-center gap-2 pt-3 mt-1 border-t ${L ? 'border-white/10' : 'border-[#e7dfd0]'}`}>
+            <span className={`terminal-text text-xs ${L ? 'text-[#9aa4b6]' : 'text-[#55506a]'}`}>Idioma:</span>
+            <Link href="/" className={`section-label px-3 py-1 transition-colors ${!pathname.startsWith('/en') ? (L ? 'bg-[#39e2e6] text-[#04121e]' : 'bg-[#17150f] text-white') : (L ? 'text-[#9aa4b6] hover:text-white border border-white/15' : 'text-[#55506a] hover:text-[#17150f] border border-[#e7dfd0]')}`}>ES</Link>
+            <Link href="/en" className={`section-label px-3 py-1 transition-colors ${pathname.startsWith('/en') ? (L ? 'bg-[#39e2e6] text-[#04121e]' : 'bg-[#17150f] text-white') : (L ? 'text-[#9aa4b6] hover:text-white border border-white/15' : 'text-[#55506a] hover:text-[#17150f] border border-[#e7dfd0]')}`}>EN</Link>
           </div>
 
           {/* Auth */}
-          <div className="flex flex-col gap-3 pt-3 border-t border-[#e7dfd0]">
-            {user ? (
+          <div className={`flex flex-col gap-3 pt-3 border-t ${L ? 'border-white/10' : 'border-[#e7dfd0]'}`}>
+            {(() => {
+              const authCls = L
+                ? 'border border-[#39e2e6]/50 px-5 py-2.5 section-label text-[#39e2e6] text-center hover:bg-[#39e2e6] hover:text-[#04121e] transition-all duration-200'
+                : 'border border-[#17150f]/40 px-5 py-2.5 section-label text-[#17150f] text-center hover:bg-[#17150f] hover:text-white transition-all duration-200'
+              const linkCls = L ? 'section-label text-[#9aa4b6] hover:text-white transition-colors' : 'section-label text-[#55506a] hover:text-[#17150f] transition-colors'
+              return user ? (
               <>
-                <Link href="/perfil" className="section-label text-[#55506a] hover:text-[#17150f] transition-colors">
+                <Link href="/perfil" className={linkCls}>
                   MI CUENTA
                 </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="border border-[#17150f]/40 px-5 py-2.5 section-label text-[#17150f] text-center hover:bg-[#17150f] hover:text-white transition-all duration-200"
-                >
+                <button onClick={handleSignOut} className={authCls}>
                   SALIR
                 </button>
               </>
             ) : (
               <>
-                <Link
-                  href="/login"
-                  className="border border-[#17150f]/40 px-5 py-2.5 section-label text-[#17150f] text-center hover:bg-[#17150f] hover:text-white transition-all duration-200"
-                >
+                <Link href="/login" className={authCls}>
                   LOGIN
                 </Link>
-                <Link
-                  href="/registro"
-                  className="border border-[#17150f]/40 px-5 py-2.5 section-label text-[#17150f] text-center hover:bg-[#17150f] hover:text-white transition-all duration-200"
-                >
+                <Link href="/registro" className={authCls}>
                   REGISTRO
                 </Link>
               </>
-            )}
+            )
+            })()}
           </div>
         </div>
       )}
