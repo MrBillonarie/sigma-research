@@ -67,6 +67,16 @@ interface Trade {
 interface PassivePos { ingresoMensual: number }
 type PortfolioRow = Record<string, number>
 
+// Ejecuciones reales del motor (payload de /api/vps/trades) — el mismo origen
+// que consume el HUD. Solo tipamos los campos que usamos.
+interface EngineClosed { closed_at?: string; pnl_dollar?: number; mode?: string }
+interface EngineTradesRaw {
+  open?: unknown[]
+  history?: EngineClosed[]
+  stats?: { total?: number; wins?: number; losses?: number; win_rate?: number; profit_factor?: number }
+  portfolio?: { return_pct?: number }
+}
+
 // ─── Sparkline SVG — se traza sola al entrar (encendido) ──────────────────────
 function Sparkline({ data, w = 64, h = 22 }: { data: number[]; w?: number; h?: number }) {
   if (data.length < 2) return null
@@ -235,6 +245,25 @@ export default function DashboardHome() {
   const [trmLive,         setTrmLive]         = useState(false)
   const [headerDrawn,     setHeaderDrawn]     = useState(false)
   const [motorReturn,     setMotorReturn]     = useState<{ monthlyReturnPct: number; cumulativeReturnPct: number; daysActive: number } | null>(null)
+  // Datos crudos del motor (mismas ejecuciones que muestra el HUD) — el motor
+  // abre y cierra trades todo el día; de aquí salen PnL/Win Rate reales.
+  const [engRaw,          setEngRaw]          = useState<EngineTradesRaw | null>(null)
+
+  // Ejecuciones reales del motor — se refresca cada 60s como el HUD
+  useEffect(() => {
+    let alive = true
+    const load = () => fetch('/api/vps/trades', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((j: EngineTradesRaw | null) => {
+        if (!alive || !j) return
+        const hasData = (Array.isArray(j.history) && j.history.length > 0) || (j.stats?.total ?? 0) > 0
+        if (hasData) setEngRaw(j)
+      })
+      .catch(() => {})
+    load()
+    const id = setInterval(load, 60_000)
+    return () => { alive = false; clearInterval(id) }
+  }, [])
 
   // Clock
   useEffect(() => {
@@ -465,10 +494,43 @@ export default function DashboardHome() {
     }
   }, [portfolio, positions, trades, fireTarget, now, storedTotal, trm, calendarEvents])
 
+  // ─── Rendimiento del motor (mismas ejecuciones que el HUD) ──────────────────
+  // Cifra "del mes" desde history cerrado este mes; track record desde stats.
+  const E = useMemo(() => {
+    if (!engRaw) return null
+    const hist = Array.isArray(engRaw.history) ? engRaw.history : []
+    const stats = engRaw.stats ?? {}
+    const pf = engRaw.portfolio ?? {}
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const monthClosed = hist.filter(t => (t.closed_at ?? '').slice(0, 7) === ym)
+    const monthPnl = monthClosed.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0)
+    const wins   = monthClosed.filter(t => (t.pnl_dollar ?? 0) > 0).length
+    const losses = monthClosed.filter(t => (t.pnl_dollar ?? 0) < 0).length
+    const decisive = wins + losses
+    const monthWinRate = decisive > 0 ? (wins / decisive) * 100 : 0
+    // Sparkline: acumulado $ del mes en orden cronológico
+    const chronMonth = [...monthClosed].sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
+    let cum = 0
+    const sparkMonth = chronMonth.map(t => { cum += (t.pnl_dollar ?? 0); return cum })
+    // Últimos 10 resultados del motor (para las mini-barras del win rate)
+    const chronAll = [...hist].sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
+    const last10 = chronAll.slice(-10).map(t => (t.pnl_dollar ?? 0) > 0 ? 1 : (t.pnl_dollar ?? 0) < 0 ? 0 : 0.5)
+    return {
+      monthPnl, monthWinRate, monthClosed: monthClosed.length, openCount: Array.isArray(engRaw.open) ? engRaw.open.length : 0,
+      sparkMonth, last10,
+      trackWinRate: stats.win_rate ?? 0, profitFactor: stats.profit_factor ?? 0,
+      trackReturnPct: pf.return_pct ?? 0, trackTotal: stats.total ?? hist.length,
+    }
+  }, [engRaw, now])
+
+  // Valores que alimentan las tarjetas: motor si está disponible, si no journal
+  const monthPnlVal = E ? E.monthPnl : D.monthPnL
+  const winRateVal  = E ? E.monthWinRate : D.winRate
+
   // Encendido cinemático — los KPIs cuentan de 0 → valor real al cargar
   const cTotal   = useCountUp(loading ? 0 : D.totalUSD)
-  const cMonth   = useCountUp(loading ? 0 : D.monthPnL)
-  const cWin     = useCountUp(loading ? 0 : D.winRate)
+  const cMonth   = useCountUp(loading ? 0 : monthPnlVal)
+  const cWin     = useCountUp(loading ? 0 : winRateVal)
   const cPassive = useCountUp(loading ? 0 : D.monthlyPassive)
   const cFire    = useCountUp(loading ? 0 : D.firePct, 1500)
 
@@ -775,31 +837,50 @@ export default function DashboardHome() {
               </Hero3D>
             </div>
 
-            {/* Par de rendimiento — PnL y Win Rate unidos por un cable en vivo.
-                El pulso viaja de PnL -> Win Rate y se tiñe según el signo del mes. */}
+            {/* Par de rendimiento — PnL y Win Rate del MOTOR (mismo origen que el
+                HUD), unidos por un cable en vivo. El pulso viaja de PnL -> Win
+                Rate y se tiñe según el signo del mes. */}
             {(() => {
-              const wire = D.monthPnL >= 0 ? C.green : C.red
+              const wire = monthPnlVal >= 0 ? C.green : C.red
+              // Etiqueta de fuente: cuando hay datos del motor, marcarlo en vivo
+              const motorTag = E ? (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:8, verticalAlign:'middle' }}>
+                  <span style={{ width:5, height:5, borderRadius:'50%', background:C.green, display:'inline-block', animation:'sp-ping 1.5s infinite' }} />
+                  <span style={{ fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>
+                </span>
+              ) : null
+              const monthSpark = E ? E.sparkMonth : D.sparkMonthCum
+              const last10     = E ? E.last10 : D.last10Results
               return (
             <div className="sp-pair" style={{ position:'relative', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
 
-            {/* PnL Mes */}
+            {/* PnL Mes — realizado del motor este mes */}
             <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'90ms' }}>
-              <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PNL DEL MES</div>
+              <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PNL DEL MES{motorTag}</div>
               <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
-                {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.monthPnL >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(cMonth)}</div>}
-                {!loading && D.sparkMonthCum.length > 1 && <Sparkline data={D.sparkMonthCum} w={56} h={22} />}
+                {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:monthPnlVal >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(cMonth)}</div>}
+                {!loading && monthSpark.length > 1 && <Sparkline data={monthSpark} w={56} h={22} />}
               </div>
-              <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{D.monthTradesCount} trades este mes</div>
+              <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>
+                {E ? `${E.monthClosed} cerrados · ${E.openCount} abiertas` : `${D.monthTradesCount} trades este mes`}
+              </div>
+              {E && <div style={{ fontFamily:'monospace', fontSize:9, color:C.gold, marginTop:3, letterSpacing:'0.04em' }}>
+                motor {E.trackReturnPct >= 0 ? '+' : ''}{E.trackReturnPct.toFixed(1)}% · PF {E.profitFactor.toFixed(2)}
+              </div>}
             </div>
 
-            {/* Win Rate */}
+            {/* Win Rate — del motor este mes; histórico como apoyo */}
             <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'180ms' }}>
-              <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>WIN RATE MES</div>
+              <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>WIN RATE MES{motorTag}</div>
               <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
-                {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:D.winRate >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(cWin)}</div>}
-                {!loading && D.last10Results.length > 0 && <MiniBarChart data={D.last10Results} w={52} h={22} />}
+                {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:winRateVal >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(cWin)}</div>}
+                {!loading && last10.length > 0 && <MiniBarChart data={last10} w={52} h={22} />}
               </div>
-              {D.streak > 1 && !loading && <div style={{ fontFamily:'monospace', fontSize:10, color:C.green }}>🔥 {D.streak}W STREAK</div>}
+              {E ? (
+                <div style={{ fontFamily:'monospace', fontSize:9, color:C.gold, letterSpacing:'0.04em' }}>histórico {E.trackWinRate.toFixed(1)}% · {E.trackTotal} trades</div>
+              ) : (
+                D.streak > 1 && !loading && <div style={{ fontFamily:'monospace', fontSize:10, color:C.green }}>🔥 {D.streak}W STREAK</div>
+              )}
             </div>
 
             {/* Cable en vivo: baseline compartida que une PnL <-> Win Rate */}
