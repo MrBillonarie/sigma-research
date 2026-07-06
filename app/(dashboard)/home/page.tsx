@@ -623,32 +623,42 @@ export default function DashboardHome() {
 
           {/* ══ HEADER ══ */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:32, position:'relative' }}>
-            {/* Curva plasma de marca — se traza una sola vez al entrar, queda fija */}
+            {/* Línea de marca EN VIVO — recorre todo el ancho del header. Se
+                traza una vez al entrar y luego un pulso fluye por ella sin parar. */}
             <svg
               viewBox="0 0 560 100" preserveAspectRatio="none"
-              style={{ position:'absolute', left:0, top:-6, width:'min(560px,70%)', height:100, zIndex:0, pointerEvents:'none', opacity:0.55 }}
+              style={{ position:'absolute', left:0, top:-10, width:'100%', height:118, zIndex:0, pointerEvents:'none', opacity:0.6 }}
             >
               <defs>
                 <linearGradient id="homeHeaderLine" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%"  stopColor={C.gold} stopOpacity="0" />
-                  <stop offset="40%" stopColor={C.gold} stopOpacity="0.55" />
-                  <stop offset="100%" stopColor={C.glow} stopOpacity="1" />
+                  <stop offset="30%" stopColor={C.gold} stopOpacity="0.45" />
+                  <stop offset="100%" stopColor={C.glow} stopOpacity="0.95" />
                 </linearGradient>
                 <filter id="homeHeaderGlow" x="-20%" y="-300%" width="140%" height="700%">
                   <feGaussianBlur stdDeviation="2.4" result="b" />
                   <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
                 </filter>
               </defs>
+              {/* Riel base — trazado una vez, queda tenue de fondo */}
               <path
-                d={HEADER_CURVE_D} fill="none" stroke="url(#homeHeaderLine)" strokeWidth="1.6"
+                d={HEADER_CURVE_D} fill="none" stroke="url(#homeHeaderLine)" strokeWidth="1.4"
                 strokeLinejoin="round" filter="url(#homeHeaderGlow)"
-                style={{ strokeDasharray:700, strokeDashoffset: headerDrawn ? 0 : 700, transition:'stroke-dashoffset 1.6s cubic-bezier(0.4,0,0.2,1)' }}
+                style={{ strokeDasharray:700, strokeDashoffset: headerDrawn ? 0 : 700, transition:'stroke-dashoffset 1.6s cubic-bezier(0.4,0,0.2,1)', opacity:0.5 }}
               />
-              {/* Cometa — recorre la curva tras el trazado, luego reaparece cada ~11s */}
+              {/* Pulso vivo — un segmento brillante que fluye por la línea en loop */}
               {!rm && (
-                <circle r="2.4" fill={C.glow} filter="url(#homeHeaderGlow)" opacity="0">
-                  <animateMotion dur="11s" begin="1.9s" repeatCount="indefinite" path={HEADER_CURVE_D} keyPoints="0;1;1" keyTimes="0;0.26;1" calcMode="linear" />
-                  <animate attributeName="opacity" values="0;0.95;0.95;0;0" keyTimes="0;0.04;0.22;0.28;1" dur="11s" begin="1.9s" repeatCount="indefinite" />
+                <path
+                  d={HEADER_CURVE_D} fill="none" stroke={C.glow} strokeWidth="2.1"
+                  strokeLinecap="round" strokeLinejoin="round" filter="url(#homeHeaderGlow)"
+                  pathLength={1000} strokeDasharray="90 910"
+                  style={{ animation: headerDrawn ? 'home-header-flow 4.6s linear infinite' : undefined, animationDelay:'1.6s' }}
+                />
+              )}
+              {/* Cabeza cometa que persigue al pulso */}
+              {!rm && (
+                <circle r="2.6" fill="#fff3cf" filter="url(#homeHeaderGlow)" opacity="0.95">
+                  <animateMotion dur="4.6s" begin="1.6s" repeatCount="indefinite" path={HEADER_CURVE_D} keyPoints="0.09;1;0.09" keyTimes="0;0.91;1" calcMode="linear" />
                 </circle>
               )}
             </svg>
@@ -739,7 +749,7 @@ export default function DashboardHome() {
           )}
 
           {/* ══ KPI BAR ══ */}
-          <div className="sp-kpi-grid" style={{ display:'grid', gridTemplateColumns:'1.6fr 1fr 1fr 1fr 1fr', gap:12, marginBottom:32 }}>
+          <div className="sp-kpi-grid" style={{ display:'grid', gridTemplateColumns:'1.6fr 2fr 1fr 1fr', gap:12, marginBottom:32 }}>
 
             {/* Patrimonio — hero KPI: ancla visual de la página, rompe la grilla a propósito */}
             <div style={{ position:'relative' }}>
@@ -765,6 +775,13 @@ export default function DashboardHome() {
               </Hero3D>
             </div>
 
+            {/* Par de rendimiento — PnL y Win Rate unidos por un cable en vivo.
+                El pulso viaja de PnL -> Win Rate y se tiñe según el signo del mes. */}
+            {(() => {
+              const wire = D.monthPnL >= 0 ? C.green : C.red
+              return (
+            <div className="sp-pair" style={{ position:'relative', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+
             {/* PnL Mes */}
             <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'90ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PNL DEL MES</div>
@@ -784,6 +801,18 @@ export default function DashboardHome() {
               </div>
               {D.streak > 1 && !loading && <div style={{ fontFamily:'monospace', fontSize:10, color:C.green }}>🔥 {D.streak}W STREAK</div>}
             </div>
+
+            {/* Cable en vivo: baseline compartida que une PnL <-> Win Rate */}
+            <div aria-hidden style={{ position:'absolute', left:16, right:16, bottom:0, height:2, pointerEvents:'none', zIndex:3 }}>
+              <div style={{ position:'absolute', inset:0, borderRadius:2, background:`linear-gradient(90deg, ${wire}00 0%, ${wire}55 16%, ${wire}cc 50%, ${wire}55 84%, ${wire}00 100%)` }} />
+              <span style={{ position:'absolute', left:'25%', top:'50%', width:5, height:5, marginLeft:-2.5, marginTop:-2.5, borderRadius:'50%', background:wire, boxShadow:`0 0 8px ${wire}` }} />
+              <span style={{ position:'absolute', left:'75%', top:'50%', width:5, height:5, marginLeft:-2.5, marginTop:-2.5, borderRadius:'50%', background:wire, boxShadow:`0 0 8px ${wire}` }} />
+              {!rm && <span className="home-wire-pulse" style={{ background:'#fff', boxShadow:`0 0 10px ${wire}, 0 0 4px ${wire}` }} />}
+            </div>
+
+            </div>
+              )
+            })()}
 
             {/* Ingreso pasivo */}
             <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'270ms' }}>

@@ -342,6 +342,7 @@ section[id] { scroll-margin-top: 80px; }
   }
   .dash-content-inner  { padding-top: 56px !important; }
   .sp-kpi-grid         { grid-template-columns: repeat(2, 1fr) !important; }
+  .sp-pair             { grid-column: 1 / -1 !important; }
   .sp-tool-grid        { grid-template-columns: repeat(2, 1fr) !important; }
   .sp-summary-grid     { grid-template-columns: 1fr !important; }
   .sp-bottom-grid      { grid-template-columns: 1fr !important; }
@@ -358,8 +359,30 @@ section[id] { scroll-margin-top: 80px; }
   h1                   { font-size: clamp(36px, 10vw, 64px) !important; }
 }
 
+/* Cable en vivo que conecta PnL <-> Win Rate: pulso que viaja entre ambas */
+.home-wire-pulse {
+  position: absolute; top: 50%; width: 6px; height: 6px;
+  margin-top: -3px; margin-left: -3px; border-radius: 50%;
+  animation: home-wire-run 3.2s linear infinite;
+}
+@keyframes home-wire-run {
+  0%   { left: 0%;   opacity: 0 }
+  12%  { opacity: 1 }
+  88%  { opacity: 1 }
+  100% { left: 100%; opacity: 0 }
+}
+/* Pulso continuo que recorre la línea de marca del header */
+@keyframes home-header-flow {
+  from { stroke-dashoffset: 1000 }
+  to   { stroke-dashoffset: 0 }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-wire-pulse { display: none }
+}
+
 @media (min-width: 769px) and (max-width: 900px) {
   .sp-kpi-grid      { grid-template-columns: repeat(3, 1fr) !important; }
+  .sp-pair          { grid-column: span 2 !important; }
   .sp-bottom-grid   { grid-template-columns: 1fr 1fr !important; }
   .sp-tool-grid     { grid-template-columns: repeat(2, 1fr) !important; }
   .dash-content     { padding-top: 32px !important; padding-left: 18px !important; padding-right: 18px !important; }
