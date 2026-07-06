@@ -9,30 +9,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── Core palette ──────────────────────────────
-        bg:         '#04050a',
-        surface:    '#0b0d14',
-        'surface-2':'#0e1019',
-        border:     '#1a1d2e',
-        'border-2': '#252840',
+        // ── Core palette — Editorial Data (papel/tinta) ─
+        bg:         '#f5f2ec',
+        surface:    '#ffffff',
+        'surface-2':'#ece8df',
+        border:     '#dcd6ca',
+        'border-2': '#c6bfb0',
 
-        // ── Gold (signature accent) ───────────────────
-        gold:       '#d4af37',
-        'gold-dim': '#a88c25',
-        'gold-glow':'#f0cc5a',
+        // ── "Gold" token → tinta (monocromo). El oro real
+        //    vive hardcodeado solo en el logo (Navbar/Footer).
+        gold:       '#17150f',
+        'gold-dim': '#2a2622',
+        'gold-glow':'#3a3630',
 
         // ── Text scale ────────────────────────────────
-        text:       '#e8e9f0',
-        'text-dim': '#9298b8',
-        muted:      '#5a6078',
+        text:       '#17150f',
+        'text-dim': '#6a675e',
+        muted:      '#9a968b',
 
-        // ── Semantic ─────────────────────────────────
-        green:      '#1D9E75',
-        'green-dim':'#155f47',
-        red:        '#f87171',
+        // ── Semantic (ajustado a papel claro) ─────────
+        green:      '#0a7f52',
+        'green-dim':'#0a5c3c',
+        red:        '#c1322f',
         'red-dim':  '#7f1d1d',
-        amber:      '#f59e0b',
-        blue:       '#378ADD',
+        amber:      '#b8860b',
+        blue:       '#3f6fd0',
 
         // ── Admin panel palette (Mission Control) ──────────────────────
         'admin-bg':      '#08060f',
@@ -59,18 +60,18 @@ const config: Config = {
         widest: '0.32em',
       },
       backgroundImage: {
-        'grid-pattern':  `linear-gradient(rgba(212,175,55,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.04) 1px, transparent 1px)`,
-        'gold-gradient': 'linear-gradient(135deg, #d4af37 0%, #f0cc5a 50%, #a88c25 100%)',
-        'radial-gold':   'radial-gradient(ellipse at center, rgba(212,175,55,0.10) 0%, transparent 68%)',
+        'grid-pattern':  `linear-gradient(rgba(23,21,15,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(23,21,15,0.045) 1px, transparent 1px)`,
+        'gold-gradient': 'linear-gradient(135deg, #17150f 0%, #3a3630 50%, #17150f 100%)',
+        'radial-gold':   'radial-gradient(ellipse at center, rgba(23,21,15,0.05) 0%, transparent 68%)',
       },
       backgroundSize: {
         grid: '40px 40px',
       },
       boxShadow: {
-        gold:    '0 0 20px rgba(212,175,55,0.15), 0 0 40px rgba(212,175,55,0.05)',
-        'gold-lg':'0 0 40px rgba(212,175,55,0.3), 0 0 80px rgba(212,175,55,0.1)',
-        card:    '0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,175,55,0.1)',
-        inset:   'inset 0 1px 0 rgba(255,255,255,0.04)',
+        gold:    '0 1px 2px rgba(30,20,10,0.06), 0 8px 24px rgba(60,45,20,0.07)',
+        'gold-lg':'0 8px 30px rgba(60,45,20,0.12), 0 2px 6px rgba(30,20,10,0.06)',
+        card:    '0 1px 2px rgba(30,20,10,0.05), 0 10px 28px rgba(60,45,20,0.06)',
+        inset:   'inset 0 1px 0 rgba(255,255,255,0.6)',
         // ── Admin Neon Grid glows ──────────────────────────────────────────
         'admin-glow':        '0 0 0 1px rgba(139,92,246,0.13), 0 0 24px rgba(124,58,237,0.08)',
         'admin-glow-lg':     '0 0 0 1px rgba(139,92,246,0.25), 0 0 40px rgba(124,58,237,0.15)',

@@ -121,13 +121,13 @@ function LoginForm() {
   return (
     <div className="glass-card p-8 shadow-card">
       <h1 className="display-heading text-4xl gold-text mb-1">ACCESO TERMINAL</h1>
-      <p className="terminal-text text-text-dim mb-8">Introduce tus credenciales para continuar.</p>
+      <p className="terminal-text text-[#7a7f9a] mb-8">Introduce tus credenciales para continuar.</p>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
 
         {/* Email */}
         <div className="flex flex-col gap-1.5">
-          <label className="section-label text-text-dim">Email</label>
+          <label className="section-label text-[#7a7f9a]">Email</label>
           <input
             type="email"
             required
@@ -135,14 +135,14 @@ function LoginForm() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="operador@sigma.io"
-            className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors"
+            className="bg-[#0b0d14] border border-[#1a1d2e] focus:border-[#d4af37]/60 outline-none px-4 py-2.5 terminal-text text-[#e8e9f0] placeholder:text-[#3a3f55] transition-colors"
           />
           {errors.email && <span className="terminal-text text-red-400 text-xs">{errors.email}</span>}
         </div>
 
         {/* Password */}
         <div className="flex flex-col gap-1.5">
-          <label className="section-label text-text-dim">Contraseña</label>
+          <label className="section-label text-[#7a7f9a]">Contraseña</label>
           <input
             type="password"
             required
@@ -150,7 +150,7 @@ function LoginForm() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors"
+            className="bg-[#0b0d14] border border-[#1a1d2e] focus:border-[#d4af37]/60 outline-none px-4 py-2.5 terminal-text text-[#e8e9f0] placeholder:text-[#3a3f55] transition-colors"
           />
           {errors.password && <span className="terminal-text text-red-400 text-xs">{errors.password}</span>}
         </div>
@@ -159,7 +159,7 @@ function LoginForm() {
             navegador (no hay opción real de "sesión temporal" en este
             esquema de cookies), así que no se ofrece un toggle que no haría nada. */}
         <div className="flex items-center justify-end">
-          <Link href="/recuperar" className="terminal-text text-xs text-text-dim hover:text-gold transition-colors">
+          <Link href="/recuperar" className="terminal-text text-xs text-[#7a7f9a] hover:text-[#d4af37] transition-colors">
             ¿Olvidaste tu contraseña?
           </Link>
         </div>
@@ -174,15 +174,15 @@ function LoginForm() {
         {/* Reenviar confirmación — antes solo un admin podía dispararlo;
             cualquier email perdido/en spam dejaba al usuario sin salida. */}
         {needsConfirm && (
-          <div className="border border-gold/30 bg-gold/5 px-4 py-2.5 flex flex-col gap-2">
-            <p className="terminal-text text-text-dim text-xs">¿No te llegó el correo de confirmación?</p>
+          <div className="border border-[#d4af37]/30 bg-[#d4af37]/5 px-4 py-2.5 flex flex-col gap-2">
+            <p className="terminal-text text-[#7a7f9a] text-xs">¿No te llegó el correo de confirmación?</p>
             <button
               type="button" onClick={handleResendConfirmation} disabled={resending}
-              className="terminal-text text-xs text-gold hover:text-gold-glow transition-colors text-left disabled:opacity-50"
+              className="terminal-text text-xs text-[#d4af37] hover:text-[#f0cc5a] transition-colors text-left disabled:opacity-50"
             >
               {resending ? 'Enviando…' : 'Reenviar email de confirmación'}
             </button>
-            {resendMsg && <p className="terminal-text text-text-dim text-xs">{resendMsg}</p>}
+            {resendMsg && <p className="terminal-text text-[#7a7f9a] text-xs">{resendMsg}</p>}
           </div>
         )}
 
@@ -192,8 +192,8 @@ function LoginForm() {
           disabled={loading}
           className={`mt-1 section-label py-3 transition-all duration-300 disabled:cursor-not-allowed ${
             phase === 'granted' || phase === 'opening'
-              ? 'bg-emerald-400 text-bg'
-              : 'bg-gold text-bg hover:bg-gold-glow disabled:opacity-70'
+              ? 'bg-emerald-400 text-[#04050a]'
+              : 'bg-[#d4af37] text-[#04050a] hover:bg-[#f0cc5a] disabled:opacity-70'
           }`}
         >
           {phase === 'verifying' ? '> VERIFICANDO CREDENCIALES…'
@@ -205,7 +205,7 @@ function LoginForm() {
         {/* Divider */}
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-border" />
-          <span className="terminal-text text-xs text-muted">o continúa con</span>
+          <span className="terminal-text text-xs text-[#3a3f55]">o continúa con</span>
           <div className="flex-1 h-px bg-border" />
         </div>
 
@@ -214,7 +214,7 @@ function LoginForm() {
           type="button"
           onClick={handleGoogle}
           disabled={gLoading}
-          className="flex items-center justify-center gap-3 border border-border bg-surface hover:border-gold/40 px-4 py-2.5 terminal-text text-text-dim hover:text-text transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center gap-3 border border-[#1a1d2e] bg-[#0b0d14] hover:border-[#d4af37]/40 px-4 py-2.5 terminal-text text-[#7a7f9a] hover:text-[#e8e9f0] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <GoogleIcon />
           {gLoading ? 'Redirigiendo…' : 'Continuar con Google'}
@@ -389,7 +389,7 @@ function LivePanel() {
       ref={panelRef}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
-      className="hidden lg:flex relative w-[46%] overflow-hidden border-l border-border items-center"
+      className="hidden lg:flex relative w-[46%] overflow-hidden border-l border-[#1a1d2e] items-center"
     >
       <style>{`
         @keyframes tronMove { from { background-position: 0 0; } to { background-position: 0 44px; } }
@@ -430,19 +430,19 @@ function LivePanel() {
           <span className="terminal-text text-[10px] text-emerald-400 tracking-[0.28em]">SIGMA ENGINE · OPERANDO</span>
         </div>
 
-        <h2 className="display-heading text-5xl leading-[0.95] text-text mb-5" style={{ textWrap: 'balance' }}>
+        <h2 className="display-heading text-5xl leading-[0.95] text-[#e8e9f0] mb-5" style={{ textWrap: 'balance' }}>
           EL MOTOR<br />
           <span className="gold-text">NO DUERME.</span>
         </h2>
 
-        <p className="terminal-text text-sm text-text-dim leading-relaxed mb-8">
+        <p className="terminal-text text-sm text-[#7a7f9a] leading-relaxed mb-8">
           3 motores · 16 activos · decisiones validadas out-of-sample, las 24 horas.
         </p>
 
         {live && (
-          <div className="flex flex-wrap gap-x-7 gap-y-2 terminal-text text-xs text-text-dim">
+          <div className="flex flex-wrap gap-x-7 gap-y-2 terminal-text text-xs text-[#7a7f9a]">
             <span>RÉGIMEN <span className={`font-bold ${regimeColor}`}>{live.regime}</span></span>
-            <span><span className="text-gold font-bold">{live.signals}</span> SEÑALES ACTIVAS</span>
+            <span><span className="text-[#d4af37] font-bold">{live.signals}</span> SEÑALES ACTIVAS</span>
           </div>
         )}
       </div>
@@ -452,7 +452,15 @@ function LivePanel() {
 
 export default function LoginPage() {
   return (
-    <main className="min-h-screen bg-bg flex">
+    <main className="min-h-screen bg-[#04050a] flex" style={{
+      // El login se mantiene en tema oscuro aunque el sitio público sea claro:
+      // se redefinen los tokens en este subárbol para las clases var-based.
+      ['--bg' as string]: '#04050a', ['--surface' as string]: '#0b0d14',
+      ['--border' as string]: '#1a1d2e', ['--border-2' as string]: '#252840',
+      ['--gold' as string]: '#d4af37', ['--gold-glow' as string]: '#f0cc5a',
+      ['--text' as string]: '#e8e9f0', ['--text-dim' as string]: '#7a7f9a', ['--text-muted' as string]: '#3a3f55',
+      ['--green' as string]: '#1D9E75', ['--red' as string]: '#f87171',
+    }}>
 
       {/* ── Columna del formulario ── */}
       <div className="flex-1 bg-grid-pattern bg-grid flex items-center justify-center px-4 py-12">
@@ -460,10 +468,10 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-7 h-7 border border-gold flex items-center justify-center">
-              <span className="display-heading text-gold text-sm leading-none">Σ</span>
+            <div className="w-7 h-7 border border-[#d4af37] flex items-center justify-center">
+              <span className="display-heading text-[#d4af37] text-sm leading-none">Σ</span>
             </div>
-            <Link href="/" className="display-heading text-xl tracking-widest text-text">
+            <Link href="/" className="display-heading text-xl tracking-widest text-[#e8e9f0]">
               SQUANT DESK
             </Link>
           </div>
@@ -471,15 +479,15 @@ export default function LoginPage() {
           {/* Suspense required by useSearchParams in Next.js 14 App Router */}
           <Suspense fallback={
             <div className="glass-card p-8 flex items-center justify-center">
-              <span className="section-label text-text-dim">Cargando…</span>
+              <span className="section-label text-[#7a7f9a]">Cargando…</span>
             </div>
           }>
             <LoginForm />
           </Suspense>
 
-          <p className="terminal-text text-center text-text-dim mt-6">
+          <p className="terminal-text text-center text-[#7a7f9a] mt-6">
             ¿No tienes cuenta?{' '}
-            <Link href="/registro" className="text-gold hover:text-gold-glow transition-colors">
+            <Link href="/registro" className="text-[#d4af37] hover:text-[#f0cc5a] transition-colors">
               CREAR CUENTA
             </Link>
           </p>
@@ -488,7 +496,7 @@ export default function LoginPage() {
           <div className="mt-10 flex justify-center">
             <Link
               href="/admin"
-              className="terminal-text text-xs text-muted hover:text-gold transition-colors duration-300 select-none tracking-widest"
+              className="terminal-text text-xs text-[#3a3f55] hover:text-[#d4af37] transition-colors duration-300 select-none tracking-widest"
               tabIndex={-1}
             >
               · · ·

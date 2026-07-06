@@ -9,30 +9,30 @@
 ═══════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Core ──────────────────────────────────────────────────────── */
-  --bg:          #04050a;
-  --surface:     #0b0d14;
-  --surface-2:   #0e1019;
-  --border:      #1a1d2e;
-  --border-2:    #252840;
+  /* ── Core — Editorial Data (papel / tinta) ─────────────────────── */
+  --bg:          #f5f2ec;
+  --surface:     #ffffff;
+  --surface-2:   #ece8df;
+  --border:      #dcd6ca;
+  --border-2:    #c6bfb0;
 
-  /* ── Gold ──────────────────────────────────────────────────────── */
-  --gold:        #d4af37;
-  --gold-dim:    #a88c25;
-  --gold-glow:   #f0cc5a;
+  /* ── "Gold" → tinta (monocromo). El oro real solo en el logo. ──── */
+  --gold:        #17150f;
+  --gold-dim:    #2a2622;
+  --gold-glow:   #3a3630;
 
   /* ── Text ──────────────────────────────────────────────────────── */
-  --text:        #e8e9f0;
-  --text-dim:    #7a7f9a;
-  --text-muted:  #3a3f55;
+  --text:        #17150f;
+  --text-dim:    #6a675e;
+  --text-muted:  #9a968b;
 
-  /* ── Semantic ──────────────────────────────────────────────────── */
-  --green:       #1D9E75;
-  --green-dim:   #155f47;
-  --red:         #f87171;
+  /* ── Semantic (ajustado a papel claro) ─────────────────────────── */
+  --green:       #0a7f52;
+  --green-dim:   #0a5c3c;
+  --red:         #c1322f;
   --red-dim:     #7f1d1d;
-  --amber:       #f59e0b;
-  --blue:        #378ADD;
+  --amber:       #b8860b;
+  --blue:        #3f6fd0;
 
   /* ── Fonts ─────────────────────────────────────────────────────── */
   --font-display: var(--font-bebas), Impact, sans-serif;
@@ -57,8 +57,8 @@ body {
 }
 
 ::selection {
-  background: rgba(212, 175, 55, 0.25);
-  color: var(--gold-glow);
+  background: rgba(23, 21, 15, 0.14);
+  color: var(--text);
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────── */
@@ -136,16 +136,14 @@ section[id] { scroll-margin-top: 80px; }
     letter-spacing: 0.03em;
   }
 
-  /* ── Gold text gradient ──────────────────────────────────────── */
+  /* ── "Gold text" → tinta plena (monocromo editorial) ─────────── */
   .gold-text {
-    background: linear-gradient(135deg, #d4af37 0%, #f0cc5a 50%, #a88c25 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #17150f;
+    -webkit-text-fill-color: #17150f;
   }
 
   .gold-border {
-    border: 1px solid rgba(212, 175, 55, 0.28);
+    border: 1px solid rgba(23, 21, 15, 0.2);
   }
 
   /* ── Cards / Surfaces ────────────────────────────────────────── */
@@ -174,10 +172,10 @@ section[id] { scroll-margin-top: 80px; }
 
   /* Glass card para overlays */
   .glass-card {
-    background: rgba(11, 13, 20, 0.85);
+    background: rgba(255, 255, 255, 0.82);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(212, 175, 55, 0.10);
+    border: 1px solid rgba(23, 21, 15, 0.10);
   }
 
   /* ── Data grid ───────────────────────────────────────────────── */
@@ -251,9 +249,9 @@ section[id] { scroll-margin-top: 80px; }
   .sq-btn-outline {
     background: transparent;
     color: var(--gold);
-    border: 1px solid rgba(212,175,55,0.4);
+    border: 1px solid rgba(23,21,15,0.35);
   }
-  .sq-btn-outline:hover { background: rgba(212,175,55,0.08); border-color: var(--gold); }
+  .sq-btn-outline:hover { background: rgba(23,21,15,0.06); border-color: var(--gold); }
 
   /* ── Page shell ──────────────────────────────────────────────── */
 
