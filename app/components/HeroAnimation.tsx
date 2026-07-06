@@ -19,7 +19,7 @@ const POINTS = [
   [560, 120], [600, 130], [640, 105], [680, 90], [720, 100], [760, 78], [800, 60],
 ]
 
-const GOLD = '106,52,209'   // acento violeta de marca (RGB de #6a34d1)
+const GOLD = '23,21,15'   // tinta editorial (RGB de #17150f) — grafico monocromo
 const N_CANDLES = 24
 
 const SYMBOLS   = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT']
@@ -226,7 +226,7 @@ export default function HeroAnimation() {
         g.closePath(); g.fill()
 
         // Tapa superior (luz)
-        g.fillStyle = up ? `rgba(203,178,240,${(0.30 * a).toFixed(3)})` : `rgba(211,48,66,${(0.20 * a).toFixed(3)})`
+        g.fillStyle = up ? `rgba(250,247,240,${(0.30 * a).toFixed(3)})` : `rgba(211,48,66,${(0.20 * a).toFixed(3)})`
         g.beginPath()
         g.moveTo(x, yTop)
         g.lineTo(x + ox, yTop + oy)
@@ -279,7 +279,7 @@ export default function HeroAnimation() {
         path(); g.stroke()
         g.restore()
         // Núcleo caliente
-        g.strokeStyle = 'rgba(203,178,240,0.8)'
+        g.strokeStyle = 'rgba(250,247,240,0.8)'
         g.lineWidth   = 0.8
         path(); g.stroke()
 
@@ -314,7 +314,7 @@ export default function HeroAnimation() {
             g.save()
             g.shadowColor = `rgba(${GOLD},0.95)`
             g.shadowBlur  = 14
-            g.fillStyle   = 'rgba(79,37,158,0.95)'
+            g.fillStyle   = 'rgba(23,21,15,0.95)'
             g.beginPath(); g.arc(hx, hy, 3.5, 0, Math.PI * 2); g.fill()
             g.restore()
             // Anillo al llegar al pico
@@ -356,7 +356,7 @@ export default function HeroAnimation() {
       <div className="absolute right-0 top-0 h-full hero-chart" style={{ width: '58%' }}>
         <canvas ref={canvasRef} className="w-full h-full" />
         {/* Fundido hacia el lado del headline para que el texto respire */}
-        <div className="absolute inset-y-0 left-0 w-40" style={{ background: 'linear-gradient(90deg, #f8f5ef, transparent)' }} />
+        <div className="absolute inset-y-0 left-0 w-40" style={{ background: 'linear-gradient(90deg, #f5f2ec, transparent)' }} />
       </div>
 
       {/* ── Live ticker strip ─────────────────────────────────────────────── */}

@@ -69,10 +69,10 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center gap-3 mb-4 w-fit">
-              <div className="w-7 h-7 border border-[#6a34d1] flex items-center justify-center">
-                <span className="display-heading text-[#6a34d1] text-sm leading-none">Σ</span>
+              <div className="w-7 h-7 border border-[#b8912a] flex items-center justify-center">
+                <span className="display-heading text-[#b8912a] text-sm leading-none">Σ</span>
               </div>
-              <span className="display-heading text-xl tracking-widest text-[#1b1723]">SQUANT DESK</span>
+              <span className="display-heading text-xl tracking-widest text-[#b8912a]">SQUANT DESK</span>
             </Link>
             <p className="terminal-text text-[#55506a] text-sm leading-relaxed max-w-xs">
               Inteligencia cuantitativa de grado institucional. Construido sobre datos reales,
@@ -86,7 +86,7 @@ export default function Footer() {
               {social.map(s => (
                 <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
                   aria-label={s.label} title={s.label}
-                  className="text-[#55506a] hover:text-[#6a34d1] transition-colors">
+                  className="text-[#55506a] hover:text-[#17150f] transition-colors">
                   {s.icon}
                 </a>
               ))}
@@ -95,11 +95,11 @@ export default function Footer() {
 
           {/* Herramientas */}
           <div>
-            <div className="section-label text-[#6a34d1] mb-4">Herramientas</div>
+            <div className="section-label text-[#17150f] mb-4">Herramientas</div>
             <ul className="space-y-2.5">
               {herramientas.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#6a34d1] transition-colors">
+                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#17150f] transition-colors">
                     {l.label}
                   </Link>
                 </li>
@@ -109,11 +109,11 @@ export default function Footer() {
 
           {/* Empresa */}
           <div>
-            <div className="section-label text-[#6a34d1] mb-4">Empresa</div>
+            <div className="section-label text-[#17150f] mb-4">Empresa</div>
             <ul className="space-y-2.5">
               {empresa.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#6a34d1] transition-colors">
+                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#17150f] transition-colors">
                     {l.label}
                   </Link>
                 </li>
@@ -123,7 +123,7 @@ export default function Footer() {
 
           {/* Cuenta + Trust */}
           <div>
-            <div className="section-label text-[#6a34d1] mb-4">Cuenta</div>
+            <div className="section-label text-[#17150f] mb-4">Cuenta</div>
             <ul className="space-y-2.5 mb-6">
               {[
                 { label: 'Crear cuenta gratis', href: '/registro' },
@@ -132,7 +132,7 @@ export default function Footer() {
                 { label: 'Contactar equipo',     href: '/contacto' },
               ].map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#6a34d1] transition-colors">
+                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#17150f] transition-colors">
                     {l.label}
                   </Link>
                 </li>

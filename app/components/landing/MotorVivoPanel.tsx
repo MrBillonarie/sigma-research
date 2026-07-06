@@ -172,7 +172,7 @@ export default function MotorVivoPanel({
               SEÑALES COMPLETAS BUY / SELL / HOLD<br />
               DISPONIBLES EN DASHBOARD DESPUÉS DEL REGISTRO
             </div>
-            <Link href="/registro" className="gold-cta" style={{ display: 'inline-block', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: tokens.BG, background: `linear-gradient(135deg, ${G}, #4f259e)`, padding: '10px 20px', textDecoration: 'none', boxShadow: '0 0 20px rgba(106,52,209,0.2)' }}>
+            <Link href="/registro" className="gold-cta" style={{ display: 'inline-block', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: tokens.BG, background: `linear-gradient(135deg, ${G}, #2a2622)`, padding: '10px 20px', textDecoration: 'none', boxShadow: 'none' }}>
               VER SEÑALES COMPLETAS →
             </Link>
           </div>
