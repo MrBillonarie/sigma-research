@@ -239,24 +239,24 @@ export default function Navbar() {
               {activeGroup === group.id && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3">
                   <div
-                    className="relative overflow-hidden bg-[#ffffff]/90 backdrop-blur-xl border border-[#17150f]/20 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.7)]"
+                    className={`relative overflow-hidden backdrop-blur-xl border shadow-[0_18px_50px_-12px_rgba(0,0,0,0.8)] ${L ? 'bg-[#0c0f16]/95 border-white/12' : 'bg-[#ffffff]/90 border-[#17150f]/20'}`}
                     style={{
                       width: group.id === 'herramientas' ? 460 : 290,
                       animation: 'navPanelIn 0.18s cubic-bezier(0.16,1,0.3,1) both',
                     }}
                   >
                     {/* Corner brackets — mira de terminal */}
-                    <span className="pointer-events-none absolute top-0 left-0 w-3 h-3 border-t border-l border-[#17150f]/70" />
-                    <span className="pointer-events-none absolute top-0 right-0 w-3 h-3 border-t border-r border-[#17150f]/70" />
-                    <span className="pointer-events-none absolute bottom-0 left-0 w-3 h-3 border-b border-l border-[#17150f]/70" />
-                    <span className="pointer-events-none absolute bottom-0 right-0 w-3 h-3 border-b border-r border-[#17150f]/70" />
+                    <span className={`pointer-events-none absolute top-0 left-0 w-3 h-3 border-t border-l ${L ? 'border-[#39e2e6]/60' : 'border-[#17150f]/70'}`} />
+                    <span className={`pointer-events-none absolute top-0 right-0 w-3 h-3 border-t border-r ${L ? 'border-[#39e2e6]/60' : 'border-[#17150f]/70'}`} />
+                    <span className={`pointer-events-none absolute bottom-0 left-0 w-3 h-3 border-b border-l ${L ? 'border-[#39e2e6]/60' : 'border-[#17150f]/70'}`} />
+                    <span className={`pointer-events-none absolute bottom-0 right-0 w-3 h-3 border-b border-r ${L ? 'border-[#39e2e6]/60' : 'border-[#17150f]/70'}`} />
 
                     {/* Scan line */}
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#17150f]/50 to-transparent" />
+                    <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent to-transparent ${L ? 'via-[#39e2e6]/50' : 'via-[#17150f]/50'}`} />
 
                     {/* Header label */}
-                    <div className="px-4 pt-3 pb-2 border-b border-[#17150f]/8">
-                      <span className="terminal-text text-[9px] text-[#17150f]/50 tracking-[0.35em] uppercase">
+                    <div className={`px-4 pt-3 pb-2 border-b ${L ? 'border-white/10' : 'border-[#17150f]/8'}`}>
+                      <span className={`terminal-text text-[9px] tracking-[0.35em] uppercase ${L ? 'text-[#39e2e6]/70' : 'text-[#17150f]/50'}`}>
                         {`// ${group.label}`}
                       </span>
                     </div>
@@ -267,33 +267,37 @@ export default function Navbar() {
                           key={l.href}
                           href={l.href}
                           className={`nav-sweep relative flex items-start gap-3 px-4 py-3 transition-colors duration-150 group/item border-l-2 overflow-hidden ${
-                            isActive(l.href)
-                              ? 'bg-[#17150f]/8 border-[#17150f]'
-                              : 'border-transparent hover:bg-[#17150f]/5 hover:border-[#17150f]/50'
+                            L
+                              ? (isActive(l.href) ? 'bg-[#39e2e6]/10 border-[#39e2e6]' : 'border-transparent hover:bg-white/5 hover:border-[#39e2e6]/50')
+                              : (isActive(l.href) ? 'bg-[#17150f]/8 border-[#17150f]' : 'border-transparent hover:bg-[#17150f]/5 hover:border-[#17150f]/50')
                           }`}
                           style={{ animation: 'navItemIn 0.28s ease both', animationDelay: `${60 + i * 30}ms` }}
                           onClick={() => setActiveGroup(null)}
                         >
                           {/* Micro-visual de la herramienta */}
-                          <span className={`mt-0.5 flex h-7 w-11 shrink-0 items-center justify-center rounded-[3px] border bg-[#f8f5ef]/50 transition-colors duration-200 ${
-                            isActive(l.href) ? 'text-[#17150f] border-[#17150f]/40' : 'text-[#55506a] border-[#e7dfd0] group-hover/item:text-[#17150f] group-hover/item:border-[#17150f]/40'
+                          <span className={`mt-0.5 flex h-7 w-11 shrink-0 items-center justify-center rounded-[3px] border transition-colors duration-200 ${
+                            L
+                              ? (isActive(l.href) ? 'bg-white/5 text-[#39e2e6] border-[#39e2e6]/40' : 'bg-white/5 text-[#9aa4b6] border-white/12 group-hover/item:text-[#39e2e6] group-hover/item:border-[#39e2e6]/40')
+                              : (isActive(l.href) ? 'bg-[#f8f5ef]/50 text-[#17150f] border-[#17150f]/40' : 'bg-[#f8f5ef]/50 text-[#55506a] border-[#e7dfd0] group-hover/item:text-[#17150f] group-hover/item:border-[#17150f]/40')
                           }`}>
                             <MiniViz type={l.viz} />
                           </span>
 
                           <span className="flex min-w-0 flex-col">
                             <span className={`section-label transition-colors ${
-                              isActive(l.href) ? 'text-[#17150f]' : 'text-[#55506a] group-hover/item:text-[#17150f]'
+                              L
+                                ? (isActive(l.href) ? 'text-white' : 'text-[#9aa4b6] group-hover/item:text-white')
+                                : (isActive(l.href) ? 'text-[#17150f]' : 'text-[#55506a] group-hover/item:text-[#17150f]')
                             }`}>
                               {l.label}
                             </span>
-                            <span className="terminal-text text-xs text-[#8b8494] mt-0.5 group-hover/item:text-[#55506a] transition-colors">
+                            <span className={`terminal-text text-xs mt-0.5 transition-colors ${L ? 'text-[#6b7688] group-hover/item:text-[#9aa4b6]' : 'text-[#8b8494] group-hover/item:text-[#55506a]'}`}>
                               {l.desc}
                             </span>
                           </span>
 
                           {/* Flecha que se desliza al hover */}
-                          <span className="ml-auto self-center text-[#17150f] text-xs opacity-0 -translate-x-1 transition-all duration-200 group-hover/item:opacity-100 group-hover/item:translate-x-0">
+                          <span className={`ml-auto self-center text-xs opacity-0 -translate-x-1 transition-all duration-200 group-hover/item:opacity-100 group-hover/item:translate-x-0 ${L ? 'text-[#39e2e6]' : 'text-[#17150f]'}`}>
                             →
                           </span>
                         </Link>
@@ -301,7 +305,7 @@ export default function Navbar() {
                     </div>
 
                     {/* Bottom accent */}
-                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#17150f]/15 to-transparent" />
+                    <div className={`absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent to-transparent ${L ? 'via-[#39e2e6]/20' : 'via-[#17150f]/15'}`} />
                   </div>
                 </div>
               )}
