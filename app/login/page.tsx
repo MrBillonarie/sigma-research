@@ -272,8 +272,8 @@ function MarketConstellation() {
       if (!canvas || !ctx) return
       const w = canvas.clientWidth, h = canvas.clientHeight
       ctx.clearRect(0, 0, w, h)
-      const R  = Math.min(w, h) * 0.34
-      const cx = w * 0.52, cy = h * 0.42
+      const R  = Math.min(w, h) * 0.42
+      const cx = w * 0.50, cy = h * 0.44
       const cos = Math.cos(angle), sin = Math.sin(angle)
       const proj = nodes.map(n => {
         const x = n.x * cos + n.z * sin
@@ -282,18 +282,20 @@ function MarketConstellation() {
         return { sx: cx + x * R * s, sy: cy + n.y * R * s * 0.92, z, s, sym: n.sym }
       })
 
-      // Aristas — más brillantes cuanto más al frente
+      // Aristas — tinta oscura con profundidad: el frente sale grueso y
+      // marcado, el fondo se desvanece. Fuerte contraste sobre papel claro.
       for (const [a, b] of edges) {
         const A = proj[a], B = proj[b]
-        const alpha = Math.max(0.02, 0.24 - (A.z + B.z) * 0.09)
-        ctx.strokeStyle = `rgba(212,175,55,${alpha.toFixed(3)})`
-        ctx.lineWidth = 0.7
+        const front = Math.max(0, -(A.z + B.z) / 2) // 0 (fondo) .. ~1 (frente)
+        const alpha = Math.min(0.08 + front * 0.55, 0.66)
+        ctx.strokeStyle = `rgba(23,21,15,${alpha.toFixed(3)})`
+        ctx.lineWidth = 0.5 + front * 1.7
         ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.stroke()
       }
 
       // Pulso dorado viajando por una arista (una señal cruzando el motor)
       if (!reduced) {
-        if (!pulse && ts - lastPulse > 1500) {
+        if (!pulse && ts - lastPulse > 1300) {
           pulse = { edge: edges[Math.floor(Math.random() * edges.length)], t: 0 }
           lastPulse = ts
         }
@@ -302,25 +304,38 @@ function MarketConstellation() {
           const A = proj[a], B = proj[b]
           const px = A.sx + (B.sx - A.sx) * pulse.t
           const py = A.sy + (B.sy - A.sy) * pulse.t
-          ctx.fillStyle = 'rgba(212,175,55,0.95)'
-          ctx.shadowColor = 'rgba(212,175,55,0.9)'
-          ctx.shadowBlur = 9
-          ctx.beginPath(); ctx.arc(px, py, 2.2, 0, Math.PI * 2); ctx.fill()
+          ctx.fillStyle = 'rgba(184,145,42,0.98)'
+          ctx.shadowColor = 'rgba(184,145,42,0.95)'
+          ctx.shadowBlur = 13
+          ctx.beginPath(); ctx.arc(px, py, 2.8, 0, Math.PI * 2); ctx.fill()
           ctx.shadowBlur = 0
           pulse.t += 0.018
           if (pulse.t >= 1) pulse = null
         }
       }
 
-      // Nodos + etiquetas frontales
+      // Nodos: el frente = tinta sólida con halo dorado; el fondo = bronce
+      // claro difuminado. La profundidad hace que el modelo "salte" del papel.
       for (const p of proj) {
-        const alpha = Math.min(0.35 + Math.max(0, -p.z) * 0.6, 0.95)
-        ctx.fillStyle = `rgba(212,175,55,${alpha.toFixed(2)})`
-        ctx.beginPath(); ctx.arc(p.sx, p.sy, 1.5 + p.s * 1.4, 0, Math.PI * 2); ctx.fill()
-        if (p.z < 0.1) {
-          ctx.fillStyle = `rgba(232,233,240,${(0.22 + Math.max(0, -p.z) * 0.5).toFixed(2)})`
-          ctx.font = '9px monospace'
-          ctx.fillText(p.sym, p.sx + 6, p.sy + 3)
+        const front = Math.max(0, -p.z) // 0 (fondo) .. 1 (frente)
+        const rad = 1.6 + p.s * 2.4
+        const t = Math.min(front * 1.1, 1)
+        const cr = Math.round(184 + (23 - 184) * t)
+        const cg = Math.round(145 + (21 - 145) * t)
+        const cb = Math.round(42  + (15 - 42) * t)
+        const alpha = Math.min(0.4 + front * 0.55, 0.98)
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha.toFixed(2)})`
+        ctx.beginPath(); ctx.arc(p.sx, p.sy, rad, 0, Math.PI * 2); ctx.fill()
+        // Halo dorado en los nodos del frente
+        if (front > 0.4) {
+          ctx.strokeStyle = `rgba(184,145,42,${(front * 0.55).toFixed(2)})`
+          ctx.lineWidth = 1
+          ctx.beginPath(); ctx.arc(p.sx, p.sy, rad + 2.6, 0, Math.PI * 2); ctx.stroke()
+        }
+        if (p.z < 0.15) {
+          ctx.fillStyle = `rgba(23,21,15,${(0.3 + front * 0.55).toFixed(2)})`
+          ctx.font = '10px monospace'
+          ctx.fillText(p.sym, p.sx + 7, p.sy + 3)
         }
       }
 
@@ -408,7 +423,7 @@ function LivePanel() {
             left: '-40%', right: '-40%', bottom: '-70%',
             transform: 'rotateX(62deg)',
             transformOrigin: 'top center',
-            backgroundImage: 'linear-gradient(rgba(212,175,55,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.15) 1px, transparent 1px)',
+            backgroundImage: 'linear-gradient(rgba(23,21,15,0.13) 1px, transparent 1px), linear-gradient(90deg, rgba(23,21,15,0.13) 1px, transparent 1px)',
             backgroundSize: '44px 44px',
             animation: 'tronMove 4.5s linear infinite',
             maskImage: 'linear-gradient(to bottom, transparent, black 24%, black 78%, transparent)',
@@ -416,7 +431,7 @@ function LivePanel() {
           }}
         />
         {/* Resplandor del horizonte */}
-        <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(to bottom, rgba(212,175,55,0.09), transparent)' }} />
+        <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(to bottom, rgba(184,145,42,0.12), transparent)' }} />
       </div>
 
       {/* Capa 3 — contenido (se mueve en contra: profundidad) */}
