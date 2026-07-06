@@ -2,7 +2,22 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
-import { C } from '@/app/lib/constants'
+
+// Página pública (fuera del dashboard) — paleta Cyan Deck propia, no el C
+// dorado del dashboard. Mismos nombres de campo para no tocar el JSX.
+const C = {
+  bg:      '#080a0f',
+  surface: '#0e1119',
+  border:  '#202634',
+  gold:    '#39e2e6',
+  goldDim: '#2f6bd6',
+  glow:    '#5eeaf0',
+  text:    '#eef1f7',
+  dimText: '#9aa4b6',
+  muted:   '#5f6a7d',
+  green:   '#2fd39a',
+  red:     '#ff5d6c',
+}
 
 const CONTENT = [
   {
@@ -91,9 +106,9 @@ export default function ReportesPage() {
           <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 12 }}>
             {'// SQUANT DESK · REPORTE MENSUAL'}
           </div>
-          <h1 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(52px, 8vw, 100px)', lineHeight: 0.92, letterSpacing: '0.03em', margin: '0 0 20px' }}>
+          <h1 style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 'clamp(52px, 8vw, 100px)', lineHeight: 0.92, letterSpacing: '0.03em', margin: '0 0 20px' }}>
             <span style={{ color: C.text }}>INTELIGENCIA</span><br />
-            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CUANTITATIVA</span><br />
+            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#2f6bd6)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CUANTITATIVA</span><br />
             <span style={{ color: C.text }}>MENSUAL</span>
           </h1>
           <p style={{ fontFamily: 'monospace', fontSize: 14, color: C.dimText, maxWidth: 580, margin: '0 auto 36px', lineHeight: 1.8 }}>
@@ -128,7 +143,7 @@ export default function ReportesPage() {
               <div style={{ background: C.border, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {reportes.map(r => (
                   <div key={r.id} style={{ background: C.bg, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 32, color: C.gold, lineHeight: 1, minWidth: 44 }}>
+                    <span style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 32, color: C.gold, lineHeight: 1, minWidth: 44 }}>
                       #{String(r.numero).padStart(3, '0')}
                     </span>
                     <div style={{ flex: 1, minWidth: 200 }}>
@@ -160,7 +175,7 @@ export default function ReportesPage() {
             <div>
               <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText, marginBottom: 8 }}>MENSUAL</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 56, color: C.text, lineHeight: 1 }}>$29</span>
+                <span style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 56, color: C.text, lineHeight: 1 }}>$29</span>
                 <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.dimText }}>USD / mes</span>
               </div>
               <p style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 8, lineHeight: 1.6 }}>Acceso mensual renovable. Cancela en cualquier momento.</p>
@@ -175,7 +190,7 @@ export default function ReportesPage() {
             <button onClick={handlePay} style={{
               padding: '12px 0', background: 'transparent', color: C.dimText,
               border: `1px solid ${C.border}`, cursor: 'pointer',
-              fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, letterSpacing: '0.12em',
+              fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 18, letterSpacing: '0.12em',
               transition: 'border-color 0.2s, color 0.2s',
             }}
               onMouseEnter={e => { (e.target as HTMLButtonElement).style.borderColor = C.gold; (e.target as HTMLButtonElement).style.color = C.gold }}
@@ -188,13 +203,13 @@ export default function ReportesPage() {
           {/* Annual — highlighted */}
           <div style={{ background: C.surface, padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${C.gold},${C.glow})` }} />
-            <div style={{ position: 'absolute', top: 12, right: 14, fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', background: `rgba(212,175,55,0.15)`, color: C.gold, padding: '3px 8px', border: `1px solid rgba(212,175,55,0.3)` }}>
+            <div style={{ position: 'absolute', top: 12, right: 14, fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.15em', background: `rgba(57,226,230,0.15)`, color: C.gold, padding: '3px 8px', border: `1px solid rgba(57,226,230,0.3)` }}>
               MEJOR VALOR
             </div>
             <div>
               <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>ANUAL</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 56, background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1 }}>$249</span>
+                <span style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 56, background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1 }}>$249</span>
                 <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.dimText }}>USD / año</span>
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.green, marginTop: 4 }}>Ahorra $99 vs. mensual → $20.75/mes</div>
@@ -210,8 +225,8 @@ export default function ReportesPage() {
             <button onClick={handlePay} style={{
               padding: '14px 0', background: C.gold, color: C.bg,
               border: 'none', cursor: 'pointer',
-              fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, letterSpacing: '0.12em',
-              boxShadow: `0 0 24px rgba(212,175,55,0.3)`,
+              fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 20, letterSpacing: '0.12em',
+              boxShadow: `0 0 24px rgba(57,226,230,0.3)`,
               transition: 'background 0.2s',
             }}
               onMouseEnter={e => { (e.target as HTMLButtonElement).style.background = C.glow }}
@@ -226,7 +241,7 @@ export default function ReportesPage() {
             <div>
               <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText, marginBottom: 8 }}>INSTITUCIONAL</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 56, color: C.text, lineHeight: 1 }}>Custom</span>
+                <span style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 56, color: C.text, lineHeight: 1 }}>Custom</span>
               </div>
               <p style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 8, lineHeight: 1.6 }}>Para fondos, family offices o equipos de inversión. Modelos personalizados y API.</p>
             </div>
@@ -240,7 +255,7 @@ export default function ReportesPage() {
             <button onClick={handlePay} style={{
               padding: '12px 0', background: 'transparent', color: C.dimText,
               border: `1px solid ${C.border}`, cursor: 'pointer',
-              fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, letterSpacing: '0.12em',
+              fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 18, letterSpacing: '0.12em',
               transition: 'border-color 0.2s, color 0.2s',
             }}
               onMouseEnter={e => { (e.target as HTMLButtonElement).style.borderColor = C.gold; (e.target as HTMLButtonElement).style.color = C.gold }}
@@ -260,8 +275,8 @@ export default function ReportesPage() {
             {CONTENT.map(s => (
               <div key={s.num} style={{ background: C.bg, padding: '22px 22px' }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 12 }}>
-                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, color: C.gold, lineHeight: 1, flexShrink: 0 }}>{s.num}</span>
-                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, color: C.text, lineHeight: 1.1 }}>{s.title.toUpperCase()}</span>
+                  <span style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 20, color: C.gold, lineHeight: 1, flexShrink: 0 }}>{s.num}</span>
+                  <span style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 18, color: C.text, lineHeight: 1.1 }}>{s.title.toUpperCase()}</span>
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {s.items.map(item => (
@@ -294,7 +309,7 @@ export default function ReportesPage() {
             <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>PREGUNTAS FRECUENTES</span>
           </div>
           {FAQ.map(([q, a], i) => (
-            <div key={i} style={{ background: i % 2 === 0 ? C.bg : 'rgba(212,175,55,0.02)', borderBottom: `1px solid ${C.border}` }}>
+            <div key={i} style={{ background: i % 2 === 0 ? C.bg : 'rgba(57,226,230,0.02)', borderBottom: `1px solid ${C.border}` }}>
               <button onClick={() => setOpenFaq(openFaq === i ? null : i)} style={{
                 width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '16px 22px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
@@ -316,14 +331,14 @@ export default function ReportesPage() {
           <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 12 }}>
             {'// LISTA DE ACCESO ANTICIPADO'}
           </div>
-          <h2 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', color: C.text, margin: '0 0 16px' }}>
+          <h2 style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 'clamp(32px, 5vw, 60px)', color: C.text, margin: '0 0 16px' }}>
             RECIBE EL PRÓXIMO REPORTE GRATIS
           </h2>
           <p style={{ fontFamily: 'monospace', fontSize: 13, color: C.dimText, maxWidth: 440, margin: '0 auto 28px', lineHeight: 1.7 }}>
             Suscríbete a la lista y te enviamos el próximo reporte mensual sin costo. Sin spam.
           </p>
           {submitted ? (
-            <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 28, color: C.green }}>✓ REGISTRADO — TE ENVIAMOS EL PRÓXIMO REPORTE</div>
+            <div style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 28, color: C.green }}>✓ REGISTRADO — TE ENVIAMOS EL PRÓXIMO REPORTE</div>
           ) : (
             <form onSubmit={e => { e.preventDefault(); if (email) setSubmitted(true) }} style={{ display: 'flex', maxWidth: 480, margin: '0 auto', gap: 1 }}>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="tu@email.com"
@@ -331,7 +346,7 @@ export default function ReportesPage() {
               />
               <button type="submit" style={{
                 padding: '12px 24px', background: C.gold, color: C.bg, border: 'none', cursor: 'pointer',
-                fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, letterSpacing: '0.12em', whiteSpace: 'nowrap',
+                fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 18, letterSpacing: '0.12em', whiteSpace: 'nowrap',
               }}>
                 UNIRME
               </button>
@@ -347,10 +362,10 @@ export default function ReportesPage() {
     {payModal && (
       <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
         onClick={() => setPayModal(false)}>
-        <div style={{ background: '#0b0d14', border: `1px solid ${C.gold}50`, padding: '36px 32px', maxWidth: 440, width: '100%' }}
+        <div style={{ background: '#0e1119', border: `1px solid ${C.gold}50`, padding: '36px 32px', maxWidth: 440, width: '100%' }}
           onClick={e => e.stopPropagation()}>
           <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.28em', color: C.gold, marginBottom: 16 }}>{'// SUSCRIPCIONES'}</div>
-          <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 32, color: C.text, marginBottom: 12, lineHeight: 1 }}>
+          <div style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 32, color: C.text, marginBottom: 12, lineHeight: 1 }}>
             PRÓXIMAMENTE
           </div>
           <p style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, lineHeight: 1.8, marginBottom: 24 }}>
