@@ -16,14 +16,14 @@ export const metadata: Metadata = {
     'Infraestructura cuantitativa institucional para inversores independientes en LATAM. Terminal en vivo, modelos ML, simulador FIRE y más.',
 }
 
-// ─── Design tokens (aligned with English version palette) ─────────────────────
-const G   = '#d4af37'  // gold
-const BG  = '#04050a'  // background
-const S   = '#0b0d14'  // surface
-const B   = '#1a1d2e'  // border
-const T   = '#e8e9f0'  // text
-const D   = '#7a7f9a'  // dim
-const M   = '#7a7f9a'  // muted — era #4a5068 (2.44:1 sobre S, bajo el mínimo WCAG 3:1)
+// ─── Design tokens — paleta clara institucional (Papel + violeta) ─────────────
+const G   = '#6a34d1'  // acento violeta (firma)
+const BG  = '#f8f5ef'  // fondo marfil cálido
+const S   = '#ffffff'  // superficie (cards)
+const B   = '#e7dfd0'  // borde hairline cálido
+const T   = '#1b1723'  // tinta (texto)
+const D   = '#55506a'  // dim — texto secundario legible sobre claro
+const M   = '#8b8494'  // muted — texto terciario
 
 // Gutter horizontal responsivo — antes 32px fijo, comprimía demasiado el
 // contenido contra el borde en mobile. clamp() lo angosta hasta 20px en
@@ -166,7 +166,7 @@ function timeAgo(isoStr: string | null): string {
 function RegimePill({ regime }: { regime: string }) {
   const ro   = regime === 'risk-on'  || regime.toUpperCase() === 'BULL'
   const roff = regime === 'risk-off' || regime.toUpperCase() === 'BEAR'
-  const c = ro ? '#34d399' : roff ? '#f87171' : '#f59e0b'
+  const c = ro ? '#0b8f63' : roff ? '#d33042' : '#c2740a'
   const l = ro ? 'RISK-ON' : roff ? 'RISK-OFF' : 'NEUTRAL'
   return (
     <span style={{ fontFamily: 'monospace', fontSize: 9, padding: '3px 10px', letterSpacing: '0.2em', color: c, background: `${c}12`, border: `1px solid ${c}35` }}>
@@ -221,7 +221,7 @@ function EquityCurveSVG({ eqSeries, history, initial }: { eqSeries: number[]; hi
         <line key={t}
           x1={PX} y1={(H - PY) - t * (H - 2 * PY)}
           x2={W - PX} y2={(H - PY) - t * (H - 2 * PY)}
-          stroke="rgba(212,175,55,0.06)" strokeWidth="1" strokeDasharray="4,10"
+          stroke="rgba(106,52,209,0.06)" strokeWidth="1" strokeDasharray="4,10"
         />
       ))}
       <path d={fillPts} fill="url(#eq-fill)" className="eq-fill-p" />
@@ -229,7 +229,7 @@ function EquityCurveSVG({ eqSeries, history, initial }: { eqSeries: number[]; hi
       {showDots && points.slice(1).map((p, i) => {
         const x = mapX(i + 1), y = mapY(p.eq)
         const isWin = p.status === 'TP_HIT' || p.status === 'TRAIL_HIT'
-        const c = isWin ? '#34d399' : '#f87171'
+        const c = isWin ? '#0b8f63' : '#d33042'
         // Cada punto aparece cuando el trazo animado pasa por su posición
         const delay = Math.round(200 + (i / Math.max(points.length - 2, 1)) * 1400)
         return (
@@ -272,9 +272,9 @@ function PlanSpark({ eqs }: { eqs: number[] }) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function gradeColor(g: string) {
   if (g === 'A+') return G
-  if (g === 'A')  return '#4a9eff'
+  if (g === 'A')  return '#3f6fd0'
   if (g === 'B')  return '#8b8fa8'
-  return '#f87171'
+  return '#d33042'
 }
 
 // Section rule — luxury chapter marker
@@ -352,12 +352,12 @@ function VizRange({ color }: { color: string }) {
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 const tools = [
-  { id: '01', name: 'SIGMA ENGINE',      col: '#34d399', viz: VizPulse,  desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre 16 activos — cripto, commodities y acciones US — con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
+  { id: '01', name: 'SIGMA ENGINE',      col: '#0b8f63', viz: VizPulse,  desc: 'Motor de trading cuantitativo 24/7. 70+ estrategias sobre 16 activos — cripto, commodities y acciones US — con Bayesian Search, walk-forward OOS y paper trading en tiempo real.' },
   { id: '02', name: 'MODELOS ML',        col: G,         viz: VizLadder, desc: 'Champions cuantitativos con grades A+/A/B/C. Cada modelo valida con robustness gate, OOS gate y Kelly sizing antes de activarse en producción.' },
-  { id: '03', name: 'MOTOR DECISIÓN',    col: '#60a5fa', viz: VizDial,   desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre cripto, commodities, acciones US y ETFs. Ajustado por régimen de mercado (risk-on/off).' },
-  { id: '04', name: 'MONTE CARLO',       col: '#a78bfa', viz: VizCone,   desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
-  { id: '05', name: 'SIMULADOR FIRE',    col: '#f59e0b', viz: VizAscend, desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
-  { id: '06', name: 'SEÑALES LP',        col: '#f87171', viz: VizRange,  desc: 'Motor cuantitativo para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado por par.' },
+  { id: '03', name: 'MOTOR DECISIÓN',    col: '#3f6fd0', viz: VizDial,   desc: 'Rotación cross-market. Señales BUY/SELL/HOLD sobre cripto, commodities, acciones US y ETFs. Ajustado por régimen de mercado (risk-on/off).' },
+  { id: '04', name: 'MONTE CARLO',       col: '#6f4bd6', viz: VizCone,   desc: '10.000 simulaciones de portafolio con ajuste por inflación CLP/USD, retiro dinámico y percentiles de probabilidad de ruina.' },
+  { id: '05', name: 'SIMULADOR FIRE',    col: '#c2740a', viz: VizAscend, desc: 'Proyección de independencia financiera con horizonte personalizable. Calcula tu número FIRE y el tiempo estimado para alcanzarlo.' },
+  { id: '06', name: 'SEÑALES LP',        col: '#d33042', viz: VizRange,  desc: 'Motor cuantitativo para PancakeSwap v3. Rangos óptimos, Kelly sizing, Monte Carlo de impermanent loss y APR estimado por par.' },
 ]
 
 const plans = [
@@ -370,7 +370,7 @@ const plans = [
     items: ['Todo lo anterior', 'Reportes PDF mensuales', 'Señales del motor en vivo (3 motores)', 'Equity curves actualizadas', 'Soporte prioritario'],
   },
   {
-    tier: 'INSTITUTIONAL', price: 'Custom', period: 'cotizar',        col: '#60a5fa', fill: false, badge: null,            cta: 'VER API DOCS',  href: '/api-docs',
+    tier: 'INSTITUTIONAL', price: 'Custom', period: 'cotizar',        col: '#3f6fd0', fill: false, badge: null,            cta: 'VER API DOCS',  href: '/api-docs',
     items: ['Todo lo anterior', 'Acceso API completo', 'Modelos a medida', 'White label disponible', 'SLA garantizado'],
   },
 ]
@@ -405,18 +405,18 @@ export default async function RootPage() {
   // Color del glow del panel Motor en Vivo — espeja la clasificación de RegimePill.
   const regimeRo   = regime === 'risk-on'  || regime.toUpperCase() === 'BULL'
   const regimeRoff = regime === 'risk-off' || regime.toUpperCase() === 'BEAR'
-  const regimeGlow = regimeRo ? '#34d399' : regimeRoff ? '#f87171' : '#f59e0b'
+  const regimeGlow = regimeRo ? '#0b8f63' : regimeRoff ? '#d33042' : '#c2740a'
 
   // Metallic gold gradient — spread into style={{}} where needed.
   // textShadow funciona aunque el fill sea transparente (pinta sobre el
   // contorno del glifo, no sobre el color) — da la sensación de relieve/grabado
   // en vez de un degradado plano.
   const gMetal: CSSProperties = {
-    background: `linear-gradient(135deg, #a07828 0%, ${G} 35%, #f5d060 52%, ${G} 68%, #9a7020 100%)`,
+    background: `linear-gradient(135deg, #4f259e 0%, ${G} 35%, #8b5cf6 52%, ${G} 68%, #4f259e 100%)`,
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
-    textShadow: '0 1px 0 rgba(255,255,255,0.2), 0 3px 10px rgba(0,0,0,0.4)',
+    textShadow: '0 1px 0 rgba(255,255,255,0.6), 0 2px 8px rgba(106,52,209,0.16)',
   }
 
   // Entrada escalonada del hero — fade + slide-up una sola vez al cargar
@@ -438,13 +438,13 @@ export default async function RootPage() {
         {/* Grid texture */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          backgroundImage: `linear-gradient(rgba(212,175,55,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.03) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(rgba(106,52,209,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(106,52,209,0.03) 1px, transparent 1px)`,
           backgroundSize: '60px 60px',
         }} />
         {/* Radial gold glow — left anchor */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `radial-gradient(ellipse 80% 80% at -5% 50%, rgba(212,175,55,0.11) 0%, transparent 55%)`,
+          background: `radial-gradient(ellipse 80% 80% at -5% 50%, rgba(106,52,209,0.11) 0%, transparent 55%)`,
         }} />
 
         {/* Animated equity curve + live tickers */}
@@ -455,8 +455,8 @@ export default async function RootPage() {
           {/* Status badges */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 44, flexWrap: 'wrap', ...reveal(0) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', border: '1px solid rgba(52,211,153,0.25)', background: 'rgba(52,211,153,0.05)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399', flexShrink: 0 }} />
-              <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.25em', color: '#34d399' }}>PLATAFORMA ACTIVA</span>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0b8f63', boxShadow: '0 0 10px #0b8f63', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.25em', color: '#0b8f63' }}>PLATAFORMA ACTIVA</span>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {['HMM · LIVE', 'XGB · LIVE', 'GARCH · LIVE'].map(m => (
@@ -478,7 +478,7 @@ export default async function RootPage() {
           </p>
 
           {/* Terminal attribute readout */}
-          <div style={{ marginBottom: 36, border: `1px solid ${B}`, background: 'rgba(11,13,20,0.65)', maxWidth: 460, backdropFilter: 'blur(4px)', position: 'relative', ...reveal(600) }}>
+          <div style={{ marginBottom: 36, border: `1px solid ${B}`, background: 'rgba(255,255,255,0.72)', maxWidth: 460, backdropFilter: 'blur(4px)', position: 'relative', ...reveal(600) }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}40, transparent)` }} />
             {([
               { k: 'MERCADOS',     v: '16 activos · cripto · commodities · stocks US',  accent: false, dot: false },
@@ -490,8 +490,8 @@ export default async function RootPage() {
                 <div key={k} style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 20, borderBottom: idx < arr.length - 1 ? `1px solid ${B}` : 'none' }}>
                   <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.28em', width: 86, flexShrink: 0 }}>{k}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {dot && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', flexShrink: 0 }} />}
-                    <span style={{ fontFamily: 'monospace', fontSize: 10, color: accent ? '#34d399' : '#b0b1c0', fontWeight: accent ? 600 : 400 }}>{v}</span>
+                    {dot && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#0b8f63', flexShrink: 0 }} />}
+                    <span style={{ fontFamily: 'monospace', fontSize: 10, color: accent ? '#0b8f63' : '#55506a', fontWeight: accent ? 600 : 400 }}>{v}</span>
                   </div>
                 </div>
               )
@@ -501,10 +501,10 @@ export default async function RootPage() {
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 48, ...reveal(900) }}>
             <Link href="/registro" className="gold-cta" style={{
-              background: `linear-gradient(135deg, ${G}, #c9a227)`,
+              background: `linear-gradient(135deg, ${G}, #4f259e)`,
               color: BG, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em',
               padding: '15px 40px', textDecoration: 'none', display: 'inline-block',
-              boxShadow: `0 0 32px rgba(212,175,55,0.28)`,
+              boxShadow: `0 0 32px rgba(106,52,209,0.28)`,
             }}>
               CREAR CUENTA GRATIS
             </Link>
@@ -512,7 +512,7 @@ export default async function RootPage() {
               border: `1px solid ${B}`, color: D,
               fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em',
               padding: '15px 28px', textDecoration: 'none', display: 'inline-block',
-              background: 'rgba(255,255,255,0.02)',
+              background: 'rgba(0,0,0,0.02)',
             }}>
               INICIAR SESIÓN →
             </Link>
@@ -521,9 +521,9 @@ export default async function RootPage() {
           {/* Trust bullets */}
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', ...reveal(1150) }}>
             {[
-              { dot: '#34d399', text: 'Sin tarjeta de crédito' },
+              { dot: '#0b8f63', text: 'Sin tarjeta de crédito' },
               { dot: G,         text: 'Comunidad de traders'   },
-              { dot: '#60a5fa', text: 'Datos Binance en vivo'  },
+              { dot: '#3f6fd0', text: 'Datos Binance en vivo'  },
             ].map(b => (
               <div key={b.text} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: b.dot, flexShrink: 0 }} />
@@ -535,10 +535,10 @@ export default async function RootPage() {
       </section>
 
       {/* ══ URGENCY STRIP — cupos beta ════════════════════════════════════════ */}
-      <div style={{ background: 'rgba(212,175,55,0.04)', borderBottom: `1px solid rgba(212,175,55,0.12)` }}>
+      <div style={{ background: 'rgba(106,52,209,0.04)', borderBottom: `1px solid rgba(106,52,209,0.12)` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: `11px ${PX}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b', flexShrink: 0 }} />
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#c2740a', boxShadow: '0 0 6px #c2740a', flexShrink: 0 }} />
             <span style={{ fontFamily: 'monospace', fontSize: 9, color: G, letterSpacing: '0.22em' }}>
               BETA CERRADA — {Math.min(userCount, 100)} DE 100 CUPOS OCUPADOS
             </span>
@@ -569,7 +569,7 @@ export default async function RootPage() {
               <div key={s.label} style={{ background: BG, padding: '44px 32px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G}, transparent)` }} />
                 <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.28em', color: M, textTransform: 'uppercase', marginBottom: 16 }}>{s.label}</div>
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 58, color: G, lineHeight: 1, letterSpacing: '0.02em', marginBottom: 8, textShadow: `0 0 30px rgba(212,175,55,0.2)` }}>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 58, color: G, lineHeight: 1, letterSpacing: '0.02em', marginBottom: 8, textShadow: `0 0 30px rgba(106,52,209,0.2)` }}>
                   <CountUp value={s.num} decimals={s.dec} suffix={s.suffix} />
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.1em' }}>{s.detail}</div>
@@ -585,7 +585,7 @@ export default async function RootPage() {
         {/* Atmósfera sutil — eco del hero, sin competir con el contenido */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `radial-gradient(ellipse 65% 55% at 100% 0%, rgba(212,175,55,0.05) 0%, transparent 60%)`,
+          background: `radial-gradient(ellipse 65% 55% at 100% 0%, rgba(106,52,209,0.05) 0%, transparent 60%)`,
         }} />
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56, gap: 24, flexWrap: 'wrap' }}>
@@ -596,7 +596,7 @@ export default async function RootPage() {
                 <span style={gMetal}>QUANT NECESITA</span>
               </h2>
             </div>
-            <Link href="/recursos" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: G, border: `1px solid rgba(212,175,55,0.25)`, padding: '10px 18px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <Link href="/recursos" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: G, border: `1px solid rgba(106,52,209,0.25)`, padding: '10px 18px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
               VER TODOS →
             </Link>
           </div>
@@ -633,7 +633,7 @@ export default async function RootPage() {
         {/* Atmósfera sutil — eco del hero, sin competir con el contenido */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `radial-gradient(ellipse 60% 50% at 0% 100%, rgba(212,175,55,0.045) 0%, transparent 60%)`,
+          background: `radial-gradient(ellipse 60% 50% at 0% 100%, rgba(106,52,209,0.045) 0%, transparent 60%)`,
         }} />
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <SectionRule label="// SIGMA ENGINE · EN VIVO AHORA" />
@@ -668,7 +668,7 @@ export default async function RootPage() {
               </span>
             </h2>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#34d399', lineHeight: 1, textShadow: '0 0 40px rgba(52,211,153,0.3)' }}>
+              <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#0b8f63', lineHeight: 1, textShadow: '0 0 40px rgba(52,211,153,0.3)' }}>
                 <CountUp value={parseFloat(returnPct)} decimals={2} prefix="+" suffix="%" duration={1800} />
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', marginTop: 4 }}>RETORNO PAPER</div>
@@ -676,7 +676,7 @@ export default async function RootPage() {
           </div>
 
           {/* Chart panel */}
-          <div style={{ background: BG, border: `1px solid ${B}`, overflow: 'hidden', position: 'relative', boxShadow: `inset 0 1px 0 rgba(212,175,55,0.08)` }}>
+          <div style={{ background: BG, border: `1px solid ${B}`, overflow: 'hidden', position: 'relative', boxShadow: `inset 0 1px 0 rgba(106,52,209,0.08)` }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}35, transparent)` }} />
             <div style={{ padding: '24px 24px 8px' }}>
               <EquityCurveSVG
@@ -687,11 +687,11 @@ export default async function RootPage() {
             </div>
             <div style={{ padding: '12px 24px', borderTop: `1px solid ${B}`, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0b8f63' }} />
                 <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>AVANCE</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f87171' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#d33042' }} />
                 <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>RETROCESO</span>
               </div>
               <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginLeft: 'auto' }}>
@@ -709,7 +709,7 @@ export default async function RootPage() {
               { n: metrics?.n_trades ?? history.length + 1,     dec: 0, suffix: '',  l: 'Trades registrados' },
             ].map(({ n, dec, suffix, l }) => (
               <div key={l} style={{ background: BG, padding: '24px 28px', textAlign: 'center' }}>
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 44, color: G, lineHeight: 1, marginBottom: 6, textShadow: `0 0 20px rgba(212,175,55,0.2)` }}>
+                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 44, color: G, lineHeight: 1, marginBottom: 6, textShadow: `0 0 20px rgba(106,52,209,0.2)` }}>
                   <CountUp value={n} decimals={dec} suffix={suffix} />
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{l}</div>
@@ -731,7 +731,7 @@ export default async function RootPage() {
                 MODELOS EN{' '}
                 <span style={gMetal}>PRODUCCIÓN</span>
               </h2>
-              <Link href="/modelos" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: G, border: `1px solid rgba(212,175,55,0.25)`, padding: '10px 16px', textDecoration: 'none', flexShrink: 0 }}>
+              <Link href="/modelos" style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: G, border: `1px solid rgba(106,52,209,0.25)`, padding: '10px 16px', textDecoration: 'none', flexShrink: 0 }}>
                 VER TODOS →
               </Link>
             </div>
@@ -775,7 +775,7 @@ export default async function RootPage() {
                       {c.direction && (
                         <span style={{
                           fontFamily: 'monospace', fontSize: 9, padding: '2px 6px',
-                          color:      c.direction === 'short' ? '#f87171' : '#34d399',
+                          color:      c.direction === 'short' ? '#d33042' : '#0b8f63',
                           background: c.direction === 'short' ? 'rgba(248,113,113,0.08)' : 'rgba(52,211,153,0.08)',
                         }}>
                           {c.direction.toUpperCase()}
@@ -796,7 +796,7 @@ export default async function RootPage() {
                         <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginTop: 4 }}>CAGR validado OOS</div>
                       </div>
                       <div>
-                        <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: '#f87171', lineHeight: 1 }}>
+                        <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 22, color: '#d33042', lineHeight: 1 }}>
                           {typeof c.dd === 'number' ? `${c.dd.toFixed(1)}%` : '—'}
                         </div>
                         <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginTop: 4 }}>DD MÁX</div>
@@ -838,9 +838,9 @@ export default async function RootPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 1, background: B }}>
             {plans.map(p => (
               <div key={p.tier} style={{
-                background: p.fill ? 'linear-gradient(160deg, #080a14, #060810)' : S,
+                background: p.fill ? 'linear-gradient(160deg, #f3eefb, #ffffff)' : S,
                 padding: '40px 30px', position: 'relative', display: 'flex', flexDirection: 'column',
-                boxShadow: p.fill ? `0 0 0 1px ${G}45, 0 0 60px rgba(212,175,55,0.06)` : 'none',
+                boxShadow: p.fill ? `0 0 0 1px ${G}45, 0 0 60px rgba(106,52,209,0.06)` : 'none',
               }}>
                 {p.badge && (
                   <div style={{ position: 'absolute', top: -1, left: 22, fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.18em', background: G, color: BG, padding: '4px 12px' }}>
@@ -848,7 +848,7 @@ export default async function RootPage() {
                   </div>
                 )}
                 {p.fill && (
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G}, #f0cc5a)` }} />
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G}, #8b5cf6)` }} />
                 )}
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.28em', color: `${p.col}99`, marginBottom: 12 }}>{p.tier}</div>
@@ -861,19 +861,19 @@ export default async function RootPage() {
                 {/* Ventana LIVE — solo en PRO: el motor vendiéndose solo, con
                     datos reales del engine en este mismo instante */}
                 {p.fill && (
-                  <div style={{ position: 'relative', border: '1px solid rgba(212,175,55,0.3)', background: 'rgba(4,5,10,0.65)', padding: '12px 14px 11px', marginBottom: 22, overflow: 'hidden' }}>
+                  <div style={{ position: 'relative', border: '1px solid rgba(106,52,209,0.3)', background: 'rgba(248,245,239,0.75)', padding: '12px 14px 11px', marginBottom: 22, overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}90, transparent)` }} />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399', animation: 'planPulse 1.8s ease-in-out infinite', flexShrink: 0 }} />
-                        <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.22em', color: '#34d399' }}>EL MOTOR AHORA MISMO</span>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0b8f63', boxShadow: '0 0 8px #0b8f63', animation: 'planPulse 1.8s ease-in-out infinite', flexShrink: 0 }} />
+                        <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.22em', color: '#0b8f63' }}>EL MOTOR AHORA MISMO</span>
                       </div>
                       <RegimePill regime={regime} />
                     </div>
                     <PlanSpark eqs={paper?.equityHistory.slice(-26).map(h => h.eq) ?? []} />
                     <div style={{ display: 'flex', gap: '4px 16px', flexWrap: 'wrap', marginTop: 10 }}>
                       {[
-                        { v: `${parseFloat(returnPct) >= 0 ? '+' : ''}${returnPct}%`,        l: 'PAPER',       c: '#34d399' },
+                        { v: `${parseFloat(returnPct) >= 0 ? '+' : ''}${returnPct}%`,        l: 'PAPER',       c: '#0b8f63' },
                         { v: String(liveSignals),                                            l: 'SEÑALES HOY', c: G         },
                         { v: `${metrics?.wr ? metrics.wr.toFixed(1) : '68'}%`,               l: 'WIN RATE',    c: T         },
                       ].map(s => (
@@ -903,10 +903,10 @@ export default async function RootPage() {
                   display: 'block', textAlign: 'center', padding: '14px',
                   fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em',
                   textDecoration: 'none',
-                  background: p.fill ? `linear-gradient(135deg, ${G}, #c9a227)` : 'transparent',
+                  background: p.fill ? `linear-gradient(135deg, ${G}, #4f259e)` : 'transparent',
                   color: p.fill ? BG : p.col,
                   border: `1px solid ${p.col}40`,
-                  boxShadow: p.fill ? '0 0 24px rgba(212,175,55,0.22)' : 'none',
+                  boxShadow: p.fill ? '0 0 24px rgba(106,52,209,0.22)' : 'none',
                 }}>
                   {p.cta}
                 </Link>
@@ -919,7 +919,7 @@ export default async function RootPage() {
 
       {/* ══ 8. CTA FINAL ═════════════════════════════════════════════════════ */}
       <section style={{ padding: `clamp(64px, 16vw, 112px) ${PX} 80px`, background: S, borderBottom: `1px solid ${B}`, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212,175,55,0.05) 0%, transparent 70%)` }} />
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse 60% 50% at 50% 0%, rgba(106,52,209,0.05) 0%, transparent 70%)` }} />
         <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <Reveal>
           <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', color: G, marginBottom: 18 }}>{'// EMPIEZA HOY'}</div>
@@ -933,15 +933,15 @@ export default async function RootPage() {
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 56 }}>
             <Link href="/registro" className="gold-cta" style={{
-              background: `linear-gradient(135deg, ${G}, #c9a227)`,
+              background: `linear-gradient(135deg, ${G}, #4f259e)`,
               color: BG, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em',
               padding: '16px 44px', textDecoration: 'none',
-              boxShadow: '0 0 40px rgba(212,175,55,0.3)',
+              boxShadow: '0 0 40px rgba(106,52,209,0.3)',
             }}>
               ACTIVAR ACCESO GRATIS
             </Link>
             <Link href="/login" className="outline-cta" style={{
-              border: `1px solid ${B}`, color: D, background: 'rgba(255,255,255,0.02)',
+              border: `1px solid ${B}`, color: D, background: 'rgba(0,0,0,0.02)',
               fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em',
               padding: '16px 28px', textDecoration: 'none',
             }}>
@@ -992,9 +992,9 @@ export default async function RootPage() {
         .gold-cta:hover::before { left: 130%; }
         .outline-cta:hover {
           transform: translateY(-1px);
-          border-color: rgba(212,175,55,0.5) !important;
-          color: #d4af37 !important;
-          background: rgba(212,175,55,0.05) !important;
+          border-color: rgba(106,52,209,0.5) !important;
+          color: #6a34d1 !important;
+          background: rgba(106,52,209,0.05) !important;
         }
         @keyframes leaderEdgeDraw {
           from { transform: scaleX(0); opacity: 0; }

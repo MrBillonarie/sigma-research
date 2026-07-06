@@ -172,7 +172,7 @@ export default function Navbar() {
     <nav
       ref={navRef}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled || menuOpen ? 'bg-bg/95 backdrop-blur-md border-b border-border' : 'bg-transparent'
+        scrolled || menuOpen ? 'bg-[#f8f5ef]/95 backdrop-blur-md border-b border-[#e7dfd0]' : 'bg-transparent'
       }`}
     >
       {/* Coreografía del mega-menu: panel con fade+slide+escala, items en cascada,
@@ -182,7 +182,7 @@ export default function Navbar() {
         @keyframes navItemIn  { from { opacity: 0; transform: translateX(-7px); } to { opacity: 1; transform: none; } }
         .nav-sweep::after {
           content: ''; position: absolute; inset: 0; pointer-events: none;
-          background: linear-gradient(100deg, transparent 32%, rgba(212,175,55,0.09) 50%, transparent 68%);
+          background: linear-gradient(100deg, transparent 32%, rgba(106,52,209,0.09) 50%, transparent 68%);
           transform: translateX(-110%);
         }
         .nav-sweep:hover::after { transform: translateX(110%); transition: transform 0.5s ease; }
@@ -196,10 +196,10 @@ export default function Navbar() {
 
         {/* ── Logo ─────────────────────────────────────────────────────────── */}
         <Link href="/" className="flex items-center gap-3 shrink-0">
-          <div className="w-7 h-7 border border-gold flex items-center justify-center">
-            <span className="display-heading text-gold text-sm leading-none">Σ</span>
+          <div className="w-7 h-7 border border-[#6a34d1] flex items-center justify-center">
+            <span className="display-heading text-[#6a34d1] text-sm leading-none">Σ</span>
           </div>
-          <span className="display-heading text-xl tracking-widest text-text">SIGMA RESEARCH</span>
+          <span className="display-heading text-xl tracking-widest text-[#1b1723]">SIGMA RESEARCH</span>
         </Link>
 
         {/* ── Desktop nav ──────────────────────────────────────────────────── */}
@@ -222,7 +222,7 @@ export default function Navbar() {
                 aria-expanded={activeGroup === group.id}
                 aria-haspopup="true"
                 className={`section-label transition-colors duration-200 flex items-center gap-1 ${
-                  groupIsActive(group) ? 'text-gold' : 'text-text-dim hover:text-gold'
+                  groupIsActive(group) ? 'text-[#6a34d1]' : 'text-[#55506a] hover:text-[#6a34d1]'
                 }`}
               >
                 {group.label.toUpperCase()}
@@ -233,24 +233,24 @@ export default function Navbar() {
               {activeGroup === group.id && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3">
                   <div
-                    className="relative overflow-hidden bg-surface/90 backdrop-blur-xl border border-gold/20 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.7)]"
+                    className="relative overflow-hidden bg-[#ffffff]/90 backdrop-blur-xl border border-[#6a34d1]/20 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.7)]"
                     style={{
                       width: group.id === 'herramientas' ? 460 : 290,
                       animation: 'navPanelIn 0.18s cubic-bezier(0.16,1,0.3,1) both',
                     }}
                   >
                     {/* Corner brackets — mira de terminal */}
-                    <span className="pointer-events-none absolute top-0 left-0 w-3 h-3 border-t border-l border-gold/70" />
-                    <span className="pointer-events-none absolute top-0 right-0 w-3 h-3 border-t border-r border-gold/70" />
-                    <span className="pointer-events-none absolute bottom-0 left-0 w-3 h-3 border-b border-l border-gold/70" />
-                    <span className="pointer-events-none absolute bottom-0 right-0 w-3 h-3 border-b border-r border-gold/70" />
+                    <span className="pointer-events-none absolute top-0 left-0 w-3 h-3 border-t border-l border-[#6a34d1]/70" />
+                    <span className="pointer-events-none absolute top-0 right-0 w-3 h-3 border-t border-r border-[#6a34d1]/70" />
+                    <span className="pointer-events-none absolute bottom-0 left-0 w-3 h-3 border-b border-l border-[#6a34d1]/70" />
+                    <span className="pointer-events-none absolute bottom-0 right-0 w-3 h-3 border-b border-r border-[#6a34d1]/70" />
 
                     {/* Scan line */}
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#6a34d1]/50 to-transparent" />
 
                     {/* Header label */}
-                    <div className="px-4 pt-3 pb-2 border-b border-gold/8">
-                      <span className="terminal-text text-[9px] text-gold/50 tracking-[0.35em] uppercase">
+                    <div className="px-4 pt-3 pb-2 border-b border-[#6a34d1]/8">
+                      <span className="terminal-text text-[9px] text-[#6a34d1]/50 tracking-[0.35em] uppercase">
                         {`// ${group.label}`}
                       </span>
                     </div>
@@ -262,32 +262,32 @@ export default function Navbar() {
                           href={l.href}
                           className={`nav-sweep relative flex items-start gap-3 px-4 py-3 transition-colors duration-150 group/item border-l-2 overflow-hidden ${
                             isActive(l.href)
-                              ? 'bg-gold/8 border-gold'
-                              : 'border-transparent hover:bg-gold/5 hover:border-gold/50'
+                              ? 'bg-[#6a34d1]/8 border-[#6a34d1]'
+                              : 'border-transparent hover:bg-[#6a34d1]/5 hover:border-[#6a34d1]/50'
                           }`}
                           style={{ animation: 'navItemIn 0.28s ease both', animationDelay: `${60 + i * 30}ms` }}
                           onClick={() => setActiveGroup(null)}
                         >
                           {/* Micro-visual de la herramienta */}
-                          <span className={`mt-0.5 flex h-7 w-11 shrink-0 items-center justify-center rounded-[3px] border bg-bg/50 transition-colors duration-200 ${
-                            isActive(l.href) ? 'text-gold border-gold/40' : 'text-text-dim border-border group-hover/item:text-gold group-hover/item:border-gold/40'
+                          <span className={`mt-0.5 flex h-7 w-11 shrink-0 items-center justify-center rounded-[3px] border bg-[#f8f5ef]/50 transition-colors duration-200 ${
+                            isActive(l.href) ? 'text-[#6a34d1] border-[#6a34d1]/40' : 'text-[#55506a] border-[#e7dfd0] group-hover/item:text-[#6a34d1] group-hover/item:border-[#6a34d1]/40'
                           }`}>
                             <MiniViz type={l.viz} />
                           </span>
 
                           <span className="flex min-w-0 flex-col">
                             <span className={`section-label transition-colors ${
-                              isActive(l.href) ? 'text-gold' : 'text-text-dim group-hover/item:text-gold'
+                              isActive(l.href) ? 'text-[#6a34d1]' : 'text-[#55506a] group-hover/item:text-[#6a34d1]'
                             }`}>
                               {l.label}
                             </span>
-                            <span className="terminal-text text-xs text-muted mt-0.5 group-hover/item:text-text-dim transition-colors">
+                            <span className="terminal-text text-xs text-[#8b8494] mt-0.5 group-hover/item:text-[#55506a] transition-colors">
                               {l.desc}
                             </span>
                           </span>
 
                           {/* Flecha que se desliza al hover */}
-                          <span className="ml-auto self-center text-gold text-xs opacity-0 -translate-x-1 transition-all duration-200 group-hover/item:opacity-100 group-hover/item:translate-x-0">
+                          <span className="ml-auto self-center text-[#6a34d1] text-xs opacity-0 -translate-x-1 transition-all duration-200 group-hover/item:opacity-100 group-hover/item:translate-x-0">
                             →
                           </span>
                         </Link>
@@ -295,7 +295,7 @@ export default function Navbar() {
                     </div>
 
                     {/* Bottom accent */}
-                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/15 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#6a34d1]/15 to-transparent" />
                   </div>
                 </div>
               )}
@@ -303,11 +303,11 @@ export default function Navbar() {
           ))}
 
           {/* ── Language switcher ──────────────────────────────────────────── */}
-          <div className="flex items-center gap-1 border border-border rounded-sm overflow-hidden">
+          <div className="flex items-center gap-1 border border-[#e7dfd0] rounded-sm overflow-hidden">
             <Link
               href="/"
               className={`terminal-text text-[10px] px-2.5 py-1 transition-colors ${
-                !pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold'
+                !pathname.startsWith('/en') ? 'bg-[#6a34d1] text-white' : 'text-[#55506a] hover:text-[#6a34d1]'
               }`}
             >
               ES
@@ -315,7 +315,7 @@ export default function Navbar() {
             <Link
               href="/en"
               className={`terminal-text text-[10px] px-2.5 py-1 transition-colors ${
-                pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold'
+                pathname.startsWith('/en') ? 'bg-[#6a34d1] text-white' : 'text-[#55506a] hover:text-[#6a34d1]'
               }`}
             >
               EN
@@ -328,13 +328,13 @@ export default function Navbar() {
               <>
                 <Link
                   href="/perfil"
-                  className="section-label transition-colors duration-200 text-text-dim hover:text-gold"
+                  className="section-label transition-colors duration-200 text-[#55506a] hover:text-[#6a34d1]"
                 >
                   MI CUENTA
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="gold-border px-4 py-2 section-label text-gold hover:bg-gold hover:text-bg transition-all duration-200"
+                  className="border border-[#6a34d1]/40 px-4 py-2 section-label text-[#6a34d1] hover:bg-[#6a34d1] hover:text-white transition-all duration-200"
                 >
                   SALIR
                 </button>
@@ -344,15 +344,15 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   className={`section-label transition-colors duration-200 ${
-                    isActive('/login') ? 'text-gold' : 'text-text-dim hover:text-gold'
+                    isActive('/login') ? 'text-[#6a34d1]' : 'text-[#55506a] hover:text-[#6a34d1]'
                   }`}
                 >
                   LOGIN
                 </Link>
                 <Link
                   href="/registro"
-                  className={`gold-border px-4 py-2 section-label transition-all duration-200 ${
-                    isActive('/registro') ? 'bg-gold text-bg' : 'text-gold hover:bg-gold hover:text-bg'
+                  className={`border border-[#6a34d1]/40 px-4 py-2 section-label transition-all duration-200 ${
+                    isActive('/registro') ? 'bg-[#6a34d1] text-white' : 'text-[#6a34d1] hover:bg-[#6a34d1] hover:text-white'
                   }`}
                 >
                   REGISTRO
@@ -369,9 +369,9 @@ export default function Navbar() {
           aria-label="Toggle menu"
           aria-expanded={menuOpen}
         >
-          <span className={`w-5 h-px bg-gold transition-all duration-200 ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
-          <span className={`w-5 h-px bg-gold transition-all duration-200 ${menuOpen ? 'opacity-0' : ''}`} />
-          <span className={`w-5 h-px bg-gold transition-all duration-200 ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+          <span className={`w-5 h-px bg-[#6a34d1] transition-all duration-200 ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
+          <span className={`w-5 h-px bg-[#6a34d1] transition-all duration-200 ${menuOpen ? 'opacity-0' : ''}`} />
+          <span className={`w-5 h-px bg-[#6a34d1] transition-all duration-200 ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
         </button>
       </div>
 
@@ -380,14 +380,14 @@ export default function Navbar() {
           para que el contenido de la pagina (hero, etc.) no asome debajo del
           panel cuando este es mas corto que el viewport. */}
       {menuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-16 h-[calc(100dvh-4rem)] bg-surface overflow-y-auto px-6 py-4 flex flex-col gap-1">
+        <div className="md:hidden fixed inset-x-0 top-16 h-[calc(100dvh-4rem)] bg-[#ffffff] overflow-y-auto px-6 py-4 flex flex-col gap-1">
 
           {GROUPS.map(group => (
             <div key={group.id}>
               {/* Group header */}
               <button
                 className={`w-full section-label text-left flex items-center justify-between py-3 transition-colors ${
-                  groupIsActive(group) ? 'text-gold' : 'text-text-dim hover:text-gold'
+                  groupIsActive(group) ? 'text-[#6a34d1]' : 'text-[#55506a] hover:text-[#6a34d1]'
                 }`}
                 onClick={() => toggleMobile(group.id)}
               >
@@ -397,13 +397,13 @@ export default function Navbar() {
 
               {/* Group links */}
               {mobileGroup === group.id && (
-                <div className="pl-4 flex flex-col border-l border-border mb-1">
+                <div className="pl-4 flex flex-col border-l border-[#e7dfd0] mb-1">
                   {group.links.map(l => (
                     <Link
                       key={l.href}
                       href={l.href}
                       className={`section-label py-2.5 transition-colors ${
-                        isActive(l.href) ? 'text-gold' : 'text-text-dim hover:text-gold'
+                        isActive(l.href) ? 'text-[#6a34d1]' : 'text-[#55506a] hover:text-[#6a34d1]'
                       }`}
                     >
                       {l.label}
@@ -415,22 +415,22 @@ export default function Navbar() {
           ))}
 
           {/* Language switcher mobile */}
-          <div className="flex items-center gap-2 pt-3 mt-1 border-t border-border">
-            <span className="terminal-text text-xs text-text-dim">Idioma:</span>
-            <Link href="/" className={`section-label px-3 py-1 transition-colors ${!pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold border border-border'}`}>ES</Link>
-            <Link href="/en" className={`section-label px-3 py-1 transition-colors ${pathname.startsWith('/en') ? 'bg-gold text-bg' : 'text-text-dim hover:text-gold border border-border'}`}>EN</Link>
+          <div className="flex items-center gap-2 pt-3 mt-1 border-t border-[#e7dfd0]">
+            <span className="terminal-text text-xs text-[#55506a]">Idioma:</span>
+            <Link href="/" className={`section-label px-3 py-1 transition-colors ${!pathname.startsWith('/en') ? 'bg-[#6a34d1] text-white' : 'text-[#55506a] hover:text-[#6a34d1] border border-[#e7dfd0]'}`}>ES</Link>
+            <Link href="/en" className={`section-label px-3 py-1 transition-colors ${pathname.startsWith('/en') ? 'bg-[#6a34d1] text-white' : 'text-[#55506a] hover:text-[#6a34d1] border border-[#e7dfd0]'}`}>EN</Link>
           </div>
 
           {/* Auth */}
-          <div className="flex flex-col gap-3 pt-3 border-t border-border">
+          <div className="flex flex-col gap-3 pt-3 border-t border-[#e7dfd0]">
             {user ? (
               <>
-                <Link href="/perfil" className="section-label text-text-dim hover:text-gold transition-colors">
+                <Link href="/perfil" className="section-label text-[#55506a] hover:text-[#6a34d1] transition-colors">
                   MI CUENTA
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="gold-border px-5 py-2.5 section-label text-gold text-center hover:bg-gold hover:text-bg transition-all duration-200"
+                  className="border border-[#6a34d1]/40 px-5 py-2.5 section-label text-[#6a34d1] text-center hover:bg-[#6a34d1] hover:text-white transition-all duration-200"
                 >
                   SALIR
                 </button>
@@ -439,13 +439,13 @@ export default function Navbar() {
               <>
                 <Link
                   href="/login"
-                  className="gold-border px-5 py-2.5 section-label text-gold text-center hover:bg-gold hover:text-bg transition-all duration-200"
+                  className="border border-[#6a34d1]/40 px-5 py-2.5 section-label text-[#6a34d1] text-center hover:bg-[#6a34d1] hover:text-white transition-all duration-200"
                 >
                   LOGIN
                 </Link>
                 <Link
                   href="/registro"
-                  className="gold-border px-5 py-2.5 section-label text-gold text-center hover:bg-gold hover:text-bg transition-all duration-200"
+                  className="border border-[#6a34d1]/40 px-5 py-2.5 section-label text-[#6a34d1] text-center hover:bg-[#6a34d1] hover:text-white transition-all duration-200"
                 >
                   REGISTRO
                 </Link>

@@ -110,8 +110,8 @@ export default function MotorVivoPanel({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399', flexShrink: 0 }} />
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#34d399', letterSpacing: '0.25em' }}>SIGMA ENGINE · ACTIVO</span>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0b8f63', boxShadow: '0 0 8px #0b8f63', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#0b8f63', letterSpacing: '0.25em' }}>SIGMA ENGINE · ACTIVO</span>
           </div>
 
           {([
@@ -149,7 +149,7 @@ export default function MotorVivoPanel({
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: T, flex: 1, fontVariantNumeric: 'tabular-nums' }}>
                   {t.price > 0 ? `$${t.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                 </span>
-                <span style={{ fontFamily: 'monospace', fontSize: 10, width: 68, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: t.change24h >= 0 ? '#34d399' : '#f87171' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 10, width: 68, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: t.change24h >= 0 ? '#0b8f63' : '#d33042' }}>
                   {t.price > 0 ? `${t.change24h >= 0 ? '+' : ''}${t.change24h.toFixed(2)}%` : '—'}
                 </span>
                 {/* Señal bloqueada — chip tipo vidrio esmerilado con candado, visible completa solo en dashboard */}
@@ -172,7 +172,7 @@ export default function MotorVivoPanel({
               SEÑALES COMPLETAS BUY / SELL / HOLD<br />
               DISPONIBLES EN DASHBOARD DESPUÉS DEL REGISTRO
             </div>
-            <Link href="/registro" className="gold-cta" style={{ display: 'inline-block', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: tokens.BG, background: `linear-gradient(135deg, ${G}, #c9a227)`, padding: '10px 20px', textDecoration: 'none', boxShadow: '0 0 20px rgba(212,175,55,0.2)' }}>
+            <Link href="/registro" className="gold-cta" style={{ display: 'inline-block', fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: tokens.BG, background: `linear-gradient(135deg, ${G}, #4f259e)`, padding: '10px 20px', textDecoration: 'none', boxShadow: '0 0 20px rgba(106,52,209,0.2)' }}>
               VER SEÑALES COMPLETAS →
             </Link>
           </div>

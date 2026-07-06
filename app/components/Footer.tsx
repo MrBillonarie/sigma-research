@@ -62,31 +62,31 @@ export default function Footer() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="bg-bg border-t border-border px-6 py-16">
+    <footer className="bg-[#f8f5ef] border-t border-[#e7dfd0] px-6 py-16">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
 
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center gap-3 mb-4 w-fit">
-              <div className="w-7 h-7 border border-gold flex items-center justify-center">
-                <span className="display-heading text-gold text-sm leading-none">Σ</span>
+              <div className="w-7 h-7 border border-[#6a34d1] flex items-center justify-center">
+                <span className="display-heading text-[#6a34d1] text-sm leading-none">Σ</span>
               </div>
-              <span className="display-heading text-xl tracking-widest text-text">SQUANT DESK</span>
+              <span className="display-heading text-xl tracking-widest text-[#1b1723]">SQUANT DESK</span>
             </Link>
-            <p className="terminal-text text-text-dim text-sm leading-relaxed max-w-xs">
+            <p className="terminal-text text-[#55506a] text-sm leading-relaxed max-w-xs">
               Inteligencia cuantitativa de grado institucional. Construido sobre datos reales,
               diseñado para resultados reales.
             </p>
             <div className="flex items-center gap-2 mt-4">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="terminal-text text-xs text-emerald-400">Plataforma operativa</span>
+              <span className="w-2 h-2 rounded-full bg-[#0b8f63] animate-pulse" />
+              <span className="terminal-text text-xs text-[#0b8f63]">Plataforma operativa</span>
             </div>
             <div className="flex gap-4 mt-4">
               {social.map(s => (
                 <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
                   aria-label={s.label} title={s.label}
-                  className="text-text-dim hover:text-gold transition-colors">
+                  className="text-[#55506a] hover:text-[#6a34d1] transition-colors">
                   {s.icon}
                 </a>
               ))}
@@ -95,11 +95,11 @@ export default function Footer() {
 
           {/* Herramientas */}
           <div>
-            <div className="section-label text-gold mb-4">Herramientas</div>
+            <div className="section-label text-[#6a34d1] mb-4">Herramientas</div>
             <ul className="space-y-2.5">
               {herramientas.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
+                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#6a34d1] transition-colors">
                     {l.label}
                   </Link>
                 </li>
@@ -109,11 +109,11 @@ export default function Footer() {
 
           {/* Empresa */}
           <div>
-            <div className="section-label text-gold mb-4">Empresa</div>
+            <div className="section-label text-[#6a34d1] mb-4">Empresa</div>
             <ul className="space-y-2.5">
               {empresa.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
+                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#6a34d1] transition-colors">
                     {l.label}
                   </Link>
                 </li>
@@ -123,7 +123,7 @@ export default function Footer() {
 
           {/* Cuenta + Trust */}
           <div>
-            <div className="section-label text-gold mb-4">Cuenta</div>
+            <div className="section-label text-[#6a34d1] mb-4">Cuenta</div>
             <ul className="space-y-2.5 mb-6">
               {[
                 { label: 'Crear cuenta gratis', href: '/registro' },
@@ -132,26 +132,26 @@ export default function Footer() {
                 { label: 'Contactar equipo',     href: '/contacto' },
               ].map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} className="terminal-text text-sm text-text-dim hover:text-gold transition-colors">
+                  <Link href={l.href} className="terminal-text text-sm text-[#55506a] hover:text-[#6a34d1] transition-colors">
                     {l.label}
                   </Link>
                 </li>
               ))}
             </ul>
-            <div className="flex flex-col gap-2 border-t border-border pt-4">
+            <div className="flex flex-col gap-2 border-t border-[#e7dfd0] pt-4">
               {['🔒 Datos cifrados TLS 1.3', '🛡️ Sin venta de datos', '📊 Modelos validados OOS'].map(b => (
-                <span key={b} className="terminal-text text-xs text-muted">{b}</span>
+                <span key={b} className="terminal-text text-xs text-[#8b8494]">{b}</span>
               ))}
             </div>
           </div>
         </div>
 
         {/* Bottom */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-border">
-          <span className="terminal-text text-xs text-muted" suppressHydrationWarning>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-[#e7dfd0]">
+          <span className="terminal-text text-xs text-[#8b8494]" suppressHydrationWarning>
             © {year} SQuant Desk. Todos los derechos reservados.
           </span>
-          <span className="terminal-text text-xs text-muted">
+          <span className="terminal-text text-xs text-[#8b8494]">
             Solo informativo. No constituye asesoramiento financiero.
           </span>
         </div>
