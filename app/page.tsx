@@ -475,7 +475,7 @@ export default async function RootPage() {
           </p>
 
           {/* Terminal attribute readout */}
-          <div style={{ marginBottom: 36, border: `1px solid ${B}`, background: 'rgba(255,255,255,0.72)', maxWidth: 460, backdropFilter: 'blur(4px)', position: 'relative', ...reveal(600) }}>
+          <div style={{ marginBottom: 36, border: `1px solid ${B}`, background: 'linear-gradient(180deg, rgba(20,26,37,0.66), rgba(12,16,24,0.6))', maxWidth: 460, backdropFilter: 'blur(8px)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 40px rgba(0,0,0,0.4)', position: 'relative', ...reveal(600) }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${G}40, transparent)` }} />
             {([
               { k: 'MERCADOS',     v: '16 activos · cripto · commodities · stocks US',  accent: false, dot: false },
@@ -485,7 +485,7 @@ export default async function RootPage() {
             ] as Array<{ k: string; v: string; accent: boolean; dot: boolean }>).map(
               ({ k, v, accent, dot }, idx, arr) => (
                 <div key={k} style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 20, borderBottom: idx < arr.length - 1 ? `1px solid ${B}` : 'none' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.28em', width: 86, flexShrink: 0 }}>{k}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: D, letterSpacing: '0.28em', width: 86, flexShrink: 0 }}>{k}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {dot && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#2fd39a', flexShrink: 0 }} />}
                     <span style={{ fontFamily: 'monospace', fontSize: 10, color: accent ? '#2fd39a' : '#7a8598', fontWeight: accent ? 600 : 400 }}>{v}</span>
@@ -501,7 +501,7 @@ export default async function RootPage() {
               background: `linear-gradient(135deg, ${G}, #2f6bd6)`,
               color: BG, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em',
               padding: '15px 40px', textDecoration: 'none', display: 'inline-block',
-              boxShadow: `0 0 32px rgba(255,255,255,0.28)`,
+              boxShadow: `0 0 32px rgba(57,226,230,0.32)`,
             }}>
               CREAR CUENTA GRATIS
             </Link>
@@ -566,7 +566,7 @@ export default async function RootPage() {
               <div key={s.label} style={{ background: BG, padding: '44px 32px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G}, transparent)` }} />
                 <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.28em', color: M, textTransform: 'uppercase', marginBottom: 16 }}>{s.label}</div>
-                <div style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 58, color: G, lineHeight: 1, letterSpacing: '0.02em', marginBottom: 8, textShadow: `0 0 30px rgba(255,255,255,0.2)` }}>
+                <div style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 58, color: G, lineHeight: 1, letterSpacing: '0.02em', marginBottom: 8, textShadow: `0 0 30px rgba(57,226,230,0.25)` }}>
                   <CountUp value={s.num} decimals={s.dec} suffix={s.suffix} />
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.1em' }}>{s.detail}</div>
@@ -706,7 +706,7 @@ export default async function RootPage() {
               { n: metrics?.n_trades ?? history.length + 1,     dec: 0, suffix: '',  l: 'Trades registrados' },
             ].map(({ n, dec, suffix, l }) => (
               <div key={l} style={{ background: BG, padding: '24px 28px', textAlign: 'center' }}>
-                <div style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 44, color: G, lineHeight: 1, marginBottom: 6, textShadow: `0 0 20px rgba(255,255,255,0.2)` }}>
+                <div style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 44, color: G, lineHeight: 1, marginBottom: 6, textShadow: `0 0 20px rgba(57,226,230,0.25)` }}>
                   <CountUp value={n} decimals={dec} suffix={suffix} />
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{l}</div>
@@ -903,7 +903,7 @@ export default async function RootPage() {
                   background: p.fill ? `linear-gradient(135deg, ${G}, #2f6bd6)` : 'transparent',
                   color: p.fill ? BG : p.col,
                   border: `1px solid ${p.col}40`,
-                  boxShadow: p.fill ? '0 0 24px rgba(255,255,255,0.22)' : 'none',
+                  boxShadow: p.fill ? '0 0 24px rgba(57,226,230,0.28)' : 'none',
                 }}>
                   {p.cta}
                 </Link>
@@ -933,7 +933,7 @@ export default async function RootPage() {
               background: `linear-gradient(135deg, ${G}, #2f6bd6)`,
               color: BG, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em',
               padding: '16px 44px', textDecoration: 'none',
-              boxShadow: '0 0 40px rgba(255,255,255,0.3)',
+              boxShadow: '0 0 40px rgba(57,226,230,0.32)',
             }}>
               ACTIVAR ACCESO GRATIS
             </Link>
