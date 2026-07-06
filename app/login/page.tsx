@@ -419,10 +419,6 @@ function LivePanel() {
         <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(to bottom, rgba(212,175,55,0.09), transparent)' }} />
       </div>
 
-      {/* Velo muy sutil solo en el borde izquierdo para asentar las líneas
-          doradas sobre la zona de transición — sin crear parche oscuro */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(90deg, rgba(4,5,10,0.18) 0%, rgba(4,5,10,0.05) 14%, transparent 30%)' }} />
-
       {/* Capa 3 — contenido (se mueve en contra: profundidad) */}
       <div ref={contentRef} className="relative z-10 max-w-sm pl-14 pr-8" style={layerStyle}>
         <div className="flex items-center gap-2.5 mb-7">
@@ -455,7 +451,10 @@ export default function LoginPage() {
     <main className="min-h-screen flex" style={{
       // Degradé de unión: el formulario (izq) sobre tinta oscura funde
       // suavemente hacia el papel claro del panel del motor (der).
-      background: 'linear-gradient(105deg, #04050a 0%, #04050a 30%, #0d0c0a 37%, #1b1811 43%, #2f2a20 48%, #4c463a 53%, #726a59 58%, #9a9280 63%, #c0b9aa 68%, #dcd6ca 74%, #ebe6dc 82%, #efeae1 100%)',
+      // Rampa horizontal pura (90deg): tinta bajo el formulario, papel cálido
+      // estable bajo el contenido del motor (termina en ~58%, el texto empieza
+      // ~57.5%), sin velos encima -> sin costura en el borde del panel.
+      background: 'linear-gradient(90deg, #04050a 0%, #04050a 28%, #0f0e0b 34%, #221e16 39%, #3d372b 44%, #615a49 48%, #8a8270 52%, #b3ab99 55%, #d0cabb 58%, #e0dacb 63%, #e8e2d4 72%, #eae4d7 100%)',
       // Tokens en oscuro para las clases var-based del formulario (izq).
       ['--bg' as string]: '#04050a', ['--surface' as string]: '#0b0d14',
       ['--border' as string]: '#1a1d2e', ['--border-2' as string]: '#252840',
