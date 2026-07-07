@@ -262,6 +262,11 @@ export default function HUDPage() {
         @keyframes hud-drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-46px,54px)} }
         @keyframes hud-drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(52px,-40px)} }
         @keyframes hud-scanY  { 0%{top:-6%} 100%{top:106%} }
+        @keyframes hud-stripes { to { background-position: 28px 0; } }
+        @keyframes hud-alphapulse {
+          0%,100% { box-shadow: 0 0 18px rgba(46,204,113,0.12), inset 0 0 14px rgba(46,204,113,0.05); }
+          50%     { box-shadow: 0 0 34px rgba(46,204,113,0.28), inset 0 0 20px rgba(46,204,113,0.1); }
+        }
 
         /* ══ 0. Redefinir el acento del motor: --gold → cian ══
            kpi-pos, acentos y bordes del motor usan var(--gold). Al reescribir
@@ -467,6 +472,142 @@ export default function HUDPage() {
           box-shadow: 0 0 12px rgba(57,226,230,0.28);
         }
 
+        /* ══ 7. Proof of Work — cada tarjeta con identidad propia ══ */
+        /* Banner del contador: héroe de la sección */
+        #sigma-hud-root .counter-banner {
+          position: relative; overflow: hidden;
+          background: linear-gradient(135deg, rgba(22,30,44,0.7), rgba(9,13,21,0.6)) !important;
+          border: 1px solid rgba(57,226,230,0.2) !important;
+          border-radius: 16px !important;
+          box-shadow: 0 20px 54px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+        #sigma-hud-root .counter-banner::before {
+          content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
+          background: linear-gradient(90deg, #39e2e6, rgba(79,146,255,0.5) 50%, transparent 85%);
+        }
+        #sigma-hud-root .counter-banner::after {
+          content: 'Σ'; position: absolute; right: 8px; bottom: -46px;
+          font-size: 190px; font-weight: 800; line-height: 1;
+          color: rgba(57,226,230,0.055); pointer-events: none;
+          font-family: 'Bebas Neue', Impact, sans-serif;
+        }
+        #sigma-hud-root .counter-number {
+          background: linear-gradient(100deg, #5eeaf0, #4f92ff);
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent; color: transparent !important;
+          filter: drop-shadow(0 0 20px rgba(57,226,230,0.35));
+          letter-spacing: 0.02em;
+        }
+        /* mini-tiles por timeframe */
+        #sigma-hud-root .counter-stat {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 10px; padding: 8px 14px !important;
+          transition: transform .25s ease, border-color .25s ease;
+        }
+        #sigma-hud-root .counter-stat:hover { transform: translateY(-2px); border-color: rgba(57,226,230,0.3); }
+        #sigma-hud-root .counter-stat .val { text-shadow: 0 0 12px currentColor; }
+        #sigma-hud-root .counter-stat .lbl { letter-spacing: 0.2em !important; }
+
+        /* Tarjetas PoW (divs planos #07091c) → vidrio con hover */
+        #sigma-hud-root div[style*="background:#07091c"] {
+          position: relative; overflow: hidden;
+          background: linear-gradient(180deg, rgba(20,26,38,0.55), rgba(10,14,22,0.5)) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 14px !important;
+          padding: 16px 20px !important;
+          box-shadow: 0 12px 34px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.05);
+          transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease;
+        }
+        #sigma-hud-root div[style*="background:#07091c"]:hover {
+          transform: translateY(-2px);
+          border-color: rgba(57,226,230,0.25) !important;
+          box-shadow: 0 18px 48px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.07);
+        }
+
+        /* Duelo VS: SIGMA (verde) vs BTC DCA (rojo) — cada esquina con su tinte */
+        #sigma-hud-root div[style*="background:#0d1428"] {
+          border-radius: 10px !important;
+          border: 1px solid rgba(255,255,255,0.06);
+        }
+        #sigma-hud-root div[style*="background:#0d1428"]:has([style*="#2ecc71"]) {
+          background: linear-gradient(180deg, rgba(46,204,113,0.08), rgba(255,255,255,0.015)) !important;
+          border-color: rgba(46,204,113,0.22) !important;
+        }
+        #sigma-hud-root div[style*="background:#0d1428"]:has([style*="#e74c3c"]) {
+          background: linear-gradient(180deg, rgba(231,76,60,0.08), rgba(255,255,255,0.015)) !important;
+          border-color: rgba(231,76,60,0.22) !important;
+        }
+        /* El ganador (Alpha real) late con aura verde */
+        #sigma-hud-root div[style*="rgba(46,204,113,.06)"] {
+          animation: hud-alphapulse 3.2s ease-in-out infinite;
+          border-radius: 10px !important;
+        }
+        /* números del duelo más grandes y con glow */
+        #sigma-hud-root div[style*="background:#0d1428"] div[style*="font-size:20px"],
+        #sigma-hud-root div[style*="rgba(46,204,113,.06)"] div[style*="font-size:20px"] {
+          font-size: 24px !important; text-shadow: 0 0 14px currentColor;
+        }
+
+        /* BTC Cold Storage: identidad naranja Bitcoin + marca de agua ₿ */
+        #sigma-hud-root div[style*="background:#07091c"]:has([style*="#f7931a"]) {
+          border-color: rgba(247,147,26,0.25) !important;
+        }
+        #sigma-hud-root div[style*="background:#07091c"]:has([style*="#f7931a"])::after {
+          content: '₿'; position: absolute; right: 6px; bottom: -34px;
+          font-size: 130px; font-weight: 800; line-height: 1;
+          color: rgba(247,147,26,0.07); pointer-events: none;
+        }
+        #sigma-hud-root span[style*="color:#f7931a"][style*="font-size:22px"] { text-shadow: 0 0 16px rgba(247,147,26,0.45); }
+        /* progreso hacia 1 BTC: barra roja fina → energía naranja */
+        #sigma-hud-root div[style*="background:#07091c"]:has([style*="#f7931a"]) div[style*="background:#e74c3c"] {
+          background: linear-gradient(90deg, #f7931a, #ffb454) !important;
+          box-shadow: 0 0 10px rgba(247,147,26,0.6);
+        }
+        #sigma-hud-root div[style*="background:#07091c"]:has([style*="#f7931a"]) div[style*="height:6px"] {
+          height: 8px !important; border-radius: 6px !important;
+        }
+
+        /* Executor Gate: barra de energía animada (rayas que avanzan) */
+        #sigma-hud-root div[style*="background:#f1c40f"][style*="height:100%"] {
+          background: repeating-linear-gradient(45deg, #ffd75e 0 10px, #e8a51e 10px 20px) !important;
+          background-size: 28px 28px !important;
+          animation: hud-stripes 1.1s linear infinite;
+          box-shadow: 0 0 12px rgba(241,196,15,0.5);
+        }
+        #sigma-hud-root div[style*="color:#e67e22"] { text-shadow: 0 0 12px rgba(230,126,34,0.5); }
+
+        /* Filas de criterios/stress/AUM: rail de color por estado + hover */
+        #sigma-hud-root div[style*="justify-content:space-between"][style*="border-bottom:1px solid #141b38"] {
+          padding: 7px 10px !important; margin: 0 -10px;
+          border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+          border-left: 2px solid transparent; border-radius: 4px;
+          transition: background .2s ease;
+        }
+        #sigma-hud-root div[style*="justify-content:space-between"][style*="border-bottom:1px solid #141b38"]:hover {
+          background: rgba(255,255,255,0.03);
+        }
+        #sigma-hud-root div[style*="border-bottom:1px solid #141b38"]:has(span[style*="#2ecc71"]) { border-left-color: rgba(46,204,113,0.55); }
+        #sigma-hud-root div[style*="border-bottom:1px solid #141b38"]:has(span[style*="#e74c3c"]) { border-left-color: rgba(231,76,60,0.55); }
+
+        /* AUM: bóveda dorada (el oro aquí es identidad, no acento del sitio) */
+        #sigma-hud-root div[style*="background:#07091c"]:has([style*="#d4af37"]) {
+          border-color: rgba(212,175,55,0.28) !important;
+        }
+        #sigma-hud-root div[style*="background:#07091c"]:has([style*="#d4af37"])::after {
+          content: '$'; position: absolute; right: 14px; bottom: -30px;
+          font-size: 120px; font-weight: 800; line-height: 1;
+          color: rgba(212,175,55,0.07); pointer-events: none;
+          font-family: 'IBM Plex Mono', monospace;
+        }
+        #sigma-hud-root div[style*="color:#d4af37"][style*="font-size:22px"] {
+          background: linear-gradient(100deg, #f0cc5a, #c9982e);
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent;
+          filter: drop-shadow(0 0 14px rgba(212,175,55,0.35));
+          font-size: 26px !important;
+        }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
@@ -561,6 +702,8 @@ export default function HUDPage() {
           #sigma-hud-root .card, #sigma-hud-root .kpi-card,
           #sigma-hud-root .risk-cell, #sigma-hud-root .asset-box { transition: none !important; }
           #sigma-hud-root #equity-wrap { transform: none !important; transition: none !important; }
+          #sigma-hud-root div[style*="rgba(46,204,113,.06)"],
+          #sigma-hud-root div[style*="background:#f1c40f"] { animation: none !important; }
         }
 
         /* scrollbars finas */
