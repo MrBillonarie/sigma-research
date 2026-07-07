@@ -670,16 +670,103 @@ export default function HUDPage() {
         #sigma-hud-root .feed-ts { color: #5f6a7d !important; }
         #sigma-hud-root .feed-cagr { text-shadow: 0 0 10px currentColor; }
 
-        /* Pills genéricos (leyendas, Mejores 2 ahora): dorado → cian */
-        #sigma-hud-root .pill {
-          background: rgba(57,226,230,0.06) !important;
-          border-color: rgba(57,226,230,0.22) !important;
+        /* Pills genéricos: dorado → cian (los que traen color propio por
+           activo, como LTC azul / SOL violeta, CONSERVAN su identidad) */
+        #sigma-hud-root .pill { background: rgba(57,226,230,0.06) !important; border-radius: 8px !important; }
+        #sigma-hud-root .pill:not([style*="border-color"]) { border-color: rgba(57,226,230,0.22) !important; }
+        #sigma-hud-root .pill:hover { background: rgba(57,226,230,0.12) !important; }
+        #sigma-hud-root .pill:not([style*="border-color"]):hover { border-color: rgba(57,226,230,0.45) !important; }
+        #sigma-hud-root .pill[style*="border-color"] {
+          background: rgba(255,255,255,0.03) !important;
+          box-shadow: 0 0 14px -5px currentColor;
+        }
+
+        /* Actividad del Pipeline: consola con pozo de terminal */
+        #sigma-hud-root .feed {
+          position: relative; overflow: hidden;
+          background: linear-gradient(180deg, rgba(18,24,36,0.6), rgba(9,13,20,0.55)) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 16px !important;
+          padding: 18px 20px !important;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 20px 52px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+          backdrop-filter: blur(8px);
+        }
+        #sigma-hud-root .feed::before {
+          content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
+          background: linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%);
+        }
+        #sigma-hud-root .feed-title {
+          color: #39e2e6 !important; letter-spacing: 0.24em !important;
+          text-shadow: 0 0 14px rgba(57,226,230,0.35);
+        }
+        /* el stream vive en un pozo hundido, como pantalla dentro de la consola */
+        #sigma-hud-root .feed-list {
+          background: rgba(0,0,0,0.3);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 10px; padding: 8px;
+          max-height: 300px !important;
+          box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* Regla de Portfolio: barra de mando */
+        #sigma-hud-root .rule {
+          position: relative; overflow: hidden;
+          background: linear-gradient(90deg, rgba(57,226,230,0.06), rgba(255,255,255,0.02) 45%) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 14px !important;
+          padding: 16px 20px !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 34px rgba(0,0,0,0.32) !important;
+        }
+        #sigma-hud-root .rule::before {
+          content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+          background: linear-gradient(180deg, #39e2e6, #4f92ff);
+          box-shadow: 0 0 12px rgba(57,226,230,0.6);
+        }
+        #sigma-hud-root .rule-title { color: #eef1f7 !important; }
+        #sigma-hud-root .rule-sub { color: #8b97ad !important; }
+        #sigma-hud-root .rule .prog {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 10px; padding: 8px 14px;
+        }
+        #sigma-hud-root .rule .prog strong {
+          color: #39e2e6 !important; font-size: 14px;
+          text-shadow: 0 0 12px rgba(57,226,230,0.45);
+        }
+
+        /* Profundidad física de las lámparas de régimen: relieve interior +
+           sombra de asiento + resplandor de piso del color del régimen */
+        #sigma-hud-root .regime-card {
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.07),
+            inset 0 -10px 18px -14px rgba(0,0,0,0.85),
+            0 2px 5px rgba(0,0,0,0.5),
+            0 16px 30px -14px rgba(0,0,0,0.75) !important;
+        }
+        #sigma-hud-root .regime-card:has([style*="#e74c3c"]), #sigma-hud-root .regime-card:has([style*="#f44336"]) {
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -10px 18px -14px rgba(0,0,0,0.85),
+            0 2px 5px rgba(0,0,0,0.5), 0 18px 34px -16px rgba(255,93,108,0.3) !important;
+        }
+        #sigma-hud-root .regime-card:has([style*="#00e676"]), #sigma-hud-root .regime-card:has([style*="#2ecc71"]) {
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -10px 18px -14px rgba(0,0,0,0.85),
+            0 2px 5px rgba(0,0,0,0.5), 0 18px 34px -16px rgba(47,211,154,0.32) !important;
+        }
+        #sigma-hud-root .regime-card:has([style*="#e67e22"]), #sigma-hud-root .regime-card:has([style*="#f1c40f"]) {
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -10px 18px -14px rgba(0,0,0,0.85),
+            0 2px 5px rgba(0,0,0,0.5), 0 18px 34px -16px rgba(255,180,84,0.28) !important;
+        }
+        #sigma-hud-root .regime-card:hover {
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -10px 18px -14px rgba(0,0,0,0.85),
+            0 6px 14px rgba(0,0,0,0.55), 0 26px 48px -16px rgba(0,0,0,0.8) !important;
+        }
+
+        /* Matrices de modelos: celdas con relieve (encajan con las lámparas) */
+        #sigma-hud-root .matrix td { border-radius: 8px !important; }
+        #sigma-hud-root .cell-ok {
           border-radius: 8px !important;
+          box-shadow: inset 0 1px 0 rgba(0,230,118,0.14), inset 0 -6px 12px -9px rgba(0,0,0,0.65), 0 4px 10px -6px rgba(0,0,0,0.6) !important;
         }
-        #sigma-hud-root .pill:hover {
-          background: rgba(57,226,230,0.12) !important;
-          border-color: rgba(57,226,230,0.45) !important;
-        }
+        #sigma-hud-root .asset-box { border-radius: 10px !important; }
 
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
