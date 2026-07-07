@@ -216,6 +216,39 @@ export default function HUDPage() {
     return () => container.removeEventListener('click', onClick)
   }, [])
 
+  // Tilt 3D en las tarjetas del motor — efecto 100% del lado web (transform
+  // inline sobre el DOM inyectado), delegado para sobrevivir a los refresh
+  // del motor. Ángulos suaves (≤2.5°) para look premium, no mareo.
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const root = containerRef.current
+    if (!root) return
+    let raf = 0
+    let target: HTMLElement | null = null
+    let rx = 0, ry = 0
+    function onMove(e: MouseEvent) {
+      const card = (e.target as HTMLElement).closest?.('.card') as HTMLElement | null
+      if (card !== target && target) target.style.transform = ''
+      target = card
+      if (!card) return
+      const r = card.getBoundingClientRect()
+      ry = ((e.clientX - r.left) / r.width - 0.5) * 2.6
+      rx = -((e.clientY - r.top) / r.height - 0.5) * 2.0
+      if (!raf) raf = requestAnimationFrame(() => {
+        raf = 0
+        if (target) target.style.transform = `perspective(1100px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateY(-2px)`
+      })
+    }
+    function onLeave() { if (target) { target.style.transform = ''; target = null } }
+    root.addEventListener('mousemove', onMove)
+    root.addEventListener('mouseleave', onLeave)
+    return () => {
+      root.removeEventListener('mousemove', onMove)
+      root.removeEventListener('mouseleave', onLeave)
+      cancelAnimationFrame(raf)
+    }
+  }, [])
+
   return (
     <>
       {/* Re-skin "Black & Gold" — overrides CSS del lado web. Vive en el
@@ -226,6 +259,9 @@ export default function HUDPage() {
       <style>{`
         @keyframes hud-pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:0.55; transform:scale(0.96)} }
         @keyframes hud-scan  { 0%{left:-40%} 100%{left:100%} }
+        @keyframes hud-drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-46px,54px)} }
+        @keyframes hud-drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(52px,-40px)} }
+        @keyframes hud-scanY  { 0%{top:-6%} 100%{top:106%} }
 
         /* ══ 0. Redefinir el acento del motor: --gold → cian ══
            kpi-pos, acentos y bordes del motor usan var(--gold). Al reescribir
@@ -238,6 +274,11 @@ export default function HUDPage() {
         /* golds directos (no via variable) que sobreviven */
         #sigma-hud-root [style*="#f1c40f"], #sigma-hud-root [style*="#ffd700"],
         #sigma-hud-root [style*="#c9a227"], #sigma-hud-root [style*="#ffeb3b"] { color: #39e2e6 !important; }
+
+        /* contenedores raíz del motor transparentes: dejan ver el escenario
+           ambiental (grilla + auroras) detrás de las tarjetas */
+        #sigma-hud-root > div, #sigma-hud-root .container, #sigma-hud-root .wrap,
+        #sigma-hud-root main { background: transparent !important; }
 
         /* ══ 1. Tarjetas → vidrio premium con hover ══ */
         #sigma-hud-root .card {
@@ -316,6 +357,46 @@ export default function HUDPage() {
           background: linear-gradient(270deg, transparent, rgba(57,226,230,0.45)) !important;
         }
 
+        /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
+        #sigma-hud-root .card::after {
+          content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
+          transition: opacity .3s ease;
+          background:
+            linear-gradient(#39e2e6,#39e2e6) left 8px top 8px / 12px 1px,
+            linear-gradient(#39e2e6,#39e2e6) left 8px top 8px / 1px 12px,
+            linear-gradient(#39e2e6,#39e2e6) right 8px top 8px / 12px 1px,
+            linear-gradient(#39e2e6,#39e2e6) right 8px top 8px / 1px 12px,
+            linear-gradient(#39e2e6,#39e2e6) left 8px bottom 8px / 12px 1px,
+            linear-gradient(#39e2e6,#39e2e6) left 8px bottom 8px / 1px 12px,
+            linear-gradient(#39e2e6,#39e2e6) right 8px bottom 8px / 12px 1px,
+            linear-gradient(#39e2e6,#39e2e6) right 8px bottom 8px / 1px 12px;
+          background-repeat: no-repeat;
+        }
+        #sigma-hud-root .card:hover::after { opacity: 0.9; }
+
+        /* ══ 5. Gráficos del motor (canvas/SVG en runtime) → neón ══ */
+        #sigma-hud-root canvas { filter: drop-shadow(0 0 12px rgba(57,226,230,0.28)); }
+        #sigma-hud-root svg    { filter: drop-shadow(0 0 9px rgba(57,226,230,0.22)); }
+
+        /* Heatmap P&L: celdas redondeadas que saltan al hover */
+        #sigma-hud-root .heatmap-wrap div { border-radius: 4px; }
+        #sigma-hud-root .heatmap-wrap div:empty {
+          transition: transform .18s ease, box-shadow .18s ease;
+        }
+        #sigma-hud-root .heatmap-wrap div:empty:hover {
+          transform: scale(1.3); position: relative; z-index: 3;
+          box-shadow: 0 0 14px rgba(255,255,255,0.3);
+        }
+
+        /* Tarjetas con perspectiva (el tilt 3D lo maneja JS del lado web) */
+        #sigma-hud-root .card { transform-style: preserve-3d; will-change: transform; }
+
+        @media (prefers-reduced-motion: reduce) {
+          #hud-stage * { animation: none !important; }
+          #sigma-hud-root .card, #sigma-hud-root .kpi-card,
+          #sigma-hud-root .risk-cell, #sigma-hud-root .asset-box { transition: none !important; }
+        }
+
         /* scrollbars finas */
         #sigma-hud-root ::-webkit-scrollbar { width: 8px; height: 8px; }
         #sigma-hud-root ::-webkit-scrollbar-track { background: transparent; }
@@ -357,11 +438,35 @@ export default function HUDPage() {
           Sin conexión al motor. Intenta recargar la página.
         </div>
       )}
+      {/* Escenario ambiental — capa fija detrás del dashboard del motor:
+          grilla técnica que se desvanece, auroras cian/azul a la deriva y una
+          línea de escaneo vertical. Todo del lado web, cero motor. */}
+      <div id="hud-stage" aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#04050a', overflow: 'hidden' }}>
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'linear-gradient(rgba(57,226,230,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(57,226,230,0.045) 1px, transparent 1px)',
+          backgroundSize: '56px 56px',
+          maskImage: 'radial-gradient(ellipse 95% 75% at 50% 0%, black, transparent 78%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 95% 75% at 50% 0%, black, transparent 78%)',
+        }} />
+        <div style={{ position: 'absolute', width: 660, height: 660, top: -260, right: -140, background: 'radial-gradient(circle, rgba(79,146,255,0.16), transparent 62%)', filter: 'blur(72px)', animation: 'hud-drift1 26s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', width: 580, height: 580, top: '36%', left: -180, background: 'radial-gradient(circle, rgba(57,226,230,0.11), transparent 62%)', filter: 'blur(72px)', animation: 'hud-drift2 32s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', width: 520, height: 520, bottom: -220, right: '22%', background: 'radial-gradient(circle, rgba(154,123,255,0.09), transparent 62%)', filter: 'blur(72px)', animation: 'hud-drift1 38s ease-in-out infinite' }} />
+        {/* Línea de escaneo — barrido vertical lento, casi subliminal */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, height: 2, top: '-6%',
+          background: 'linear-gradient(90deg, transparent, rgba(57,226,230,0.14), transparent)',
+          boxShadow: '0 0 18px rgba(57,226,230,0.12)',
+          animation: 'hud-scanY 11s linear infinite',
+        }} />
+      </div>
+
       <div
         id="sigma-hud-root"
         ref={containerRef}
         style={{
-          minHeight: '100vh', background: '#04050a',
+          minHeight: '100vh', background: 'transparent',
+          position: 'relative', zIndex: 1,
           // Fade-in único al terminar de cargar — después nada se mueve
           opacity: status === 'ok' ? 1 : 0,
           transition: 'opacity 0.7s ease',
