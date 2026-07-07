@@ -517,9 +517,9 @@ export default function DashboardHome() {
     const chronMonth = [...monthClosed].sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
     let cum = 0
     const sparkMonth = chronMonth.map(t => { cum += (t.pnl_dollar ?? 0); return cum })
-    // Últimos 10 resultados del motor (para las mini-barras del win rate)
-    const chronAll = [...liveHist].sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
-    const last10 = chronAll.slice(-10).map(t => (t.pnl_dollar ?? 0) > 0 ? 1 : (t.pnl_dollar ?? 0) < 0 ? 0 : 0.5)
+    // Últimos 10 resultados del motor ESTE MES (mismo alcance que el % grande
+    // de al lado -- antes tomaba todo el historial LIVE y contradecia el mes)
+    const last10 = chronMonth.slice(-10).map(t => (t.pnl_dollar ?? 0) > 0 ? 1 : (t.pnl_dollar ?? 0) < 0 ? 0 : 0.5)
     // Track record histórico -- también solo LIVE. profitFactor y PnL total
     // salen del propio history (no de engRaw.stats/portfolio, que son del
     // agregado PAPER de $10k y no representan la cuenta real).
