@@ -402,41 +402,42 @@ export default function HUDPage() {
         #sigma-hud-root [style*="color:#00e676"] { color: #2fd39a !important; }
         #sigma-hud-root [style*="color:#f44336"], #sigma-hud-root [style*="color:#f85149"] { color: #ff5d6c !important; }
 
-        /* Monitor: marco cinematográfico de la curva de equity */
+        /* Monitor: "holograma de mesa" — la curva descansa inclinada en 3D y
+           se endereza al hover (para explorar el tooltip en plano). Debajo,
+           reflejo EN VIVO del propio canvas animado, como sobre vidrio negro. */
         #sigma-hud-root #equity-wrap {
-          border-radius: 14px; padding: 10px;
+          border-radius: 16px; padding: 12px 12px 60px;
           background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.08);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 14px 40px rgba(0,0,0,0.35);
+          border: 1px solid rgba(57,226,230,0.16);
+          box-shadow:
+            inset 0 1px 0 rgba(94,234,240,0.16),
+            0 34px 80px rgba(0,0,0,0.5),
+            0 0 70px rgba(57,226,230,0.08);
+          transform: perspective(1200px) rotateX(3.2deg);
+          transform-origin: 50% 100%;
+          transition: transform .55s cubic-bezier(.2,.6,.2,1), box-shadow .55s ease;
+        }
+        #sigma-hud-root #equity-wrap:hover {
+          transform: perspective(1200px) rotateX(0deg);
+          box-shadow:
+            inset 0 1px 0 rgba(94,234,240,0.22),
+            0 22px 60px rgba(0,0,0,0.5),
+            0 0 90px rgba(57,226,230,0.13);
         }
         #sigma-hud-root #equity-curve {
           background: linear-gradient(180deg, #081324, #04070f) !important;
           border-radius: 10px !important;
-          filter: saturate(1.18) drop-shadow(0 0 14px rgba(57,226,230,0.22));
+          filter: saturate(1.18) drop-shadow(0 0 14px rgba(57,226,230,0.25));
+          -webkit-box-reflect: below 8px linear-gradient(rgba(0,0,0,0.34), transparent 42%);
         }
         /* grid técnico + viñeta sobre el canvas (decorativo, no bloquea el tooltip) */
         #sigma-hud-root #equity-wrap::before {
-          content: ''; position: absolute; inset: 10px; border-radius: 10px;
+          content: ''; position: absolute; inset: 12px 12px 60px 12px; border-radius: 10px;
           pointer-events: none; z-index: 1;
           background:
             linear-gradient(rgba(57,226,230,0.05) 1px, transparent 1px) 0 0 / 100% 36px,
             linear-gradient(90deg, rgba(57,226,230,0.04) 1px, transparent 1px) 0 0 / 48px 100%,
             radial-gradient(ellipse 120% 90% at 50% 0%, transparent 55%, rgba(0,0,0,0.32));
-        }
-        /* ticks de esquina del monitor */
-        #sigma-hud-root #equity-wrap::after {
-          content: ''; position: absolute; inset: 10px; border-radius: 10px;
-          pointer-events: none; z-index: 1; opacity: 0.55;
-          background:
-            linear-gradient(#39e2e6,#39e2e6) left 6px top 6px / 14px 1px,
-            linear-gradient(#39e2e6,#39e2e6) left 6px top 6px / 1px 14px,
-            linear-gradient(#39e2e6,#39e2e6) right 6px top 6px / 14px 1px,
-            linear-gradient(#39e2e6,#39e2e6) right 6px top 6px / 1px 14px,
-            linear-gradient(#39e2e6,#39e2e6) left 6px bottom 6px / 14px 1px,
-            linear-gradient(#39e2e6,#39e2e6) left 6px bottom 6px / 1px 14px,
-            linear-gradient(#39e2e6,#39e2e6) right 6px bottom 6px / 14px 1px,
-            linear-gradient(#39e2e6,#39e2e6) right 6px bottom 6px / 1px 14px;
-          background-repeat: no-repeat;
         }
         /* tooltip del monitor: vidrio con borde cian */
         #sigma-hud-root #equity-tooltip {
@@ -551,6 +552,7 @@ export default function HUDPage() {
           #hud-stage * { animation: none !important; }
           #sigma-hud-root .card, #sigma-hud-root .kpi-card,
           #sigma-hud-root .risk-cell, #sigma-hud-root .asset-box { transition: none !important; }
+          #sigma-hud-root #equity-wrap { transform: none !important; transition: none !important; }
         }
 
         /* scrollbars finas */
