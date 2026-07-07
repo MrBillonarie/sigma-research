@@ -80,6 +80,12 @@ export async function GET() {
     // Strip login modal entirely — user is already authenticated via squantdesk
     html = html.replace(/id=["']auth[_-]?modal["'][^>]*>[\s\S]*?<\/div>/i, '')
 
+
+    // 5. Hide the motor engine's own bell/panel/toast notification widget -
+    // duplicates the unified sidebar bell (per-model signals are already
+    // bridged there via /api/cron/motor-senales), so suppress it here
+    // instead of touching dashboard.py (still used standalone off-proxy).
+    html = html.replace('</head>', '<style>#bell-btn,#bell-panel,#toast-container{display:none!important}</style></head>')
     return new NextResponse(html, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
