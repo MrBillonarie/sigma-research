@@ -378,15 +378,70 @@ export default function HUDPage() {
         #sigma-hud-root canvas { filter: drop-shadow(0 0 12px rgba(57,226,230,0.28)); }
         #sigma-hud-root svg    { filter: drop-shadow(0 0 9px rgba(57,226,230,0.22)); }
 
-        /* Heatmap P&L: celdas redondeadas que saltan al hover */
-        #sigma-hud-root .heatmap-wrap div { border-radius: 4px; }
-        #sigma-hud-root .heatmap-wrap div:empty {
-          transition: transform .18s ease, box-shadow .18s ease;
+        /* ══ 5b. Performance Snapshot — tratamiento profesional ══ */
+        /* Marco del heatmap: panel propio con aire */
+        #sigma-hud-root .heatmap-wrap {
+          display: inline-block; padding: 10px 12px; border-radius: 12px;
+          background: rgba(255,255,255,0.022);
+          border: 1px solid rgba(255,255,255,0.055);
         }
-        #sigma-hud-root .heatmap-wrap div:empty:hover {
-          transform: scale(1.3); position: relative; z-index: 3;
-          box-shadow: 0 0 14px rgba(255,255,255,0.3);
+        /* Celdas: más grandes, radio suave, filo interior */
+        #sigma-hud-root .heatmap-wrap div {
+          width: 22px !important; height: 22px !important;
+          border-radius: 6px !important; margin: 3px !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
         }
+        #sigma-hud-root .heatmap-wrap div:hover {
+          position: relative; z-index: 3;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 16px rgba(0,0,0,0.5), 0 0 12px currentColor;
+        }
+        /* Recolor de la escala: fintech refinado (gana a los inline styles) */
+        #sigma-hud-root .heatmap-wrap div[style*="#141b38"] {
+          background: rgba(255,255,255,0.045) !important;
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+        }
+        #sigma-hud-root .heatmap-wrap div[style*="#43a047"] {
+          background: linear-gradient(135deg, #19cf8c, #0ea06a) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 0 9px rgba(25,207,140,0.35);
+        }
+        #sigma-hud-root .heatmap-wrap div[style*="#ff9800"] {
+          background: linear-gradient(135deg, #ffbe55, #e8952e) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 0 8px rgba(255,180,84,0.3);
+        }
+        #sigma-hud-root .heatmap-wrap div[style*="#ef5350"] {
+          background: linear-gradient(135deg, #ff6478, #e04358) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 0 8px rgba(255,93,108,0.3);
+        }
+        #sigma-hud-root .heatmap-wrap div[style*="#c62828"] {
+          background: linear-gradient(135deg, #d63a55, #a81f3d) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 10px rgba(214,58,85,0.4);
+        }
+        /* Barrita de acento del título de la card: dorada → gradiente cian */
+        #sigma-hud-root span[style*="#c9a227"] {
+          background: linear-gradient(180deg, #5eeaf0, #4f92ff) !important;
+          box-shadow: 0 0 10px rgba(57,226,230,0.55);
+        }
+        /* Donut de exposición: aro gris → cian con brillo; swatch de leyenda igual */
+        #sigma-hud-root circle[stroke="#888"] { stroke: #39e2e6 !important; }
+        #sigma-hud-root span[style*="background:#888"], #sigma-hud-root span[style*="background: #888"] {
+          background: #39e2e6 !important; box-shadow: 0 0 8px rgba(57,226,230,0.5);
+        }
+        /* Fila de stats (SHARPE 30D / STREAK / MEJOR DÍA…) → chips */
+        #sigma-hud-root div[style*="border-top"][style*="flex-wrap"] > span {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 8px; padding: 6px 12px;
+          transition: border-color .25s ease, background .25s ease;
+        }
+        #sigma-hud-root div[style*="border-top"][style*="flex-wrap"] > span:hover {
+          border-color: rgba(57,226,230,0.3);
+          background: rgba(57,226,230,0.05);
+        }
+        /* Semánticos del motor → paleta Cyan Deck + glow suave */
+        #sigma-hud-root b[style*="#00e676"] { color: #2fd39a !important; text-shadow: 0 0 9px rgba(47,211,154,0.45); }
+        #sigma-hud-root b[style*="#f85149"] { color: #ff5d6c !important; text-shadow: 0 0 9px rgba(255,93,108,0.4); }
+        /* Micro-etiquetas (P&L DIARIO / EXPOSICIÓN ABIERTA / labels) más legibles */
+        #sigma-hud-root div[style*="#4e5f90"], #sigma-hud-root span[style*="color:#4e5f90"] { color: #8b97ad !important; }
 
         /* Tarjetas con perspectiva (el tilt 3D lo maneja JS del lado web) */
         #sigma-hud-root .card { transform-style: preserve-3d; will-change: transform; }
