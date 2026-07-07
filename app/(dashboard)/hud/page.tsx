@@ -357,6 +357,107 @@ export default function HUDPage() {
           background: linear-gradient(270deg, transparent, rgba(57,226,230,0.45)) !important;
         }
 
+        /* ══ 6. Sala de máquinas — Simulación Paper Trading (#trades-section) ══ */
+        /* Cockpit: la fila de stats del header como barra de instrumentos glass */
+        #sigma-hud-root #trades-section div[style*="gap:20px"][style*="align-items:center"] {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 10px; padding: 8px 16px !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        #sigma-hud-root #trades-section span[style*="color:#333"] { display: none; } /* separadores "·" */
+        #sigma-hud-root #float-pnl { font-size: 16px !important; text-shadow: 0 0 12px currentColor; }
+
+        /* Barra de capital: instrumento con marco propio */
+        #sigma-hud-root #trades-section div[style*="border-bottom:1px solid #141b38"] {
+          background: linear-gradient(90deg, rgba(57,226,230,0.05), rgba(255,255,255,0.015) 40%);
+          border: 1px solid rgba(255,255,255,0.07) !important;
+          border-radius: 10px; padding: 9px 16px !important; margin-bottom: 14px !important;
+        }
+        #sigma-hud-root #capital-live {
+          font-size: 16px !important; color: #5eeaf0 !important;
+          text-shadow: 0 0 14px rgba(57,226,230,0.5) !important;
+        }
+
+        /* Blotter institucional: tablas de posiciones e historial */
+        #sigma-hud-root #trades-section th {
+          color: #8b97ad !important; font-size: 10px !important;
+          letter-spacing: 0.16em !important; text-transform: uppercase;
+          padding: 9px 10px !important;
+          border-bottom: 1px solid rgba(57,226,230,0.18) !important;
+        }
+        #sigma-hud-root #trades-section td {
+          padding: 10px 10px !important;
+          border-bottom: 1px solid rgba(255,255,255,0.045) !important;
+        }
+        #sigma-hud-root #trades-section tbody tr { transition: background .2s ease; }
+        #sigma-hud-root #trades-section tbody tr:nth-child(even) { background: rgba(255,255,255,0.018); }
+        #sigma-hud-root #trades-section tbody tr:hover { background: rgba(57,226,230,0.055) !important; }
+        /* pills (LONG/SHORT, grades) con glow sutil */
+        #sigma-hud-root #trades-section td span[style*="border-radius"] {
+          border-radius: 6px !important; font-weight: 700;
+          letter-spacing: 0.07em; box-shadow: 0 0 12px -3px currentColor;
+        }
+        /* semánticos de texto → paleta Cyan Deck */
+        #sigma-hud-root [style*="color:#00e676"] { color: #2fd39a !important; }
+        #sigma-hud-root [style*="color:#f44336"], #sigma-hud-root [style*="color:#f85149"] { color: #ff5d6c !important; }
+
+        /* Monitor: marco cinematográfico de la curva de equity */
+        #sigma-hud-root #equity-wrap {
+          border-radius: 14px; padding: 10px;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 14px 40px rgba(0,0,0,0.35);
+        }
+        #sigma-hud-root #equity-curve {
+          background: linear-gradient(180deg, #081324, #04070f) !important;
+          border-radius: 10px !important;
+          filter: saturate(1.18) drop-shadow(0 0 14px rgba(57,226,230,0.22));
+        }
+        /* grid técnico + viñeta sobre el canvas (decorativo, no bloquea el tooltip) */
+        #sigma-hud-root #equity-wrap::before {
+          content: ''; position: absolute; inset: 10px; border-radius: 10px;
+          pointer-events: none; z-index: 1;
+          background:
+            linear-gradient(rgba(57,226,230,0.05) 1px, transparent 1px) 0 0 / 100% 36px,
+            linear-gradient(90deg, rgba(57,226,230,0.04) 1px, transparent 1px) 0 0 / 48px 100%,
+            radial-gradient(ellipse 120% 90% at 50% 0%, transparent 55%, rgba(0,0,0,0.32));
+        }
+        /* ticks de esquina del monitor */
+        #sigma-hud-root #equity-wrap::after {
+          content: ''; position: absolute; inset: 10px; border-radius: 10px;
+          pointer-events: none; z-index: 1; opacity: 0.55;
+          background:
+            linear-gradient(#39e2e6,#39e2e6) left 6px top 6px / 14px 1px,
+            linear-gradient(#39e2e6,#39e2e6) left 6px top 6px / 1px 14px,
+            linear-gradient(#39e2e6,#39e2e6) right 6px top 6px / 14px 1px,
+            linear-gradient(#39e2e6,#39e2e6) right 6px top 6px / 1px 14px,
+            linear-gradient(#39e2e6,#39e2e6) left 6px bottom 6px / 14px 1px,
+            linear-gradient(#39e2e6,#39e2e6) left 6px bottom 6px / 1px 14px,
+            linear-gradient(#39e2e6,#39e2e6) right 6px bottom 6px / 14px 1px,
+            linear-gradient(#39e2e6,#39e2e6) right 6px bottom 6px / 1px 14px;
+          background-repeat: no-repeat;
+        }
+        /* tooltip del monitor: vidrio con borde cian */
+        #sigma-hud-root #equity-tooltip {
+          background: rgba(10,14,22,0.92) !important;
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(57,226,230,0.35) !important;
+          border-radius: 10px !important;
+          box-shadow: 0 12px 34px rgba(0,0,0,0.65), 0 0 16px rgba(57,226,230,0.14) !important;
+        }
+
+        /* Paginación del historial: segmented control */
+        #sigma-hud-root #hist-pagination { padding: 10px 0 2px; }
+        #sigma-hud-root #hist-pagination button, #sigma-hud-root #hist-pagination span[onclick] {
+          border-radius: 8px !important;
+          transition: border-color .2s ease, box-shadow .2s ease, color .2s ease;
+        }
+        #sigma-hud-root #hist-pagination [style*="#c9a227"], #sigma-hud-root #hist-pagination [style*="#f0d060"] {
+          border-color: #39e2e6 !important; color: #39e2e6 !important;
+          box-shadow: 0 0 12px rgba(57,226,230,0.28);
+        }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
