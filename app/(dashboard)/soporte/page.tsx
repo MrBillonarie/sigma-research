@@ -43,7 +43,7 @@ function AdminBubble({ body }: { body: string }) {
       <span style={{
         width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(212,175,55,0.12)', border: `1px solid ${C.gold}55`,
+        background: 'rgba(57,226,230,0.12)', border: `1px solid ${C.gold}55`,
         color: C.gold, fontFamily: F.mono, fontSize: 13,
       }}>Σ</span>
       <div style={{ maxWidth: '85%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: '2px 10px 10px 10px', padding: '10px 12px' }}>
@@ -142,7 +142,7 @@ export default function SoportePage() {
         @keyframes sop-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
         @keyframes sop-in    { from { opacity:0; transform:translateY(4px) } to { opacity:1; transform:none } }
         .sop-area { transition: border-color 0.2s, box-shadow 0.2s; outline: none; }
-        .sop-area:focus { border-color: ${C.gold}66 !important; box-shadow: 0 0 0 1px ${C.gold}33, 0 0 18px rgba(212,175,55,0.08); }
+        .sop-area:focus { border-color: ${C.gold}66 !important; box-shadow: 0 0 0 1px ${C.gold}33, 0 0 18px rgba(57,226,230,0.08); }
         .sop-chip { transition: color 0.15s, border-color 0.15s, background 0.15s; cursor: pointer; }
         .sop-chip:hover { border-color: ${C.gold}55; color: ${C.text}; }
         .sop-send { position: relative; overflow: hidden; transition: transform 0.2s, filter 0.2s; }
@@ -187,7 +187,7 @@ export default function SoportePage() {
                   style={{
                     fontFamily: F.mono, fontSize: 11, padding: '6px 14px', borderRadius: 999,
                     border: `1px solid ${active ? C.gold : C.border}`,
-                    background: active ? 'rgba(212,175,55,0.12)' : 'transparent',
+                    background: active ? 'rgba(57,226,230,0.12)' : 'transparent',
                     color: active ? C.gold : C.textDim,
                   }}
                 >
@@ -233,10 +233,10 @@ export default function SoportePage() {
             disabled={sending}
             className="sop-send"
             style={{
-              background: `linear-gradient(135deg, ${C.gold}, #c9a227)`, color: C.bg, border: 'none', borderRadius: 6,
+              background: `linear-gradient(135deg, ${C.gold}, #2f6bd6)`, color: C.bg, border: 'none', borderRadius: 6,
               padding: '10px 24px', fontFamily: F.mono, fontSize: 12, letterSpacing: '0.1em',
               cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1,
-              boxShadow: '0 0 20px rgba(212,175,55,0.18)',
+              boxShadow: '0 0 20px rgba(57,226,230,0.18)',
             }}
           >
             {sending ? 'ENVIANDO…' : 'ENVIAR TICKET'}
@@ -331,7 +331,7 @@ export default function SoportePage() {
                           onClick={() => handleReply(t.id)}
                           disabled={replySending === t.id || !(reply[t.id] ?? '').trim()}
                           style={{
-                            background: 'rgba(212,175,55,0.12)', color: C.gold, border: `1px solid ${C.gold}55`,
+                            background: 'rgba(57,226,230,0.12)', color: C.gold, border: `1px solid ${C.gold}55`,
                             borderRadius: 6, padding: '9px 16px', fontFamily: F.mono, fontSize: 11,
                             letterSpacing: '0.08em', cursor: 'pointer', flexShrink: 0,
                             opacity: replySending === t.id || !(reply[t.id] ?? '').trim() ? 0.5 : 1,

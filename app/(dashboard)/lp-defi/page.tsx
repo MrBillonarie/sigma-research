@@ -535,10 +535,10 @@ export default function LpSignalPage() {
         {capitalUSD === 0 && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            background: 'rgba(212,175,55,0.08)', border: `1px solid ${C.gold}50`,
+            background: 'rgba(57,226,230,0.08)', border: `1px solid ${C.gold}50`,
             padding: '12px 16px', marginBottom: 16,
           }}>
-            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: 'rgba(212,175,55,0.15)', padding: '3px 8px', flexShrink: 0 }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: 'rgba(57,226,230,0.15)', padding: '3px 8px', flexShrink: 0 }}>
               CAPITAL DE REFERENCIA
             </span>
             <span style={{ fontFamily: MONO, fontSize: 11, color: C.dimText, lineHeight: 1.5 }}>
@@ -554,10 +554,10 @@ export default function LpSignalPage() {
         {!loading && engine.pools.length > 0 && engine.pools.every(p => p.apiFailed) && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            background: 'rgba(212,175,55,0.06)', border: `1px solid ${C.gold}50`,
+            background: 'rgba(57,226,230,0.06)', border: `1px solid ${C.gold}50`,
             padding: '12px 18px', marginBottom: 16,
           }}>
-            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: 'rgba(212,175,55,0.15)', padding: '3px 8px', flexShrink: 0 }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.2em', color: C.gold, background: 'rgba(57,226,230,0.15)', padding: '3px 8px', flexShrink: 0 }}>
               DATOS DE REFERENCIA
             </span>
             <span style={{ fontFamily: MONO, fontSize: 11, color: C.dimText, lineHeight: 1.5 }}>

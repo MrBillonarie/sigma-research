@@ -67,7 +67,7 @@ export default function PositionsTable({ positions, equity }: PositionsTableProp
     }}>
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-        background: 'linear-gradient(90deg, rgba(212,175,55,0.75), transparent 70%)',
+        background: 'linear-gradient(90deg, rgba(57,226,230,0.75), transparent 70%)',
       }} />
       <div style={{
         padding: '10px 14px', fontFamily: MONO, fontSize: 10, color: '#555',

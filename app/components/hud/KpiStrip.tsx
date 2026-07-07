@@ -1,11 +1,11 @@
 // Valores tomados 1:1 de dashboard.py (.kpi-strip/.kpi-card/...) + el reskin
 // Black&Gold que hud/page.tsx ya aplicaba sobre el scrape (fondo #0b0d14,
-// gold #d4af37, letter-spacing .18em en label) -- esto es el resultado final
+// gold #39e2e6, letter-spacing .18em en label) -- esto es el resultado final
 // que el usuario ve hoy, replicado nativo, sin reinterpretar el diseno.
 const KPI = {
   bg: '#0b0d14',
   border: '#1a1d2e',
-  gold: '#d4af37',
+  gold: '#39e2e6',
   labelColor: '#7a7f9a',
   subColor: '#7a8db5',
   text: '#e2e8f8',
@@ -45,7 +45,7 @@ function KpiCard({ label, value, valueColor: vc, sub }: { label: string; value: 
     }}>
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-        background: `linear-gradient(90deg, rgba(212,175,55,0.75), transparent 70%)`,
+        background: `linear-gradient(90deg, rgba(57,226,230,0.75), transparent 70%)`,
       }} />
       <div style={{
         fontFamily: KPI.mono, fontSize: 8, fontWeight: 600, letterSpacing: '.18em',

@@ -686,7 +686,7 @@ ${hasRealData && dbWinRate > 0 ? `
             </div>
             <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,72px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
               <span style={{ color: C.text }}>SIGMA</span>{' '}
-              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>DIAGNOSTICADOR</span>
+              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#2f6bd6)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>DIAGNOSTICADOR</span>
             </h1>
           </div>
 

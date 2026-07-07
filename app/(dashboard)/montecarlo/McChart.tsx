@@ -10,7 +10,7 @@ import type { SimResult } from './types'
 // exactos por mes. El target se re-lee en vivo (mover el slider de objetivo
 // re-tiñe las trayectorias sin resimular).
 
-const GOLD = '#d4af37', GLOW = '#f0cc5a', GREEN = '#34d399', RED = '#f87171'
+const GOLD = '#39e2e6', GLOW = '#5eeaf0', GREEN = '#34d399', RED = '#f87171'
 const BG = '#04050a', BORDER = '#1a1d2e', DIM = '#7a7f9a', MUTED = '#3a3f55'
 
 const fmt = (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
@@ -85,7 +85,7 @@ export default function McChart({ result, capital, target, years, nSims }: Props
       for (let g = 1; g <= 4; g++) {
         const v = (maxV / 4) * g
         const y = ys(v)
-        ctx!.strokeStyle = 'rgba(212,175,55,0.06)'
+        ctx!.strokeStyle = 'rgba(57,226,230,0.06)'
         ctx!.lineWidth = 1
         ctx!.setLineDash([3, 5])
         ctx!.beginPath(); ctx!.moveTo(L, y); ctx!.lineTo(Rx, y); ctx!.stroke()
@@ -147,7 +147,7 @@ export default function McChart({ result, capital, target, years, nSims }: Props
         for (let t = 1; t <= lastI; t++) ctx!.lineTo(xs(t), ys(R.p90[t]))
         for (let t = lastI; t >= 0; t--) ctx!.lineTo(xs(t), ys(R.p10[t]))
         ctx!.closePath()
-        ctx!.fillStyle = 'rgba(212,175,55,0.06)'
+        ctx!.fillStyle = 'rgba(57,226,230,0.06)'
         ctx!.fill()
 
         const band = (arr: number[], color: string, width: number, dash: number[]) => {
@@ -185,7 +185,7 @@ export default function McChart({ result, capital, target, years, nSims }: Props
       ctx!.fillText(`CAPITAL ${fmt(CAP)}`, L + 6, cy - 5)
 
       // ── Línea de objetivo + chip ──
-      ctx!.strokeStyle = 'rgba(212,175,55,0.5)'
+      ctx!.strokeStyle = 'rgba(57,226,230,0.5)'
       ctx!.lineWidth = 1
       ctx!.setLineDash([8, 5])
       ctx!.beginPath(); ctx!.moveTo(L, ty); ctx!.lineTo(Rx, ty); ctx!.stroke()
@@ -194,7 +194,7 @@ export default function McChart({ result, capital, target, years, nSims }: Props
       const ow = ctx!.measureText(objTxt).width + 12
       ctx!.fillStyle = 'rgba(11,13,20,0.92)'
       ctx!.fillRect(Rx - ow, ty - 9, ow, 16)
-      ctx!.strokeStyle = 'rgba(212,175,55,0.4)'
+      ctx!.strokeStyle = 'rgba(57,226,230,0.4)'
       ctx!.strokeRect(Rx - ow + 0.5, ty - 8.5, ow - 1, 15)
       ctx!.fillStyle = GOLD
       ctx!.fillText(objTxt, Rx - ow + 6, ty + 3)
@@ -223,7 +223,7 @@ export default function McChart({ result, capital, target, years, nSims }: Props
         const by = TP + 8
         ctx!.fillStyle = 'rgba(11,13,20,0.95)'
         ctx!.fillRect(bx, by, bw, bh)
-        ctx!.strokeStyle = 'rgba(212,175,55,0.35)'
+        ctx!.strokeStyle = 'rgba(57,226,230,0.35)'
         ctx!.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1)
         ctx!.textAlign = 'left'
         ctx!.fillStyle = DIM

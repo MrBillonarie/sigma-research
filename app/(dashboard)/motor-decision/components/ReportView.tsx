@@ -7,7 +7,7 @@ const SIGNAL_ES: Record<SignalType, string> = {
   comprar: 'COMPRAR', mantener: 'MANTENER', reducir: 'REDUCIR', neutral: 'NEUTRAL',
 }
 const SIGNAL_COLOR: Record<SignalType, string> = {
-  comprar: '#1D9E75', mantener: '#d4af37', reducir: '#f87171', neutral: '#7a7f9a',
+  comprar: '#1D9E75', mantener: '#39e2e6', reducir: '#f87171', neutral: '#7a7f9a',
 }
 const CLASS_ICON: Record<string, string> = {
   fondos: '🏦', etfs: '📊', renta_fija: '🏛️', crypto: '🪙',
@@ -97,7 +97,7 @@ export default function ReportView({ report, onClose }: Props) {
       doc.setFillColor(11, 13, 20)
       doc.rect(0, 0, W, 42, 'F')
       // Línea dorada de acento
-      doc.setFillColor(212, 175, 55)
+      doc.setFillColor(57,226,230)
       doc.rect(0, 42, W, 1, 'F')
       // Logo Σ (box)
       doc.setFillColor(29, 158, 117)
@@ -134,13 +134,13 @@ export default function ReportView({ report, onClose }: Props) {
       nl(4); divider()
 
       // ── Asignación ────────────────────────────────────────────────────────────
-      sectionHeader('ASIGNACIÓN ÓPTIMA', [212, 175, 55])
+      sectionHeader('ASIGNACIÓN ÓPTIMA', [57,226,230])
       nl(2)
       const alloc = report.allocation
       const allocData: [string, number, [number,number,number]][] = [
         ['Fondos Mutuos', alloc.fondos,     [29, 158, 117]],
         ['ETFs Globales', alloc.etfs,       [55, 138, 221]],
-        ['Renta Fija',    alloc.renta_fija, [212, 175, 55]],
+        ['Renta Fija',    alloc.renta_fija, [57,226,230]],
         ['Crypto',        alloc.crypto,     [167, 139, 250]],
       ]
       allocData.forEach(([label, val, color]) => {
@@ -167,7 +167,7 @@ export default function ReportView({ report, onClose }: Props) {
       sectionHeader('TOP 5 MOVIMIENTOS RECOMENDADOS', [167, 139, 250])
       nl(2)
       report.topMoves.forEach((m, i) => {
-        const sigColor: [number,number,number] = m.action === 'comprar' ? [29,158,117] : m.action === 'reducir' ? [248,113,113] : [212,175,55]
+        const sigColor: [number,number,number] = m.action === 'comprar' ? [29,158,117] : m.action === 'reducir' ? [248,113,113] : [57,226,230]
         // Fondo del item
         doc.setFillColor(11, 13, 20)
         doc.rect(MARGIN, y - 2, INNER, 18, 'F')
@@ -182,7 +182,7 @@ export default function ReportView({ report, onClose }: Props) {
       sectionHeader('SCORE FLUJO DE CAPITAL CROSS-MARKET', [55, 138, 221])
       nl(3)
       const fc = report.flowScore
-      const fcColor: [number,number,number] = fc > 60 ? [29,158,117] : fc > 40 ? [212,175,55] : [248,113,113]
+      const fcColor: [number,number,number] = fc > 60 ? [29,158,117] : fc > 40 ? [57,226,230] : [248,113,113]
       // Score grande
       doc.setFontSize(28)
       doc.setFont('helvetica', 'bold')
@@ -288,7 +288,7 @@ export default function ReportView({ report, onClose }: Props) {
           <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: 'monospace', minWidth: 120 }}>SCORE FLUJO GLOBAL</div>
           <div style={{
             fontSize: 28, fontFamily: "'Bebas Neue', Impact, sans-serif",
-            color: report.flowScore > 60 ? '#1D9E75' : report.flowScore < 40 ? '#f87171' : '#d4af37',
+            color: report.flowScore > 60 ? '#1D9E75' : report.flowScore < 40 ? '#f87171' : '#39e2e6',
           }}>
             {report.flowScore}/100
           </div>

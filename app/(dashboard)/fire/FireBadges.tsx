@@ -3,7 +3,7 @@ import { BADGES } from './challenges'
 
 const C = {
   bg: '#04050a', surface: '#0b0d14', border: '#1a1d2e',
-  dimText: '#7a7f9a', text: '#e8e9f0', gold: '#d4af37', green: '#34d399',
+  dimText: '#7a7f9a', text: '#e8e9f0', gold: '#39e2e6', green: '#34d399',
 }
 
 interface Props {
@@ -26,8 +26,8 @@ export default function FireBadges({ earnedBadges }: Props) {
               key={badge.id}
               title={badge.description}
               style={{
-                background: isEarned ? 'rgba(212,175,55,0.06)' : C.bg,
-                border: `1px solid ${isEarned ? 'rgba(212,175,55,0.4)' : C.border}`,
+                background: isEarned ? 'rgba(57,226,230,0.06)' : C.bg,
+                border: `1px solid ${isEarned ? 'rgba(57,226,230,0.4)' : C.border}`,
                 padding: '12px 14px',
                 display: 'flex',
                 flexDirection: 'column',

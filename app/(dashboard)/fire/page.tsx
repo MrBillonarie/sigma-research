@@ -16,7 +16,7 @@ const FireChart = dynamic(() => import('./FireChart'), {
 const C = {
   bg: '#04050a', surface: '#0b0d14', border: '#1a1d2e',
   muted: '#3a3f55', dimText: '#7a7f9a', text: '#e8e9f0',
-  gold: '#d4af37', glow: '#f0cc5a', green: '#34d399', red: '#f87171', yellow: '#fbbf24',
+  gold: '#39e2e6', glow: '#5eeaf0', green: '#34d399', red: '#f87171', yellow: '#fbbf24',
 }
 
 // ─── FIRE modes ───────────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ const MODES = [
   {
     id: 'fat',
     name: 'FAT FIRE',
-    color: '#d4af37',
+    color: '#39e2e6',
     description: 'Retiro completo con alto estándar de vida. Lujo, viajes frecuentes y sin restricciones financieras.',
     defaultGasto: 6000,
     peak: 0.95,
@@ -274,14 +274,14 @@ export default function FirePage() {
         .fr-wrap { position:relative; height:104px; perspective:520px; overflow:hidden; margin-top:2px; }
         .fr-plane { position:absolute; left:24px; right:34px; bottom:4px; height:140px;
           transform: rotateX(52deg); transform-origin:50% 100%; transform-style:preserve-3d;
-          background: linear-gradient(180deg, transparent 30%, rgba(212,175,55,0.04));
-          border-top:1px solid rgba(212,175,55,0.14); border-bottom:1px solid rgba(212,175,55,0.10); }
+          background: linear-gradient(180deg, transparent 30%, rgba(57,226,230,0.04));
+          border-top:1px solid rgba(57,226,230,0.14); border-bottom:1px solid rgba(57,226,230,0.10); }
         .fr-fill { position:absolute; top:0; bottom:0; left:0;
-          background: linear-gradient(90deg, rgba(212,175,55,0.10), rgba(212,175,55,0.26));
-          border-right: 2px solid rgba(240,204,90,0.7); box-shadow: 0 0 22px rgba(212,175,55,0.18);
+          background: linear-gradient(90deg, rgba(57,226,230,0.10), rgba(57,226,230,0.26));
+          border-right: 2px solid rgba(240,204,90,0.7); box-shadow: 0 0 22px rgba(57,226,230,0.18);
           transition: width .5s ease; }
         .fr-dashes { position:absolute; inset:0; pointer-events:none;
-          background-image: repeating-linear-gradient(90deg, rgba(212,175,55,0.10) 0 2px, transparent 2px 42px);
+          background-image: repeating-linear-gradient(90deg, rgba(57,226,230,0.10) 0 2px, transparent 2px 42px);
           animation: frMove 2.8s linear infinite; }
         @keyframes frMove { to { background-position: 42px 0; } }
 
@@ -291,15 +291,15 @@ export default function FirePage() {
         .fr-beam { position:absolute; bottom:26px; left:-13px; width:26px; height:2px; background:#3a3f55; transition: background .3s, box-shadow .3s; }
         .fr-glabel { position:absolute; bottom:32px; left:0; transform:translateX(-50%);
           font-family:monospace; font-size:8px; letter-spacing:0.12em; color:#3a3f55; transition:color .3s; white-space:nowrap; }
-        .fr-lit .fr-post, .fr-lit .fr-beam { background:#d4af37; box-shadow:0 0 10px rgba(212,175,55,0.55); }
-        .fr-lit .fr-glabel { color:#f0cc5a; }
+        .fr-lit .fr-post, .fr-lit .fr-beam { background:#39e2e6; box-shadow:0 0 10px rgba(57,226,230,0.55); }
+        .fr-lit .fr-glabel { color:#5eeaf0; }
 
         .fr-portal .fr-post { height:38px; }
         .fr-portal .fr-pl { left:-17px; } .fr-portal .fr-pr { left:15px; }
         .fr-portal .fr-beam { bottom:38px; left:-17px; width:34px; }
         .fr-portal .fr-glabel { bottom:44px; color:#7a7f9a; }
         .fr-halo { position:absolute; bottom:0; left:-24px; width:48px; height:48px; pointer-events:none;
-          background: radial-gradient(circle at 50% 100%, rgba(212,175,55,0.22), transparent 70%); }
+          background: radial-gradient(circle at 50% 100%, rgba(57,226,230,0.22), transparent 70%); }
         .fr-portal.fr-lit .fr-halo { background: radial-gradient(circle at 50% 100%, rgba(52,211,153,0.35), transparent 70%); }
         .fr-portal.fr-lit .fr-post, .fr-portal.fr-lit .fr-beam { background:#34d399; box-shadow:0 0 14px rgba(52,211,153,0.6); }
         .fr-portal.fr-lit .fr-glabel { color:#34d399; }
@@ -308,7 +308,7 @@ export default function FirePage() {
         .fr-ray { position:absolute; bottom:0; left:-1px; width:2px; height:30px;
           background: linear-gradient(180deg, transparent, rgba(240,204,90,0.9)); }
         .fr-orb { position:absolute; bottom:-4px; left:-4px; width:8px; height:8px; border-radius:50%;
-          background:#f0cc5a; box-shadow:0 0 12px rgba(212,175,55,0.9); animation: frPulse 1.6s ease-in-out infinite; }
+          background:#5eeaf0; box-shadow:0 0 12px rgba(57,226,230,0.9); animation: frPulse 1.6s ease-in-out infinite; }
         @keyframes frPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.35); } }
 
         @media (prefers-reduced-motion: reduce) {
@@ -325,7 +325,7 @@ export default function FirePage() {
             {'// INDEPENDENCIA FINANCIERA · REGLA DEL 4%'}
           </div>
           <h1 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(44px, 6vw, 80px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
-            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>FIRE</span>{' '}
+            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#2f6bd6)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>FIRE</span>{' '}
             <span style={{ color: C.text }}>PLANNER</span>
           </h1>
         </div>
@@ -464,7 +464,7 @@ export default function FirePage() {
                       const pct = Math.min((val / target) * 100, 100)
                       const isFire = fireYear !== null && yr === fireYear
                       return (
-                        <tr key={yr} style={{ borderBottom: `1px solid ${C.border}`, background: isFire ? 'rgba(52,211,153,0.06)' : yr % 2 === 0 ? 'transparent' : 'rgba(212,175,55,0.02)' }}>
+                        <tr key={yr} style={{ borderBottom: `1px solid ${C.border}`, background: isFire ? 'rgba(52,211,153,0.06)' : yr % 2 === 0 ? 'transparent' : 'rgba(57,226,230,0.02)' }}>
                           <td style={{ padding: '9px 16px', color: isFire ? C.green : C.dimText }}>{isFire ? '🎯 ' : ''}{yr}</td>
                           <td style={{ padding: '9px 16px', color: C.dimText }}>{edad + yr}</td>
                           <td style={{ padding: '9px 16px', color: isFire ? C.green : (val >= target ? C.green : C.text) }}>{fmt(val)}</td>

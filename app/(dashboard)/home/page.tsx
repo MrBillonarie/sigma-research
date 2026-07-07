@@ -1001,8 +1001,8 @@ export default function DashboardHome() {
                       <span style={{ fontFamily:'monospace', fontSize:9, color:C.dimText }}>{D.nextEvent.date} · {D.nextEvent.time}</span>
                       <span style={{ fontFamily:'monospace', fontSize:9, fontWeight:700, padding:'1px 6px',
                         color:   D.nextEvent.daysUntil === 0 ? C.red : D.nextEvent.daysUntil === 1 ? C.yellow : C.gold,
-                        background: D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.12)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.12)' : 'rgba(212,175,55,0.08)',
-                        border: `1px solid ${D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.3)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.3)' : 'rgba(212,175,55,0.2)'}`,
+                        background: D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.12)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.12)' : 'rgba(57,226,230,0.08)',
+                        border: `1px solid ${D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.3)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.3)' : 'rgba(57,226,230,0.2)'}`,
                       }}>
                         {D.nextEvent.daysUntil === 0 ? 'HOY' : D.nextEvent.daysUntil === 1 ? 'MAÑANA' : `en ${D.nextEvent.daysUntil}d`}
                       </span>

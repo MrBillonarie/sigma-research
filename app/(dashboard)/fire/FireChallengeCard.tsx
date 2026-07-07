@@ -4,7 +4,7 @@ import type { Challenge } from './challenges'
 const C = {
   bg: '#04050a', surface: '#0b0d14', border: '#1a1d2e',
   dimText: '#7a7f9a', text: '#e8e9f0',
-  gold: '#d4af37', green: '#34d399', muted: '#3a3f55',
+  gold: '#39e2e6', green: '#34d399', muted: '#3a3f55',
 }
 
 interface Props {

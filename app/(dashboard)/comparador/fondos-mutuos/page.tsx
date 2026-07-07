@@ -191,7 +191,7 @@ export default function FondosMutuosPage() {
               CARGANDO…
             </span>
           ) : isSeed ? (
-            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.15em', color: C.yellow, background: 'rgba(212,175,55,0.10)', border: `1px solid rgba(212,175,55,0.3)`, padding: '3px 8px', borderRadius: 4 }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.15em', color: C.yellow, background: 'rgba(57,226,230,0.10)', border: `1px solid rgba(57,226,230,0.3)`, padding: '3px 8px', borderRadius: 4 }}>
               ◈ DATOS DE REFERENCIA
             </span>
           ) : ultimaAct ? (
@@ -351,11 +351,11 @@ export default function FondosMutuosPage() {
                   return (
                     <tr key={`${f.nombre}-${i}`} style={{
                       borderBottom: i < fondos.length - 1 ? `1px solid ${C.border}` : 'none',
-                      background:   isBest ? 'rgba(212,175,55,0.04)' : 'transparent',
+                      background:   isBest ? 'rgba(57,226,230,0.04)' : 'transparent',
                     }}>
                       <td style={{ padding: '12px 14px', fontFamily: MONO, fontSize: 12, color: isBest ? C.gold : C.text, whiteSpace: 'nowrap' }}>
                         {f.nombre}
-                        {isBest && <span style={{ marginLeft: 8, fontSize: 9, color: C.gold, background: 'rgba(212,175,55,0.12)', padding: '2px 6px', borderRadius: 4 }}>★ TOP</span>}
+                        {isBest && <span style={{ marginLeft: 8, fontSize: 9, color: C.gold, background: 'rgba(57,226,230,0.12)', padding: '2px 6px', borderRadius: 4 }}>★ TOP</span>}
                       </td>
                       <td style={{ padding: '12px 14px', fontFamily: MONO, fontSize: 12, color: C.dimText, whiteSpace: 'nowrap' }}>{f.adm}</td>
                       <td style={{ padding: '12px 14px', textAlign: 'right' }}><RiesgoPill n={f.riesgo} /></td>
@@ -385,7 +385,7 @@ export default function FondosMutuosPage() {
             return (
               <div key={`${f.nombre}-${i}`} style={{
                 display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-                background: isFirst ? 'rgba(212,175,55,0.06)' : C.surface,
+                background: isFirst ? 'rgba(57,226,230,0.06)' : C.surface,
                 border: `1px solid ${isFirst ? C.gold : C.border}`,
                 borderRadius: 10, padding: '14px 18px',
               }}>
@@ -401,7 +401,7 @@ export default function FondosMutuosPage() {
                 <div style={{ flex: 1, minWidth: 140 }}>
                   <div style={{ fontFamily: MONO, fontSize: 13, color: isFirst ? C.gold : C.text }}>
                     {f.nombre}
-                    {isFirst && <span style={{ marginLeft: 8, fontSize: 9, color: C.gold, background: 'rgba(212,175,55,0.15)', padding: '2px 7px', borderRadius: 4 }}>MEJOR 12M</span>}
+                    {isFirst && <span style={{ marginLeft: 8, fontSize: 9, color: C.gold, background: 'rgba(57,226,230,0.15)', padding: '2px 7px', borderRadius: 4 }}>MEJOR 12M</span>}
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 11, color: C.dimText, marginTop: 2 }}>{f.adm}</div>
                 </div>

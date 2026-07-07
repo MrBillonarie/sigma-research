@@ -6,7 +6,7 @@ import type { MatrixCellData, ModelStats, CombinedEstimate } from '@/app/types/h
 const MONO = "'IBM Plex Mono', monospace"
 const CARD_BG = '#0b0d14'
 const CARD_BORDER = '#1a1d2e'
-const GOLD = '#d4af37'
+const GOLD = '#39e2e6'
 
 const ASSET_COLOR: Record<string, string> = {
   BTC: '#f7931a', ETH: '#627eea', LTC: '#345d9d', SOL: '#9945ff', BNB: '#f3ba2f',
@@ -166,7 +166,7 @@ export default function MotorMatrix({ label, assets, cells }: MotorMatrixProps) 
     }}>
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-        background: 'linear-gradient(90deg, rgba(212,175,55,0.75), transparent 70%)',
+        background: 'linear-gradient(90deg, rgba(57,226,230,0.75), transparent 70%)',
       }} />
       <div style={{
         padding: '10px 14px', fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18,

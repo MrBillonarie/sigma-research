@@ -9,7 +9,7 @@ import type { Allocation, PortfolioMetrics } from '@/types/decision-engine'
 const COLORS = {
   fondos:     '#1D9E75',
   etfs:       '#378ADD',
-  renta_fija: '#d4af37',
+  renta_fija: '#39e2e6',
   crypto:     '#a78bfa',
 }
 
@@ -152,7 +152,7 @@ export default function AllocationDonut({ allocation, metrics, capital = 0, curr
                 </div>
                 <div style={{ fontSize: 9, color: '#7a7f9a', fontFamily: 'monospace', marginTop: 2 }}>RET. ESP.</div>
                 {capital > 0 && (
-                  <div style={{ fontSize: 11, color: '#d4af37', fontFamily: 'monospace', marginTop: 5 }}>
+                  <div style={{ fontSize: 11, color: '#39e2e6', fontFamily: 'monospace', marginTop: 5 }}>
                     {fmt(animCapital, currency)}
                   </div>
                 )}

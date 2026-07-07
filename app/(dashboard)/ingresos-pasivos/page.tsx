@@ -265,7 +265,7 @@ function IncomeRivers({ breakdown, total }: {
         @keyframes ipRiverDraw { to { stroke-dashoffset: 0 } }
         @keyframes ipSourceGlow { to { opacity: 1 } }
         @keyframes ipCoreArrive { to { opacity: 1 } }
-        .ip-row:hover { background: rgba(212,175,55,0.045); }
+        .ip-row:hover { background: rgba(57,226,230,0.045); }
         tbody tr.ip-row:nth-child(even) { background: rgba(255,255,255,0.012); }
       `}</style>
     </div>
@@ -558,7 +558,7 @@ export default function IngresoPasivosPage() {
           </div>
           <h1 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(44px, 6vw, 80px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
             <span style={{ color: C.text }}>INGRESOS</span>{' '}
-            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PASIVOS</span>
+            <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#2f6bd6)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PASIVOS</span>
           </h1>
           <p style={{ fontFamily: 'monospace', fontSize: 13, color: C.dimText, marginTop: 14, maxWidth: 600, lineHeight: 1.7 }}>
             Centraliza y visualiza todas tus fuentes de ingreso pasivo. Registra posiciones, compara opciones del mercado y proyecta tu crecimiento.

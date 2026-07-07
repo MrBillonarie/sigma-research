@@ -238,10 +238,10 @@ export default function HUDPage() {
         }
         #sigma-hud-root .card::before {
           content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-          background: linear-gradient(90deg, rgba(212,175,55,0.75), transparent 70%);
+          background: linear-gradient(90deg, rgba(57,226,230,0.75), transparent 70%);
         }
         #sigma-hud-root .card-title {
-          color: #d4af37 !important;
+          color: #39e2e6 !important;
           letter-spacing: 0.18em !important;
           text-transform: uppercase;
         }
@@ -269,15 +269,15 @@ export default function HUDPage() {
           font-family: 'Bebas Neue', Impact, sans-serif !important;
           font-size: 22px !important;
           letter-spacing: 0.14em !important;
-          color: #d4af37 !important;
-          text-shadow: 0 0 24px rgba(212,175,55,0.3);
+          color: #39e2e6 !important;
+          text-shadow: 0 0 24px rgba(57,226,230,0.3);
         }
         #sigma-hud-root .section-divider-line {
           height: 1px !important;
-          background: linear-gradient(90deg, transparent, rgba(212,175,55,0.45)) !important;
+          background: linear-gradient(90deg, transparent, rgba(57,226,230,0.45)) !important;
         }
         #sigma-hud-root .section-divider-line:last-of-type {
-          background: linear-gradient(270deg, transparent, rgba(212,175,55,0.45)) !important;
+          background: linear-gradient(270deg, transparent, rgba(57,226,230,0.45)) !important;
         }
 
         /* ══ 3. Dosis ligera de glow en datos clave ══ */
@@ -288,7 +288,7 @@ export default function HUDPage() {
         #sigma-hud-root ::-webkit-scrollbar { width: 8px; height: 8px; }
         #sigma-hud-root ::-webkit-scrollbar-track { background: transparent; }
         #sigma-hud-root ::-webkit-scrollbar-thumb { background: #1a1d2e; border-radius: 4px; }
-        #sigma-hud-root ::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.45); }
+        #sigma-hud-root ::-webkit-scrollbar-thumb:hover { background: rgba(57,226,230,0.45); }
       `}</style>
 
       {status === 'loading' && (
@@ -298,7 +298,7 @@ export default function HUDPage() {
           gap: 20, zIndex: 9999,
         }}>
           <div style={{
-            fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#c9a227',
+            fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#2f6bd6',
             lineHeight: 1, animation: 'hud-pulse 1.6s ease-in-out infinite',
             textShadow: '0 0 34px rgba(201,162,39,0.45)',
           }}>
@@ -307,7 +307,7 @@ export default function HUDPage() {
           <div style={{ width: 180, height: 2, background: 'rgba(201,162,39,0.15)', borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
             <div style={{
               position: 'absolute', top: 0, bottom: 0, width: '40%',
-              background: 'linear-gradient(90deg, transparent, #c9a227, transparent)',
+              background: 'linear-gradient(90deg, transparent, #2f6bd6, transparent)',
               animation: 'hud-scan 1.4s ease-in-out infinite',
             }} />
           </div>

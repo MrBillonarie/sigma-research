@@ -555,7 +555,7 @@ function EquityCanvas({ curve, ddIdx, ddPct }: {
       for (let g = 0; g <= 4; g++) {
         const v = minV + ((maxV - minV) / 4) * g
         const y = ys(v)
-        ctx!.strokeStyle = 'rgba(212,175,55,0.06)'; ctx!.lineWidth = 1; ctx!.setLineDash([3, 5])
+        ctx!.strokeStyle = 'rgba(57,226,230,0.06)'; ctx!.lineWidth = 1; ctx!.setLineDash([3, 5])
         ctx!.beginPath(); ctx!.moveTo(ML, y); ctx!.lineTo(W - MR, y); ctx!.stroke(); ctx!.setLineDash([])
         ctx!.fillStyle = C.dimText
         ctx!.fillText(`$${Math.round(v).toLocaleString('en-US')}`, ML - 8, y + 3)
@@ -594,8 +594,8 @@ function EquityCanvas({ curve, ddIdx, ddPct }: {
       ctx!.beginPath(); ctx!.rect(ML - 2, 0, revealX - ML + 4, H); ctx!.clip()
       // área
       const grad = ctx!.createLinearGradient(0, MT, 0, H - MB)
-      grad.addColorStop(0, 'rgba(212,175,55,0.28)')
-      grad.addColorStop(1, 'rgba(212,175,55,0.02)')
+      grad.addColorStop(0, 'rgba(57,226,230,0.28)')
+      grad.addColorStop(1, 'rgba(57,226,230,0.02)')
       ctx!.beginPath()
       ctx!.moveTo(xs(0), ys(Math.max(0, minV) === 0 && minV < 0 ? 0 : minV))
       ctx!.lineTo(xs(0), ys(A[0].equity))
@@ -618,7 +618,7 @@ function EquityCanvas({ curve, ddIdx, ddPct }: {
       // punto final pulsante + etiqueta
       if (p >= 0.98) {
         const fx = xs(n - 1), fy = ys(A[n - 1].equity)
-        ctx!.strokeStyle = `rgba(212,175,55,${0.35 - pulse * 0.15})`
+        ctx!.strokeStyle = `rgba(57,226,230,${0.35 - pulse * 0.15})`
         ctx!.lineWidth = 1.5
         ctx!.beginPath(); ctx!.arc(fx, fy, 7 + pulse * 2.5, 0, Math.PI * 2); ctx!.stroke()
         ctx!.save()
@@ -649,7 +649,7 @@ function EquityCanvas({ curve, ddIdx, ddPct }: {
         if (bx + bw > W - 6) bx = hx - bw - 12
         ctx!.fillStyle = 'rgba(11,13,20,0.95)'
         ctx!.fillRect(bx, MT + 6, bw, 52)
-        ctx!.strokeStyle = 'rgba(212,175,55,0.35)'
+        ctx!.strokeStyle = 'rgba(57,226,230,0.35)'
         ctx!.strokeRect(bx + 0.5, MT + 6.5, bw - 1, 51)
         ctx!.textAlign = 'left'
         ctx!.fillStyle = C.dimText; ctx!.fillText(lines[0], bx + 10, MT + 21)
@@ -1116,7 +1116,7 @@ export default function JournalPage() {
     // ─ Header
     doc.setFillColor(4, 5, 10)
     doc.rect(0, 0, W, 40, 'F')
-    doc.setTextColor(212, 175, 55)
+    doc.setTextColor(57,226,230)
     doc.setFontSize(22)
     doc.setFont('helvetica', 'bold')
     doc.text('SIGMA RESEARCH', 14, 16)
@@ -1133,7 +1133,7 @@ export default function JournalPage() {
       { label: 'PNL TOTAL',     value: `${stats.pnl >= 0 ? '+' : ''}$${Math.round(stats.pnl).toLocaleString('es-CL')}`, color: stats.pnl >= 0 ? '#34d399' : '#f87171' },
       { label: 'BEST TRADE',    value: `+$${Math.round(stats.best).toLocaleString('es-CL')}`, color: '#34d399' },
       { label: 'WORST TRADE',   value: `$${Math.round(stats.worst).toLocaleString('es-CL')}`, color: '#f87171' },
-      { label: 'TOTAL TRADES',  value: String(stats.total),                          color: '#d4af37' },
+      { label: 'TOTAL TRADES',  value: String(stats.total),                          color: '#39e2e6' },
       { label: 'AVG SIZE',      value: `$${Math.round(stats.avgSize).toLocaleString('es-CL')}`, color: '#7a7f9a' },
     ]
     const colW = (W - 28) / 3
@@ -1151,7 +1151,7 @@ export default function JournalPage() {
 
     // ─ Recent trades table
     let y = 106
-    doc.setTextColor(212, 175, 55); doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+    doc.setTextColor(57,226,230); doc.setFontSize(9); doc.setFont('helvetica', 'bold')
     doc.text('// ÚLTIMOS 20 TRADES', 14, y)
     y += 6
     doc.setFillColor(26, 29, 46)
@@ -1220,7 +1220,7 @@ export default function JournalPage() {
 
     doc.setFillColor(4, 5, 10)
     doc.rect(0, 0, W, 40, 'F')
-    doc.setTextColor(212, 175, 55)
+    doc.setTextColor(57,226,230)
     doc.setFontSize(22)
     doc.setFont('helvetica', 'bold')
     doc.text('SIGMA RESEARCH', 14, 16)
@@ -1236,8 +1236,8 @@ export default function JournalPage() {
       { label: 'PROFIT FACTOR', value: motorAnalytics.profitFactor >= 999 ? '∞' : motorAnalytics.profitFactor.toFixed(2), color: motorAnalytics.profitFactor >= 1 ? '#34d399' : '#f87171' },
       { label: 'PNL NETO',      value: `${motorAnalytics.pnlNeto >= 0 ? '+' : ''}$${Math.round(motorAnalytics.pnlNeto).toLocaleString('es-CL')}`, color: motorAnalytics.pnlNeto >= 0 ? '#34d399' : '#f87171' },
       { label: 'MAX DRAWDOWN',  value: `${motorAnalytics.maxDrawdownPct.toFixed(1)}%`, color: '#f87171' },
-      { label: 'TOTAL TRADES',  value: String(motorAnalytics.totalTrades), color: '#d4af37' },
-      { label: 'EQUITY ACTUAL', value: `$${Math.round(motorEquityFinal).toLocaleString('es-CL')}`, color: '#d4af37' },
+      { label: 'TOTAL TRADES',  value: String(motorAnalytics.totalTrades), color: '#39e2e6' },
+      { label: 'EQUITY ACTUAL', value: `$${Math.round(motorEquityFinal).toLocaleString('es-CL')}`, color: '#39e2e6' },
     ]
     const colW = (W - 28) / 3
     kpis.forEach((k, i) => {
@@ -1253,7 +1253,7 @@ export default function JournalPage() {
     })
 
     let y = 106
-    doc.setTextColor(212, 175, 55); doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+    doc.setTextColor(57,226,230); doc.setFontSize(9); doc.setFont('helvetica', 'bold')
     doc.text('// ÚLTIMOS 20 TRADES DEL MOTOR', 14, y)
     y += 6
     doc.setFillColor(26, 29, 46)
@@ -1332,7 +1332,7 @@ export default function JournalPage() {
             </div>
             <h1 style={{ fontFamily: "'Bebas Neue',var(--font-bebas),Impact,sans-serif", fontSize: 'clamp(40px,5vw,72px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
               <span style={{ color: C.text }}>TRADE</span>{' '}
-              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>JOURNAL</span>
+              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#2f6bd6)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>JOURNAL</span>
             </h1>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>

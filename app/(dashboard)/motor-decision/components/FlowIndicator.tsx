@@ -14,7 +14,7 @@ interface Props {
 }
 
 const BG = '#0b0d14', BORDER = '#1a1d2e', DIM = '#7a7f9a', MUTED = '#3a3f55'
-const TEXT = '#e8e9f0', GREEN = '#1D9E75', RED = '#f87171', GOLD = '#d4af37'
+const TEXT = '#e8e9f0', GREEN = '#1D9E75', RED = '#f87171', GOLD = '#39e2e6'
 
 function useCountUp(target: number, dur = 1200) {
   const [v, setV] = useState(0)

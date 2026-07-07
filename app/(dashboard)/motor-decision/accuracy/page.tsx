@@ -27,7 +27,7 @@ interface AccuracyData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function accColor(acc: number) {
-  return acc >= 60 ? '#1D9E75' : acc >= 45 ? '#d4af37' : '#f87171'
+  return acc >= 60 ? '#1D9E75' : acc >= 45 ? '#39e2e6' : '#f87171'
 }
 function retColor(r: number) { return r > 0 ? '#1D9E75' : r < 0 ? '#f87171' : '#7a7f9a' }
 
@@ -304,7 +304,7 @@ export default function AccuracyPage() {
                               {r.signal.toUpperCase()}
                             </span>
                           </td>
-                          <td style={{ padding: '8px 12px', fontFamily: MONO, fontSize: 12, color: r.score > 65 ? '#1D9E75' : r.score > 50 ? '#d4af37' : '#f87171' }}>{r.score}</td>
+                          <td style={{ padding: '8px 12px', fontFamily: MONO, fontSize: 12, color: r.score > 65 ? '#1D9E75' : r.score > 50 ? '#39e2e6' : '#f87171' }}>{r.score}</td>
                           <td style={{ padding: '8px 12px', fontFamily: MONO, fontSize: 11, color: '#7a7f9a' }}>
                             {r.conditionsMet != null ? `${r.conditionsMet}/${r.conditionsTotal}` : '—'}
                           </td>

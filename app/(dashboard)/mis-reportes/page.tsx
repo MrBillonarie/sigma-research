@@ -17,7 +17,7 @@ interface PortfolioRow {
   fintual: number; santander: number; cash: number
 }
 
-const GOLD  = '#d4af37'
+const GOLD  = '#39e2e6'
 const DARK  = '#04050a'
 const GRAY  = '#8b8fa8'
 const GREEN = '#34d399'
@@ -386,7 +386,7 @@ function DossierCover({ total, email, dateStr }: { total: number; email: string;
         style={{
           width: 186, height: 258, position: 'relative',
           background: 'linear-gradient(180deg,#0c0e16,#07080d)',
-          border: `1px solid ${tilt.on ? 'rgba(212,175,55,0.45)' : C.border}`,
+          border: `1px solid ${tilt.on ? 'rgba(57,226,230,0.45)' : C.border}`,
           transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
           transition: tilt.on ? 'border-color 0.2s' : 'transform 0.45s ease, border-color 0.2s',
           boxShadow: tilt.on ? '0 22px 44px rgba(0,0,0,0.6)' : '0 12px 28px rgba(0,0,0,0.45)',
@@ -395,11 +395,11 @@ function DossierCover({ total, email, dateStr }: { total: number; email: string;
         }}
       >
         {/* barra dorada superior — como en el PDF */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C.gold},#a88c25)` }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C.gold},#2f6bd6)` }} />
         {/* brillo metálico que sigue al mouse */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `radial-gradient(220px circle at ${tilt.sx}% ${tilt.sy}%, rgba(212,175,55,0.10), transparent 65%)`,
+          background: `radial-gradient(220px circle at ${tilt.sx}% ${tilt.sy}%, rgba(57,226,230,0.10), transparent 65%)`,
           opacity: tilt.on ? 1 : 0, transition: 'opacity 0.3s',
         }} />
 
@@ -492,7 +492,7 @@ export default function MisReportesPage() {
             </div>
             <h1 style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 'clamp(44px,6vw,80px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
               <span style={{ color: C.text }}>MIS</span>{' '}
-              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>REPORTES</span>
+              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#2f6bd6)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>REPORTES</span>
             </h1>
           </div>
         </div>
@@ -610,16 +610,16 @@ export default function MisReportesPage() {
                       padding: '16px 16px 14px', minHeight: 250, overflow: 'hidden',
                     }}>
                       {/* filo dorado superior solo si está disponible */}
-                      {disponible && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C.gold},#a88c25)` }} />}
+                      {disponible && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C.gold},#2f6bd6)` }} />}
                       {/* Σ marca de agua */}
-                      <div aria-hidden style={{ position: 'absolute', right: -6, bottom: -18, fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 120, lineHeight: 1, color: disponible ? 'rgba(212,175,55,0.05)' : 'rgba(139,143,168,0.05)', pointerEvents: 'none' }}>Σ</div>
+                      <div aria-hidden style={{ position: 'absolute', right: -6, bottom: -18, fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 120, lineHeight: 1, color: disponible ? 'rgba(57,226,230,0.05)' : 'rgba(139,143,168,0.05)', pointerEvents: 'none' }}>Σ</div>
                       {/* cinta de estado */}
                       <span style={{
                         position: 'absolute', top: disponible ? 10 : 8, right: 10,
                         fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.16em', padding: '3px 8px',
-                        background: disponible ? 'rgba(212,175,55,0.12)' : 'rgba(107,114,128,0.12)',
+                        background: disponible ? 'rgba(57,226,230,0.12)' : 'rgba(107,114,128,0.12)',
                         color:      disponible ? C.gold : '#6b7280',
-                        border:     `1px solid ${disponible ? 'rgba(212,175,55,0.3)' : 'rgba(107,114,128,0.2)'}`,
+                        border:     `1px solid ${disponible ? 'rgba(57,226,230,0.3)' : 'rgba(107,114,128,0.2)'}`,
                       }}>
                         {disponible ? 'DISPONIBLE' : 'PRÓXIMAMENTE'}
                       </span>
@@ -697,9 +697,9 @@ export default function MisReportesPage() {
         .rep-card.avail:hover {
           transform: translateY(-6px);
           box-shadow: 0 18px 40px rgba(0,0,0,0.55);
-          border-color: rgba(212,175,55,0.45);
+          border-color: rgba(57,226,230,0.45);
         }
-        .rep-genbtn:not(:disabled):hover { box-shadow: 0 0 24px rgba(212,175,55,0.35); }
+        .rep-genbtn:not(:disabled):hover { box-shadow: 0 0 24px rgba(57,226,230,0.35); }
         .rep-blink { animation: repBlink 0.9s steps(2) infinite; }
         @keyframes repBlink { 50% { opacity: 0; } }
         @media (prefers-reduced-motion: reduce) {

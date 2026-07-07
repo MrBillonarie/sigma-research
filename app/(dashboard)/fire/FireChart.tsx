@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react'
 
 const C = {
   bg: '#04050a', border: '#1a1d2e', surface: '#0b0d14',
-  gold: '#d4af37', glow: '#f0cc5a', dimText: '#7a7f9a', text: '#e8e9f0',
+  gold: '#39e2e6', glow: '#5eeaf0', dimText: '#7a7f9a', text: '#e8e9f0',
   green: '#34d399', muted: '#3a3f55',
 }
 
@@ -82,7 +82,7 @@ export default function FireChart({ acum, target, fireYear, capital }: Props) {
       for (let g = 1; g <= 4; g++) {
         const v = (maxV / 4) * g
         const y = ys(v)
-        ctx!.strokeStyle = 'rgba(212,175,55,0.06)'
+        ctx!.strokeStyle = 'rgba(57,226,230,0.06)'
         ctx!.lineWidth = 1
         ctx!.setLineDash([3, 5])
         ctx!.beginPath(); ctx!.moveTo(L, y); ctx!.lineTo(R, y); ctx!.stroke()
@@ -136,8 +136,8 @@ export default function FireChart({ acum, target, fireYear, capital }: Props) {
 
       // Cara frontal (ladera) con gradiente
       const grad = ctx!.createLinearGradient(0, TP, 0, B)
-      grad.addColorStop(0, 'rgba(212,175,55,0.34)')
-      grad.addColorStop(1, 'rgba(212,175,55,0.03)')
+      grad.addColorStop(0, 'rgba(57,226,230,0.34)')
+      grad.addColorStop(1, 'rgba(57,226,230,0.03)')
       ctx!.beginPath()
       ctx!.moveTo(xs(0), B)
       for (let i = 0; i < n; i++) ctx!.lineTo(xs(i), ys(A[i]))
@@ -162,14 +162,14 @@ export default function FireChart({ acum, target, fireYear, capital }: Props) {
         ctx!.stroke()
         ctx!.restore()
       }
-      strokeCrest(0, splitAt, 'rgba(212,175,55,0.62)', 2, 6)
+      strokeCrest(0, splitAt, 'rgba(57,226,230,0.62)', 2, 6)
       if (FY !== null) strokeCrest(splitAt, n - 1, C.glow, 2.4, 12)
 
       ctx!.restore() // fin clip reveal
 
       // ── Línea de cumbre (meta) ──
       const ty = ys(T)
-      ctx!.strokeStyle = 'rgba(212,175,55,0.45)'
+      ctx!.strokeStyle = 'rgba(57,226,230,0.45)'
       ctx!.lineWidth = 1
       ctx!.setLineDash([7, 5])
       ctx!.beginPath(); ctx!.moveTo(L, ty); ctx!.lineTo(R, ty); ctx!.stroke()
@@ -181,7 +181,7 @@ export default function FireChart({ acum, target, fireYear, capital }: Props) {
       const mx = R - mw, my = ty - 9
       ctx!.fillStyle = 'rgba(11,13,20,0.92)'
       ctx!.fillRect(mx, my, mw, 16)
-      ctx!.strokeStyle = 'rgba(212,175,55,0.4)'
+      ctx!.strokeStyle = 'rgba(57,226,230,0.4)'
       ctx!.strokeRect(mx + 0.5, my + 0.5, mw - 1, 15)
       ctx!.fillStyle = C.gold
       ctx!.textAlign = 'left'
@@ -235,7 +235,7 @@ export default function FireChart({ acum, target, fireYear, capital }: Props) {
       // ── "Estás aquí" — pulso en el año 0 ──
       const sx = xs(0), sy = ys(CAP)
       ctx!.save()
-      ctx!.strokeStyle = `rgba(212,175,55,${0.35 - pulse * 0.15})`
+      ctx!.strokeStyle = `rgba(57,226,230,${0.35 - pulse * 0.15})`
       ctx!.lineWidth = 1.5
       ctx!.beginPath(); ctx!.arc(sx, sy, 7 + pulse * 2.5, 0, Math.PI * 2); ctx!.stroke()
       ctx!.shadowColor = C.gold
@@ -271,7 +271,7 @@ export default function FireChart({ acum, target, fireYear, capital }: Props) {
         const by = Math.max(Math.min(hy - bh - 8, H - bh - 6), 6)
         ctx!.fillStyle = 'rgba(11,13,20,0.95)'
         ctx!.fillRect(bx, by, bw, bh)
-        ctx!.strokeStyle = 'rgba(212,175,55,0.35)'
+        ctx!.strokeStyle = 'rgba(57,226,230,0.35)'
         ctx!.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1)
         ctx!.textAlign = 'left'
         ctx!.fillStyle = C.dimText

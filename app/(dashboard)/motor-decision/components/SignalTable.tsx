@@ -4,7 +4,7 @@ import type { Asset, AssetClass, SignalType, Allocation, TradeStatus } from '@/t
 
 const SIGNAL_CFG: Record<SignalType, { label: string; color: string; bg: string }> = {
   comprar:  { label: 'COMPRAR',  color: '#1D9E75', bg: 'rgba(29,158,117,0.12)'  },
-  mantener: { label: 'MANTENER', color: '#d4af37', bg: 'rgba(212,175,55,0.12)'  },
+  mantener: { label: 'MANTENER', color: '#39e2e6', bg: 'rgba(57,226,230,0.12)'  },
   reducir:  { label: 'REDUCIR',  color: '#f87171', bg: 'rgba(248,113,113,0.12)' },
   neutral:  { label: 'NEUTRAL',  color: '#7a7f9a', bg: 'rgba(122,127,154,0.12)' },
 }
@@ -13,7 +13,7 @@ const CLASS_LABEL: Record<AssetClass, string> = {
   fondos: 'Fondos Mutuos', etfs: 'ETFs Globales', renta_fija: 'Renta Fija', crypto: 'Crypto',
 }
 const CLASS_COLOR: Record<AssetClass, string> = {
-  fondos: '#1D9E75', etfs: '#378ADD', renta_fija: '#d4af37', crypto: '#a78bfa',
+  fondos: '#1D9E75', etfs: '#378ADD', renta_fija: '#39e2e6', crypto: '#a78bfa',
 }
 const CLASS_ICON: Record<AssetClass, string> = {
   fondos: '🏦', etfs: '📊', renta_fija: '🏛️', crypto: '₿',
@@ -48,7 +48,7 @@ function Pct({ v }: { v: number }) {
 }
 
 function ScoreBar({ score }: { score: number }) {
-  const color = score > 65 ? '#1D9E75' : score > 45 ? '#d4af37' : '#f87171'
+  const color = score > 65 ? '#1D9E75' : score > 45 ? '#39e2e6' : '#f87171'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <div style={{ width: 56, height: 4, background: '#1a1d2e', borderRadius: 2, overflow: 'hidden' }}>
@@ -61,7 +61,7 @@ function ScoreBar({ score }: { score: number }) {
 
 const STATUS_CFG: Record<TradeStatus, { label: string; color: string }> = {
   'entry':    { label: 'ENTRY',    color: '#1D9E75' },
-  'watch':    { label: 'WATCH',    color: '#d4af37' },
+  'watch':    { label: 'WATCH',    color: '#39e2e6' },
   'no-setup': { label: 'NO SETUP', color: '#3a3f55' },
 }
 
@@ -78,7 +78,7 @@ function StatusChip({ status }: { status: TradeStatus }) {
 }
 
 function CondsEV({ met, total, ev }: { met: number; total: number; ev: number }) {
-  const condColor = met >= Math.ceil(total * 0.75) ? '#1D9E75' : met >= Math.ceil(total * 0.5) ? '#d4af37' : '#f87171'
+  const condColor = met >= Math.ceil(total * 0.75) ? '#1D9E75' : met >= Math.ceil(total * 0.5) ? '#39e2e6' : '#f87171'
   const evColor   = ev > 0 ? '#1D9E75' : ev < 0 ? '#f87171' : '#7a7f9a'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -240,8 +240,8 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
               <SignalBadge signal={a.signal} />
               {a.signalChanged && a.prevSignal && (
                 <span title={`Cambió de ${SIGNAL_CFG[a.prevSignal].label}`} style={{
-                  fontSize: 9, fontFamily: 'monospace', color: '#d4af37',
-                  background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)',
+                  fontSize: 9, fontFamily: 'monospace', color: '#39e2e6',
+                  background: 'rgba(57,226,230,0.12)', border: '1px solid rgba(57,226,230,0.3)',
                   borderRadius: 3, padding: '1px 5px', whiteSpace: 'nowrap',
                 }}>
                   {SIGNAL_CFG[a.prevSignal].label[0]}→{SIGNAL_CFG[a.signal].label[0]}
@@ -282,7 +282,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Pct v={a.return1y} />
             {(a.dividendYield ?? 0) > 0 && (
-              <span style={{ fontSize: 9, color: '#d4af37', fontFamily: 'monospace' }}>
+              <span style={{ fontSize: 9, color: '#39e2e6', fontFamily: 'monospace' }}>
                 div {a.dividendYield!.toFixed(1)}%
               </span>
             )}
@@ -299,7 +299,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
           const isComprar = a.signal === 'comprar'
           const isReducir = a.signal === 'reducir'
           const hasKelly  = kellyEff > 0 && isComprar
-          const entryColor = (a.status ?? 'watch') === 'entry' ? '#1D9E75' : '#d4af37'
+          const entryColor = (a.status ?? 'watch') === 'entry' ? '#1D9E75' : '#39e2e6'
 
           return (
             <td style={{ padding: '8px 12px', textAlign: 'right' }}>
@@ -367,7 +367,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
           <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7a7f9a', letterSpacing: '0.1em' }}>SEÑALES</span>
           {[
             { sig: 'comprar' as SignalType,  count: signalCounts.comprar,  color: '#1D9E75' },
-            { sig: 'mantener' as SignalType, count: signalCounts.mantener, color: '#d4af37' },
+            { sig: 'mantener' as SignalType, count: signalCounts.mantener, color: '#39e2e6' },
             { sig: 'reducir' as SignalType,  count: signalCounts.reducir,  color: '#f87171' },
           ].map(({ sig, count, color }) => (
             <button key={sig} onClick={() => { setSignalFilter(signalFilter === sig ? 'all' : sig); setPage(1) }} style={{

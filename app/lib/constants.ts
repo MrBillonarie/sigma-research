@@ -10,10 +10,11 @@ export const C = {
   border:   '#1a1d2e',
   border2:  '#252840',
 
-  // Gold (firma visual)
-  gold:     '#d4af37',
-  goldDim:  '#a88c25',
-  glow:     '#f0cc5a',
+  // Acento — Cyan Deck (antes dorado). Se mantienen los nombres gold/glow
+  // por compatibilidad con todo el dashboard; ahora son cian/azul.
+  gold:     '#39e2e6',
+  goldDim:  '#2f6bd6',
+  glow:     '#5eeaf0',
 
   // Texto
   text:     '#e8e9f0',
@@ -40,8 +41,8 @@ export const C = {
   radiusLg:    18,
   shadowCard:  '0 4px 18px rgba(0,0,0,0.32)',
   shadowHero:  '0 14px 44px rgba(0,0,0,0.5)',
-  glowGold:    '0 0 40px rgba(212,175,55,0.16)',
-  glowGoldSm:  '0 0 18px rgba(212,175,55,0.22)',
+  glowGold:    '0 0 40px rgba(57,226,230,0.16)',
+  glowGoldSm:  '0 0 18px rgba(57,226,230,0.22)',
 } as const
 
 // Fuentes como strings para inline styles

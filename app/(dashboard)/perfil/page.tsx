@@ -365,7 +365,7 @@ export default function PerfilPage() {
         </div>
         <h1 style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 'clamp(38px,5vw,60px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: '0 0 24px' }}>
           <span style={{ color: TEXT }}>MI </span>
-          <span style={{ background: `linear-gradient(135deg,${GOLD},#f0cc5a)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PERFIL</span>
+          <span style={{ background: `linear-gradient(135deg,${GOLD},#5eeaf0)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PERFIL</span>
         </h1>
 
         {/* ── Banda de identidad ── */}

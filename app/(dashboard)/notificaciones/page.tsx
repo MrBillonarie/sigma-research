@@ -54,7 +54,7 @@ function TypeIcon({ type }: { type: string }) {
   }
 
   if (type === 'señal' || type === 'lp_signal')
-    return wrap('rgba(212,175,55,0.15)', '#d4af37', <>
+    return wrap('rgba(57,226,230,0.15)', '#39e2e6', <>
       <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
       <polyline points="16 7 22 7 22 13" />
     </>)
@@ -255,7 +255,7 @@ export default function NotificacionesPage() {
             </div>
             <h1 style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 'clamp(36px,5vw,60px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
               <span style={{ color: TEXT }}>NOTIFI</span>
-              <span style={{ background: `linear-gradient(135deg,${GOLD},#f0cc5a)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CACIONES</span>
+              <span style={{ background: `linear-gradient(135deg,${GOLD},#5eeaf0)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CACIONES</span>
             </h1>
           </div>
           {unread > 0 && (
@@ -424,20 +424,20 @@ export default function NotificacionesPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                     <span style={{
                       width: 24, height: 1, flexShrink: 0,
-                      background: group.label === 'HOY' ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.18)',
+                      background: group.label === 'HOY' ? 'rgba(57,226,230,0.5)' : 'rgba(255,255,255,0.18)',
                     }} />
                     <span style={{
                       fontFamily: MONO, fontSize: 9, letterSpacing: '0.22em', fontWeight: 700,
                       flexShrink: 0, padding: '3px 11px',
-                      color: group.label === 'HOY' ? '#d4af37' : '#9097b8',
-                      border: `1px solid ${group.label === 'HOY' ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.18)'}`,
-                      background: group.label === 'HOY' ? 'rgba(212,175,55,0.07)' : 'rgba(255,255,255,0.04)',
+                      color: group.label === 'HOY' ? '#39e2e6' : '#9097b8',
+                      border: `1px solid ${group.label === 'HOY' ? 'rgba(57,226,230,0.4)' : 'rgba(255,255,255,0.18)'}`,
+                      background: group.label === 'HOY' ? 'rgba(57,226,230,0.07)' : 'rgba(255,255,255,0.04)',
                     }}>
                       {group.label}
                     </span>
                     <span style={{
                       flex: 1, height: 1,
-                      background: group.label === 'HOY' ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.12)',
+                      background: group.label === 'HOY' ? 'rgba(57,226,230,0.2)' : 'rgba(255,255,255,0.12)',
                     }} />
                     {groupUnread > 0 && (
                       <span style={{
@@ -461,7 +461,7 @@ export default function NotificacionesPage() {
                           background: CARD,
                           border: `1px solid ${BORDER}`,
                           borderLeft: n.urgente
-                            ? `3px solid ${n.read ? 'rgba(212,175,55,0.35)' : GOLD}`
+                            ? `3px solid ${n.read ? 'rgba(57,226,230,0.35)' : GOLD}`
                             : '3px solid transparent',
                           borderRadius: 8,
                           padding: '14px 18px',
@@ -487,8 +487,8 @@ export default function NotificacionesPage() {
                                 {n.urgente && (
                                   <span style={{
                                     fontFamily: MONO, fontSize: 8, letterSpacing: '0.12em',
-                                    color: n.read ? 'rgba(212,175,55,0.4)' : GOLD,
-                                    border: `1px solid ${n.read ? 'rgba(212,175,55,0.2)' : GOLD + '44'}`,
+                                    color: n.read ? 'rgba(57,226,230,0.4)' : GOLD,
+                                    border: `1px solid ${n.read ? 'rgba(57,226,230,0.2)' : GOLD + '44'}`,
                                     padding: '1px 5px',
                                   }}>URGENTE</span>
                                 )}

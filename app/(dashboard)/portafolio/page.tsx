@@ -47,7 +47,7 @@ const PROFILE_DATA = {
     ],
   },
   moderado: {
-    label: 'Moderado', badgeColor: '#d4af37',
+    label: 'Moderado', badgeColor: '#39e2e6',
     desc: 'Tu perfil busca un balance entre crecimiento y estabilidad. Acciones y crypto como motores de retorno, con renta fija que amortigua la volatilidad.',
     allocation: [
       { name: 'Acciones',   color: '#3b82f6', rec: 40 },
@@ -645,7 +645,7 @@ export default function PortfolioPage() {
             </div>
             <h1 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(44px, 6vw, 80px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
               <span style={{ color: C.text }}>PORTA</span>
-              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#a88c25)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>FOLIO</span>
+              <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#2f6bd6)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>FOLIO</span>
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

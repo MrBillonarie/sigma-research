@@ -124,18 +124,18 @@ function Slider({
 // ─── Ruido Box-Muller — textura estática de puntos dispersos, evoca la fuente
 // aleatoria del modelo sin ser literal ni animada. ────────────────────────────
 const NOISE_BG = [
-  'radial-gradient(circle at 8% 15%, rgba(212,175,55,0.055) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 22% 62%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 35% 28%, rgba(212,175,55,0.05) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 48% 78%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 58% 12%, rgba(212,175,55,0.055) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 67% 52%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 74% 88%, rgba(212,175,55,0.05) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 83% 33%, rgba(212,175,55,0.055) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 91% 68%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 14% 92%, rgba(212,175,55,0.05) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 5% 45%, rgba(212,175,55,0.045) 1px, transparent 1.6px)',
-  'radial-gradient(circle at 95% 8%, rgba(212,175,55,0.05) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 8% 15%, rgba(57,226,230,0.055) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 22% 62%, rgba(57,226,230,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 35% 28%, rgba(57,226,230,0.05) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 48% 78%, rgba(57,226,230,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 58% 12%, rgba(57,226,230,0.055) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 67% 52%, rgba(57,226,230,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 74% 88%, rgba(57,226,230,0.05) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 83% 33%, rgba(57,226,230,0.055) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 91% 68%, rgba(57,226,230,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 14% 92%, rgba(57,226,230,0.05) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 5% 45%, rgba(57,226,230,0.045) 1px, transparent 1.6px)',
+  'radial-gradient(circle at 95% 8%, rgba(57,226,230,0.05) 1px, transparent 1.6px)',
 ].join(',')
 
 // ─── Stat card — P50 puede pedir tratamiento hero: es el centro de la
@@ -424,13 +424,13 @@ export default function MonteCarloPage() {
           <h1 style={{ fontFamily: "'Bebas Neue', var(--font-bebas), Impact, sans-serif", fontSize: 'clamp(52px, 8vw, 100px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
             <span style={{ color: C.text }}>MONTE CARLO</span><br />
             <span style={{
-              background: `linear-gradient(135deg, ${C.gold} 0%, ${C.glow} 50%, #a88c25 100%)`,
+              background: `linear-gradient(135deg, ${C.gold} 0%, ${C.glow} 50%, #2f6bd6 100%)`,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>SIMULATOR</span>
           </h1>
           <p style={{ fontFamily: 'monospace', fontSize: 13, color: C.dimText, marginTop: 16, maxWidth: 620, lineHeight: 1.7 }}>
             Cada trayectoria sigue el GBM:&nbsp;
-            <code style={{ color: C.gold, background: 'rgba(212,175,55,0.08)', padding: '1px 6px' }}>
+            <code style={{ color: C.gold, background: 'rgba(57,226,230,0.08)', padding: '1px 6px' }}>
               S(t+Δt) = S(t) · exp((μ − σ²/2)Δt + σ√Δt · Z)
             </code>
             &nbsp;con Z~N(0,1) generado por Box-Muller, Δt = 1 mes.
@@ -536,7 +536,7 @@ export default function MonteCarloPage() {
               style={{
                 marginTop: 4,
                 padding: '14px 0',
-                background: running ? C.border : `linear-gradient(135deg, ${C.glow}, ${C.gold} 55%, #a88c25)`,
+                background: running ? C.border : `linear-gradient(135deg, ${C.glow}, ${C.gold} 55%, #2f6bd6)`,
                 color: running ? C.dimText : C.bg,
                 border: 'none',
                 cursor: running ? 'wait' : 'pointer',
@@ -544,10 +544,10 @@ export default function MonteCarloPage() {
                 fontSize: 22,
                 letterSpacing: '0.15em',
                 transition: 'background 0.15s, box-shadow 0.15s',
-                boxShadow: running ? 'none' : `0 0 20px rgba(212,175,55,0.25)`,
+                boxShadow: running ? 'none' : `0 0 20px rgba(57,226,230,0.25)`,
               }}
-              onMouseEnter={e => { if (!running) (e.target as HTMLButtonElement).style.boxShadow = '0 0 32px rgba(212,175,55,0.5)' }}
-              onMouseLeave={e => { if (!running) (e.target as HTMLButtonElement).style.boxShadow = '0 0 20px rgba(212,175,55,0.25)' }}
+              onMouseEnter={e => { if (!running) (e.target as HTMLButtonElement).style.boxShadow = '0 0 32px rgba(57,226,230,0.5)' }}
+              onMouseLeave={e => { if (!running) (e.target as HTMLButtonElement).style.boxShadow = '0 0 20px rgba(57,226,230,0.25)' }}
             >
               {running ? '⟳ SIMULANDO…' : `⚡ SIMULAR ${nSims.toLocaleString()}`}
             </button>

@@ -32,7 +32,7 @@ interface MotorDef {
   syms: string[]; desc: string; status: 'ACTIVO' | 'PRÓXIMAMENTE'
 }
 const MOTORS: MotorDef[] = [
-  { id:1, name:'M1', label:'CRYPTO',          color:'#d4af37', syms:['BTC','ETH','SOL','BNB','LTC'],     status:'ACTIVO',       desc:'BTC · ETH · SOL · BNB · LTC — Futures perpetuos Binance' },
+  { id:1, name:'M1', label:'CRYPTO',          color:'#39e2e6', syms:['BTC','ETH','SOL','BNB','LTC'],     status:'ACTIVO',       desc:'BTC · ETH · SOL · BNB · LTC — Futures perpetuos Binance' },
   { id:2, name:'M2', label:'COMMODITIES',     color:'#1D9E75', syms:['XAU','XAG','WTI','HG','NG','PL'], status:'ACTIVO',       desc:'XAU · XAG · WTI · HG · NG · PL — CFDs futuros yfinance' },
   { id:3, name:'M3', label:'STOCKS US',       color:'#378ADD', syms:['AAPL','NVDA','TSLA','JPM','XOM'], status:'ACTIVO',       desc:'AAPL · NVDA · TSLA · JPM · XOM — Acciones S&P 500 · 15m/1h/4h/1d' },
   { id:4, name:'M4', label:'BONOS & MACRO',   color:'#7a7f9a', syms:['TLT','HYG','TBT','ZN','ZB'],       status:'PRÓXIMAMENTE', desc:'Treasury 20Y+ · High Yield · Notas/Bonos 10Y-30Y — duration y crédito · Broker: IBKR' },
@@ -46,7 +46,7 @@ const MONO  = "var(--font-dm-mono,'DM Mono',monospace)"
 const BEBAS = "'Bebas Neue',Impact,sans-serif"
 const GRN   = '#1D9E75'
 const RED   = '#f87171'
-const GOLD  = '#d4af37'
+const GOLD  = '#39e2e6'
 const SURF  = '#0b0d14'
 const BG    = '#04050a'
 const BDR   = '#1a1d2e'
@@ -249,14 +249,14 @@ function DetailPanel({ c }: { c: Champion }) {
 }
 
 const RANK_STYLE: Record<number, { bg:string; fg:string }> = {
-  1: { bg:'linear-gradient(135deg,#ffe9a8,#d4af37)', fg:'#1a1300' },
+  1: { bg:'linear-gradient(135deg,#ffe9a8,#39e2e6)', fg:'#1a1300' },
   2: { bg:'linear-gradient(135deg,#eef0f5,#9aa3b5)', fg:'#13151c' },
   3: { bg:'linear-gradient(135deg,#e8a565,#b5651d)', fg:'#1f0d00' },
 }
 
 // Marcos metálicos del podio (borde con gradiente via padding-box/border-box)
 const PODIUM_FRAME: Record<number, { grad:string; glow:string; wm:string }> = {
-  1: { grad:'linear-gradient(135deg,#ffe9a8,#d4af37 40%,#8a7222)', glow:`0 0 26px ${GOLD}33, 0 14px 34px rgba(0,0,0,0.5)`, wm:'rgba(212,175,55,0.07)' },
+  1: { grad:'linear-gradient(135deg,#ffe9a8,#39e2e6 40%,#8a7222)', glow:`0 0 26px ${GOLD}33, 0 14px 34px rgba(0,0,0,0.5)`, wm:'rgba(57,226,230,0.07)' },
   2: { grad:'linear-gradient(135deg,#f0f2f7,#9aa3b5 45%,#5c6474)', glow:'0 10px 26px rgba(0,0,0,0.45)',                    wm:'rgba(154,163,181,0.06)' },
   3: { grad:'linear-gradient(135deg,#e8a565,#b5651d 45%,#6e3c10)', glow:'0 10px 26px rgba(0,0,0,0.45)',                    wm:'rgba(181,101,29,0.07)'  },
 }
@@ -609,8 +609,8 @@ export default function ModelosPage() {
         .modelos-champ-card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0,0,0,0.4); }
         .modelos-champ-card--rank1 { animation: modelosChampPulse 2.6s ease-in-out infinite; }
         @keyframes modelosChampPulse {
-          0%, 100% { box-shadow: 0 0 18px rgba(212,175,55,0.25), 0 14px 34px rgba(0,0,0,0.5); }
-          50%      { box-shadow: 0 0 32px rgba(212,175,55,0.55), 0 14px 34px rgba(0,0,0,0.5); }
+          0%, 100% { box-shadow: 0 0 18px rgba(57,226,230,0.25), 0 14px 34px rgba(0,0,0,0.5); }
+          50%      { box-shadow: 0 0 32px rgba(57,226,230,0.55), 0 14px 34px rgba(0,0,0,0.5); }
         }
 
         /* ── Podio top 3 ── */
@@ -631,7 +631,7 @@ export default function ModelosPage() {
           transition: transform .5s ease; will-change: transform; }
         .mdl-tilt.mdl-on { transition: transform .1s ease-out; }
         .mdl-tilt-shine { position:absolute; inset:0; z-index:2; opacity:0; transition:opacity .35s; pointer-events:none; border-radius:6px;
-          background: radial-gradient(280px circle at var(--mx) var(--my), rgba(212,175,55,.13), transparent 65%); }
+          background: radial-gradient(280px circle at var(--mx) var(--my), rgba(57,226,230,.13), transparent 65%); }
         .mdl-tilt.mdl-on .mdl-tilt-shine { opacity:1; }
 
         /* ── Loader encendido ── */
@@ -658,7 +658,7 @@ export default function ModelosPage() {
           </div>
           <h1 style={{ fontFamily:BEBAS, fontSize:'clamp(38px,5vw,60px)', lineHeight:0.95, margin:'0 0 10px' }}>
             <span style={{ color:'#e8e9f0' }}>MODELOS</span>{' '}
-            <span style={{ background:`linear-gradient(135deg,${GOLD},#f5c842,#a88c25)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+            <span style={{ background:`linear-gradient(135deg,${GOLD},#f5c842,#2f6bd6)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
               EN PRODUCCIÓN
             </span>
           </h1>

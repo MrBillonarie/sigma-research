@@ -131,7 +131,7 @@ export default function RentaFijaPage() {
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
           marginBottom: 20, padding: '12px 16px',
-          background: 'rgba(212,175,55,0.05)',
+          background: 'rgba(57,226,230,0.05)',
           border: `1px solid ${C.gold}`,
           borderRadius: 10,
         }}>
@@ -243,7 +243,7 @@ export default function RentaFijaPage() {
                       padding: '12px 16px', textAlign: 'right', fontSize: 10, letterSpacing: '0.2em',
                       color: plazo === p.days ? C.gold : C.dimText,
                       textTransform: 'uppercase', fontWeight: 500, fontFamily: MONO,
-                      background: plazo === p.days ? 'rgba(212,175,55,0.06)' : 'transparent',
+                      background: plazo === p.days ? 'rgba(57,226,230,0.06)' : 'transparent',
                       whiteSpace: 'nowrap',
                     }}>
                       {p.label}
@@ -263,7 +263,7 @@ export default function RentaFijaPage() {
                       key={banco.nombre}
                       style={{
                         borderBottom: i < bancos.length - 1 ? `1px solid ${C.border}` : 'none',
-                        background:   isBest ? 'rgba(212,175,55,0.04)' : 'transparent',
+                        background:   isBest ? 'rgba(57,226,230,0.04)' : 'transparent',
                       }}
                     >
                       <td style={{ padding: '13px 16px', fontFamily: MONO, fontSize: 13, color: isBest ? C.gold : C.text, whiteSpace: 'nowrap' }}>
@@ -271,7 +271,7 @@ export default function RentaFijaPage() {
                         {isBest && (
                           <span style={{
                             marginLeft: 8, fontSize: 9, letterSpacing: '0.15em', color: C.gold,
-                            background: 'rgba(212,175,55,0.12)', padding: '2px 6px', borderRadius: 4,
+                            background: 'rgba(57,226,230,0.12)', padding: '2px 6px', borderRadius: 4,
                           }}>
                             ★ MEJOR
                           </span>
@@ -285,7 +285,7 @@ export default function RentaFijaPage() {
                           <td key={p.days} style={{
                             padding: '13px 16px', textAlign: 'right', fontFamily: MONO, fontSize: 13,
                             color:      val !== null ? (isBest && isActive ? C.gold : C.text) : C.muted,
-                            background: isActive ? 'rgba(212,175,55,0.04)' : 'transparent',
+                            background: isActive ? 'rgba(57,226,230,0.04)' : 'transparent',
                           }}>
                             {val !== null ? val.toFixed(2) + '%' : '—'}
                           </td>
@@ -315,7 +315,7 @@ export default function RentaFijaPage() {
                 key={banco.nombre}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
-                  background: isFirst ? 'rgba(212,175,55,0.06)' : C.surface,
+                  background: isFirst ? 'rgba(57,226,230,0.06)' : C.surface,
                   border:     `1px solid ${isFirst ? C.gold : C.border}`,
                   borderRadius: 10, padding: '14px 18px',
                 }}
@@ -336,7 +336,7 @@ export default function RentaFijaPage() {
                     {isFirst && (
                       <span style={{
                         marginLeft: 10, fontSize: 9, letterSpacing: '0.15em', color: C.gold,
-                        background: 'rgba(212,175,55,0.15)', padding: '2px 7px', borderRadius: 4,
+                        background: 'rgba(57,226,230,0.15)', padding: '2px 7px', borderRadius: 4,
                       }}>
                         MEJOR TASA
                       </span>

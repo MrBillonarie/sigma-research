@@ -129,7 +129,7 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
         </div>
         <div style={{ textAlign: 'right' }}>
           <span style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO }}>Prob. ganancia a 5 años: </span>
-          <span style={{ fontSize: 13, fontFamily: BEBAS, color: profitProb > 60 ? '#1D9E75' : profitProb > 40 ? '#d4af37' : '#f87171', letterSpacing: 1 }}>
+          <span style={{ fontSize: 13, fontFamily: BEBAS, color: profitProb > 60 ? '#1D9E75' : profitProb > 40 ? '#39e2e6' : '#f87171', letterSpacing: 1 }}>
             {profitProb}%
           </span>
         </div>
@@ -169,7 +169,7 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
           <path d={linePath('p95')} fill="none" stroke="#1D9E75" strokeWidth={1}   strokeDasharray="3 4" opacity={0.35} />
           <path d={linePath('p90')} fill="none" stroke="#1D9E75" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
           <path d={linePath('p75')} fill="none" stroke="#1D9E75" strokeWidth={1.5} opacity={0.55} />
-          <path d={linePath('p50')} fill="none" stroke="#d4af37" strokeWidth={2.5} />
+          <path d={linePath('p50')} fill="none" stroke="#39e2e6" strokeWidth={2.5} />
           <path d={linePath('p25')} fill="none" stroke="#f87171" strokeWidth={1.5} opacity={0.55} />
           <path d={linePath('p10')} fill="none" stroke="#f87171" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
           <path d={linePath('p5')}  fill="none" stroke="#f87171" strokeWidth={1}   strokeDasharray="3 4" opacity={0.35} />
@@ -187,7 +187,7 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
 
           {/* Leyenda */}
           <g transform={`translate(${PAD.l + 8}, ${PAD.t + 8})`}>
-            <line x1={0} y1={6} x2={18} y2={6} stroke="#d4af37" strokeWidth={2.5} />
+            <line x1={0} y1={6} x2={18} y2={6} stroke="#39e2e6" strokeWidth={2.5} />
             <text x={22} y={10} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P50 mediana</text>
             <line x1={0} y1={20} x2={18} y2={20} stroke="#1D9E75" strokeWidth={1.5} />
             <text x={22} y={24} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P75 / P25</text>
@@ -216,14 +216,14 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
 
         {[
           { label: 'P90  ⬆', p: 'p90' as const, color: '#1D9E75' },
-          { label: 'P50  →', p: 'p50' as const, color: '#d4af37' },
+          { label: 'P50  →', p: 'p50' as const, color: '#39e2e6' },
           { label: 'P10  ⬇', p: 'p10' as const, color: '#f87171' },
         ].map((row) => (
           <div key={row.p} style={{
             display: 'grid', gridTemplateColumns: '100px 1fr 1fr 1fr',
             padding: '10px 20px',
             borderTop: '1px solid #0d0f1a',
-            background: row.p === 'p50' ? 'rgba(212,175,55,0.03)' : 'transparent',
+            background: row.p === 'p50' ? 'rgba(57,226,230,0.03)' : 'transparent',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <span style={{ fontSize: 11, color: row.color, fontFamily: MONO, fontWeight: 700 }}>{row.label}</span>
@@ -281,7 +281,7 @@ function ScoreGauge({ score }: { score: number }) {
 
   const needleAngle = a(animated)
   const activeZone  = ZONES.find(z => animated >= z.from && animated <= z.to)
-  const scoreColor  = activeZone?.fill ?? '#d4af37'
+  const scoreColor  = activeZone?.fill ?? '#39e2e6'
   const label       = animated >= 70 ? 'ALCISTA' : animated >= 45 ? 'NEUTRO' : 'BAJISTA'
 
   return (
@@ -359,10 +359,10 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
   const sharpe = metrics.sharpeRatio
   const yield_ = metrics.portfolioYield ?? 0
 
-  const retColor    = ret    > 8   ? '#1D9E75' : ret    > 4   ? '#d4af37' : '#f87171'
-  const sharpeColor = sharpe > 1   ? '#1D9E75' : sharpe > 0.5 ? '#d4af37' : '#f87171'
-  const flowColor   = flowScore > 60 ? '#1D9E75' : flowScore > 40 ? '#d4af37' : '#f87171'
-  const yieldColor  = yield_ > 3 ? '#1D9E75' : yield_ > 1 ? '#d4af37' : '#7a7f9a'
+  const retColor    = ret    > 8   ? '#1D9E75' : ret    > 4   ? '#39e2e6' : '#f87171'
+  const sharpeColor = sharpe > 1   ? '#1D9E75' : sharpe > 0.5 ? '#39e2e6' : '#f87171'
+  const flowColor   = flowScore > 60 ? '#1D9E75' : flowScore > 40 ? '#39e2e6' : '#f87171'
+  const yieldColor  = yield_ > 3 ? '#1D9E75' : yield_ > 1 ? '#39e2e6' : '#7a7f9a'
 
   const animRet    = useCountUp(Math.abs(ret), 900)
   const animVol    = useCountUp(vol,           900)

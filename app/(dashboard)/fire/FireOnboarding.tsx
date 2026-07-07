@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 const MONO  = 'var(--font-dm-mono, monospace)'
 const BEBAS = "'Bebas Neue', Impact, sans-serif"
-const GOLD  = '#d4af37'
+const GOLD  = '#39e2e6'
 const BG    = '#0b0d14'
 const BORDER = '#1a1d2e'
 const DIM   = '#7a7f9a'

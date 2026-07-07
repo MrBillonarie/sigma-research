@@ -184,7 +184,7 @@ export default function MotorDecisionPage() {
           <span style={{ fontSize: 10, color: '#1D9E75', fontFamily: MONO, letterSpacing: 1 }}>
             LIVE — MOTOR DE DECISIÓN
           </span>
-          <span style={{ fontSize: 9, fontFamily: MONO, letterSpacing: '0.15em', color: '#d4af37', background: 'rgba(212,175,55,0.10)', border: '1px solid rgba(212,175,55,0.25)', padding: '2px 8px', borderRadius: 3 }}>
+          <span style={{ fontSize: 9, fontFamily: MONO, letterSpacing: '0.15em', color: '#39e2e6', background: 'rgba(57,226,230,0.10)', border: '1px solid rgba(57,226,230,0.25)', padding: '2px 8px', borderRadius: 3 }}>
             {profile.toUpperCase()}
           </span>
           {data && (
@@ -204,7 +204,7 @@ export default function MotorDecisionPage() {
         {/* Title — estilo landing */}
         <h1 style={{ margin: '0 0 6px', fontSize: 'clamp(38px, 5vw, 60px)', fontFamily: BEBAS, letterSpacing: '0.03em', lineHeight: 0.95 }}>
           <span style={{ color: '#e8e9f0' }}>SIGMA MOTOR</span>{' '}
-          <span style={{ background: 'linear-gradient(135deg,#d4af37,#f0cc5a,#a88c25)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <span style={{ background: 'linear-gradient(135deg,#39e2e6,#5eeaf0,#2f6bd6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             FINANCIERO
           </span>
         </h1>
