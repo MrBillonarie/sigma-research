@@ -406,8 +406,10 @@ export default function HUDPage() {
            se endereza al hover (para explorar el tooltip en plano). Debajo,
            reflejo EN VIVO del propio canvas animado, como sobre vidrio negro. */
         #sigma-hud-root #equity-wrap {
-          border-radius: 16px; padding: 12px 12px 60px;
-          background: rgba(255,255,255,0.02);
+          border-radius: 16px; padding: 14px;
+          /* el fondo-pantalla vive en el marco: el canvas queda transparente
+             para que el bloom abrace SOLO la línea dibujada */
+          background: linear-gradient(180deg, #081324, #04070f);
           border: 1px solid rgba(57,226,230,0.16);
           box-shadow:
             inset 0 1px 0 rgba(94,234,240,0.16),
@@ -424,15 +426,21 @@ export default function HUDPage() {
             0 22px 60px rgba(0,0,0,0.5),
             0 0 90px rgba(57,226,230,0.13);
         }
+        /* La línea del motor con neón real: núcleo blanco caliente + halo
+           medio + resplandor ancho. clearRect del motor = canvas transparente,
+           así el drop-shadow sigue la silueta de línea/puntos, no el rectángulo. */
         #sigma-hud-root #equity-curve {
-          background: linear-gradient(180deg, #081324, #04070f) !important;
+          background: transparent !important;
           border-radius: 10px !important;
-          filter: saturate(1.18) drop-shadow(0 0 14px rgba(57,226,230,0.25));
-          -webkit-box-reflect: below 8px linear-gradient(rgba(0,0,0,0.34), transparent 42%);
+          filter:
+            saturate(1.28) brightness(1.05)
+            drop-shadow(0 0 1.5px rgba(255,255,255,0.55))
+            drop-shadow(0 0 9px rgba(94,234,240,0.4))
+            drop-shadow(0 0 26px rgba(57,226,230,0.2));
         }
         /* grid técnico + viñeta sobre el canvas (decorativo, no bloquea el tooltip) */
         #sigma-hud-root #equity-wrap::before {
-          content: ''; position: absolute; inset: 12px 12px 60px 12px; border-radius: 10px;
+          content: ''; position: absolute; inset: 14px; border-radius: 10px;
           pointer-events: none; z-index: 1;
           background:
             linear-gradient(rgba(57,226,230,0.05) 1px, transparent 1px) 0 0 / 100% 36px,
