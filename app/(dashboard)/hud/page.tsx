@@ -227,44 +227,80 @@ export default function HUDPage() {
         @keyframes hud-pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:0.55; transform:scale(0.96)} }
         @keyframes hud-scan  { 0%{left:-40%} 100%{left:100%} }
 
-        /* ══ 1. Paleta: azul del motor → negro + dorado SQuant ══ */
+        /* ══ 0. Redefinir el acento del motor: --gold → cian ══
+           kpi-pos, acentos y bordes del motor usan var(--gold). Al reescribir
+           la variable sobre #sigma-hud-root, todo el dorado se vuelve cian de
+           una, conservando kpi-neg (rojo) y kpi-neutral (texto). */
+        #sigma-hud-root {
+          --gold: #39e2e6; --gold-2: #5eeaf0; --amber: #39e2e6;
+          --acc: #39e2e6; --accent: #39e2e6; --brand: #39e2e6;
+        }
+        /* golds directos (no via variable) que sobreviven */
+        #sigma-hud-root [style*="#f1c40f"], #sigma-hud-root [style*="#ffd700"],
+        #sigma-hud-root [style*="#c9a227"], #sigma-hud-root [style*="#ffeb3b"] { color: #39e2e6 !important; }
+
+        /* ══ 1. Tarjetas → vidrio premium con hover ══ */
         #sigma-hud-root .card {
           position: relative;
-          background: #0b0d14 !important;
-          border: 1px solid #1a1d2e !important;
-          border-radius: 10px !important;
-          box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+          background: linear-gradient(180deg, rgba(22,28,40,0.62), rgba(11,15,23,0.55)) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 16px !important;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 20px 52px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+          backdrop-filter: blur(8px);
           overflow: hidden;
+          transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+        }
+        #sigma-hud-root .card:hover {
+          transform: translateY(-2px);
+          border-color: rgba(57,226,230,0.32) !important;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.45), 0 30px 72px rgba(0,0,0,0.5), 0 0 0 1px rgba(57,226,230,0.12) !important;
         }
         #sigma-hud-root .card::before {
           content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-          background: linear-gradient(90deg, rgba(57,226,230,0.75), transparent 70%);
+          background: linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%);
         }
         #sigma-hud-root .card-title {
           color: #39e2e6 !important;
-          letter-spacing: 0.18em !important;
+          letter-spacing: 0.2em !important;
           text-transform: uppercase;
         }
-        #sigma-hud-root .kpi-strip { background: transparent !important; }
-        #sigma-hud-root .kpi-card {
-          background: #0b0d14 !important;
-          border: 1px solid #1a1d2e !important;
-          border-radius: 8px !important;
-          margin: 3px !important;
-        }
-        #sigma-hud-root .kpi-label { color: #7a7f9a !important; letter-spacing: 0.18em !important; }
-        #sigma-hud-root .asset-box { background: #0b0d14 !important; border-color: #1a1d2e !important; border-radius: 6px !important; }
-        #sigma-hud-root .risk-cell { background: #0b0d14 !important; border-color: #1a1d2e !important; border-radius: 6px !important; }
-        /* paneles con la paleta azul puesta como estilo inline */
-        #sigma-hud-root [style*="background:#141b38"], #sigma-hud-root [style*="background: #141b38"],
-        #sigma-hud-root [style*="background:#1a2240"], #sigma-hud-root [style*="background: #1a2240"] {
-          background-color: #0b0d14 !important;
-        }
-        #sigma-hud-root .badge, #sigma-hud-root .pill, #sigma-hud-root .tf-pill { border-radius: 4px !important; }
-        #sigma-hud-root .matrix td { border-radius: 6px !important; }
 
-        /* ══ 2. Títulos de sección estilo landing (MOTOR 1 / 2 / 3…) ══ */
-        #sigma-hud-root .section-divider { margin: 36px 0 18px !important; }
+        /* KPIs / risk cells / asset boxes → vidrio con hover */
+        #sigma-hud-root .kpi-strip { background: transparent !important; }
+        #sigma-hud-root .kpi-card, #sigma-hud-root .risk-cell, #sigma-hud-root .asset-box {
+          background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)) !important;
+          border: 1px solid rgba(255,255,255,0.07) !important;
+          border-radius: 12px !important;
+          transition: transform .25s ease, border-color .25s ease, background .25s ease;
+        }
+        #sigma-hud-root .kpi-card { margin: 4px !important; }
+        #sigma-hud-root .kpi-card:hover, #sigma-hud-root .risk-cell:hover, #sigma-hud-root .asset-box:hover {
+          transform: translateY(-1px);
+          border-color: rgba(57,226,230,0.3) !important;
+          background: linear-gradient(180deg, rgba(57,226,230,0.06), rgba(255,255,255,0.015)) !important;
+        }
+        #sigma-hud-root .kpi-label, #sigma-hud-root .risk-cell-label {
+          color: #8b97ad !important; letter-spacing: 0.2em !important; text-transform: uppercase;
+        }
+        /* números: peso + glow del propio color (cian pos / rojo neg) */
+        #sigma-hud-root .kpi-value, #sigma-hud-root .risk-cell-val { font-weight: 600 !important; text-shadow: 0 0 16px currentColor; }
+        #sigma-hud-root .kpi-neg { color: #ff5d6c !important; }
+        #sigma-hud-root .cell-ok { text-shadow: 0 0 10px rgba(47,211,154,0.45); }
+
+        /* Unificar paneles azules del motor (inline) a superficie oscura */
+        #sigma-hud-root [style*="#141b38"], #sigma-hud-root [style*="#1a2240"],
+        #sigma-hud-root [style*="#242f55"], #sigma-hud-root [style*="#0d1428"],
+        #sigma-hud-root [style*="#07091c"], #sigma-hud-root [style*="#060d20"],
+        #sigma-hud-root [style*="#050d1e"] { background-color: rgba(255,255,255,0.02) !important; }
+
+        #sigma-hud-root .badge, #sigma-hud-root .pill, #sigma-hud-root .tf-pill { border-radius: 6px !important; }
+        #sigma-hud-root .matrix td { border-radius: 6px !important; }
+        /* filas del feed: hover sutil */
+        #sigma-hud-root .feed-item { border-radius: 8px !important; transition: background .25s ease; }
+        #sigma-hud-root .feed-item:hover { background: rgba(57,226,230,0.05) !important; }
+
+        /* ══ 2. Títulos de sección estilo landing ══ */
+        #sigma-hud-root .section-divider { margin: 40px 0 20px !important; }
         #sigma-hud-root .section-divider-text {
           font-family: 'Bebas Neue', Impact, sans-serif !important;
           font-size: 22px !important;
@@ -280,14 +316,10 @@ export default function HUDPage() {
           background: linear-gradient(270deg, transparent, rgba(57,226,230,0.45)) !important;
         }
 
-        /* ══ 3. Dosis ligera de glow en datos clave ══ */
-        #sigma-hud-root .kpi-value { text-shadow: 0 0 14px currentColor; }
-        #sigma-hud-root .cell-ok   { text-shadow: 0 0 10px rgba(46,204,113,0.4); }
-
         /* scrollbars finas */
         #sigma-hud-root ::-webkit-scrollbar { width: 8px; height: 8px; }
         #sigma-hud-root ::-webkit-scrollbar-track { background: transparent; }
-        #sigma-hud-root ::-webkit-scrollbar-thumb { background: #1a1d2e; border-radius: 4px; }
+        #sigma-hud-root ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
         #sigma-hud-root ::-webkit-scrollbar-thumb:hover { background: rgba(57,226,230,0.45); }
       `}</style>
 
@@ -298,20 +330,20 @@ export default function HUDPage() {
           gap: 20, zIndex: 9999,
         }}>
           <div style={{
-            fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#2f6bd6',
+            fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 64, color: '#39e2e6',
             lineHeight: 1, animation: 'hud-pulse 1.6s ease-in-out infinite',
-            textShadow: '0 0 34px rgba(201,162,39,0.45)',
+            textShadow: '0 0 34px rgba(57,226,230,0.5)',
           }}>
             Σ
           </div>
-          <div style={{ width: 180, height: 2, background: 'rgba(201,162,39,0.15)', borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
+          <div style={{ width: 180, height: 2, background: 'rgba(57,226,230,0.15)', borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
             <div style={{
               position: 'absolute', top: 0, bottom: 0, width: '40%',
-              background: 'linear-gradient(90deg, transparent, #2f6bd6, transparent)',
+              background: 'linear-gradient(90deg, transparent, #39e2e6, transparent)',
               animation: 'hud-scan 1.4s ease-in-out infinite',
             }} />
           </div>
-          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '0.3em', color: 'rgba(201,162,39,0.7)' }}>
+          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '0.3em', color: 'rgba(94,234,240,0.75)' }}>
             CONECTANDO AL MOTOR…
           </div>
         </div>
