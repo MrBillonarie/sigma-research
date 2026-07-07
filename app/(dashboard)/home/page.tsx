@@ -69,7 +69,7 @@ type PortfolioRow = Record<string, number>
 
 // Ejecuciones reales del motor (payload de /api/vps/trades) — el mismo origen
 // que consume el HUD. Solo tipamos los campos que usamos.
-interface EngineClosed { closed_at?: string; pnl_dollar?: number; mode?: string }
+interface EngineClosed { closed_at?: string; pnl_dollar?: number; mode?: string; sym?: string; direction?: string }
 interface EngineTradesRaw {
   open?: unknown[]
   history?: EngineClosed[]
@@ -498,11 +498,16 @@ export default function DashboardHome() {
   // Cifra "del mes" desde history cerrado este mes; track record desde stats.
   const E = useMemo(() => {
     if (!engRaw) return null
+    // trade_state.json mezcla PAPER (cuenta de estudio $10k) y LIVE (cuenta
+    // real Binance Futures) en el mismo history -- cada trade trae su propio
+    // `mode`. Todo lo etiquetado "motor" en este bloque debe salir SOLO de
+    // LIVE o termina mostrando plata de mentira como si fuera real.
     const hist = Array.isArray(engRaw.history) ? engRaw.history : []
-    const stats = engRaw.stats ?? {}
-    const pf = engRaw.portfolio ?? {}
+    const liveHist = hist.filter(t => t.mode === 'LIVE')
+    if (!liveHist.length) return null
+    const liveOpen = (Array.isArray(engRaw.open) ? engRaw.open : []).filter(t => (t as { mode?: string })?.mode === 'LIVE')
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    const monthClosed = hist.filter(t => (t.closed_at ?? '').slice(0, 7) === ym)
+    const monthClosed = liveHist.filter(t => (t.closed_at ?? '').slice(0, 7) === ym)
     const monthPnl = monthClosed.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0)
     const wins   = monthClosed.filter(t => (t.pnl_dollar ?? 0) > 0).length
     const losses = monthClosed.filter(t => (t.pnl_dollar ?? 0) < 0).length
@@ -513,19 +518,38 @@ export default function DashboardHome() {
     let cum = 0
     const sparkMonth = chronMonth.map(t => { cum += (t.pnl_dollar ?? 0); return cum })
     // Últimos 10 resultados del motor (para las mini-barras del win rate)
-    const chronAll = [...hist].sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
+    const chronAll = [...liveHist].sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
     const last10 = chronAll.slice(-10).map(t => (t.pnl_dollar ?? 0) > 0 ? 1 : (t.pnl_dollar ?? 0) < 0 ? 0 : 0.5)
+    // Track record histórico -- también solo LIVE. profitFactor y PnL total
+    // salen del propio history (no de engRaw.stats/portfolio, que son del
+    // agregado PAPER de $10k y no representan la cuenta real).
+    const trackWins   = liveHist.filter(t => (t.pnl_dollar ?? 0) > 0)
+    const trackLosses = liveHist.filter(t => (t.pnl_dollar ?? 0) < 0)
+    const trackDecisive = trackWins.length + trackLosses.length
+    const trackWinRate = trackDecisive > 0 ? (trackWins.length / trackDecisive) * 100 : 0
+    const grossWin  = trackWins.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0)
+    const grossLoss = Math.abs(trackLosses.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0))
+    const profitFactor = grossLoss > 0 ? grossWin / grossLoss : 0
+    const trackPnlTotal = liveHist.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0)
+    // Mejor trade LIVE del mes -- mismo criterio que D.bestTrade (journal manual)
+    const bestTrade = monthClosed.reduce<EngineClosed | null>(
+      (b, t) => (!b || (t.pnl_dollar ?? -Infinity) > (b.pnl_dollar ?? -Infinity)) ? t : b, null
+    )
     return {
-      monthPnl, monthWinRate, monthClosed: monthClosed.length, openCount: Array.isArray(engRaw.open) ? engRaw.open.length : 0,
-      sparkMonth, last10,
-      trackWinRate: stats.win_rate ?? 0, profitFactor: stats.profit_factor ?? 0,
-      trackReturnPct: pf.return_pct ?? 0, trackTotal: stats.total ?? hist.length,
+      monthPnl, monthWinRate, monthClosed: monthClosed.length, openCount: liveOpen.length,
+      sparkMonth, last10, bestTrade,
+      trackWinRate, profitFactor, trackPnlTotal, trackTotal: liveHist.length,
     }
   }, [engRaw, now])
 
   // Valores que alimentan las tarjetas: motor si está disponible, si no journal
   const monthPnlVal = E ? E.monthPnl : D.monthPnL
   const winRateVal  = E ? E.monthWinRate : D.winRate
+  const bestTradeVal = E?.bestTrade
+    ? { pnl: E.bestTrade.pnl_dollar ?? 0, label: `${(E.bestTrade.sym ?? '').toUpperCase()} · ${(E.bestTrade.direction ?? '').toUpperCase()}` }
+    : D.bestTrade
+    ? { pnl: D.bestTrade.pnl_usd, label: `${D.bestTrade.par} · ${D.bestTrade.lado}` }
+    : null
 
   // Encendido cinemático — los KPIs cuentan de 0 → valor real al cargar
   const cTotal   = useCountUp(loading ? 0 : D.totalUSD)
@@ -865,7 +889,7 @@ export default function DashboardHome() {
                 {E ? `${E.monthClosed} cerrados · ${E.openCount} abiertas` : `${D.monthTradesCount} trades este mes`}
               </div>
               {E && <div style={{ fontFamily:'monospace', fontSize:9, color:C.gold, marginTop:3, letterSpacing:'0.04em' }}>
-                motor {E.trackReturnPct >= 0 ? '+' : ''}{E.trackReturnPct.toFixed(1)}% · PF {E.profitFactor.toFixed(2)}
+                motor {fmtDiff(E.trackPnlTotal)} · PF {E.profitFactor.toFixed(2)}
               </div>}
             </div>
 
@@ -959,10 +983,10 @@ export default function DashboardHome() {
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.gold, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>★</div>
               <div>
                 <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>MEJOR TRADE DEL MES</div>
-                {loading ? <Sk w={80} h={14} /> : D.bestTrade ? (
+                {loading ? <Sk w={80} h={14} /> : bestTradeVal ? (
                   <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-                    <span style={{ fontFamily:'monospace', fontSize:13, color:C.green }}>{fmtDiff(D.bestTrade.pnl_usd)}</span>
-                    <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{D.bestTrade.par} · {D.bestTrade.lado}</span>
+                    <span style={{ fontFamily:'monospace', fontSize:13, color:C.green }}>{fmtDiff(bestTradeVal.pnl)}</span>
+                    <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{bestTradeVal.label}</span>
                   </div>
                 ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin trades este mes</span>}
               </div>
