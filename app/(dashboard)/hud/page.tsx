@@ -608,6 +608,79 @@ export default function HUDPage() {
           font-size: 26px !important;
         }
 
+        /* ══ 8. Mercado & Modelos — de cajas a lámparas de régimen ══ */
+        /* El tile deja de ser una caja con borde: es una superficie que se
+           tiñe con la luz de su régimen (rojo bear / verde bull / ámbar range) */
+        #sigma-hud-root .regime-grid { gap: 12px !important; }
+        #sigma-hud-root .regime-card {
+          position: relative;
+          background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.008)) !important;
+          border: 1px solid transparent !important;
+          border-radius: 12px !important;
+          box-shadow: 0 10px 26px -14px rgba(0,0,0,0.7) !important;
+          transition: transform .25s ease, box-shadow .25s ease !important;
+          overflow: hidden;
+        }
+        #sigma-hud-root .regime-card:hover { transform: translateY(-3px) !important; }
+        /* beacon superior: línea de luz centrada del color del régimen */
+        #sigma-hud-root .regime-card::before {
+          content: ''; position: absolute; top: 0; left: 22%; right: 22%; height: 2px;
+          border-radius: 2px; background: rgba(255,255,255,0.12);
+        }
+        /* BEAR: lavado rojo */
+        #sigma-hud-root .regime-card:has([style*="#e74c3c"]), #sigma-hud-root .regime-card:has([style*="#f44336"]) {
+          background:
+            radial-gradient(120% 90% at 50% 0%, rgba(231,76,60,0.14), transparent 62%),
+            linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.006)) !important;
+        }
+        #sigma-hud-root .regime-card:has([style*="#e74c3c"])::before, #sigma-hud-root .regime-card:has([style*="#f44336"])::before {
+          background: #ff5d6c; box-shadow: 0 0 10px rgba(255,93,108,0.8);
+        }
+        /* BULL: lavado verde */
+        #sigma-hud-root .regime-card:has([style*="#00e676"]), #sigma-hud-root .regime-card:has([style*="#2ecc71"]) {
+          background:
+            radial-gradient(120% 90% at 50% 0%, rgba(46,204,113,0.15), transparent 62%),
+            linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.006)) !important;
+        }
+        #sigma-hud-root .regime-card:has([style*="#00e676"])::before, #sigma-hud-root .regime-card:has([style*="#2ecc71"])::before {
+          background: #2fd39a; box-shadow: 0 0 10px rgba(47,211,154,0.8);
+        }
+        /* RANGE: lavado ámbar */
+        #sigma-hud-root .regime-card:has([style*="#e67e22"]), #sigma-hud-root .regime-card:has([style*="#f1c40f"]) {
+          background:
+            radial-gradient(120% 90% at 50% 0%, rgba(230,146,34,0.13), transparent 62%),
+            linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.006)) !important;
+        }
+        #sigma-hud-root .regime-card:has([style*="#e67e22"])::before, #sigma-hud-root .regime-card:has([style*="#f1c40f"])::before {
+          background: #ffb454; box-shadow: 0 0 10px rgba(255,180,84,0.8);
+        }
+        /* el pill interno pierde su caja: texto del régimen con glow puro */
+        #sigma-hud-root .regime-card span[style*="border"], #sigma-hud-root .regime-card div[style*="border"] {
+          border-color: transparent !important;
+          background: transparent !important;
+          letter-spacing: 0.16em; text-shadow: 0 0 14px currentColor;
+        }
+
+        /* Pipeline feed: stream de terminal (el motor ya trae rec/neg/pos/skip) */
+        #sigma-hud-root .feed-item {
+          border-radius: 8px;
+          border-left-color: rgba(57,226,230,0.14);
+        }
+        #sigma-hud-root .feed-item:hover { background: rgba(57,226,230,0.05); transform: translateX(3px); }
+        #sigma-hud-root .feed-ts { color: #5f6a7d !important; }
+        #sigma-hud-root .feed-cagr { text-shadow: 0 0 10px currentColor; }
+
+        /* Pills genéricos (leyendas, Mejores 2 ahora): dorado → cian */
+        #sigma-hud-root .pill {
+          background: rgba(57,226,230,0.06) !important;
+          border-color: rgba(57,226,230,0.22) !important;
+          border-radius: 8px !important;
+        }
+        #sigma-hud-root .pill:hover {
+          background: rgba(57,226,230,0.12) !important;
+          border-color: rgba(57,226,230,0.45) !important;
+        }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
