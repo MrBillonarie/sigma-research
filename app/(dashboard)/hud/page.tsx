@@ -283,7 +283,7 @@ export default function HUDPage() {
         /* ══ 1. Tarjetas → vidrio premium con hover ══ */
         #sigma-hud-root .card {
           position: relative;
-          background: linear-gradient(180deg, rgba(22,28,40,0.62), rgba(11,15,23,0.55)) !important;
+          background: linear-gradient(180deg, rgba(22,28,40,0.5), rgba(11,15,23,0.42)) !important;
           border: 1px solid rgba(255,255,255,0.08) !important;
           border-radius: 16px !important;
           box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 20px 52px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05) !important;
@@ -438,40 +438,43 @@ export default function HUDPage() {
           Sin conexión al motor. Intenta recargar la página.
         </div>
       )}
-      {/* Escenario ambiental — capa fija detrás del dashboard del motor:
-          grilla técnica que se desvanece, auroras cian/azul a la deriva y una
-          línea de escaneo vertical. Todo del lado web, cero motor. */}
-      <div id="hud-stage" aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#04050a', overflow: 'hidden' }}>
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: 'linear-gradient(rgba(57,226,230,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(57,226,230,0.045) 1px, transparent 1px)',
-          backgroundSize: '56px 56px',
-          maskImage: 'radial-gradient(ellipse 95% 75% at 50% 0%, black, transparent 78%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 95% 75% at 50% 0%, black, transparent 78%)',
-        }} />
-        <div style={{ position: 'absolute', width: 660, height: 660, top: -260, right: -140, background: 'radial-gradient(circle, rgba(79,146,255,0.16), transparent 62%)', filter: 'blur(72px)', animation: 'hud-drift1 26s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', width: 580, height: 580, top: '36%', left: -180, background: 'radial-gradient(circle, rgba(57,226,230,0.11), transparent 62%)', filter: 'blur(72px)', animation: 'hud-drift2 32s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', width: 520, height: 520, bottom: -220, right: '22%', background: 'radial-gradient(circle, rgba(154,123,255,0.09), transparent 62%)', filter: 'blur(72px)', animation: 'hud-drift1 38s ease-in-out infinite' }} />
-        {/* Línea de escaneo — barrido vertical lento, casi subliminal */}
-        <div style={{
-          position: 'absolute', left: 0, right: 0, height: 2, top: '-6%',
-          background: 'linear-gradient(90deg, transparent, rgba(57,226,230,0.14), transparent)',
-          boxShadow: '0 0 18px rgba(57,226,230,0.12)',
-          animation: 'hud-scanY 11s linear infinite',
-        }} />
-      </div>
+      {/* Wrapper relativo: contiene el escenario ambiental DENTRO del área del
+          HUD (no fixed al viewport — eso tapaba la barra lateral del sitio). */}
+      <div style={{ position: 'relative', background: '#04050a' }}>
+        {/* Escenario ambiental — grilla técnica, auroras a la deriva y línea
+            de escaneo. Todo del lado web, cero motor. */}
+        <div id="hud-stage" aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'linear-gradient(rgba(57,226,230,0.065) 1px, transparent 1px), linear-gradient(90deg, rgba(57,226,230,0.065) 1px, transparent 1px)',
+            backgroundSize: '56px 56px',
+            maskImage: 'linear-gradient(to bottom, black 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.25) 75%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.25) 75%, transparent 100%)',
+          }} />
+          <div style={{ position: 'absolute', width: 720, height: 720, top: -280, right: -160, background: 'radial-gradient(circle, rgba(79,146,255,0.22), transparent 62%)', filter: 'blur(70px)', animation: 'hud-drift1 26s ease-in-out infinite' }} />
+          <div style={{ position: 'absolute', width: 620, height: 620, top: '30%', left: -200, background: 'radial-gradient(circle, rgba(57,226,230,0.16), transparent 62%)', filter: 'blur(70px)', animation: 'hud-drift2 32s ease-in-out infinite' }} />
+          <div style={{ position: 'absolute', width: 560, height: 560, bottom: -240, right: '20%', background: 'radial-gradient(circle, rgba(154,123,255,0.13), transparent 62%)', filter: 'blur(70px)', animation: 'hud-drift1 38s ease-in-out infinite' }} />
+          {/* Línea de escaneo — barrido vertical lento */}
+          <div style={{
+            position: 'absolute', left: 0, right: 0, height: 2, top: '-6%',
+            background: 'linear-gradient(90deg, transparent, rgba(57,226,230,0.2), transparent)',
+            boxShadow: '0 0 22px rgba(57,226,230,0.18)',
+            animation: 'hud-scanY 11s linear infinite',
+          }} />
+        </div>
 
-      <div
-        id="sigma-hud-root"
-        ref={containerRef}
-        style={{
-          minHeight: '100vh', background: 'transparent',
-          position: 'relative', zIndex: 1,
-          // Fade-in único al terminar de cargar — después nada se mueve
-          opacity: status === 'ok' ? 1 : 0,
-          transition: 'opacity 0.7s ease',
-        }}
-      />
+        <div
+          id="sigma-hud-root"
+          ref={containerRef}
+          style={{
+            minHeight: '100vh', background: 'transparent',
+            position: 'relative', zIndex: 1,
+            // Fade-in único al terminar de cargar — después nada se mueve
+            opacity: status === 'ok' ? 1 : 0,
+            transition: 'opacity 0.7s ease',
+          }}
+        />
+      </div>
     </>
   )
 }
