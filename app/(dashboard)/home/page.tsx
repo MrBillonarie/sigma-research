@@ -535,9 +535,14 @@ export default function DashboardHome() {
     const bestTrade = monthClosed.reduce<EngineClosed | null>(
       (b, t) => (!b || (t.pnl_dollar ?? -Infinity) > (b.pnl_dollar ?? -Infinity)) ? t : b, null
     )
+    // P&L semanal LIVE -- mismo corte de 7 dias que D.weekPnL
+    const weekAgoStr = new Date(now.getTime() - 7 * 86400000).toISOString().split('T')[0]
+    const weekClosed = liveHist.filter(t => (t.closed_at ?? '').slice(0, 10) >= weekAgoStr)
+    const weekPnl   = weekClosed.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0)
+    const weekCount = weekClosed.length
     return {
       monthPnl, monthWinRate, monthClosed: monthClosed.length, openCount: liveOpen.length,
-      sparkMonth, last10, bestTrade,
+      sparkMonth, last10, bestTrade, weekPnl, weekCount,
       trackWinRate, profitFactor, trackPnlTotal, trackTotal: liveHist.length,
     }
   }, [engRaw, now])
@@ -550,6 +555,8 @@ export default function DashboardHome() {
     : D.bestTrade
     ? { pnl: D.bestTrade.pnl_usd, label: `${D.bestTrade.par} · ${D.bestTrade.lado}` }
     : null
+  const weekPnlVal   = E ? E.weekPnl   : D.weekPnL
+  const weekCountVal = E ? E.weekCount : D.weekCount
 
   // Encendido cinemático — los KPIs cuentan de 0 → valor real al cargar
   const cTotal   = useCountUp(loading ? 0 : D.totalUSD)
@@ -993,15 +1000,15 @@ export default function DashboardHome() {
             </div>
 
             <div className="sp-fadein" style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14, animationDelay:'480ms' }}>
-              <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:D.weekPnL >= 0 ? C.green : C.red, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>
-                {D.weekPnL >= 0 ? '▲' : '▼'}
+              <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:weekPnlVal >= 0 ? C.green : C.red, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>
+                {weekPnlVal >= 0 ? '▲' : '▼'}
               </div>
               <div>
-                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>P&L SEMANAL</div>
+                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>P&L SEMANAL{E && <span style={{ marginLeft:6, fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>}</div>
                 {loading ? <Sk w={80} h={14} /> : (
                   <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-                    <span style={{ fontFamily:'monospace', fontSize:13, color:D.weekPnL >= 0 ? C.green : C.red }}>{fmtDiff(D.weekPnL)}</span>
-                    <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{D.weekCount} trades</span>
+                    <span style={{ fontFamily:'monospace', fontSize:13, color:weekPnlVal >= 0 ? C.green : C.red }}>{fmtDiff(weekPnlVal)}</span>
+                    <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{weekCountVal} trades</span>
                   </div>
                 )}
               </div>
