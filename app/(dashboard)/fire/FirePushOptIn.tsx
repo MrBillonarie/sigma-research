@@ -43,7 +43,7 @@ export default function FirePushOptIn() {
 
     navigator.serviceWorker.ready
       .then(reg => reg.pushManager.getSubscription())
-      .then(sub => sub ? registrar(sub) : setStatus('default'))
+      .then(sub => { if (sub) { registrar(sub) } else { setStatus('default') } })
       .catch(() => setStatus('default'))
   }, [])
 
