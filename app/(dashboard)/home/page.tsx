@@ -69,7 +69,7 @@ type PortfolioRow = Record<string, number>
 
 // Ejecuciones reales del motor (payload de /api/vps/trades) — el mismo origen
 // que consume el HUD. Solo tipamos los campos que usamos.
-interface EngineClosed { closed_at?: string; pnl_dollar?: number; mode?: string; sym?: string; direction?: string }
+interface EngineClosed { closed_at?: string; pnl_dollar?: number; mode?: string; sym?: string; direction?: string; tf?: string }
 interface EngineTradesRaw {
   open?: unknown[]
   history?: EngineClosed[]
@@ -569,7 +569,19 @@ export default function DashboardHome() {
   const monthPnlVal = E ? E.monthPnl : 0
   const winRateVal  = E ? E.monthWinRate : 0
   const bestTradeVal = E?.bestTrade
-    ? { pnl: E.bestTrade.pnl_dollar ?? 0, label: `${(E.bestTrade.sym ?? '').toUpperCase()} · ${(E.bestTrade.direction ?? '').toUpperCase()}` }
+    ? (() => {
+        const bt = E.bestTrade!
+        const sym = (bt.sym ?? '').toUpperCase()
+        const tf = bt.tf ?? ''
+        // direction viene "?" en las MANUAL (reconciliadas desde Binance sin
+        // poder atribuir el lado con certeza) -- en ese caso mostrar TF+modo
+        // en vez de un "?" que no dice nada.
+        const dirKnown = !!bt.direction && bt.direction !== '?'
+        const parts = dirKnown
+          ? [sym, bt.direction!.toUpperCase()]
+          : [sym, tf, bt.mode === 'MANUAL' ? 'MANUAL' : bt.mode].filter(Boolean)
+        return { pnl: bt.pnl_dollar ?? 0, label: parts.join(' · '), closedAt: bt.closed_at ?? '' }
+      })()
     : null
   const weekPnlVal   = E ? E.weekPnl   : 0
   const weekCountVal = E ? E.weekCount : 0
@@ -1005,9 +1017,14 @@ export default function DashboardHome() {
               <div>
                 <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>MEJOR TRADE DEL MES{E && <span style={{ marginLeft:6, fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>}</div>
                 {engineLoading ? <Sk w={80} h={14} /> : bestTradeVal ? (
-                  <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-                    <span style={{ fontFamily:'monospace', fontSize:13, color:C.green }}>{fmtDiff(bestTradeVal.pnl)}</span>
+                  <div style={{ display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
+                    <span style={{ fontFamily:'monospace', fontSize:13, color:C.green }}>
+                      {(bestTradeVal.pnl >= 0 ? '+' : '') + '$' + bestTradeVal.pnl.toFixed(2)}
+                    </span>
                     <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{bestTradeVal.label}</span>
+                    {bestTradeVal.closedAt && (
+                      <span style={{ fontFamily:'monospace', fontSize:9, color:C.muted }}>{bestTradeVal.closedAt.slice(5, 10)}</span>
+                    )}
                   </div>
                 ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin trades este mes</span>}
               </div>
