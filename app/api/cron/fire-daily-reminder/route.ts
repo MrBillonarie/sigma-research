@@ -111,13 +111,16 @@ export async function POST(req: Request) {
     const streak    = computeStreak(completed, frozen, today)
     const hadYesterday = (completed[yesterday]?.length ?? 0) > 0 || frozen.includes(yesterday)
 
+    // urgente:true en las 3 variantes — así se fijan arriba en la campanita
+    // (bucket "// URGENTES") junto a las señales de trading, en vez de quedar
+    // escondidas abajo en "// RECIENTES" donde nadie las ve sin hacer scroll.
     if (didToday) {
       toInsert.push({
         user_id:      uid,
         type:         'fire_daily_digest',
         title:        '✅ Cumpliste tu misión FIRE de hoy',
         body:         `Racha actual: ${streak} ${streak === 1 ? 'día' : 'días'}. Cada día cuenta para tu libertad financiera.`,
-        urgente:      false,
+        urgente:      true,
         accion_label: 'Ver FIRE',
         accion_href:  '/fire',
         read:         false,
@@ -139,7 +142,7 @@ export async function POST(req: Request) {
         type:         'fire_daily_digest',
         title:        'Recuerda tu misión FIRE de hoy',
         body:         'Un hábito pequeño y diario te acerca a tu libertad financiera. Entra y completa tu reto de hoy.',
-        urgente:      false,
+        urgente:      true,
         accion_label: 'Ver FIRE',
         accion_href:  '/fire',
         read:         false,
