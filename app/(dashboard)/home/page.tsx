@@ -512,14 +512,16 @@ export default function DashboardHome() {
   // Cifra "del mes" desde history cerrado este mes; track record desde stats.
   const E = useMemo(() => {
     if (!engRaw) return null
-    // trade_state.json mezcla PAPER (cuenta de estudio $10k) y LIVE (cuenta
-    // real Binance Futures) en el mismo history -- cada trade trae su propio
-    // `mode`. Todo lo etiquetado "motor" en este bloque debe salir SOLO de
-    // LIVE o termina mostrando plata de mentira como si fuera real.
+    // trade_state.json mezcla PAPER (cuenta de estudio $10k), LIVE (bot en
+    // Binance Futures) y MANUAL (el usuario ejecuta a mano en Binance una
+    // operacion real, sin pasar por el ejecutor) -- las dos ultimas son
+    // plata real y se combinan aca. Confirmado explicitamente: el numero
+    // combinado puede ser negativo (no se fuerza a positivo solo porque
+    // "deberia" serlo -- se muestra el real, sea cual sea el signo).
     const hist = Array.isArray(engRaw.history) ? engRaw.history : []
-    const liveHist = hist.filter(t => t.mode === 'LIVE')
+    const liveHist = hist.filter(t => t.mode === 'LIVE' || t.mode === 'MANUAL')
     if (!liveHist.length) return null
-    const liveOpen = (Array.isArray(engRaw.open) ? engRaw.open : []).filter(t => (t as { mode?: string })?.mode === 'LIVE')
+    const liveOpen = (Array.isArray(engRaw.open) ? engRaw.open : []).filter(t => { const m = (t as { mode?: string })?.mode; return m === 'LIVE' || m === 'MANUAL' })
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const monthClosed = liveHist.filter(t => (t.closed_at ?? '').slice(0, 7) === ym)
     const monthPnl = monthClosed.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0)
@@ -534,7 +536,7 @@ export default function DashboardHome() {
     // Últimos 10 resultados del motor ESTE MES (mismo alcance que el % grande
     // de al lado -- antes tomaba todo el historial LIVE y contradecia el mes)
     const last10 = chronMonth.slice(-10).map(t => (t.pnl_dollar ?? 0) > 0 ? 1 : (t.pnl_dollar ?? 0) < 0 ? 0 : 0.5)
-    // Track record histórico -- también solo LIVE. profitFactor y PnL total
+    // Track record histórico -- también LIVE+MANUAL. profitFactor y PnL total
     // salen del propio history (no de engRaw.stats/portfolio, que son del
     // agregado PAPER de $10k y no representan la cuenta real).
     const trackWins   = liveHist.filter(t => (t.pnl_dollar ?? 0) > 0)
@@ -907,7 +909,7 @@ export default function DashboardHome() {
                 {!engineLoading && monthSpark.length > 1 && <Sparkline data={monthSpark} w={56} h={22} />}
               </div>
               <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>
-                {engineLoading ? '' : E ? `${E.monthClosed} cerrados · ${E.openCount} abiertas` : 'sin operación LIVE registrada'}
+                {engineLoading ? '' : E ? `${E.monthClosed} cerrados · ${E.openCount} abiertas` : 'sin operación registrada'}
               </div>
               {E && <div style={{ fontFamily:'monospace', fontSize:9, color:C.gold, marginTop:3, letterSpacing:'0.04em' }}>
                 motor {fmtDiff(E.trackPnlTotal)} · PF {E.profitFactor.toFixed(2)}
@@ -1007,7 +1009,7 @@ export default function DashboardHome() {
                     <span style={{ fontFamily:'monospace', fontSize:13, color:C.green }}>{fmtDiff(bestTradeVal.pnl)}</span>
                     <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{bestTradeVal.label}</span>
                   </div>
-                ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin trades LIVE este mes</span>}
+                ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin trades este mes</span>}
               </div>
             </div>
 
