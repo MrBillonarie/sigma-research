@@ -33,3 +33,30 @@ self.addEventListener('fetch', event => {
     )
   )
 })
+
+// ── Web Push (recordatorio diario FIRE, 2026-07-08) ──────────────────────────
+self.addEventListener('push', event => {
+  let payload = {}
+  try { payload = event.data ? event.data.json() : {} } catch { /* ignore */ }
+  const title = payload.title || 'SquantDesk'
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || '',
+      icon: '/api/icon/192',
+      badge: '/api/icon/192',
+      data: { url: payload.url || '/fire' },
+    })
+  )
+})
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close()
+  const url = event.notification.data?.url || '/fire'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const existing = list.find(c => c.url.includes(url))
+      if (existing) return existing.focus()
+      return self.clients.openWindow(url)
+    })
+  )
+})
