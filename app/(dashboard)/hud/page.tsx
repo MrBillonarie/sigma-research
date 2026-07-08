@@ -1014,9 +1014,14 @@ export default function HUDPage() {
           background: linear-gradient(90deg, rgba(57,226,230,0.05), rgba(255,255,255,0.012) 60%) !important;
           border-top: 1px solid rgba(57,226,230,0.16) !important;
           border-left: 3px solid rgba(57,226,230,0.45) !important;
-          padding: 12px 16px !important;
-          line-height: 2 !important;
-          word-spacing: 1px;
+          padding: 14px 18px !important;
+          line-height: 2.1 !important;
+          border-radius: 10px 10px 0 0;
+        }
+        /* Activos 15/20 legible: texto cian con peso (antes tapado por bug) */
+        #sigma-hud-root .matrix td[colspan] span[style*="color:#c9a227"] {
+          color: #39e2e6 !important; font-weight: 700 !important;
+          text-shadow: 0 0 10px rgba(57,226,230,0.35);
         }
         /* delta "CAGR ponderado vivo": log secundario, discreto */
         #sigma-hud-root .matrix tr[style*="#060d20"] > td[colspan][style*="dashed"] {
@@ -1097,8 +1102,9 @@ export default function HUDPage() {
           background: linear-gradient(135deg, #d63a55, #a81f3d) !important;
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 10px rgba(214,58,85,0.4);
         }
-        /* Barrita de acento del título de la card: dorada → gradiente cian */
-        #sigma-hud-root span[style*="#c9a227"] {
+        /* Barrita de acento del título de la card: dorada → gradiente cian.
+           OJO: solo la barra (background gradient), no textos color #c9a227 */
+        #sigma-hud-root span[style*="background:linear-gradient(180deg,#c9a227"] {
           background: linear-gradient(180deg, #5eeaf0, #4f92ff) !important;
           box-shadow: 0 0 10px rgba(57,226,230,0.55);
         }
