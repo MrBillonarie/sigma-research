@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/app/lib/supabase'
 
 const MONO   = "var(--font-dm-mono,'DM Mono',monospace)"
-const GOLD   = '#F5C842'
+const GOLD   = '#39e2e6'
 const BG     = '#04050a'
 const CARD   = '#0f0f0f'
 const BORDER = 'rgba(255,255,255,0.08)'
@@ -262,7 +262,7 @@ export default function NotificacionesPage() {
             <button
               onClick={markAllRead}
               style={{ fontFamily: MONO, fontSize: 10, color: GOLD, background: 'none', border: `1px solid ${GOLD}44`, borderRadius: 6, padding: '8px 16px', cursor: 'pointer', letterSpacing: '0.1em' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(245,200,66,0.08)')}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(57,226,230,0.08)')}
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'none')}
             >
               MARCAR TODAS COMO LEÍDAS ({unread})
@@ -364,7 +364,7 @@ export default function NotificacionesPage() {
                     <button
                       onClick={() => router.push('/hud')}
                       style={{ marginTop: 10, fontFamily: MONO, fontSize: 9, color: GOLD, background: 'none', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 10px', cursor: 'pointer', letterSpacing: '0.08em' }}
-                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(245,200,66,0.08)')}
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(57,226,230,0.08)')}
                       onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'none')}
                     >
                       VER EN HUD →
@@ -504,7 +504,7 @@ export default function NotificacionesPage() {
                               <button
                                 onClick={() => handleClick(n)}
                                 style={{ fontFamily: MONO, fontSize: 10, color: GOLD, background: 'none', border: `1px solid ${GOLD}44`, borderRadius: 5, padding: '4px 12px', cursor: 'pointer', letterSpacing: '0.08em' }}
-                                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(245,200,66,0.08)')}
+                                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(57,226,230,0.08)')}
                                 onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'none')}
                               >
                                 {n.accion_label} →
