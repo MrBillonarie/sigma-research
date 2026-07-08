@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/app/lib/supabase'
 import { createNotification } from '@/app/lib/notify'
 import FireBadges from './FireBadges'
-import { BADGES } from './challenges'
+import { BADGES, LEVELS, getLevelFromPoints, getNextLevel } from './challenges'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Difficulty = 'FÁCIL' | 'MEDIO' | 'DIFÍCIL'
@@ -34,13 +34,17 @@ interface ChallengeStore {
   maxStreak:          number
   totalCompleted:     number
   totalSaved:         number
+  totalPoints:        number          // XP acumulada — alimenta LEVELS (challenges.ts)
   weeklyProgress:     Record<string, Record<string, number>>
   notifiedStreaks:    number[]        // hitos de racha (7/30/...) ya notificados
   notifiedMissedDate: string | null   // última fecha en que se avisó racha rota
   earnedBadges:       string[]        // ids de BADGES ya notificados como desbloqueados
+  notifiedLevelIdx:   number          // índice más alto de LEVELS ya notificado
 }
 
 const STREAK_MILESTONES = [7, 30, 100, 365]
+const DAILY_POINTS = 10
+const WEEKLY_POINTS: Record<Difficulty, number> = { 'FÁCIL': 20, 'MEDIO': 35, 'DIFÍCIL': 50 }
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 const GOLD   = '#F5C842'
@@ -219,8 +223,8 @@ const WEEKLY_B: WeeklyChallenge[] = [
 const WEEKLY_SETS = [WEEKLY_A, WEEKLY_B]
 
 const STORE_DEFAULT: ChallengeStore = {
-  completed: {}, maxStreak: 0, totalCompleted: 0, totalSaved: 0, weeklyProgress: {},
-  notifiedStreaks: [], notifiedMissedDate: null, earnedBadges: [],
+  completed: {}, maxStreak: 0, totalCompleted: 0, totalSaved: 0, totalPoints: 0, weeklyProgress: {},
+  notifiedStreaks: [], notifiedMissedDate: null, earnedBadges: [], notifiedLevelIdx: 0,
 }
 
 // Insignias que hoy tienen datos reales para calcular su desbloqueo (el resto
@@ -231,7 +235,7 @@ function computeEarnedBadges(store: ChallengeStore): string[] {
   if (store.totalCompleted >= 1)  earned.push('primer_paso')
   if (store.maxStreak >= 7)       earned.push('on_fire')
   if (store.maxStreak >= 30)      earned.push('imparable')
-  if (store.totalCompleted >= 10) earned.push('centenario')
+  if (store.totalPoints >= 100)   earned.push('centenario')
   if (store.totalSaved >= 500)    earned.push('ahorrador_elite')
   const anyWeekComplete = Object.entries(store.weeklyProgress).some(([wk, progress]) => {
     const wn  = parseInt(wk.split('-W')[1])
@@ -329,6 +333,7 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
       maxStreak:      Math.max(store.maxStreak, newStreak),
       totalCompleted: store.totalCompleted + 1,
       totalSaved:     store.totalSaved + amt,
+      totalPoints:    store.totalPoints + DAILY_POINTS,
     })
     if (userId) {
       createNotification({
@@ -362,6 +367,7 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
       weeklyProgress: { ...store.weeklyProgress, [weekKey]: newWeekProg },
       totalCompleted: !wasComplete && nowComplete ? store.totalCompleted + 1 : store.totalCompleted,
       totalSaved:     store.totalSaved + (ch.goalType === 'amount' ? value : 0),
+      totalPoints:    !wasComplete && nowComplete ? store.totalPoints + WEEKLY_POINTS[ch.difficulty] : store.totalPoints,
       maxStreak:      Math.max(store.maxStreak, computeStreak(newComp)),
     })
     setShowInput(null)
@@ -394,6 +400,13 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
   // Perfect week banner
   const showPerfectBanner = streak >= 7
 
+  // Nivel / XP — LEVELS ya definido en challenges.ts, antes sin usar
+  const currentLevel = getLevelFromPoints(store.totalPoints)
+  const nextLevel     = getNextLevel(store.totalPoints)
+  const levelPct      = nextLevel
+    ? Math.min(100, ((store.totalPoints - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100)
+    : 100
+
   // ── Notificaciones pasivas: racha rota, hitos de racha, insignias ──────────
   // Se detectan solo comparando contra lo ya notificado en el store (persistido
   // en localStorage), así cada evento avisa una única vez, no en cada render.
@@ -403,8 +416,10 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
     const newMilestones = STREAK_MILESTONES.filter(m => streak >= m && !store.notifiedStreaks.includes(m))
     const missedNow      = missedYesterday && store.notifiedMissedDate !== yesterdayKey
     const newBadgeIds    = computeEarnedBadges(store).filter(id => !store.earnedBadges.includes(id))
+    const currentLevelIdx = LEVELS.indexOf(getLevelFromPoints(store.totalPoints))
+    const leveledUp        = currentLevelIdx > store.notifiedLevelIdx
 
-    if (newMilestones.length === 0 && !missedNow && newBadgeIds.length === 0) return
+    if (newMilestones.length === 0 && !missedNow && newBadgeIds.length === 0 && !leveledUp) return
 
     for (const m of newMilestones) {
       createNotification({
@@ -443,11 +458,25 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
       })
     }
 
+    if (leveledUp) {
+      const lvl = LEVELS[currentLevelIdx]
+      createNotification({
+        userId,
+        title:       `¡Subiste a nivel ${lvl.name}!`,
+        body:        `${lvl.emoji} Alcanzaste ${store.totalPoints} XP en tus retos FIRE. Cada nivel te acerca más a tu libertad financiera.`,
+        type:        'fire',
+        urgente:     true,
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+    }
+
     persist({
       ...store,
       notifiedStreaks:    [...store.notifiedStreaks, ...newMilestones],
       notifiedMissedDate: missedNow ? yesterdayKey : store.notifiedMissedDate,
       earnedBadges:       [...store.earnedBadges, ...newBadgeIds],
+      notifiedLevelIdx:   leveledUp ? currentLevelIdx : store.notifiedLevelIdx,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, userId, isUnconfigured, streak, missedYesterday, yesterdayKey, store])
@@ -488,6 +517,27 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
       {/* Section header */}
       <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.25em', color: GOLD, marginBottom: 20 }}>
         {'// RETOS FIRE · HOY & ESTA SEMANA'}
+      </div>
+
+      {/* Nivel / XP */}
+      <div style={{
+        background: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
+        padding: '16px 22px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 18,
+      }}>
+        <span style={{ fontSize: 30, lineHeight: 1 }}>{currentLevel.emoji}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontFamily: MONO, fontSize: 13, color: '#e8e9f0', fontWeight: 700, letterSpacing: '0.08em' }}>
+              NIVEL {currentLevel.name}
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
+              {store.totalPoints} XP{nextLevel ? ` · ${nextLevel.min - store.totalPoints} para ${nextLevel.name}` : ' · NIVEL MÁXIMO'}
+            </span>
+          </div>
+          <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${levelPct}%`, background: `linear-gradient(90deg,${GOLD},#5eeaf0)`, borderRadius: 4, transition: 'width 0.4s' }} />
+          </div>
+        </div>
       </div>
 
       {/* Perfect week banner */}
@@ -712,6 +762,7 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
         display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap',
       }}>
         {[
+          { emoji: currentLevel.emoji, label: 'XP total', val: `${store.totalPoints} pts`          },
           { emoji: '🔥', label: 'Racha actual',   val: `${streak} días`                           },
           { emoji: '🏆', label: 'Mejor racha',     val: `${store.maxStreak} días`                   },
           { emoji: '✓',  label: 'Completados',     val: `${store.totalCompleted} retos`             },
