@@ -227,7 +227,9 @@ export default function HUDPage() {
     let target: HTMLElement | null = null
     let rx = 0, ry = 0
     function onMove(e: MouseEvent) {
-      const card = (e.target as HTMLElement).closest?.('.card') as HTMLElement | null
+      let card = (e.target as HTMLElement).closest?.('.card') as HTMLElement | null
+      // Las matrices M1-M4 van sin tarjeta (mesa abierta): no se inclinan
+      if (card && card.id.startsWith('matrix-section')) card = null
       if (card !== target && target) target.style.transform = ''
       target = card
       if (!card) return
@@ -787,13 +789,42 @@ export default function HUDPage() {
           position: relative;
           transition: filter .25s ease, box-shadow .25s ease !important;
         }
-        /* CROSSHAIR — columna: banda vertical que atraviesa la matriz */
-        #sigma-hud-root .matrix td:not(.asset-col):hover::after {
-          content: ''; position: absolute; left: 0; right: 0;
-          top: -6000px; bottom: -6000px;
-          background: rgba(57,226,230,0.045);
-          pointer-events: none; z-index: 0;
+        /* Las matrices NO viven en tarjeta: mesa abierta sobre el fondo,
+           overflow libre para que tooltips y detalles nunca se recorten */
+        #sigma-hud-root [id^="matrix-section"].card {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          backdrop-filter: none !important;
+          border-radius: 0 !important;
+          overflow: visible !important;
+          padding-left: 0 !important; padding-right: 0 !important;
         }
+        #sigma-hud-root [id^="matrix-section"].card::before,
+        #sigma-hud-root [id^="matrix-section"].card::after { display: none !important; }
+        #sigma-hud-root [id^="matrix-section"].card:hover {
+          transform: none !important; border: none !important; box-shadow: none !important;
+        }
+        #sigma-hud-root .matrix td { overflow: visible !important; }
+
+        /* LEGIBILIDAD: los detalles oscuros del motor ahora se leen.
+           'estimado (…)', leyendas y subtextos venían en #555/#444 sobre
+           oscuro; 'En cola' en un azul casi negro. */
+        #sigma-hud-root [style*="color:#555"] { color: #7e8aa0 !important; }
+        #sigma-hud-root [style*="color:#444"] { color: #6b7688 !important; }
+        #sigma-hud-root .cell-sub { color: #8b97ad !important; }
+        #sigma-hud-root .cell-pending {
+          color: #5f6a7d !important;
+          border-color: rgba(120,135,160,0.35) !important;
+        }
+        /* franja COMBINED dentro del campeón: definida y legible */
+        #sigma-hud-root .matrix [style*="rgba(88,166,255,.05)"] {
+          background: rgba(88,166,255,0.1) !important;
+          border: 1px solid rgba(88,166,255,0.22) !important;
+          border-radius: 6px !important;
+          padding: 3px 6px !important;
+        }
+
         /* CROSSHAIR — fila iluminada, el resto de la matriz se atenúa */
         #sigma-hud-root .matrix tbody:hover tr:not(:hover) td {
           filter: brightness(0.55) saturate(0.75);
