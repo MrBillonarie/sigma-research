@@ -1472,6 +1472,44 @@ export default function HUDPage() {
         #sigma-hud-root div[style*="background:#07091c"]:has(#live-counter) tbody tr:nth-child(even) { background: rgba(255,255,255,0.016); }
         #sigma-hud-root div[style*="background:#07091c"]:has(#live-counter) tbody tr:hover { background: rgba(57,226,230,0.05); }
 
+        /* ══ 14. Risk Metrics + Performance Snapshot — quita dorado + nivel ══ */
+        /* --bd-gold (borde dorado del motor) → cian: limpia el remanente en
+           risk-panel y cualquier otro borde que lo use */
+        #sigma-hud-root { --bd-gold: rgba(57,226,230,0.18); }
+        /* ambos contenedores como panel glass (risk-panel no es .card;
+           card-purple tampoco recibia el tratamiento) */
+        #sigma-hud-root .risk-panel, #sigma-hud-root .card-purple {
+          position: relative; overflow: hidden;
+          background: linear-gradient(180deg, rgba(20,26,38,0.55), rgba(10,14,22,0.5)) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 16px !important;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 20px 52px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+        }
+        /* rail cian superior (reemplaza el border-top ámbar #f59e0b) */
+        #sigma-hud-root .risk-panel::before, #sigma-hud-root .card-purple::before {
+          content: ''; position: absolute; inset: 0 0 auto 0; height: 2px; z-index: 1;
+          background: linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%);
+        }
+        /* brackets de esquina sutiles (como las .card) */
+        #sigma-hud-root .risk-panel::after, #sigma-hud-root .card-purple::after {
+          content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.35;
+          background:
+            linear-gradient(#39e2e6,#39e2e6) left 8px top 8px / 12px 1px,
+            linear-gradient(#39e2e6,#39e2e6) left 8px top 8px / 1px 12px,
+            linear-gradient(#39e2e6,#39e2e6) right 8px top 8px / 12px 1px,
+            linear-gradient(#39e2e6,#39e2e6) right 8px top 8px / 1px 12px,
+            linear-gradient(#39e2e6,#39e2e6) left 8px bottom 8px / 12px 1px,
+            linear-gradient(#39e2e6,#39e2e6) left 8px bottom 8px / 1px 12px,
+            linear-gradient(#39e2e6,#39e2e6) right 8px bottom 8px / 12px 1px,
+            linear-gradient(#39e2e6,#39e2e6) right 8px bottom 8px / 1px 12px;
+          background-repeat: no-repeat;
+        }
+        /* header: hairline dorada → cian; título ya hereda --gold (cian) */
+        #sigma-hud-root .risk-header { border-bottom-color: rgba(57,226,230,0.16) !important; }
+        #sigma-hud-root .risk-title { color: #39e2e6 !important; }
+        /* cualquier border-top ámbar residual del motor → cian */
+        #sigma-hud-root [style*="2px solid #f59e0b"] { border-top-color: rgba(57,226,230,0.55) !important; }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
