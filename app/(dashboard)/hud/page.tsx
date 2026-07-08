@@ -265,6 +265,8 @@ export default function HUDPage() {
       let card = (e.target as HTMLElement).closest?.('.card') as HTMLElement | null
       // Las matrices M1-M4 van sin tarjeta (mesa abierta): no se inclinan
       if (card && card.id.startsWith('matrix-section')) card = null
+      // la vitrina de descargas tampoco (manda el hover de sus tarjetas internas)
+      if (card && card.dataset.sigmaDl === '1') card = null
       if (card !== target && target) target.style.transform = ''
       target = card
       if (!card) return
@@ -333,6 +335,140 @@ export default function HUDPage() {
     }
   }, [])
 
+  // Vitrina de descargas — reconstruye la sección de Pine Scripts como un
+  // mini-dashboard estilo TradingView. Reutiliza los <a> reales del motor
+  // (conservan href/download y el onclick) moviéndolos dentro de las tarjetas.
+  // No toca el motor: transforma el DOM ya inyectado en la capa web.
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let raf = 0
+
+    function drawChart(cv: HTMLCanvasElement) {
+      const ctx = cv.getContext('2d'); if (!ctx) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const w = cv.clientWidth, h = cv.clientHeight
+      if (!w || !h) return
+      cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, w, h)
+      const n = 46, cw = w / n
+      const seed = [0.6, -0.4, 0.9, 0.3, -0.7, 1.1, -0.2, 0.5, -0.9, 0.7, 0.2, -0.5, 1.0, -0.3]
+      let price = h * 0.55
+      const closes: number[] = []
+      for (let i = 0; i < n; i++) { price += seed[i % seed.length] * h * 0.022; price = Math.max(h * 0.22, Math.min(h * 0.8, price)); closes.push(price) }
+      // volumen (casi imperceptible)
+      ctx.globalAlpha = 0.045; ctx.fillStyle = '#3B82F6'
+      for (let i = 0; i < n; i++) { const vh = (Math.abs(seed[i % seed.length]) + 0.3) * h * 0.13; ctx.fillRect(i * cw + cw * 0.22, h - vh, cw * 0.56, vh) }
+      // velas japonesas (baja opacidad)
+      ctx.globalAlpha = 0.07; ctx.lineWidth = 1
+      for (let i = 1; i < n; i++) {
+        const o = closes[i - 1], c = closes[i], up = c <= o
+        const col = up ? '#22C55E' : '#00E5FF'; ctx.strokeStyle = col; ctx.fillStyle = col
+        const x = i * cw + cw * 0.5
+        ctx.beginPath(); ctx.moveTo(x, Math.min(o, c) - 6); ctx.lineTo(x, Math.max(o, c) + 6); ctx.stroke()
+        ctx.fillRect(i * cw + cw * 0.3, Math.min(o, c), cw * 0.4, Math.max(2, Math.abs(c - o)))
+      }
+      // EMA
+      ctx.globalAlpha = 0.13; ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 1.5; ctx.beginPath()
+      let ema = closes[0]
+      for (let i = 0; i < n; i++) { ema += (closes[i] - ema) * 0.2; const x = i * cw + cw * 0.5; if (i) ctx.lineTo(x, ema); else ctx.moveTo(x, ema) }
+      ctx.stroke(); ctx.globalAlpha = 1
+    }
+
+    function esc(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;') }
+    function featChips(s: string) {
+      const parts = s.includes(' + ') ? s.split(' + ') : s.split(' / ')
+      return parts.map(p => p.trim()).filter(Boolean).map(p => `<span>${esc(p)}</span>`).join('')
+    }
+    function nameVer(a: HTMLAnchorElement | null) {
+      const t = (a?.textContent || '').replace(/[⬇↓]/g, '').trim()
+      const m = t.match(/^(.*?)(v[\d.]+)\s*$/i)
+      return { name: (m?.[1] ?? t).trim(), ver: (m?.[2] ?? '').trim() }
+    }
+    function subLabel(a: HTMLAnchorElement | null) {
+      const d = a?.parentElement ? Array.from(a.parentElement.children).find(c => c.tagName === 'DIV') as HTMLElement | undefined : undefined
+      return (d?.textContent || '').trim()
+    }
+
+    function enhance() {
+      const strat = root!.querySelector('a[href="/download/strategy"]') as HTMLAnchorElement | null
+      if (!strat) return
+      const card = strat.closest('.card') as HTMLElement | null
+      if (!card || card.dataset.sigmaDl === '1') return
+      const term = root!.querySelector('a[href="/download/terminal"]') as HTMLAnchorElement | null
+
+      const full = card.textContent || ''
+      const size = full.match(/([\d.]+)\s*KB/i)?.[1] ?? '132'
+      const models = full.match(/(\d+)\s*modelos/i)?.[1] ?? '155'
+      const updated = (full.match(/actualizado\s+([\d/]+[^)\n]*?)(?:\s*\(|$)/i)?.[1] ?? 'hoy').trim()
+      const desc = card.querySelector('p')?.textContent?.trim() ?? 'Carga ambos indicadores en el mismo chart de TradingView.'
+      const s = nameVer(strat), t = nameVer(term)
+      const sFeats = featChips(subLabel(strat)), tFeats = featChips(subLabel(term))
+
+      // el <a> pasa a decir "Descargar" (se conservan href/download/onclick)
+      strat.innerHTML = '<span style="font-size:15px">↓</span> Descargar'
+      if (term) term.innerHTML = '<span style="font-size:15px">↓</span> Descargar'
+
+      const parts = (reduce ? '' :
+        '<span class="sigma-dl-particle" style="left:12%;bottom:10%;animation-delay:0s"></span>' +
+        '<span class="sigma-dl-particle" style="left:82%;bottom:16%;animation-delay:3s"></span>' +
+        '<span class="sigma-dl-particle" style="left:48%;bottom:8%;animation-delay:6s"></span>')
+
+      const wrap = document.createElement('div')
+      wrap.className = 'sigma-dl'
+      wrap.innerHTML =
+        '<canvas class="sigma-dl-bg"></canvas><div class="sigma-dl-scanline"></div>' + parts +
+        '<div class="sigma-dl-inner">' +
+          '<div class="sigma-dl-head">' +
+            '<span class="sigma-dl-eyebrow">↓ TradingView Package</span>' +
+            '<div class="sigma-dl-title">Load Professional Indicators</div>' +
+            `<p class="sigma-dl-sub">${esc(desc)}</p>` +
+          '</div>' +
+          '<div class="sigma-dl-grid">' +
+            '<div class="sigma-dl-card engine">' +
+              '<div class="sigma-dl-card-head"><span class="sigma-dl-ico">📈</span>' +
+                `<div class="sigma-dl-id"><b>${esc(s.name || 'SIGMA ENGINE')}</b><span class="ver">${esc(s.ver)}</span></div>` +
+                '<span class="sigma-dl-status">READY</span></div>' +
+              `<div class="sigma-dl-feats">${sFeats}</div>` +
+              `<div class="sigma-dl-metarow"><span>📦 ${esc(size)} KB</span><span>🧠 ${esc(models)} models</span></div>` +
+              '<div class="sigma-dl-btnslot" data-slot="strategy"></div>' +
+            '</div>' +
+            '<div class="sigma-dl-card terminal">' +
+              '<div class="sigma-dl-card-head"><span class="sigma-dl-ico">📊</span>' +
+                `<div class="sigma-dl-id"><b>${esc(t.name || 'SIGMA TERMINAL')}</b><span class="ver">${esc(t.ver)}</span></div>` +
+                '<span class="sigma-dl-status">READY</span></div>' +
+              `<div class="sigma-dl-feats">${tFeats}</div>` +
+              '<div class="sigma-dl-metarow"><span>◈ Análisis institucional</span></div>' +
+              '<div class="sigma-dl-btnslot" data-slot="terminal"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="sigma-dl-footbadges">' +
+            `<span>📦 ${esc(size)} KB</span><span>🧠 ${esc(models)} Models</span>` +
+            `<span>🕒 ${esc(updated)}</span><span>🇨🇱 Chile</span><span>✔ Verified · TradingView</span>` +
+          '</div>' +
+        '</div>'
+
+      card.dataset.sigmaDl = '1'
+      card.innerHTML = ''
+      card.appendChild(wrap)
+      wrap.querySelector('[data-slot="strategy"]')?.appendChild(strat)
+      if (term) wrap.querySelector('[data-slot="terminal"]')?.appendChild(term)
+      const cv = wrap.querySelector('.sigma-dl-bg') as HTMLCanvasElement | null
+      if (cv) requestAnimationFrame(() => drawChart(cv))
+    }
+
+    enhance()
+    const obs = new MutationObserver(() => {
+      if (raf) return
+      raf = requestAnimationFrame(() => { raf = 0; enhance() })
+    })
+    obs.observe(root, { childList: true, subtree: true })
+    const onResize = () => { const cv = root.querySelector('.sigma-dl-bg') as HTMLCanvasElement | null; if (cv) drawChart(cv) }
+    window.addEventListener('resize', onResize)
+    return () => { obs.disconnect(); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
+  }, [])
+
   return (
     <>
       {/* Re-skin "Black & Gold" — overrides CSS del lado web. Vive en el
@@ -351,6 +487,18 @@ export default function HUDPage() {
           0%,100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 12px 32px -8px rgba(20,184,125,0.55), 0 0 22px rgba(46,204,113,0.18); }
           50%     { box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 12px 32px -8px rgba(20,184,125,0.6), 0 0 42px rgba(46,204,113,0.42); }
         }
+        @keyframes hud-dl-breathe {
+          0%,100% { box-shadow: inset 0 0 0 1px rgba(0,229,255,0.08), inset 0 0 42px -32px rgba(0,229,255,0.25); }
+          50%     { box-shadow: inset 0 0 0 1px rgba(0,229,255,0.2),  inset 0 0 60px -30px rgba(0,229,255,0.45); }
+        }
+        @keyframes hud-dl-scanx { 0% { top: -120px; } 100% { top: 118%; } }
+        @keyframes hud-dl-particle {
+          0%   { transform: translateY(0);      opacity: 0; }
+          18%  { opacity: 0.85; }
+          82%  { opacity: 0.5; }
+          100% { transform: translateY(-130px); opacity: 0; }
+        }
+        @keyframes hud-pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
         @keyframes hud-optpulse {
           0%,100% { box-shadow: inset 0 0 0 1px rgba(57,226,230,0.25), 0 0 10px rgba(57,226,230,0.1); }
           50%     { box-shadow: inset 0 0 0 1px rgba(57,226,230,0.55), 0 0 20px rgba(57,226,230,0.25); }
@@ -1123,61 +1271,147 @@ export default function HUDPage() {
           text-shadow: 0 0 10px rgba(57,226,230,0.35);
         }
 
-        /* ══ 12. Vitrina de descargas — Pine Scripts (los 2 botones estrella) ══ */
-        /* escenario: focos esmeralda y cian iluminando los productos */
-        #sigma-hud-root .card:has(a[href="/download/strategy"]) {
+        /* ══ 12. Vitrina de descargas — mini-dashboard TradingView (DOM reconstruido) ══ */
+        /* la card contenedora: panel oscuro FinTech, sin brackets/rail genéricos */
+        #sigma-hud-root .card:has(.sigma-dl) {
+          background: linear-gradient(180deg, #0A1220, #070B14) !important;
+          border: 1px solid rgba(0,229,255,0.18) !important;
+          padding: 0 !important; overflow: hidden;
+        }
+        #sigma-hud-root .card:has(.sigma-dl)::before,
+        #sigma-hud-root .card:has(.sigma-dl)::after { display: none !important; }
+
+        #sigma-hud-root .sigma-dl {
+          position: relative; overflow: hidden; padding: 32px 26px 26px;
+          border-radius: inherit; animation: hud-dl-breathe 6.5s ease-in-out infinite;
+        }
+        /* grid técnico + líneas horizontales muy sutiles (TradingView) */
+        #sigma-hud-root .sigma-dl::before {
+          content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
           background:
-            radial-gradient(55% 95% at 38% 58%, rgba(46,204,113,0.09), transparent 62%),
-            radial-gradient(55% 95% at 62% 58%, rgba(57,226,230,0.08), transparent 62%),
-            linear-gradient(180deg, rgba(22,28,40,0.5), rgba(11,15,23,0.42)) !important;
+            linear-gradient(rgba(0,229,255,0.05) 1px, transparent 1px) 0 0 / 100% 34px,
+            linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px) 0 0 / 46px 100%;
+          mask-image: radial-gradient(ellipse 100% 82% at 50% 42%, black, transparent 88%);
+          -webkit-mask-image: radial-gradient(ellipse 100% 82% at 50% 42%, black, transparent 88%);
         }
-        /* SIGMA ENGINE: llave de producto esmeralda — late y brilla */
-        #sigma-hud-root a[href="/download/strategy"] {
+        #sigma-hud-root .sigma-dl-bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; filter: none !important; }
+        #sigma-hud-root .sigma-dl-scanline {
+          position: absolute; left: 0; right: 0; top: -120px; height: 120px; z-index: 1; pointer-events: none;
+          background: linear-gradient(180deg, transparent, rgba(0,229,255,0.055), transparent);
+          animation: hud-dl-scanx 7.5s linear infinite;
+        }
+        #sigma-hud-root .sigma-dl-particle {
+          position: absolute; width: 3px; height: 3px; border-radius: 50%; z-index: 1; pointer-events: none;
+          background: rgba(0,229,255,0.7); box-shadow: 0 0 8px rgba(0,229,255,0.9);
+          animation: hud-dl-particle 9s ease-in-out infinite;
+        }
+        #sigma-hud-root .sigma-dl-inner { position: relative; z-index: 2; }
+
+        #sigma-hud-root .sigma-dl-head { text-align: center; margin-bottom: 22px; }
+        #sigma-hud-root .sigma-dl-eyebrow {
+          font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.28em;
+          color: #00E5FF; text-transform: uppercase; text-shadow: 0 0 12px rgba(0,229,255,0.4);
+        }
+        #sigma-hud-root .sigma-dl-title {
+          font-family: 'IBM Plex Mono', monospace; font-size: 23px; font-weight: 800;
+          letter-spacing: 0.01em; color: #F8FAFC; margin: 10px 0 8px; line-height: 1.1;
+        }
+        #sigma-hud-root .sigma-dl-sub { color: #94A3B8; font-size: 13px; line-height: 1.7; max-width: 560px; margin: 0 auto; }
+        #sigma-hud-root .sigma-dl-sub strong { color: #F8FAFC; }
+
+        #sigma-hud-root .sigma-dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 720px; margin: 0 auto; }
+        #sigma-hud-root .sigma-dl-card {
+          position: relative; text-align: left; overflow: hidden;
+          background: linear-gradient(180deg, #151F2F, #111827);
+          border: 1px solid rgba(0,229,255,0.18); border-radius: 16px; padding: 18px;
+          box-shadow: 0 14px 34px -12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+          transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        }
+        #sigma-hud-root .sigma-dl-card::before {
+          content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
+          background: linear-gradient(90deg, transparent, var(--dlacc), transparent);
+        }
+        #sigma-hud-root .sigma-dl-card.engine   { --dlacc: #22C55E; }
+        #sigma-hud-root .sigma-dl-card.terminal { --dlacc: #00E5FF; }
+        #sigma-hud-root .sigma-dl-card:hover {
+          transform: translateY(-4px) scale(1.015);
+          border-color: color-mix(in srgb, var(--dlacc) 55%, transparent);
+          box-shadow: 0 22px 50px -14px rgba(0,0,0,0.7), 0 0 26px -6px var(--dlacc), inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+        #sigma-hud-root .sigma-dl-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        #sigma-hud-root .sigma-dl-ico {
+          width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; font-size: 20px;
+          border-radius: 12px; background: color-mix(in srgb, var(--dlacc) 12%, #0A1220);
+          border: 1px solid color-mix(in srgb, var(--dlacc) 32%, transparent);
+          box-shadow: inset 0 0 14px -5px var(--dlacc);
+        }
+        #sigma-hud-root .sigma-dl-id { flex: 1; display: flex; flex-direction: column; }
+        #sigma-hud-root .sigma-dl-id b { color: #F8FAFC; font-size: 15px; font-weight: 700; letter-spacing: 0.03em; }
+        #sigma-hud-root .sigma-dl-id .ver { color: #94A3B8; font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+        #sigma-hud-root .sigma-dl-status {
+          font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
+          color: var(--dlacc); background: color-mix(in srgb, var(--dlacc) 12%, transparent);
+          border: 1px solid color-mix(in srgb, var(--dlacc) 35%, transparent);
+          padding: 4px 9px 4px 8px; border-radius: 100px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+        }
+        #sigma-hud-root .sigma-dl-status::before {
+          content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--dlacc);
+          box-shadow: 0 0 8px var(--dlacc); animation: hud-pulse-dot 1.8s ease-in-out infinite;
+        }
+        #sigma-hud-root .sigma-dl-feats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 13px; }
+        #sigma-hud-root .sigma-dl-feats span {
+          font-size: 11px; color: #cbd5e1; background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.07); border-radius: 7px; padding: 4px 9px;
+          display: inline-flex; align-items: center; gap: 5px;
+        }
+        #sigma-hud-root .sigma-dl-feats span::before { content: '✓'; color: var(--dlacc); font-weight: 700; }
+        #sigma-hud-root .sigma-dl-metarow {
+          display: flex; gap: 14px; flex-wrap: wrap; font-size: 10px; color: #94A3B8;
+          font-family: 'IBM Plex Mono', monospace; margin-bottom: 14px;
+        }
+        /* botón = el <a> real re-montado (conserva href/download/onclick) */
+        #sigma-hud-root .sigma-dl-btnslot a[href^="/download/"] {
+          display: flex !important; align-items: center; justify-content: center; gap: 8px;
+          width: 100%; padding: 13px 18px !important; border-radius: 12px !important;
+          font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0.03em; text-decoration: none;
           position: relative; overflow: hidden;
-          padding: 16px 38px !important;
-          font-size: 16px !important; letter-spacing: 0.04em;
-          border-radius: 14px !important;
-          background: linear-gradient(135deg, #1fa653, #14b87d) !important;
-          border: 1px solid rgba(120,255,190,0.45) !important;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 12px 32px -8px rgba(20,184,125,0.55), 0 0 26px rgba(46,204,113,0.22);
+          transition: transform .25s ease, box-shadow .25s ease, filter .25s ease, border-color .25s ease !important;
+        }
+        #sigma-hud-root .sigma-dl-card.engine a[href^="/download/"] {
+          background: linear-gradient(135deg, #22C55E, #2DD4BF) !important; color: #052012 !important;
+          border: 1px solid rgba(120,255,190,0.5) !important;
+          box-shadow: 0 10px 26px -8px rgba(34,197,94,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
           animation: hud-dlpulse 3s ease-in-out infinite;
-          transition: transform .25s ease, box-shadow .25s ease !important;
         }
-        #sigma-hud-root a[href="/download/strategy"]:hover {
-          opacity: 1 !important;
-          transform: translateY(-3px);
+        #sigma-hud-root .sigma-dl-card.terminal a[href^="/download/"] {
+          background: linear-gradient(180deg, rgba(0,229,255,0.1), rgba(255,255,255,0.02)) !important;
+          color: #7DE7F5 !important; border: 1px solid rgba(0,229,255,0.4) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 24px -10px rgba(0,0,0,0.6);
+          backdrop-filter: blur(6px);
+        }
+        #sigma-hud-root .sigma-dl-btnslot a:hover { transform: translateY(-2px); filter: brightness(1.05); opacity: 1 !important; }
+        #sigma-hud-root .sigma-dl-card.engine a:hover {
           animation: none;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 18px 44px -10px rgba(20,184,125,0.7), 0 0 44px rgba(46,204,113,0.38);
+          box-shadow: 0 16px 36px -8px rgba(34,197,94,0.65), 0 0 30px rgba(45,212,191,0.4), inset 0 1px 0 rgba(255,255,255,0.35);
         }
-        /* destello que recorre el botón al hover */
-        #sigma-hud-root a[href="/download/strategy"]::before,
-        #sigma-hud-root a[href="/download/terminal"]::before {
+        #sigma-hud-root .sigma-dl-card.terminal a:hover {
+          border-color: rgba(0,229,255,0.8) !important;
+          box-shadow: 0 14px 32px -10px rgba(0,0,0,0.7), 0 0 26px rgba(0,229,255,0.3);
+        }
+        #sigma-hud-root .sigma-dl-btnslot a::before {
           content: ''; position: absolute; top: 0; left: -70%; width: 45%; height: 100%;
           background: linear-gradient(105deg, transparent, rgba(255,255,255,0.32), transparent);
-          transform: skewX(-18deg);
-          transition: left .55s ease;
-          pointer-events: none;
+          transform: skewX(-18deg); transition: left .55s ease; pointer-events: none;
         }
-        #sigma-hud-root a[href="/download/strategy"]:hover::before,
-        #sigma-hud-root a[href="/download/terminal"]:hover::before { left: 130%; }
-        /* SIGMA TERMINAL: llave holográfica de cristal cian */
-        #sigma-hud-root a[href="/download/terminal"] {
-          position: relative; overflow: hidden;
-          padding: 16px 32px !important; font-size: 15px !important;
-          letter-spacing: 0.04em;
-          border-radius: 14px !important;
-          background: linear-gradient(180deg, rgba(57,226,230,0.09), rgba(255,255,255,0.02)) !important;
-          border: 1px solid rgba(57,226,230,0.38) !important;
-          color: #5eeaf0 !important;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 26px -10px rgba(0,0,0,0.6);
-          backdrop-filter: blur(6px);
-          transition: transform .25s ease, box-shadow .25s ease !important;
+        #sigma-hud-root .sigma-dl-btnslot a:hover::before { left: 130%; }
+
+        #sigma-hud-root .sigma-dl-footbadges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 20px; }
+        #sigma-hud-root .sigma-dl-footbadges span {
+          font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #94A3B8;
+          background: rgba(255,255,255,0.03); border: 1px solid rgba(0,229,255,0.14);
+          border-radius: 100px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px;
         }
-        #sigma-hud-root a[href="/download/terminal"]:hover {
-          border-color: rgba(94,234,240,0.75) !important;
-          transform: translateY(-3px);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 16px 36px -10px rgba(0,0,0,0.7), 0 0 28px rgba(57,226,230,0.28);
-        }
+        @media (max-width: 720px) { #sigma-hud-root .sigma-dl-grid { grid-template-columns: 1fr; } }
 
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
@@ -1277,7 +1511,10 @@ export default function HUDPage() {
           #sigma-hud-root div[style*="rgba(46,204,113,.06)"],
           #sigma-hud-root div[style*="background:#f1c40f"],
           #sigma-hud-root .matrix td.cell-run, #sigma-hud-root .cell-run,
-          #sigma-hud-root a[href="/download/strategy"] { animation: none !important; }
+          #sigma-hud-root a[href="/download/strategy"],
+          #sigma-hud-root .sigma-dl, #sigma-hud-root .sigma-dl-scanline,
+          #sigma-hud-root .sigma-dl-particle, #sigma-hud-root .sigma-dl-status::before,
+          #sigma-hud-root .sigma-dl-card.engine a { animation: none !important; }
         }
 
         /* scrollbars finas */
