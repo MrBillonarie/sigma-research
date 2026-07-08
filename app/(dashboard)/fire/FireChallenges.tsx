@@ -1,5 +1,9 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import { supabase } from '@/app/lib/supabase'
+import { createNotification } from '@/app/lib/notify'
+import FireBadges from './FireBadges'
+import { BADGES } from './challenges'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Difficulty = 'FÁCIL' | 'MEDIO' | 'DIFÍCIL'
@@ -26,12 +30,17 @@ interface WeeklyChallenge {
 }
 
 interface ChallengeStore {
-  completed:      Record<string, string[]>
-  maxStreak:      number
-  totalCompleted: number
-  totalSaved:     number
-  weeklyProgress: Record<string, Record<string, number>>
+  completed:          Record<string, string[]>
+  maxStreak:          number
+  totalCompleted:     number
+  totalSaved:         number
+  weeklyProgress:     Record<string, Record<string, number>>
+  notifiedStreaks:    number[]        // hitos de racha (7/30/...) ya notificados
+  notifiedMissedDate: string | null   // última fecha en que se avisó racha rota
+  earnedBadges:       string[]        // ids de BADGES ya notificados como desbloqueados
 }
+
+const STREAK_MILESTONES = [7, 30, 100, 365]
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 const GOLD   = '#F5C842'
@@ -211,6 +220,26 @@ const WEEKLY_SETS = [WEEKLY_A, WEEKLY_B]
 
 const STORE_DEFAULT: ChallengeStore = {
   completed: {}, maxStreak: 0, totalCompleted: 0, totalSaved: 0, weeklyProgress: {},
+  notifiedStreaks: [], notifiedMissedDate: null, earnedBadges: [],
+}
+
+// Insignias que hoy tienen datos reales para calcular su desbloqueo (el resto
+// de BADGES — silver/gold/diamond_trader, recortador — no tiene una fuente de
+// datos conectada todavía y queda pendiente).
+function computeEarnedBadges(store: ChallengeStore): string[] {
+  const earned: string[] = []
+  if (store.totalCompleted >= 1)  earned.push('primer_paso')
+  if (store.maxStreak >= 7)       earned.push('on_fire')
+  if (store.maxStreak >= 30)      earned.push('imparable')
+  if (store.totalCompleted >= 10) earned.push('centenario')
+  if (store.totalSaved >= 500)    earned.push('ahorrador_elite')
+  const anyWeekComplete = Object.entries(store.weeklyProgress).some(([wk, progress]) => {
+    const wn  = parseInt(wk.split('-W')[1])
+    const set = WEEKLY_SETS[wn % WEEKLY_SETS.length]
+    return set.every(ch => (progress[ch.id] ?? 0) >= ch.goalMax)
+  })
+  if (anyWeekComplete) earned.push('fire_ready')
+  return earned
 }
 
 // ─── Subcomponents ────────────────────────────────────────────────────────────
@@ -246,13 +275,15 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
   const [mounted,   setMounted]   = useState(false)
   const [showInput, setShowInput] = useState<string | null>(null)
   const [inputVal,  setInputVal]  = useState('')
+  const [userId,    setUserId]    = useState<string | null>(null)
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem('fire_challenges')
-      if (raw) setStore(JSON.parse(raw) as ChallengeStore)
+      if (raw) setStore({ ...STORE_DEFAULT, ...(JSON.parse(raw) as ChallengeStore) })
     } catch { /* ignore */ }
     setMounted(true)
+    supabase.auth.getUser().then(({ data }) => { if (data.user) setUserId(data.user.id) })
   }, [])
 
   const today    = getToday()
@@ -299,6 +330,16 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
       totalCompleted: store.totalCompleted + 1,
       totalSaved:     store.totalSaved + amt,
     })
+    if (userId) {
+      createNotification({
+        userId,
+        title:       'Reto diario completado',
+        body:        `${daily.title} — ${daily.unitFn(amt)}. Racha: ${newStreak} ${newStreak === 1 ? 'día' : 'días'}.`,
+        type:        'fire',
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+    }
   }
 
   function getWeeklyProgress(id: string): number { return weekProgress[id] ?? 0 }
@@ -352,6 +393,64 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
 
   // Perfect week banner
   const showPerfectBanner = streak >= 7
+
+  // ── Notificaciones pasivas: racha rota, hitos de racha, insignias ──────────
+  // Se detectan solo comparando contra lo ya notificado en el store (persistido
+  // en localStorage), así cada evento avisa una única vez, no en cada render.
+  useEffect(() => {
+    if (!mounted || !userId || isUnconfigured) return
+
+    const newMilestones = STREAK_MILESTONES.filter(m => streak >= m && !store.notifiedStreaks.includes(m))
+    const missedNow      = missedYesterday && store.notifiedMissedDate !== yesterdayKey
+    const newBadgeIds    = computeEarnedBadges(store).filter(id => !store.earnedBadges.includes(id))
+
+    if (newMilestones.length === 0 && !missedNow && newBadgeIds.length === 0) return
+
+    for (const m of newMilestones) {
+      createNotification({
+        userId,
+        title:       `¡Racha de ${m} días!`,
+        body:        `Llevas ${m} días seguidos completando retos FIRE. Sigue así para adelantar tu libertad financiera.`,
+        type:        'fire',
+        urgente:     true,
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+    }
+
+    if (missedNow) {
+      createNotification({
+        userId,
+        title:       'Se rompió tu racha FIRE',
+        body:        'No completaste tu reto de ayer. Hoy puedes empezar una nueva racha.',
+        type:        'fire',
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+    }
+
+    for (const id of newBadgeIds) {
+      const badge = BADGES.find(b => b.id === id)
+      if (!badge) continue
+      createNotification({
+        userId,
+        title:       '¡Insignia desbloqueada!',
+        body:        `${badge.emoji} ${badge.name} — ${badge.description}`,
+        type:        'fire',
+        urgente:     true,
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+    }
+
+    persist({
+      ...store,
+      notifiedStreaks:    [...store.notifiedStreaks, ...newMilestones],
+      notifiedMissedDate: missedNow ? yesterdayKey : store.notifiedMissedDate,
+      earnedBadges:       [...store.earnedBadges, ...newBadgeIds],
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, userId, isUnconfigured, streak, missedYesterday, yesterdayKey, store])
 
   if (!mounted) {
     return (
@@ -629,6 +728,11 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
             <div style={{ fontFamily: MONO, fontSize: 9, color: DIM, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* ── Insignias ── */}
+      <div style={{ marginTop: 20, background: '#111', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
+        <FireBadges earnedBadges={store.earnedBadges} />
       </div>
 
     </div>

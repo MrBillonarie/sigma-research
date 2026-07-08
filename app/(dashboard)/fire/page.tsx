@@ -7,6 +7,8 @@ import FireOnboarding from './FireOnboarding'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { useFireProfile } from '@/app/lib/useFireProfile'
 import { cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
+import { supabase } from '@/app/lib/supabase'
+import { createNotification } from '@/app/lib/notify'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
@@ -246,6 +248,28 @@ export default function FirePage() {
   const progress = Math.min((capital / target) * 100, 100)
   const edadFire = fireYear !== null ? edad + fireYear : null
   const capitalFinal = data[data.length - 1]
+
+  // Meta FIRE alcanzada — notifica una sola vez (flag en localStorage), no en
+  // cada render ni cada vez que el capital fluctúa por encima de la meta.
+  useEffect(() => {
+    if (progress < 100 || target <= 0) return
+    try {
+      if (localStorage.getItem('sigma_fire_goal_notified') === 'true') return
+    } catch {}
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return
+      createNotification({
+        userId:      data.user.id,
+        title:       '¡Meta FIRE alcanzada!',
+        body:        `Tu capital llegó a ${fmtK(target)}, tu meta de independencia financiera. ¡Felicitaciones!`,
+        type:        'fire',
+        urgente:     true,
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+      try { localStorage.setItem('sigma_fire_goal_notified', 'true') } catch {}
+    })
+  }, [progress, target])
 
   // Tu fecha de libertad real, no solo un conteo de años abstracto.
   const fireDateLabel = useMemo(() => {

@@ -83,6 +83,15 @@ function TypeIcon({ type }: { type: string }) {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </>)
 
+  if (type === 'fire')
+    return (
+      <span style={{
+        width: size, height: size, borderRadius: 4, flexShrink: 0,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(249,115,22,0.15)', fontSize: inner,
+      }}>🔥</span>
+    )
+
   return wrap('rgba(122,127,154,0.15)', '#7a7f9a', <>
     <circle cx="12" cy="12" r="10" />
     <line x1="12" y1="8" x2="12" y2="12" />
@@ -137,6 +146,7 @@ const TYPE_LABELS: Record<string, string> = {
   reporte:   'Reportes',
   sistema:   'Sistema',
   soporte:   'Soporte',
+  fire:      'FIRE',
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
