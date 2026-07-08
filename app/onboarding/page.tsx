@@ -17,17 +17,13 @@ export default function OnboardingPage() {
   const [step,   setStep]   = useState(1)
   const [nombre, setNombre] = useState('')
   const [perfil, setPerfil] = useState<Perfil>('trader')
-  const [apiKey, setApiKey] = useState('')
-  const [secret, setSecret] = useState('')
   const [saving, setSaving] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) { router.replace('/login'); return }
       // Si ya completó onboarding, ir al home
       if (data.user.user_metadata?.onboarding_done) { router.replace('/home'); return }
-      setUserId(data.user.id)
       setNombre(data.user.user_metadata?.nombre ?? '')
     })
   }, [router])
@@ -56,14 +52,6 @@ export default function OnboardingPage() {
     await supabase.auth.updateUser({
       data: { nombre: nombre.trim() || undefined, perfil_trader: perfil, onboarding_done: true },
     })
-
-    // Guardar Binance keys si se proporcionaron
-    if (apiKey && secret && userId) {
-      await supabase.from('user_config').upsert(
-        { user_id: userId, binance_api_key: apiKey, binance_api_secret: secret },
-        { onConflict: 'user_id' }
-      )
-    }
 
     // Enviar email de bienvenida personalizado (falla silenciosa)
     if (user?.email) {
@@ -155,46 +143,31 @@ export default function OnboardingPage() {
             </form>
           )}
 
-          {/* ── Paso 2: Binance ── */}
+          {/* ── Paso 2: Copytrading vía Binance Lead Trader ── */}
           {step === 2 && (
             <form onSubmit={handleStep2} className="flex flex-col gap-6">
               <div>
                 <div className="section-label text-gold mb-1">{'// PASO 2 DE 3'}</div>
-                <h2 className="display-heading text-3xl text-text mb-1">CONECTAR BINANCE</h2>
-                <p className="terminal-text text-text-dim text-sm">Opcional — puedes hacerlo más tarde en tu perfil.</p>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="section-label text-text-dim text-xs">API Key</label>
-                <input
-                  type="text"
-                  value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
-                  placeholder="Tu Binance API Key"
-                  className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors font-mono text-xs"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="section-label text-text-dim text-xs">API Secret</label>
-                <input
-                  type="password"
-                  value={secret}
-                  onChange={e => setSecret(e.target.value)}
-                  placeholder="Tu Binance API Secret"
-                  className="bg-surface border border-border focus:border-gold/60 outline-none px-4 py-2.5 terminal-text text-text placeholder:text-muted transition-colors"
-                />
-              </div>
-
-              <div className="border border-gold/20 bg-gold/5 px-4 py-3">
-                <p className="terminal-text text-xs text-text-dim leading-relaxed">
-                  Usa permisos de <span className="text-gold">solo lectura</span>. Sigma nunca ejecuta órdenes. Puedes cambiar las keys en cualquier momento desde tu perfil.
+                <h2 className="display-heading text-3xl text-text mb-1">COPIAR LAS OPERACIONES</h2>
+                <p className="terminal-text text-text-dim text-sm">
+                  Sigma nunca pide ni guarda tus API keys de ningún exchange. Si quieres copiar
+                  automáticamente las operaciones del motor, hazlo directo en Binance Copy Trading —
+                  Binance gestiona tus fondos y permisos en todo momento, nosotros no tenemos acceso.
                 </p>
               </div>
 
+              <a
+                href="https://www.binance.com/es-LA/copy-trading/lead-details/5096369356136167936"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-gold/40 bg-gold/5 px-4 py-3 hover:border-gold transition-colors"
+              >
+                <p className="terminal-text text-xs text-gold">→ Ver perfil de Lead Trader en Binance</p>
+              </a>
+
               <div className="flex gap-3">
                 <button type="submit" className="flex-1 bg-gold text-bg section-label py-3 hover:bg-gold-glow transition-colors">
-                  {apiKey && secret ? 'GUARDAR Y CONTINUAR →' : 'OMITIR POR AHORA →'}
+                  CONTINUAR →
                 </button>
               </div>
             </form>
