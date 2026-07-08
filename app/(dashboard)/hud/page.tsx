@@ -1008,6 +1008,36 @@ export default function HUDPage() {
         #sigma-hud-root #matrix-section-m4.card { border-color: rgba(91,141,239,0.35) !important; }
         #sigma-hud-root #matrix-section-m4.card::before { background: linear-gradient(90deg, #5b8def, rgba(91,141,239,0.35) 50%, transparent 85%); }
 
+        /* ══ 10. Franjas bajo las matrices — consola de cierre (sobrio) ══ */
+        /* resumen "Portafolio operable": franja principal con rail cian */
+        #sigma-hud-root .matrix tr[style*="#060d20"] > td[colspan]:not([style*="dashed"]) {
+          background: linear-gradient(90deg, rgba(57,226,230,0.05), rgba(255,255,255,0.012) 60%) !important;
+          border-top: 1px solid rgba(57,226,230,0.16) !important;
+          border-left: 3px solid rgba(57,226,230,0.45) !important;
+          padding: 12px 16px !important;
+          line-height: 2 !important;
+          word-spacing: 1px;
+        }
+        /* delta "CAGR ponderado vivo": log secundario, discreto */
+        #sigma-hud-root .matrix tr[style*="#060d20"] > td[colspan][style*="dashed"] {
+          background: rgba(255,255,255,0.012) !important;
+          border-top: 1px dashed rgba(255,255,255,0.09) !important;
+          border-left: 3px solid rgba(255,255,255,0.08) !important;
+          padding: 10px 16px !important;
+          color: #6b7688 !important;
+          line-height: 1.9 !important;
+        }
+        /* advertencia "muestra chica": ámbar refinado con cierre redondeado */
+        #sigma-hud-root .matrix tr[style*="#1c1410"] > td {
+          background: linear-gradient(90deg, rgba(255,171,64,0.09), rgba(255,171,64,0.02) 70%) !important;
+          border-top: 1px solid rgba(255,171,64,0.22) !important;
+          border-left: 3px solid rgba(255,171,64,0.55) !important;
+          padding: 10px 16px !important;
+          color: #ffbe66 !important;
+          letter-spacing: 0.06em;
+          border-radius: 0 0 10px 10px;
+        }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
