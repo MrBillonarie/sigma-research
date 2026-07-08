@@ -498,14 +498,16 @@ export default function DashboardHome() {
   // Cifra "del mes" desde history cerrado este mes; track record desde stats.
   const E = useMemo(() => {
     if (!engRaw) return null
-    // trade_state.json mezcla PAPER (cuenta de estudio $10k) y LIVE (cuenta
-    // real Binance Futures) en el mismo history -- cada trade trae su propio
-    // `mode`. Todo lo etiquetado "motor" en este bloque debe salir SOLO de
-    // LIVE o termina mostrando plata de mentira como si fuera real.
+    // trade_state.json mezcla PAPER (cuenta de estudio $10k), LIVE (bot
+    // operando solo en Binance Futures) y MANUAL (el usuario toma la señal
+    // el mismo pero ejecuta la orden a mano en Binance -- plata real
+    // igual). Todo lo etiquetado "motor" en este bloque debe salir de
+    // LIVE+MANUAL o termina mostrando plata de mentira como si fuera real
+    // (o peor: ocultando ganancias reales solo por no venir del ejecutor).
     const hist = Array.isArray(engRaw.history) ? engRaw.history : []
-    const liveHist = hist.filter(t => t.mode === 'LIVE')
+    const liveHist = hist.filter(t => t.mode === 'LIVE' || t.mode === 'MANUAL')
     if (!liveHist.length) return null
-    const liveOpen = (Array.isArray(engRaw.open) ? engRaw.open : []).filter(t => (t as { mode?: string })?.mode === 'LIVE')
+    const liveOpen = (Array.isArray(engRaw.open) ? engRaw.open : []).filter(t => { const m = (t as { mode?: string })?.mode; return m === 'LIVE' || m === 'MANUAL' })
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const monthClosed = liveHist.filter(t => (t.closed_at ?? '').slice(0, 7) === ym)
     const monthPnl = monthClosed.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0)
@@ -520,9 +522,9 @@ export default function DashboardHome() {
     // Últimos 10 resultados del motor ESTE MES (mismo alcance que el % grande
     // de al lado -- antes tomaba todo el historial LIVE y contradecia el mes)
     const last10 = chronMonth.slice(-10).map(t => (t.pnl_dollar ?? 0) > 0 ? 1 : (t.pnl_dollar ?? 0) < 0 ? 0 : 0.5)
-    // Track record histórico -- también solo LIVE. profitFactor y PnL total
-    // salen del propio history (no de engRaw.stats/portfolio, que son del
-    // agregado PAPER de $10k y no representan la cuenta real).
+    // Track record histórico -- también solo LIVE+MANUAL. profitFactor y PnL
+    // total salen del propio history (no de engRaw.stats/portfolio, que son
+    // del agregado PAPER de $10k y no representan la cuenta real).
     const trackWins   = liveHist.filter(t => (t.pnl_dollar ?? 0) > 0)
     const trackLosses = liveHist.filter(t => (t.pnl_dollar ?? 0) < 0)
     const trackDecisive = trackWins.length + trackLosses.length
