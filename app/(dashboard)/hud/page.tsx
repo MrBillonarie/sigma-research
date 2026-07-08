@@ -772,13 +772,37 @@ export default function HUDPage() {
         }
         #sigma-hud-root .asset-box { border-radius: 10px !important; }
 
-        /* ══ 9. Matrices M1–M4 — rack de servidores 3D ══ */
-        /* cabecera de timeframes: rail iluminado */
+        /* ══ 9. Matrices M1–M4 — terminal institucional ══ */
+        /* Nada se mueve: la matriz responde como instrumento (crosshair de
+           fila+columna con spotlight, jerarquía de luminancia por estado). */
         #sigma-hud-root .matrix th {
           color: #8b97ad !important; letter-spacing: 0.2em !important;
           border-bottom: 1px solid rgba(57,226,230,0.16) !important;
         }
-        /* módulo LISTO: enchufado al rack, con relieve físico */
+        /* nada de saltos: se anula el translateY del motor y cualquier pop */
+        #sigma-hud-root .matrix td, #sigma-hud-root .matrix td:not(.asset-col):hover {
+          transform: none !important;
+        }
+        #sigma-hud-root .matrix td {
+          position: relative;
+          transition: filter .25s ease, box-shadow .25s ease !important;
+        }
+        /* CROSSHAIR — columna: banda vertical que atraviesa la matriz */
+        #sigma-hud-root .matrix td:not(.asset-col):hover::after {
+          content: ''; position: absolute; left: 0; right: 0;
+          top: -6000px; bottom: -6000px;
+          background: rgba(57,226,230,0.045);
+          pointer-events: none; z-index: 0;
+        }
+        /* CROSSHAIR — fila iluminada, el resto de la matriz se atenúa */
+        #sigma-hud-root .matrix tbody:hover tr:not(:hover) td {
+          filter: brightness(0.55) saturate(0.75);
+        }
+        #sigma-hud-root .matrix tbody tr:hover td { filter: brightness(1.15); }
+        #sigma-hud-root .matrix tbody tr:hover .asset-box {
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px -6px var(--asset-color, rgba(57,226,230,0.5)) !important;
+        }
+        /* LISTO: vidrio verde encendido (luminancia alta) */
         #sigma-hud-root .matrix td.cell-ok, #sigma-hud-root .cell-ok {
           border-radius: 10px !important;
           background: linear-gradient(180deg, rgba(18,52,36,0.85), rgba(8,26,18,0.9)) !important;
@@ -788,27 +812,21 @@ export default function HUDPage() {
             inset 0 -8px 14px -10px rgba(0,0,0,0.7),
             0 4px 10px -6px rgba(0,0,0,0.65),
             0 10px 22px -14px rgba(46,204,113,0.35) !important;
-          transition: transform .22s ease, box-shadow .22s ease !important;
         }
-        /* el módulo SALTA en 3D hacia ti al hover */
         #sigma-hud-root .matrix td.cell-ok:hover {
-          position: relative; z-index: 6;
-          transform: perspective(700px) translateZ(18px) !important;
           box-shadow:
             inset 0 1px 0 rgba(120,255,190,0.22),
-            0 22px 44px -12px rgba(0,0,0,0.85),
-            0 0 26px rgba(46,204,113,0.3) !important;
+            0 4px 10px -6px rgba(0,0,0,0.65),
+            0 0 24px rgba(46,204,113,0.28) !important;
         }
-        /* módulo OPTIMIZANDO: late con energía cian */
+        /* OPTIMIZANDO: respiración cian (luminancia media) */
         #sigma-hud-root .matrix td.cell-run, #sigma-hud-root .cell-run {
           border-radius: 10px !important;
           animation: hud-optpulse 2.4s ease-in-out infinite;
         }
         #sigma-hud-root .matrix td.cell-run:hover {
-          position: relative; z-index: 6;
-          transform: perspective(700px) translateZ(14px) !important;
           animation: none;
-          box-shadow: inset 0 0 0 1px rgba(57,226,230,0.55), 0 18px 38px -12px rgba(0,0,0,0.8), 0 0 24px rgba(57,226,230,0.3) !important;
+          box-shadow: inset 0 0 0 1px rgba(57,226,230,0.5), 0 0 22px rgba(57,226,230,0.25) !important;
         }
         /* slot PENDIENTE ("En cola"): bahía vacía hundida en el rack */
         #sigma-hud-root .matrix td[style*="#242f55"], #sigma-hud-root .matrix td div[style*="#242f55"] {
