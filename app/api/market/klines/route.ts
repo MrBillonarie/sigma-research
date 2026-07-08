@@ -13,6 +13,7 @@ const YAHOO_SYM: Record<string, string> = {
   HG:  'HG=F',   // futuros cobre COMEX
   PL:  'PL=F',   // futuros platino NYMEX
   SPX: '^GSPC',  // S&P 500 index — referencia del M3 en el RightBar
+  SPY: 'SPY', QQQ: 'QQQ', IWM: 'IWM', XLE: 'XLE', // ETFs del M4 — Índices
 }
 
 // tf de la UI → (interval, range) de Yahoo. Yahoo no tiene 4h: se agregan velas 1h.

@@ -25,7 +25,8 @@ const SYM_LABEL: Record<Sym, string> = { BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', BNB
 
 const M2_ASSETS = ['XAU', 'XAG', 'WTI', 'HG', 'NG', 'PL'] as const
 const M3_ASSETS = ['AAPL', 'NVDA', 'TSLA', 'JPM', 'XOM', 'SPX'] as const
-type MotorTab = 'm1' | 'm2' | 'm3'
+const M4_ASSETS = ['SPY', 'QQQ', 'IWM', 'XLE'] as const
+type MotorTab = 'm1' | 'm2' | 'm3' | 'm4'
 
 interface ExtQuote { price: number; change24h: number; spark: number[] }
 
@@ -132,7 +133,7 @@ export default function RightBar() {
     if (typeof window === 'undefined') return 'm1'
     try {
       const s = window.localStorage.getItem('sigma_rb_motor')
-      return s === 'm2' || s === 'm3' ? s : 'm1'
+      return s === 'm2' || s === 'm3' || s === 'm4' ? s : 'm1'
     } catch { return 'm1' }
   })
   const setMotorTab = (t: MotorTab) => {
@@ -285,7 +286,7 @@ export default function RightBar() {
   // proxy Yahoo — solo se piden los activos de la pestaña activa, refresh 60s
   useEffect(() => {
     if (motorTab === 'm1') return
-    const list: readonly string[] = motorTab === 'm2' ? M2_ASSETS : M3_ASSETS
+    const list: readonly string[] = motorTab === 'm2' ? M2_ASSETS : motorTab === 'm3' ? M3_ASSETS : M4_ASSETS
     let dead = false
     async function load() {
       const results = await Promise.all(list.map(async sym => {
@@ -475,7 +476,7 @@ export default function RightBar() {
 
         {/* Selector de motor — la elección se recuerda */}
         <div style={{ display: 'flex', gap: 4, padding: '8px 10px', borderBottom: `1px solid ${T.border}` }}>
-          {([['m1', 'M1·CRYPTO'], ['m2', 'M2·COMM'], ['m3', 'M3·STOCKS']] as const).map(([id, lbl]) => {
+          {([['m1', 'M1·CRYPTO'], ['m2', 'M2·COMM'], ['m3', 'M3·STOCKS'], ['m4', 'M4·ÍNDICES']] as const).map(([id, lbl]) => {
             const active = motorTab === id
             return (
               <button
@@ -496,8 +497,8 @@ export default function RightBar() {
           })}
         </div>
 
-        {/* Aviso de mercado cerrado para stocks (NYSE ~13:30–20:00 UTC, L-V) */}
-        {motorTab === 'm3' && (() => {
+        {/* Aviso de mercado cerrado para stocks/índices (NYSE ~13:30–20:00 UTC, L-V) */}
+        {(motorTab === 'm3' || motorTab === 'm4') && (() => {
           const d = utcNow.getUTCDay()
           const h = utcNow.getUTCHours() + utcNow.getUTCMinutes() / 60
           const open = d >= 1 && d <= 5 && h >= 13.5 && h < 20
@@ -532,8 +533,8 @@ export default function RightBar() {
             )
           })}
 
-          {/* M2 / M3 — commodities y stocks vía proxy Yahoo */}
-          {motorTab !== 'm1' && (motorTab === 'm2' ? M2_ASSETS : M3_ASSETS).map(sym => {
+          {/* M2 / M3 / M4 — commodities, stocks e índices vía proxy Yahoo */}
+          {motorTab !== 'm1' && (motorTab === 'm2' ? M2_ASSETS : motorTab === 'm3' ? M3_ASSETS : M4_ASSETS).map(sym => {
             const q  = extData[sym]
             const up = (q?.change24h ?? 0) >= 0
             return (
