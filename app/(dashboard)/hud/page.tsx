@@ -392,11 +392,14 @@ export default function HUDPage() {
     }
 
     function enhance() {
-      const strat = root!.querySelector('a[href="/download/strategy"]') as HTMLAnchorElement | null
+      const strat = root!.querySelector('a[href*="/download/strategy"]') as HTMLAnchorElement | null
       if (!strat) return
       const card = strat.closest('.card') as HTMLElement | null
-      if (!card || card.dataset.sigmaDl === '1') return
-      const term = root!.querySelector('a[href="/download/terminal"]') as HTMLAnchorElement | null
+      // guard por PRESENCIA de mi wrapper: si el motor revierte el DOM, se
+      // vuelve a aplicar (no un flag que quede obsoleto tras un re-render)
+      if (!card || card.querySelector(':scope > .sigma-dl')) return
+      try {
+      const term = root!.querySelector('a[href*="/download/terminal"]') as HTMLAnchorElement | null
 
       const full = card.textContent || ''
       const size = full.match(/([\d.]+)\s*KB/i)?.[1] ?? '132'
@@ -461,6 +464,7 @@ export default function HUDPage() {
       if (term) wrap.querySelector('[data-slot="terminal"]')?.appendChild(term)
       const cv = wrap.querySelector('.sigma-dl-bg') as HTMLCanvasElement | null
       if (cv) requestAnimationFrame(() => drawChart(cv))
+      } catch (e) { console.warn('[sigma-dl] enhance failed', e) }
     }
 
     enhance()
@@ -469,9 +473,16 @@ export default function HUDPage() {
       raf = requestAnimationFrame(() => { raf = 0; enhance() })
     })
     obs.observe(root, { childList: true, subtree: true })
+    // Respaldo por carreras de tiempo con la carga async del motor: reintenta
+    // hasta que la vitrina exista (luego el observer la mantiene aplicada).
+    const poll = setInterval(() => {
+      enhance()
+      if (root.querySelector('.sigma-dl')) clearInterval(poll)
+    }, 500)
+    setTimeout(() => clearInterval(poll), 20000)
     const onResize = () => { const cv = root.querySelector('.sigma-dl-bg') as HTMLCanvasElement | null; if (cv) drawChart(cv) }
     window.addEventListener('resize', onResize)
-    return () => { obs.disconnect(); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
+    return () => { obs.disconnect(); clearInterval(poll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
   return (
@@ -1376,21 +1387,25 @@ export default function HUDPage() {
           display: flex; gap: 14px; flex-wrap: wrap; font-size: 10px; color: #94A3B8;
           font-family: 'IBM Plex Mono', monospace; margin-bottom: 14px;
         }
-        /* botón futurista "para TradingView" = el <a> real re-montado
-           (conserva href/download/onclick). Marco de energía orbitando + icono
-           de velas + etiqueta mono. */
-        #sigma-hud-root .sigma-dl-btnslot a[href^="/download/"] {
-          display: flex !important; align-items: center; justify-content: center; gap: 9px;
-          width: 100%; padding: 13px 18px !important; border-radius: 11px !important;
+        /* botones futuristas "para TradingView" — se apuntan POR href, así el
+           estilo premium aplica SIEMPRE (con o sin la reconstrucción JS).
+           Los <a> conservan href/download/onclick del motor. */
+        #sigma-hud-root a[href*="/download/strategy"],
+        #sigma-hud-root a[href*="/download/terminal"] {
+          display: inline-flex !important; align-items: center; justify-content: center; gap: 9px;
+          padding: 13px 26px !important; margin-top: 4px; border-radius: 11px !important;
           font-family: 'IBM Plex Mono', monospace !important;
           font-size: 12px !important; font-weight: 700 !important;
           letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none;
           position: relative; overflow: hidden; border: none !important;
           transition: transform .25s ease, box-shadow .25s ease, filter .25s ease !important;
         }
-        #sigma-hud-root .sigma-dl-btnslot a svg { flex-shrink: 0; }
+        /* dentro de la tarjeta reconstruida ocupan todo el ancho */
+        #sigma-hud-root .sigma-dl-btnslot a { width: 100%; margin-top: 0; }
+        #sigma-hud-root a[href*="/download/"] svg { flex-shrink: 0; }
         /* marco de energía: arco brillante orbitando el borde (@property) */
-        #sigma-hud-root .sigma-dl-btnslot a::before {
+        #sigma-hud-root a[href*="/download/strategy"]::before,
+        #sigma-hud-root a[href*="/download/terminal"]::before {
           content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.4px; pointer-events: none;
           background: conic-gradient(from var(--dl-angle),
             transparent 0 58%, var(--dlring) 74%, #ffffff 80%, var(--dlring) 86%, transparent 100%);
@@ -1398,34 +1413,49 @@ export default function HUDPage() {
           -webkit-mask-composite: xor; mask-composite: exclude;
           animation: hud-dl-orbit 3.4s linear infinite;
         }
-        /* sheen diagonal al hover (movido a ::after) */
-        #sigma-hud-root .sigma-dl-btnslot a::after {
+        /* sheen diagonal al hover (::after) */
+        #sigma-hud-root a[href*="/download/strategy"]::after,
+        #sigma-hud-root a[href*="/download/terminal"]::after {
           content: ''; position: absolute; top: 0; left: -70%; width: 45%; height: 100%;
           background: linear-gradient(105deg, transparent, rgba(255,255,255,0.34), transparent);
           transform: skewX(-18deg); transition: left .55s ease; pointer-events: none;
         }
-        #sigma-hud-root .sigma-dl-btnslot a:hover::after { left: 130%; }
+        #sigma-hud-root a[href*="/download/strategy"]:hover::after,
+        #sigma-hud-root a[href*="/download/terminal"]:hover::after { left: 130%; }
 
-        #sigma-hud-root .sigma-dl-card.engine a[href^="/download/"] {
+        #sigma-hud-root a[href*="/download/strategy"] {
           --dlring: #7CFFB0;
           background: linear-gradient(135deg, #1FB457, #17c48a) !important; color: #04160b !important;
           box-shadow: 0 10px 26px -8px rgba(34,197,94,0.5), inset 0 1px 0 rgba(255,255,255,0.35);
           animation: hud-dlpulse 3s ease-in-out infinite;
         }
-        #sigma-hud-root .sigma-dl-card.terminal a[href^="/download/"] {
+        #sigma-hud-root a[href*="/download/terminal"] {
           --dlring: #00E5FF;
           background: linear-gradient(180deg, rgba(0,229,255,0.12), rgba(9,16,28,0.6)) !important;
           color: #9DEEFA !important;
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 24px -10px rgba(0,0,0,0.6);
           backdrop-filter: blur(6px);
         }
-        #sigma-hud-root .sigma-dl-btnslot a:hover { transform: translateY(-2px); filter: brightness(1.06); opacity: 1 !important; }
-        #sigma-hud-root .sigma-dl-card.engine a:hover {
+        #sigma-hud-root a[href*="/download/strategy"]:hover,
+        #sigma-hud-root a[href*="/download/terminal"]:hover { transform: translateY(-2px); filter: brightness(1.06); opacity: 1 !important; }
+        #sigma-hud-root a[href*="/download/strategy"]:hover {
           animation: none;
           box-shadow: 0 16px 36px -8px rgba(34,197,94,0.65), 0 0 30px rgba(45,212,191,0.4), inset 0 1px 0 rgba(255,255,255,0.4);
         }
-        #sigma-hud-root .sigma-dl-card.terminal a:hover {
+        #sigma-hud-root a[href*="/download/terminal"]:hover {
           box-shadow: 0 14px 32px -10px rgba(0,0,0,0.7), 0 0 28px rgba(0,229,255,0.35);
+        }
+        /* Fallback sin reconstrucción JS: el panel crudo también se ve premium.
+           Estructura del motor = card centrada con título, <p>, botones y meta. */
+        #sigma-hud-root .card:has(a[href*="/download/strategy"]) {
+          background: linear-gradient(180deg, #0A1220, #070B14) !important;
+          border: 1px solid rgba(0,229,255,0.18) !important;
+        }
+        #sigma-hud-root .card:has(a[href*="/download/strategy"])::after { opacity: 0.5; } /* mantiene brackets sutiles */
+        #sigma-hud-root .card:has(a[href*="/download/strategy"]) .card-title { color: #00E5FF !important; }
+        /* meta line del motor → fila de badges */
+        #sigma-hud-root .card:has(a[href*="/download/strategy"]) > div:last-child:not(:has(a)) {
+          display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: center;
         }
 
         #sigma-hud-root .sigma-dl-footbadges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 20px; }
