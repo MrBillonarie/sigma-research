@@ -263,6 +263,10 @@ export default function HUDPage() {
         @keyframes hud-drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(52px,-40px)} }
         @keyframes hud-scanY  { 0%{top:-6%} 100%{top:106%} }
         @keyframes hud-stripes { to { background-position: 28px 0; } }
+        @keyframes hud-optpulse {
+          0%,100% { box-shadow: inset 0 0 0 1px rgba(57,226,230,0.25), 0 0 10px rgba(57,226,230,0.1); }
+          50%     { box-shadow: inset 0 0 0 1px rgba(57,226,230,0.55), 0 0 20px rgba(57,226,230,0.25); }
+        }
         @keyframes hud-alphapulse {
           0%,100% { box-shadow: 0 0 18px rgba(46,204,113,0.12), inset 0 0 14px rgba(46,204,113,0.05); }
           50%     { box-shadow: 0 0 34px rgba(46,204,113,0.28), inset 0 0 20px rgba(46,204,113,0.1); }
@@ -768,6 +772,61 @@ export default function HUDPage() {
         }
         #sigma-hud-root .asset-box { border-radius: 10px !important; }
 
+        /* ══ 9. Matrices M1–M4 — rack de servidores 3D ══ */
+        /* cabecera de timeframes: rail iluminado */
+        #sigma-hud-root .matrix th {
+          color: #8b97ad !important; letter-spacing: 0.2em !important;
+          border-bottom: 1px solid rgba(57,226,230,0.16) !important;
+        }
+        /* módulo LISTO: enchufado al rack, con relieve físico */
+        #sigma-hud-root .matrix td.cell-ok, #sigma-hud-root .cell-ok {
+          border-radius: 10px !important;
+          background: linear-gradient(180deg, rgba(18,52,36,0.85), rgba(8,26,18,0.9)) !important;
+          border: 1px solid rgba(46,204,113,0.22) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(120,255,190,0.16),
+            inset 0 -8px 14px -10px rgba(0,0,0,0.7),
+            0 4px 10px -6px rgba(0,0,0,0.65),
+            0 10px 22px -14px rgba(46,204,113,0.35) !important;
+          transition: transform .22s ease, box-shadow .22s ease !important;
+        }
+        /* el módulo SALTA en 3D hacia ti al hover */
+        #sigma-hud-root .matrix td.cell-ok:hover {
+          position: relative; z-index: 6;
+          transform: perspective(700px) translateZ(18px) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(120,255,190,0.22),
+            0 22px 44px -12px rgba(0,0,0,0.85),
+            0 0 26px rgba(46,204,113,0.3) !important;
+        }
+        /* módulo OPTIMIZANDO: late con energía cian */
+        #sigma-hud-root .matrix td.cell-run, #sigma-hud-root .cell-run {
+          border-radius: 10px !important;
+          animation: hud-optpulse 2.4s ease-in-out infinite;
+        }
+        #sigma-hud-root .matrix td.cell-run:hover {
+          position: relative; z-index: 6;
+          transform: perspective(700px) translateZ(14px) !important;
+          animation: none;
+          box-shadow: inset 0 0 0 1px rgba(57,226,230,0.55), 0 18px 38px -12px rgba(0,0,0,0.8), 0 0 24px rgba(57,226,230,0.3) !important;
+        }
+        /* slot PENDIENTE ("En cola"): bahía vacía hundida en el rack */
+        #sigma-hud-root .matrix td[style*="#242f55"], #sigma-hud-root .matrix td div[style*="#242f55"] {
+          background: rgba(0,0,0,0.3) !important;
+          border: 1px dashed rgba(255,255,255,0.08) !important;
+          border-radius: 10px !important;
+          box-shadow: inset 0 3px 12px rgba(0,0,0,0.6) !important;
+        }
+        /* etiqueta de activo: placa del rack con su color */
+        #sigma-hud-root .asset-box {
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 6px 14px -8px rgba(0,0,0,0.8) !important;
+        }
+        /* identidad por motor: rail superior y borde de su color */
+        #sigma-hud-root #matrix-section-m3.card { border-color: rgba(63,185,80,0.3) !important; }
+        #sigma-hud-root #matrix-section-m3.card::before { background: linear-gradient(90deg, #3fb950, rgba(63,185,80,0.3) 50%, transparent 85%); }
+        #sigma-hud-root #matrix-section-m4.card { border-color: rgba(91,141,239,0.35) !important; }
+        #sigma-hud-root #matrix-section-m4.card::before { background: linear-gradient(90deg, #5b8def, rgba(91,141,239,0.35) 50%, transparent 85%); }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
@@ -863,7 +922,8 @@ export default function HUDPage() {
           #sigma-hud-root .risk-cell, #sigma-hud-root .asset-box { transition: none !important; }
           #sigma-hud-root #equity-wrap { transform: none !important; transition: none !important; }
           #sigma-hud-root div[style*="rgba(46,204,113,.06)"],
-          #sigma-hud-root div[style*="background:#f1c40f"] { animation: none !important; }
+          #sigma-hud-root div[style*="background:#f1c40f"],
+          #sigma-hud-root .matrix td.cell-run, #sigma-hud-root .cell-run { animation: none !important; }
         }
 
         /* scrollbars finas */
