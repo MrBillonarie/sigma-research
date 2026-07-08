@@ -392,22 +392,22 @@ export default function HUDPage() {
     }
 
     function enhance() {
-      const strat = root!.querySelector('a[href*="download/strategy"]') as HTMLAnchorElement | null
-      if (!strat) return
-      const card = strat.closest('.card') as HTMLElement | null
+      // Producto único que se muestra: SIGMA TERMINAL (el <a> de descarga
+      // terminal). El de ENGINE (strategy) se descarta al reconstruir.
+      const keep = root!.querySelector('a[href*="download/terminal"]') as HTMLAnchorElement | null
+      if (!keep) return
+      const card = keep.closest('.card') as HTMLElement | null
       // guard por PRESENCIA de mi wrapper: si el motor revierte el DOM, se
       // vuelve a aplicar (no un flag que quede obsoleto tras un re-render)
       if (!card || card.querySelector(':scope > .sigma-dl')) return
       try {
-      const term = root!.querySelector('a[href*="download/terminal"]') as HTMLAnchorElement | null
-
       const full = card.textContent || ''
       const size = full.match(/([\d.]+)\s*KB/i)?.[1] ?? '132'
-      const models = full.match(/(\d+)\s*modelos/i)?.[1] ?? '155'
       const updated = (full.match(/actualizado\s+([\d/]+[^)\n]*?)(?:\s*\(|$)/i)?.[1] ?? 'hoy').trim()
-      const desc = card.querySelector('p')?.textContent?.trim() ?? 'Carga ambos indicadores en el mismo chart de TradingView.'
-      const s = nameVer(strat), t = nameVer(term)
-      const sFeats = featChips(subLabel(strat)), tFeats = featChips(subLabel(term))
+      const desc = (card.querySelector('p')?.textContent?.trim() ?? 'Carga el indicador en tu chart de TradingView.')
+        .replace(/ambos indicadores/i, 'el indicador').replace(/El ENGINE/i, 'El TERMINAL')
+      const s = nameVer(keep)
+      const sFeats = featChips(subLabel(keep))
 
       // el <a> pasa a "Cargar en TradingView" con icono de velas
       // (se conservan href/download/onclick del motor)
@@ -415,8 +415,7 @@ export default function HUDPage() {
         '<line x1="3" y1="1.5" x2="3" y2="12.5" stroke="currentColor" stroke-width="1"/><rect x="1.6" y="4" width="2.8" height="6" rx="0.5" fill="currentColor"/>' +
         '<line x1="8" y1="0.5" x2="8" y2="11" stroke="currentColor" stroke-width="1"/><rect x="6.6" y="2.5" width="2.8" height="5" rx="0.5" fill="currentColor"/>' +
         '<line x1="13" y1="2.5" x2="13" y2="13.5" stroke="currentColor" stroke-width="1"/><rect x="11.6" y="6" width="2.8" height="4.5" rx="0.5" fill="currentColor"/></svg>'
-      strat.innerHTML = tvIcon + '<span>Cargar en TradingView</span>'
-      if (term) term.innerHTML = tvIcon + '<span>Cargar en TradingView</span>'
+      keep.innerHTML = tvIcon + '<span>Cargar en TradingView</span>'
 
       const parts = (reduce ? '' :
         '<span class="sigma-dl-particle" style="left:12%;bottom:10%;animation-delay:0s"></span>' +
@@ -430,38 +429,29 @@ export default function HUDPage() {
         '<div class="sigma-dl-inner">' +
           '<div class="sigma-dl-head">' +
             '<span class="sigma-dl-eyebrow">↓ TradingView Package</span>' +
-            '<div class="sigma-dl-title">Load Professional Indicators</div>' +
+            '<div class="sigma-dl-title">Load Professional Indicator</div>' +
             `<p class="sigma-dl-sub">${esc(desc)}</p>` +
           '</div>' +
-          '<div class="sigma-dl-grid">' +
-            '<div class="sigma-dl-card engine">' +
-              '<div class="sigma-dl-card-head"><span class="sigma-dl-ico">📈</span>' +
-                `<div class="sigma-dl-id"><b>${esc(s.name || 'SIGMA ENGINE')}</b><span class="ver">${esc(s.ver)}</span></div>` +
-                '<span class="sigma-dl-status">READY</span></div>' +
-              `<div class="sigma-dl-feats">${sFeats}</div>` +
-              `<div class="sigma-dl-metarow"><span>📦 ${esc(size)} KB</span><span>🧠 ${esc(models)} models</span></div>` +
-              '<div class="sigma-dl-btnslot" data-slot="strategy"></div>' +
-            '</div>' +
+          '<div class="sigma-dl-grid single">' +
             '<div class="sigma-dl-card terminal">' +
               '<div class="sigma-dl-card-head"><span class="sigma-dl-ico">📊</span>' +
-                `<div class="sigma-dl-id"><b>${esc(t.name || 'SIGMA TERMINAL')}</b><span class="ver">${esc(t.ver)}</span></div>` +
+                `<div class="sigma-dl-id"><b>${esc(s.name || 'SIGMA TERMINAL')}</b><span class="ver">${esc(s.ver)}</span></div>` +
                 '<span class="sigma-dl-status">READY</span></div>' +
-              `<div class="sigma-dl-feats">${tFeats}</div>` +
-              '<div class="sigma-dl-metarow"><span>◈ Análisis institucional</span></div>' +
+              `<div class="sigma-dl-feats">${sFeats}</div>` +
+              `<div class="sigma-dl-metarow"><span>📦 ${esc(size)} KB</span><span>◈ Análisis institucional</span></div>` +
               '<div class="sigma-dl-btnslot" data-slot="terminal"></div>' +
             '</div>' +
           '</div>' +
           '<div class="sigma-dl-footbadges">' +
-            `<span>📦 ${esc(size)} KB</span><span>🧠 ${esc(models)} Models</span>` +
-            `<span>🕒 ${esc(updated)}</span><span>🇨🇱 Chile</span><span>✔ Verified · TradingView</span>` +
+            `<span>📦 ${esc(size)} KB</span><span>🕒 ${esc(updated)}</span>` +
+            `<span>🇨🇱 Chile</span><span>✔ Verified · TradingView</span>` +
           '</div>' +
         '</div>'
 
       card.dataset.sigmaDl = '1'
       card.innerHTML = ''
       card.appendChild(wrap)
-      wrap.querySelector('[data-slot="strategy"]')?.appendChild(strat)
-      if (term) wrap.querySelector('[data-slot="terminal"]')?.appendChild(term)
+      wrap.querySelector('[data-slot="terminal"]')?.appendChild(keep)
       const cv = wrap.querySelector('.sigma-dl-bg') as HTMLCanvasElement | null
       if (cv) requestAnimationFrame(() => drawChart(cv))
       } catch (e) { console.warn('[sigma-dl] enhance failed', e) }
@@ -1338,6 +1328,7 @@ export default function HUDPage() {
         #sigma-hud-root .sigma-dl-sub strong { color: #F8FAFC; }
 
         #sigma-hud-root .sigma-dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 720px; margin: 0 auto; }
+        #sigma-hud-root .sigma-dl-grid.single { grid-template-columns: minmax(280px, 440px); justify-content: center; }
         #sigma-hud-root .sigma-dl-card {
           position: relative; text-align: left; overflow: hidden;
           background: linear-gradient(180deg, #151F2F, #111827);
