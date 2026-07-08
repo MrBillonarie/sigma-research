@@ -248,21 +248,35 @@ export default function DashboardHome() {
   // Datos crudos del motor (mismas ejecuciones que muestra el HUD) — el motor
   // abre y cierra trades todo el día; de aquí salen PnL/Win Rate reales.
   const [engRaw,          setEngRaw]          = useState<EngineTradesRaw | null>(null)
+  // Distinto de `loading` (hidratación de localStorage, termina casi al tiro):
+  // esto sigue en true mientras el fetch al motor (VPS) no responda con datos
+  // reales, para no mostrar "$0 / sin trades" como si fuera un hecho cuando en
+  // realidad el dato todavía viene en camino.
+  const [engineLoading,   setEngineLoading]   = useState(true)
 
-  // Ejecuciones reales del motor — se refresca cada 60s como el HUD
+  // Ejecuciones reales del motor — se refresca cada 60s una vez que hay
+  // datos; si el fetch falla o llega vacío, reintenta rápido (5s) en vez de
+  // esperar el ciclo completo, para no dejar la UI colgada en el estado de
+  // carga por un fallo transitorio de red.
   useEffect(() => {
     let alive = true
+    let timer: ReturnType<typeof setTimeout>
     const load = () => fetch('/api/vps/trades', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
       .then((j: EngineTradesRaw | null) => {
-        if (!alive || !j) return
-        const hasData = (Array.isArray(j.history) && j.history.length > 0) || (j.stats?.total ?? 0) > 0
-        if (hasData) setEngRaw(j)
+        if (!alive) return
+        const hasData = !!j && ((Array.isArray(j.history) && j.history.length > 0) || (j.stats?.total ?? 0) > 0)
+        if (hasData) {
+          setEngRaw(j)
+          setEngineLoading(false)
+          timer = setTimeout(load, 60_000)
+        } else {
+          timer = setTimeout(load, 5_000)
+        }
       })
-      .catch(() => {})
+      .catch(() => { if (alive) timer = setTimeout(load, 5_000) })
     load()
-    const id = setInterval(load, 60_000)
-    return () => { alive = false; clearInterval(id) }
+    return () => { alive = false; clearTimeout(timer) }
   }, [])
 
   // Clock
@@ -547,21 +561,21 @@ export default function DashboardHome() {
     }
   }, [engRaw, now])
 
-  // Valores que alimentan las tarjetas: motor si está disponible, si no journal
-  const monthPnlVal = E ? E.monthPnl : D.monthPnL
-  const winRateVal  = E ? E.monthWinRate : D.winRate
+  // Valores que alimentan las tarjetas: SIEMPRE el motor (LIVE), nunca el
+  // diario manual de Supabase -- si el motor no tiene dato, se muestra 0
+  // honesto (gateado por engineLoading en el JSX, no por este fallback).
+  const monthPnlVal = E ? E.monthPnl : 0
+  const winRateVal  = E ? E.monthWinRate : 0
   const bestTradeVal = E?.bestTrade
     ? { pnl: E.bestTrade.pnl_dollar ?? 0, label: `${(E.bestTrade.sym ?? '').toUpperCase()} · ${(E.bestTrade.direction ?? '').toUpperCase()}` }
-    : D.bestTrade
-    ? { pnl: D.bestTrade.pnl_usd, label: `${D.bestTrade.par} · ${D.bestTrade.lado}` }
     : null
-  const weekPnlVal   = E ? E.weekPnl   : D.weekPnL
-  const weekCountVal = E ? E.weekCount : D.weekCount
+  const weekPnlVal   = E ? E.weekPnl   : 0
+  const weekCountVal = E ? E.weekCount : 0
 
   // Encendido cinemático — los KPIs cuentan de 0 → valor real al cargar
   const cTotal   = useCountUp(loading ? 0 : D.totalUSD)
-  const cMonth   = useCountUp(loading ? 0 : monthPnlVal)
-  const cWin     = useCountUp(loading ? 0 : winRateVal)
+  const cMonth   = useCountUp(engineLoading ? 0 : monthPnlVal)
+  const cWin     = useCountUp(engineLoading ? 0 : winRateVal)
   const cPassive = useCountUp(loading ? 0 : D.monthlyPassive)
   const cFire    = useCountUp(loading ? 0 : D.firePct, 1500)
 
@@ -880,8 +894,8 @@ export default function DashboardHome() {
                   <span style={{ fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>
                 </span>
               ) : null
-              const monthSpark = E ? E.sparkMonth : D.sparkMonthCum
-              const last10     = E ? E.last10 : D.last10Results
+              const monthSpark = E ? E.sparkMonth : []
+              const last10     = E ? E.last10 : []
               return (
             <div className="sp-pair" style={{ position:'relative', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
 
@@ -889,11 +903,11 @@ export default function DashboardHome() {
             <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'90ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PNL DEL MES{motorTag}</div>
               <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
-                {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:monthPnlVal >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(cMonth)}</div>}
-                {!loading && monthSpark.length > 1 && <Sparkline data={monthSpark} w={56} h={22} />}
+                {engineLoading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:monthPnlVal >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(cMonth)}</div>}
+                {!engineLoading && monthSpark.length > 1 && <Sparkline data={monthSpark} w={56} h={22} />}
               </div>
               <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>
-                {E ? `${E.monthClosed} cerrados · ${E.openCount} abiertas` : `${D.monthTradesCount} trades este mes`}
+                {engineLoading ? '' : E ? `${E.monthClosed} cerrados · ${E.openCount} abiertas` : 'sin operación LIVE registrada'}
               </div>
               {E && <div style={{ fontFamily:'monospace', fontSize:9, color:C.gold, marginTop:3, letterSpacing:'0.04em' }}>
                 motor {fmtDiff(E.trackPnlTotal)} · PF {E.profitFactor.toFixed(2)}
@@ -904,13 +918,11 @@ export default function DashboardHome() {
             <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'180ms' }}>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>WIN RATE MES{motorTag}</div>
               <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
-                {loading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:winRateVal >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(cWin)}</div>}
-                {!loading && last10.length > 0 && <MiniBarChart data={last10} w={52} h={22} />}
+                {engineLoading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:winRateVal >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(cWin)}</div>}
+                {!engineLoading && last10.length > 0 && <MiniBarChart data={last10} w={52} h={22} />}
               </div>
-              {E ? (
+              {!engineLoading && E && (
                 <div style={{ fontFamily:'monospace', fontSize:9, color:C.gold, letterSpacing:'0.04em' }}>histórico {E.trackWinRate.toFixed(1)}% · {E.trackTotal} trades</div>
-              ) : (
-                D.streak > 1 && !loading && <div style={{ fontFamily:'monospace', fontSize:10, color:C.green }}>🔥 {D.streak}W STREAK</div>
               )}
             </div>
 
@@ -989,13 +1001,13 @@ export default function DashboardHome() {
             <div className="sp-fadein" style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14, animationDelay:'420ms' }}>
               <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.gold, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>★</div>
               <div>
-                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>MEJOR TRADE DEL MES</div>
-                {loading ? <Sk w={80} h={14} /> : bestTradeVal ? (
+                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>MEJOR TRADE DEL MES{E && <span style={{ marginLeft:6, fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>}</div>
+                {engineLoading ? <Sk w={80} h={14} /> : bestTradeVal ? (
                   <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
                     <span style={{ fontFamily:'monospace', fontSize:13, color:C.green }}>{fmtDiff(bestTradeVal.pnl)}</span>
                     <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{bestTradeVal.label}</span>
                   </div>
-                ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin trades este mes</span>}
+                ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin trades LIVE este mes</span>}
               </div>
             </div>
 
@@ -1005,7 +1017,7 @@ export default function DashboardHome() {
               </div>
               <div>
                 <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>P&L SEMANAL{E && <span style={{ marginLeft:6, fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>}</div>
-                {loading ? <Sk w={80} h={14} /> : (
+                {engineLoading ? <Sk w={80} h={14} /> : (
                   <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
                     <span style={{ fontFamily:'monospace', fontSize:13, color:weekPnlVal >= 0 ? C.green : C.red }}>{fmtDiff(weekPnlVal)}</span>
                     <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{weekCountVal} trades</span>
