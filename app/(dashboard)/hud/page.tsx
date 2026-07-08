@@ -1043,6 +1043,82 @@ export default function HUDPage() {
           border-radius: 0 0 10px 10px;
         }
 
+        /* ══ 11. Sala de estrategia — secciones inferiores del HUD ══ */
+        /* ROADMAP M5-M8: bahías de hangar en construcción + línea de pipeline */
+        #sigma-hud-root .card div[style*="minmax(195px"] { position: relative; }
+        #sigma-hud-root .card div[style*="minmax(195px"]::before {
+          content: ''; position: absolute; left: -6px; right: -6px; top: 50%; height: 2px;
+          background: linear-gradient(90deg, rgba(57,226,230,0.28), rgba(57,226,230,0.04));
+          z-index: 0; border-radius: 2px;
+        }
+        #sigma-hud-root .card div[style*="minmax(195px"] > div { position: relative; z-index: 1; }
+        #sigma-hud-root div[style*="rgba(201,162,39,.035)"] {
+          background:
+            repeating-linear-gradient(45deg, rgba(255,255,255,0.014) 0 12px, transparent 12px 24px),
+            linear-gradient(180deg, rgba(20,26,38,0.6), rgba(10,14,22,0.55)) !important;
+          border: 1px dashed rgba(57,226,230,0.22) !important;
+          border-radius: 12px !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+          transition: border-color .25s ease, transform .25s ease;
+        }
+        #sigma-hud-root div[style*="rgba(201,162,39,.035)"]:hover {
+          border-color: rgba(57,226,230,0.45) !important;
+          transform: translateY(-2px);
+        }
+
+        /* Blotter universal para tablas .t (detalle BTC, walk-forward, VPS) */
+        #sigma-hud-root table.t th {
+          color: #8b97ad !important; letter-spacing: 0.18em !important;
+          border-bottom: 1px solid rgba(57,226,230,0.16) !important;
+        }
+        #sigma-hud-root table.t td {
+          padding: 9px 10px !important;
+          border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        #sigma-hud-root table.t tbody tr { transition: background .2s ease; }
+        #sigma-hud-root table.t tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+        #sigma-hud-root table.t tbody tr:hover { background: rgba(57,226,230,0.05); }
+        /* rail de veredicto: fila con ✓ verde / ✗ roja en su última celda */
+        #sigma-hud-root table.t tbody tr:has(> td:last-child[style*="#2ecc71"]) > td:first-child { border-left: 3px solid rgba(46,204,113,0.5); }
+        #sigma-hud-root table.t tbody tr:has(> td:last-child[style*="#e74c3c"]) > td:first-child { border-left: 3px solid rgba(231,76,60,0.5); }
+
+        /* CROSS-ASSET: tiles como lámparas de signo */
+        #sigma-hud-root .card div[style*="min-width:90px"] {
+          border-radius: 12px !important;
+          border: 1px solid rgba(255,255,255,0.07);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 20px -12px rgba(0,0,0,0.7);
+          transition: transform .25s ease, border-color .25s ease;
+        }
+        #sigma-hud-root .card div[style*="min-width:90px"]:hover { transform: translateY(-2px); }
+        #sigma-hud-root .card div[style*="min-width:90px"]:has([style*="#2ecc71"]) {
+          background: radial-gradient(120% 100% at 50% 0%, rgba(46,204,113,0.13), rgba(255,255,255,0.015) 65%) !important;
+          border-color: rgba(46,204,113,0.25);
+        }
+        #sigma-hud-root .card div[style*="min-width:90px"]:has([style*="#e74c3c"]) {
+          background: radial-gradient(120% 100% at 50% 0%, rgba(231,76,60,0.12), rgba(255,255,255,0.015) 65%) !important;
+          border-color: rgba(231,76,60,0.25);
+        }
+        #sigma-hud-root .card div[style*="min-width:90px"]:has([style*="#f1c40f"]) {
+          background: radial-gradient(120% 100% at 50% 0%, rgba(57,226,230,0.11), rgba(255,255,255,0.015) 65%) !important;
+          border-color: rgba(57,226,230,0.25);
+        }
+        #sigma-hud-root .card div[style*="min-width:90px"] div[style*="font-size:18px"] { text-shadow: 0 0 12px currentColor; }
+
+        /* VPS: contadores del optimizador como odómetros */
+        #sigma-hud-root .tf-pill {
+          background: rgba(57,226,230,0.05) !important;
+          border: 1px solid rgba(57,226,230,0.18) !important;
+          border-radius: 8px !important;
+          padding: 6px 12px !important;
+          transition: border-color .2s ease;
+        }
+        #sigma-hud-root .tf-pill:hover { border-color: rgba(57,226,230,0.4) !important; }
+        #sigma-hud-root .tf-pill b {
+          color: #5eeaf0 !important;
+          font-variant-numeric: tabular-nums;
+          text-shadow: 0 0 10px rgba(57,226,230,0.35);
+        }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
