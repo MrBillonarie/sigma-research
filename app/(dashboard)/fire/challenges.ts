@@ -120,7 +120,9 @@ export const LEVELS = [
   { name: 'STARTER', emoji: '🌱', min: 0,    max: 99 },
   { name: 'SILVER',  emoji: '🥈', min: 100,  max: 499 },
   { name: 'GOLD',    emoji: '🥇', min: 500,  max: 999 },
-  { name: 'DIAMOND', emoji: '💎', min: 1000, max: Infinity },
+  { name: 'DIAMOND', emoji: '💎', min: 1000, max: 1999 },
+  { name: 'MASTER',  emoji: '⭐', min: 2000, max: 4999 },
+  { name: 'LEGEND',  emoji: '👑', min: 5000, max: Infinity },
 ] as const
 
 export function getLevelFromPoints(points: number) {

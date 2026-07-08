@@ -52,7 +52,7 @@ const DAILY_POINTS = 10
 const WEEKLY_POINTS: Record<Difficulty, number> = { 'FÁCIL': 20, 'MEDIO': 35, 'DIFÍCIL': 50 }
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
-const GOLD   = '#F5C842'
+const GOLD   = '#39e2e6'
 const GREEN  = '#22c55e'
 const ORANGE = '#f97316'
 const MONO   = "var(--font-dm-mono,'DM Mono',monospace)"
@@ -107,7 +107,10 @@ function monthsToTarget(capital: number, ahorro: number, retornoPct: number, tar
 }
 
 // ─── Challenge data ───────────────────────────────────────────────────────────
-const DAILY: DailyChallenge[] = [
+// 3 sets de 7 retos diarios, rotan por semana (weekNum % 3) para que el mismo
+// día de la semana no muestre siempre el mismo reto — antes era 1 set fijo
+// para siempre, se sentía repetitivo a las pocas semanas.
+const DAILY_1: DailyChallenge[] = [
   // 0 Sun
   {
     id: 'sun', icon: '🗓️',
@@ -177,6 +180,140 @@ const DAILY: DailyChallenge[] = [
   },
 ]
 
+const DAILY_2: DailyChallenge[] = [
+  // 0 Sun
+  {
+    id: 'sun2', icon: '🔍',
+    title: 'Audita tus suscripciones activas',
+    desc:  'Revisa streaming, apps y membresías. Detecta al menos una que no usas hace más de un mes.',
+    amountBase: 0,
+    unitFn:    () => '1 suscripción auditada',
+    impactFn:  () => 'El usuario promedio paga por 2-3 suscripciones que olvidó cancelar',
+  },
+  // 1 Mon
+  {
+    id: 'mon2', icon: '🔁',
+    title: 'Automatiza una transferencia a tu ahorro',
+    desc:  'Programa una transferencia automática, aunque sea pequeña. Quitarle la decisión al futuro-tú.',
+    amountBase: 3,
+    unitFn:    (a) => `+${fmtUSD(a)} automatizado`,
+    impactFn:  (a) => `El ahorro automático es ~3x más consistente que el manual · proyectado a 1 año: +${fmtUSD(a * 365)}`,
+  },
+  // 2 Tue
+  {
+    id: 'tue2', icon: '🏷️',
+    title: 'Compara precios antes de comprar algo',
+    desc:  'Antes de tu próxima compra, compara al menos 2 alternativas de precio.',
+    amountBase: 0,
+    unitFn:    () => '$0 en sobreprecio',
+    impactFn:  () => 'Comparar precios ahorra en promedio 8-15% en compras no rutinarias',
+  },
+  // 3 Wed
+  {
+    id: 'wed2', icon: '📉',
+    title: 'Revisa el drawdown de tu portafolio',
+    desc:  'Abre el HUD y revisa cuánto ha caído tu equity curve desde su máximo. Conocerlo evita el pánico.',
+    amountBase: 0,
+    unitFn:    () => '1 revisión de riesgo',
+    impactFn:  () => 'Conocer tu drawdown máximo real reduce la probabilidad de vender en pánico',
+  },
+  // 4 Thu
+  {
+    id: 'thu2', icon: '☎️',
+    title: 'Negocia una cuenta o servicio fijo',
+    desc:  'Llama a tu compañía de internet, celular o luz y pide un mejor plan. Casi siempre hay margen.',
+    amountBase: 4,
+    unitFn:    (a) => `+${fmtUSD(a)} negociado`,
+    impactFn:  (a) => `Repetido cada 6 meses → +${fmtUSD(a * 2 * 12)}/año al portafolio`,
+  },
+  // 5 Fri
+  {
+    id: 'fri2', icon: '🧾',
+    title: 'Registra todos tus gastos de la semana',
+    desc:  'Anota cada gasto, sin excepción, aunque sea $1. El gasto hormiga se esconde en lo que no anotas.',
+    amountBase: 0,
+    unitFn:    () => 'Semana registrada',
+    impactFn:  () => 'Llevar registro de gastos reduce el gasto hormiga hasta un 15%',
+  },
+  // 6 Sat
+  {
+    id: 'sat2', icon: '🧠',
+    title: 'Aprende sobre un instrumento de inversión nuevo',
+    desc:  'ETFs, bonos, REITs — elige uno que no conozcas y entiende cómo funciona.',
+    amountBase: 0,
+    unitFn:    () => '1 instrumento nuevo',
+    impactFn:  () => 'Diversificar tu conocimiento reduce el riesgo de decisiones impulsivas',
+  },
+]
+
+const DAILY_3: DailyChallenge[] = [
+  // 0 Sun
+  {
+    id: 'sun3', icon: '🎯',
+    title: 'Define una meta de ahorro para el mes',
+    desc:  'Pon un número concreto, no "ahorrar más". Lo que se mide, se mejora.',
+    amountBase: 0,
+    unitFn:    () => 'Meta del mes definida',
+    impactFn:  () => 'Metas específicas y medibles se cumplen ~2x más que metas vagas',
+  },
+  // 1 Mon
+  {
+    id: 'mon3', icon: '📦',
+    title: 'Vende algo que no usas',
+    desc:  'Ropa, electrónica, lo que sea. Convierte desorden en capital FIRE.',
+    amountBase: 6,
+    unitFn:    (a) => `+${fmtUSD(a)} ingreso extra`,
+    impactFn:  (a) => `Repetido 1 vez al mes → +${fmtUSD(a * 12)}/año`,
+  },
+  // 2 Tue
+  {
+    id: 'tue3', icon: '🍳',
+    title: 'Día sin delivery ni comida fuera',
+    desc:  'Cocina todas tus comidas hoy. Simple, pero el ahorro se acumula rápido.',
+    amountBase: 0,
+    unitFn:    () => '$0 en delivery',
+    impactFn:  () => 'Cocinar en casa un día ahorra en promedio $8-12 vs. pedir comida',
+  },
+  // 3 Wed
+  {
+    id: 'wed3', icon: '🧭',
+    title: 'Revisa el ranking de tus modelos activos',
+    desc:  'Abre /modelos o /terminal y revisa cuál estrategia está rindiendo mejor este mes.',
+    amountBase: 0,
+    unitFn:    () => '1 revisión de modelos',
+    impactFn:  () => 'Entender qué mueve tu rendimiento te hace un inversionista más consciente',
+  },
+  // 4 Thu
+  {
+    id: 'thu3', icon: '💼',
+    title: 'Ofrece un servicio o freelance hoy',
+    desc:  'Una habilidad tuya, aunque sea pequeña, puede generar ingreso extra hoy mismo.',
+    amountBase: 7,
+    unitFn:    (a) => `+${fmtUSD(a)} ingreso extra`,
+    impactFn:  (a) => `Si lo repites 1×/semana → +${fmtUSD(a * 52)}/año al portafolio`,
+  },
+  // 5 Fri
+  {
+    id: 'fri3', icon: '🛟',
+    title: 'Calcula tu fondo de emergencia',
+    desc:  '¿Cuántos meses de gastos cubre tu efectivo disponible? La meta sana es 3-6 meses.',
+    amountBase: 0,
+    unitFn:    () => 'Fondo de emergencia calculado',
+    impactFn:  () => 'Tener 3-6 meses cubiertos evita vender inversiones en una emergencia',
+  },
+  // 6 Sat
+  {
+    id: 'sat3', icon: '🗣️',
+    title: 'Comparte lo que aprendiste esta semana',
+    desc:  'Cuéntale a alguien (o escríbelo) un aprendizaje financiero de esta semana.',
+    amountBase: 0,
+    unitFn:    () => '1 aprendizaje compartido',
+    impactFn:  () => 'Enseñar refuerza tu propio aprendizaje mucho más que solo leer',
+  },
+]
+
+const DAILY_SETS = [DAILY_1, DAILY_2, DAILY_3]
+
 const WEEKLY_A: WeeklyChallenge[] = [
   {
     id: 'wa1', difficulty: 'FÁCIL',
@@ -225,7 +362,55 @@ const WEEKLY_B: WeeklyChallenge[] = [
   },
 ]
 
-const WEEKLY_SETS = [WEEKLY_A, WEEKLY_B]
+const WEEKLY_C: WeeklyChallenge[] = [
+  {
+    id: 'wc1', difficulty: 'FÁCIL',
+    title: 'Aprende sobre un instrumento de inversión nuevo',
+    desc:  'ETFs, bonos, REITs, cripto — elige uno y entiende cómo funciona antes del domingo.',
+    goalType: 'boolean', goalMax: 1,
+    reward: '🏆 Más conocimiento = mejores decisiones de inversión',
+  },
+  {
+    id: 'wc2', difficulty: 'MEDIO',
+    title: 'Automatiza tu ahorro con transferencia programada',
+    desc:  'Configura una transferencia automática recurrente hacia tu ahorro o inversión.',
+    goalType: 'boolean', goalMax: 1,
+    reward: '🏆 El ahorro automático es ~3x más consistente que el manual',
+  },
+  {
+    id: 'wc3', difficulty: 'DIFÍCIL',
+    title: 'Genera $40 de ingreso extra esta semana',
+    desc:  'Freelance, venta de objetos, servicios — todo lo que generes esta semana cuenta.',
+    goalType: 'amount', goalMax: 40,
+    reward: '🏆 +$40 al capital FIRE registrado',
+  },
+]
+
+const WEEKLY_D: WeeklyChallenge[] = [
+  {
+    id: 'wd1', difficulty: 'FÁCIL',
+    title: 'Revisa tu equity curve 3 veces esta semana',
+    desc:  'Abre el HUD y revisa tu drawdown/rendimiento al menos 3 días distintos.',
+    goalType: 'days', goalMax: 3,
+    reward: '🏆 Los traders disciplinados revisan métricas, no solo ganancias',
+  },
+  {
+    id: 'wd2', difficulty: 'MEDIO',
+    title: 'Sin compras no esenciales 5 días',
+    desc:  'Solo lo necesario: comida, transporte, cuentas fijas. Nada más por 5 días.',
+    goalType: 'days', goalMax: 5,
+    reward: '🏆 Ahorro estimado $40–$60 esta semana',
+  },
+  {
+    id: 'wd3', difficulty: 'DIFÍCIL',
+    title: 'Baja tu gasto mensual FIRE un 5%',
+    desc:  'Ajusta el slider de Gasto Mensual FIRE un 5% más bajo y mantenlo esta semana.',
+    goalType: 'boolean', goalMax: 1,
+    reward: '🏆 Recalcular cuánto adelantaste tu FIRE',
+  },
+]
+
+const WEEKLY_SETS = [WEEKLY_A, WEEKLY_B, WEEKLY_C, WEEKLY_D]
 
 const STORE_DEFAULT: ChallengeStore = {
   completed: {}, maxStreak: 0, totalCompleted: 0, totalSaved: 0, totalPoints: 0, weeklyProgress: {},
@@ -233,9 +418,9 @@ const STORE_DEFAULT: ChallengeStore = {
   lastAhorroSeen: null, lastGastoSeen: null, streakFreezes: 0, frozenDates: [],
 }
 
-// Insignias que hoy tienen datos reales para calcular su desbloqueo (el resto
-// de BADGES — silver/gold/diamond_trader, recortador — no tiene una fuente de
-// datos conectada todavía y queda pendiente).
+// Las 10 BADGES ya tienen fuente de datos real: silver/gold/diamond_trader se
+// activaron al conectar LEVELS/totalPoints, y recortador cuenta cuántas
+// semanas distintas completaste el reto de "optimiza 1 suscripción" (wb2).
 function computeEarnedBadges(store: ChallengeStore): string[] {
   const earned: string[] = []
   if (store.totalCompleted >= 1)  earned.push('primer_paso')
@@ -243,12 +428,17 @@ function computeEarnedBadges(store: ChallengeStore): string[] {
   if (store.maxStreak >= 30)      earned.push('imparable')
   if (store.totalPoints >= 100)   earned.push('centenario')
   if (store.totalSaved >= 500)    earned.push('ahorrador_elite')
+  if (store.totalPoints >= LEVELS[1].min) earned.push('silver_trader')
+  if (store.totalPoints >= LEVELS[2].min) earned.push('gold_trader')
+  if (store.totalPoints >= LEVELS[3].min) earned.push('diamond_trader')
   const anyWeekComplete = Object.entries(store.weeklyProgress).some(([wk, progress]) => {
     const wn  = parseInt(wk.split('-W')[1])
     const set = WEEKLY_SETS[wn % WEEKLY_SETS.length]
     return set.every(ch => (progress[ch.id] ?? 0) >= ch.goalMax)
   })
   if (anyWeekComplete) earned.push('fire_ready')
+  const subCancelWeeks = Object.values(store.weeklyProgress).filter(wp => (wp['wb2'] ?? 0) >= 1).length
+  if (subCancelWeeks >= 3) earned.push('recortador')
   return earned
 }
 
@@ -256,7 +446,7 @@ function computeEarnedBadges(store: ChallengeStore): string[] {
 function DiffBadge({ d }: { d: Difficulty }) {
   const styles: Record<Difficulty, { bg: string; color: string }> = {
     'FÁCIL':   { bg: 'rgba(34,197,94,0.12)',   color: GREEN  },
-    'MEDIO':   { bg: 'rgba(245,200,66,0.12)',   color: GOLD   },
+    'MEDIO':   { bg: 'rgba(57,226,230,0.12)',   color: GOLD   },
     'DIFÍCIL': { bg: 'rgba(249,115,22,0.12)',   color: ORANGE },
   }
   const s = styles[d]
@@ -301,7 +491,7 @@ export default function FireChallenges({ ahorro, gasto, capital, retorno, target
   const weekNum  = parseInt(weekKey.split('-W')[1])
   const dayOfWeek = new Date().getDay()
 
-  const daily   = DAILY[dayOfWeek]
+  const daily   = DAILY_SETS[weekNum % DAILY_SETS.length][dayOfWeek]
   const weeklys = WEEKLY_SETS[weekNum % WEEKLY_SETS.length]
   const amt     = scaleAmt(ahorro, daily.amountBase)
 
@@ -612,7 +802,7 @@ export default function FireChallenges({ ahorro, gasto, capital, retorno, target
 
       {/* Perfect week banner */}
       {showPerfectBanner && (
-        <div style={{ background: 'rgba(245,200,66,0.07)', border: `1px solid ${GOLD}44`, borderRadius: 10, padding: '12px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ background: 'rgba(57,226,230,0.07)', border: `1px solid ${GOLD}44`, borderRadius: 10, padding: '12px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 20 }}>🏆</span>
           <span style={{ fontFamily: MONO, fontSize: 12, color: GOLD }}>
             ¡{streak} días de racha perfecta! Estás adelantando tu FIRE.
