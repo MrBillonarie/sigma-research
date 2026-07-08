@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/app/lib/supabase'
 import { createNotification } from '@/app/lib/notify'
 import FireBadges from './FireBadges'
@@ -418,6 +418,50 @@ const STORE_DEFAULT: ChallengeStore = {
   lastAhorroSeen: null, lastGastoSeen: null, streakFreezes: 0, frozenDates: [],
 }
 
+// ─── Server sync (Supabase `fire_challenges`) ──────────────────────────────────
+// Espejo de ChallengeStore para que un cron sepa si cumpliste tu misión del día
+// sin que abras /fire — antes esto vivía solo en localStorage, invisible al
+// servidor. Server gana si ya existe fila (multi-dispositivo); si no, se sube
+// lo que había en localStorage la primera vez que carga logueado.
+function storeToRow(s: ChallengeStore, userId: string) {
+  return {
+    user_id:              userId,
+    completed:            s.completed,
+    weekly_progress:      s.weeklyProgress,
+    max_streak:           s.maxStreak,
+    total_completed:      s.totalCompleted,
+    total_saved:          s.totalSaved,
+    total_points:         s.totalPoints,
+    notified_streaks:     s.notifiedStreaks,
+    notified_missed_date: s.notifiedMissedDate,
+    earned_badges:        s.earnedBadges,
+    notified_level_idx:   s.notifiedLevelIdx,
+    last_ahorro_seen:     s.lastAhorroSeen,
+    last_gasto_seen:      s.lastGastoSeen,
+    streak_freezes:       s.streakFreezes,
+    frozen_dates:         s.frozenDates,
+  }
+}
+
+function rowToStore(r: Record<string, unknown>): ChallengeStore {
+  return {
+    completed:          (r.completed as ChallengeStore['completed']) ?? {},
+    weeklyProgress:     (r.weekly_progress as ChallengeStore['weeklyProgress']) ?? {},
+    maxStreak:          (r.max_streak as number) ?? 0,
+    totalCompleted:     (r.total_completed as number) ?? 0,
+    totalSaved:         (r.total_saved as number) ?? 0,
+    totalPoints:        (r.total_points as number) ?? 0,
+    notifiedStreaks:    (r.notified_streaks as number[]) ?? [],
+    notifiedMissedDate: (r.notified_missed_date as string | null) ?? null,
+    earnedBadges:       (r.earned_badges as string[]) ?? [],
+    notifiedLevelIdx:   (r.notified_level_idx as number) ?? 0,
+    lastAhorroSeen:     (r.last_ahorro_seen as number | null) ?? null,
+    lastGastoSeen:      (r.last_gasto_seen as number | null) ?? null,
+    streakFreezes:      (r.streak_freezes as number) ?? 0,
+    frozenDates:        (r.frozen_dates as string[]) ?? [],
+  }
+}
+
 // Las 10 BADGES ya tienen fuente de datos real: silver/gold/diamond_trader se
 // activaron al conectar LEVELS/totalPoints, y recortador cuenta cuántas
 // semanas distintas completaste el reto de "optimiza 1 suscripción" (wb2).
@@ -476,6 +520,8 @@ export default function FireChallenges({ ahorro, gasto, capital, retorno, target
   const [showInput, setShowInput] = useState<string | null>(null)
   const [inputVal,  setInputVal]  = useState('')
   const [userId,    setUserId]    = useState<string | null>(null)
+  const [serverSynced, setServerSynced] = useState(false)
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     try {
@@ -483,8 +529,29 @@ export default function FireChallenges({ ahorro, gasto, capital, retorno, target
       if (raw) setStore({ ...STORE_DEFAULT, ...(JSON.parse(raw) as ChallengeStore) })
     } catch { /* ignore */ }
     setMounted(true)
-    supabase.auth.getUser().then(({ data }) => { if (data.user) setUserId(data.user.id) })
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) { setServerSynced(true); return }
+      setUserId(data.user.id)
+      supabase.from('fire_challenges').select('*').eq('user_id', data.user.id).maybeSingle()
+        .then(({ data: row }) => {
+          if (row) setStore({ ...STORE_DEFAULT, ...rowToStore(row) })
+          setServerSynced(true)
+        })
+    })
   }, [])
+
+  // Sube el store a Supabase (debounced) cada vez que cambia — así el cron
+  // diario puede ver tu progreso real sin depender de que abras /fire.
+  // serverSynced evita pisar la fila del servidor con STORE_DEFAULT antes de
+  // que termine de cargar el fetch inicial de arriba.
+  useEffect(() => {
+    if (!mounted || !userId || !serverSynced) return
+    if (syncTimer.current) clearTimeout(syncTimer.current)
+    syncTimer.current = setTimeout(() => {
+      supabase.from('fire_challenges').upsert(storeToRow(store, userId), { onConflict: 'user_id' }).then(() => {})
+    }, 800)
+    return () => { if (syncTimer.current) clearTimeout(syncTimer.current) }
+  }, [store, mounted, userId, serverSynced])
 
   const today    = getToday()
   const weekKey  = getWeekKey()
