@@ -347,6 +347,10 @@ export default function HUDPage() {
         @keyframes hud-drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(52px,-40px)} }
         @keyframes hud-scanY  { 0%{top:-6%} 100%{top:106%} }
         @keyframes hud-stripes { to { background-position: 28px 0; } }
+        @keyframes hud-dlpulse {
+          0%,100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 12px 32px -8px rgba(20,184,125,0.55), 0 0 22px rgba(46,204,113,0.18); }
+          50%     { box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 12px 32px -8px rgba(20,184,125,0.6), 0 0 42px rgba(46,204,113,0.42); }
+        }
         @keyframes hud-optpulse {
           0%,100% { box-shadow: inset 0 0 0 1px rgba(57,226,230,0.25), 0 0 10px rgba(57,226,230,0.1); }
           50%     { box-shadow: inset 0 0 0 1px rgba(57,226,230,0.55), 0 0 20px rgba(57,226,230,0.25); }
@@ -1119,6 +1123,62 @@ export default function HUDPage() {
           text-shadow: 0 0 10px rgba(57,226,230,0.35);
         }
 
+        /* ══ 12. Vitrina de descargas — Pine Scripts (los 2 botones estrella) ══ */
+        /* escenario: focos esmeralda y cian iluminando los productos */
+        #sigma-hud-root .card:has(a[href="/download/strategy"]) {
+          background:
+            radial-gradient(55% 95% at 38% 58%, rgba(46,204,113,0.09), transparent 62%),
+            radial-gradient(55% 95% at 62% 58%, rgba(57,226,230,0.08), transparent 62%),
+            linear-gradient(180deg, rgba(22,28,40,0.5), rgba(11,15,23,0.42)) !important;
+        }
+        /* SIGMA ENGINE: llave de producto esmeralda — late y brilla */
+        #sigma-hud-root a[href="/download/strategy"] {
+          position: relative; overflow: hidden;
+          padding: 16px 38px !important;
+          font-size: 16px !important; letter-spacing: 0.04em;
+          border-radius: 14px !important;
+          background: linear-gradient(135deg, #1fa653, #14b87d) !important;
+          border: 1px solid rgba(120,255,190,0.45) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 12px 32px -8px rgba(20,184,125,0.55), 0 0 26px rgba(46,204,113,0.22);
+          animation: hud-dlpulse 3s ease-in-out infinite;
+          transition: transform .25s ease, box-shadow .25s ease !important;
+        }
+        #sigma-hud-root a[href="/download/strategy"]:hover {
+          opacity: 1 !important;
+          transform: translateY(-3px);
+          animation: none;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 18px 44px -10px rgba(20,184,125,0.7), 0 0 44px rgba(46,204,113,0.38);
+        }
+        /* destello que recorre el botón al hover */
+        #sigma-hud-root a[href="/download/strategy"]::before,
+        #sigma-hud-root a[href="/download/terminal"]::before {
+          content: ''; position: absolute; top: 0; left: -70%; width: 45%; height: 100%;
+          background: linear-gradient(105deg, transparent, rgba(255,255,255,0.32), transparent);
+          transform: skewX(-18deg);
+          transition: left .55s ease;
+          pointer-events: none;
+        }
+        #sigma-hud-root a[href="/download/strategy"]:hover::before,
+        #sigma-hud-root a[href="/download/terminal"]:hover::before { left: 130%; }
+        /* SIGMA TERMINAL: llave holográfica de cristal cian */
+        #sigma-hud-root a[href="/download/terminal"] {
+          position: relative; overflow: hidden;
+          padding: 16px 32px !important; font-size: 15px !important;
+          letter-spacing: 0.04em;
+          border-radius: 14px !important;
+          background: linear-gradient(180deg, rgba(57,226,230,0.09), rgba(255,255,255,0.02)) !important;
+          border: 1px solid rgba(57,226,230,0.38) !important;
+          color: #5eeaf0 !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 26px -10px rgba(0,0,0,0.6);
+          backdrop-filter: blur(6px);
+          transition: transform .25s ease, box-shadow .25s ease !important;
+        }
+        #sigma-hud-root a[href="/download/terminal"]:hover {
+          border-color: rgba(94,234,240,0.75) !important;
+          transform: translateY(-3px);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 16px 36px -10px rgba(0,0,0,0.7), 0 0 28px rgba(57,226,230,0.28);
+        }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
@@ -1216,7 +1276,8 @@ export default function HUDPage() {
           #sigma-hud-root #equity-wrap { transform: none !important; transition: none !important; }
           #sigma-hud-root div[style*="rgba(46,204,113,.06)"],
           #sigma-hud-root div[style*="background:#f1c40f"],
-          #sigma-hud-root .matrix td.cell-run, #sigma-hud-root .cell-run { animation: none !important; }
+          #sigma-hud-root .matrix td.cell-run, #sigma-hud-root .cell-run,
+          #sigma-hud-root a[href="/download/strategy"] { animation: none !important; }
         }
 
         /* scrollbars finas */
