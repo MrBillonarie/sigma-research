@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { fmt, fmtK } from '@/app/lib/format'
 import FireChallenges from './FireChallenges'
 import FireOnboarding from './FireOnboarding'
+import FirePushOptIn from './FirePushOptIn'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { useFireProfile } from '@/app/lib/useFireProfile'
 import { cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
@@ -367,8 +368,11 @@ export default function FirePage() {
 
         {/* Header */}
         <div style={{ marginBottom: 36 }}>
-          <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 10 }}>
-            {'// INDEPENDENCIA FINANCIERA · REGLA DEL 4%'}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold }}>
+              {'// INDEPENDENCIA FINANCIERA · REGLA DEL 4%'}
+            </div>
+            <FirePushOptIn />
           </div>
           <h1 style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(44px, 6vw, 80px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: 0 }}>
             <span style={{ background: `linear-gradient(135deg,${C.gold},${C.glow},#2f6bd6)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>FIRE</span>{' '}
