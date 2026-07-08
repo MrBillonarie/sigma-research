@@ -2,6 +2,16 @@ export const dynamic = 'force-dynamic'
 import { timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import webpush from 'web-push'
+
+const vapidConfigured = !!(process.env.VAPID_PRIVATE_KEY && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY)
+if (vapidConfigured) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:noreply@squantdesk.com',
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  )
+}
 
 function serviceClient() {
   return createClient(
@@ -142,7 +152,55 @@ export async function POST(req: Request) {
   const { error } = await supabase.from('notifications').insert(toInsert)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ ok: true, generated: toInsert.length })
+  const pushed = vapidConfigured ? await sendWebPush(supabase, toInsert) : 0
+
+  return NextResponse.json({ ok: true, generated: toInsert.length, pushed })
+}
+
+// ── Web Push real (llega sin abrir el sitio) ──────────────────────────────
+// Complementa la campanita in-app de arriba — solo alcanza a quien activó el
+// botón "Activar recordatorio diario" en /fire (FirePushOptIn.tsx), el resto
+// solo ve la notificación cuando entra al sitio.
+async function sendWebPush(
+  supabase: ReturnType<typeof serviceClient>,
+  rows: Record<string, unknown>[]
+): Promise<number> {
+  const userIds = rows.map(r => r.user_id as string)
+  const { data: subs } = await supabase
+    .from('push_subscriptions')
+    .select('id, user_id, endpoint, p256dh, auth_key')
+    .in('user_id', userIds)
+  if (!subs || subs.length === 0) return 0
+
+  const byUser = new Map<string, Record<string, unknown>>(rows.map(r => [r.user_id as string, r]))
+  let sent = 0
+  const staleIds: string[] = []
+
+  await Promise.allSettled(subs.map(async sub => {
+    const notif = byUser.get(sub.user_id as string)
+    if (!notif) return
+    const payload = JSON.stringify({
+      title: notif.title,
+      body:  notif.body,
+      url:   notif.accion_href ?? '/fire',
+    })
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint as string, keys: { p256dh: sub.p256dh as string, auth: sub.auth_key as string } },
+        payload
+      )
+      sent++
+    } catch (err: unknown) {
+      const statusCode = (err as { statusCode?: number })?.statusCode
+      if (statusCode === 404 || statusCode === 410) staleIds.push(sub.id as string)
+    }
+  }))
+
+  if (staleIds.length > 0) {
+    await supabase.from('push_subscriptions').delete().in('id', staleIds)
+  }
+
+  return sent
 }
 
 // GET — dry run preview (no DB writes) — admin/cron only
