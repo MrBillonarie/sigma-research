@@ -1457,6 +1457,21 @@ export default function HUDPage() {
         }
         @media (max-width: 720px) { #sigma-hud-root .sigma-dl-grid { grid-template-columns: 1fr; } }
 
+        /* ══ 13. Panel de Señales — retoque sutil, legibilidad primero ══ */
+        /* superficie de lectura: sin "lift" al pasar el mouse (no distrae) */
+        #sigma-hud-root div[style*="background:#07091c"]:has(#live-counter):hover { transform: none !important; }
+        /* headers: venían en #444 (casi ilegibles) → tono claro + hairline cian */
+        #sigma-hud-root div[style*="background:#07091c"]:has(#live-counter) table th {
+          color: #8b97ad !important;
+          border-bottom: 1px solid rgba(57,226,230,0.2) !important;
+          padding: 7px 6px !important; letter-spacing: 0.1em !important;
+        }
+        /* filas: zebra + hover (la clave para leer datos densos sin perderse) */
+        #sigma-hud-root div[style*="background:#07091c"]:has(#live-counter) table td { padding: 7px 6px !important; }
+        #sigma-hud-root div[style*="background:#07091c"]:has(#live-counter) tbody tr { transition: background .15s ease; }
+        #sigma-hud-root div[style*="background:#07091c"]:has(#live-counter) tbody tr:nth-child(even) { background: rgba(255,255,255,0.016); }
+        #sigma-hud-root div[style*="background:#07091c"]:has(#live-counter) tbody tr:hover { background: rgba(57,226,230,0.05); }
+
         /* ══ 4. Marco de terminal: brackets en las esquinas de cada card ══ */
         #sigma-hud-root .card::after {
           content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
