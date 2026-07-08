@@ -406,9 +406,14 @@ export default function HUDPage() {
       const s = nameVer(strat), t = nameVer(term)
       const sFeats = featChips(subLabel(strat)), tFeats = featChips(subLabel(term))
 
-      // el <a> pasa a decir "Descargar" (se conservan href/download/onclick)
-      strat.innerHTML = '<span style="font-size:15px">↓</span> Descargar'
-      if (term) term.innerHTML = '<span style="font-size:15px">↓</span> Descargar'
+      // el <a> pasa a "Cargar en TradingView" con icono de velas
+      // (se conservan href/download/onclick del motor)
+      const tvIcon = '<svg width="16" height="14" viewBox="0 0 16 14" fill="none" aria-hidden="true">' +
+        '<line x1="3" y1="1.5" x2="3" y2="12.5" stroke="currentColor" stroke-width="1"/><rect x="1.6" y="4" width="2.8" height="6" rx="0.5" fill="currentColor"/>' +
+        '<line x1="8" y1="0.5" x2="8" y2="11" stroke="currentColor" stroke-width="1"/><rect x="6.6" y="2.5" width="2.8" height="5" rx="0.5" fill="currentColor"/>' +
+        '<line x1="13" y1="2.5" x2="13" y2="13.5" stroke="currentColor" stroke-width="1"/><rect x="11.6" y="6" width="2.8" height="4.5" rx="0.5" fill="currentColor"/></svg>'
+      strat.innerHTML = tvIcon + '<span>Cargar en TradingView</span>'
+      if (term) term.innerHTML = tvIcon + '<span>Cargar en TradingView</span>'
 
       const parts = (reduce ? '' :
         '<span class="sigma-dl-particle" style="left:12%;bottom:10%;animation-delay:0s"></span>' +
@@ -499,6 +504,8 @@ export default function HUDPage() {
           100% { transform: translateY(-130px); opacity: 0; }
         }
         @keyframes hud-pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @property --dl-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+        @keyframes hud-dl-orbit { to { --dl-angle: 360deg; } }
         @keyframes hud-optpulse {
           0%,100% { box-shadow: inset 0 0 0 1px rgba(57,226,230,0.25), 0 0 10px rgba(57,226,230,0.1); }
           50%     { box-shadow: inset 0 0 0 1px rgba(57,226,230,0.55), 0 0 20px rgba(57,226,230,0.25); }
@@ -1369,41 +1376,57 @@ export default function HUDPage() {
           display: flex; gap: 14px; flex-wrap: wrap; font-size: 10px; color: #94A3B8;
           font-family: 'IBM Plex Mono', monospace; margin-bottom: 14px;
         }
-        /* botón = el <a> real re-montado (conserva href/download/onclick) */
+        /* botón futurista "para TradingView" = el <a> real re-montado
+           (conserva href/download/onclick). Marco de energía orbitando + icono
+           de velas + etiqueta mono. */
         #sigma-hud-root .sigma-dl-btnslot a[href^="/download/"] {
-          display: flex !important; align-items: center; justify-content: center; gap: 8px;
-          width: 100%; padding: 13px 18px !important; border-radius: 12px !important;
-          font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0.03em; text-decoration: none;
-          position: relative; overflow: hidden;
-          transition: transform .25s ease, box-shadow .25s ease, filter .25s ease, border-color .25s ease !important;
+          display: flex !important; align-items: center; justify-content: center; gap: 9px;
+          width: 100%; padding: 13px 18px !important; border-radius: 11px !important;
+          font-family: 'IBM Plex Mono', monospace !important;
+          font-size: 12px !important; font-weight: 700 !important;
+          letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none;
+          position: relative; overflow: hidden; border: none !important;
+          transition: transform .25s ease, box-shadow .25s ease, filter .25s ease !important;
         }
+        #sigma-hud-root .sigma-dl-btnslot a svg { flex-shrink: 0; }
+        /* marco de energía: arco brillante orbitando el borde (@property) */
+        #sigma-hud-root .sigma-dl-btnslot a::before {
+          content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.4px; pointer-events: none;
+          background: conic-gradient(from var(--dl-angle),
+            transparent 0 58%, var(--dlring) 74%, #ffffff 80%, var(--dlring) 86%, transparent 100%);
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor; mask-composite: exclude;
+          animation: hud-dl-orbit 3.4s linear infinite;
+        }
+        /* sheen diagonal al hover (movido a ::after) */
+        #sigma-hud-root .sigma-dl-btnslot a::after {
+          content: ''; position: absolute; top: 0; left: -70%; width: 45%; height: 100%;
+          background: linear-gradient(105deg, transparent, rgba(255,255,255,0.34), transparent);
+          transform: skewX(-18deg); transition: left .55s ease; pointer-events: none;
+        }
+        #sigma-hud-root .sigma-dl-btnslot a:hover::after { left: 130%; }
+
         #sigma-hud-root .sigma-dl-card.engine a[href^="/download/"] {
-          background: linear-gradient(135deg, #22C55E, #2DD4BF) !important; color: #052012 !important;
-          border: 1px solid rgba(120,255,190,0.5) !important;
-          box-shadow: 0 10px 26px -8px rgba(34,197,94,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+          --dlring: #7CFFB0;
+          background: linear-gradient(135deg, #1FB457, #17c48a) !important; color: #04160b !important;
+          box-shadow: 0 10px 26px -8px rgba(34,197,94,0.5), inset 0 1px 0 rgba(255,255,255,0.35);
           animation: hud-dlpulse 3s ease-in-out infinite;
         }
         #sigma-hud-root .sigma-dl-card.terminal a[href^="/download/"] {
-          background: linear-gradient(180deg, rgba(0,229,255,0.1), rgba(255,255,255,0.02)) !important;
-          color: #7DE7F5 !important; border: 1px solid rgba(0,229,255,0.4) !important;
+          --dlring: #00E5FF;
+          background: linear-gradient(180deg, rgba(0,229,255,0.12), rgba(9,16,28,0.6)) !important;
+          color: #9DEEFA !important;
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 24px -10px rgba(0,0,0,0.6);
           backdrop-filter: blur(6px);
         }
-        #sigma-hud-root .sigma-dl-btnslot a:hover { transform: translateY(-2px); filter: brightness(1.05); opacity: 1 !important; }
+        #sigma-hud-root .sigma-dl-btnslot a:hover { transform: translateY(-2px); filter: brightness(1.06); opacity: 1 !important; }
         #sigma-hud-root .sigma-dl-card.engine a:hover {
           animation: none;
-          box-shadow: 0 16px 36px -8px rgba(34,197,94,0.65), 0 0 30px rgba(45,212,191,0.4), inset 0 1px 0 rgba(255,255,255,0.35);
+          box-shadow: 0 16px 36px -8px rgba(34,197,94,0.65), 0 0 30px rgba(45,212,191,0.4), inset 0 1px 0 rgba(255,255,255,0.4);
         }
         #sigma-hud-root .sigma-dl-card.terminal a:hover {
-          border-color: rgba(0,229,255,0.8) !important;
-          box-shadow: 0 14px 32px -10px rgba(0,0,0,0.7), 0 0 26px rgba(0,229,255,0.3);
+          box-shadow: 0 14px 32px -10px rgba(0,0,0,0.7), 0 0 28px rgba(0,229,255,0.35);
         }
-        #sigma-hud-root .sigma-dl-btnslot a::before {
-          content: ''; position: absolute; top: 0; left: -70%; width: 45%; height: 100%;
-          background: linear-gradient(105deg, transparent, rgba(255,255,255,0.32), transparent);
-          transform: skewX(-18deg); transition: left .55s ease; pointer-events: none;
-        }
-        #sigma-hud-root .sigma-dl-btnslot a:hover::before { left: 130%; }
 
         #sigma-hud-root .sigma-dl-footbadges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 20px; }
         #sigma-hud-root .sigma-dl-footbadges span {
@@ -1514,7 +1537,8 @@ export default function HUDPage() {
           #sigma-hud-root a[href="/download/strategy"],
           #sigma-hud-root .sigma-dl, #sigma-hud-root .sigma-dl-scanline,
           #sigma-hud-root .sigma-dl-particle, #sigma-hud-root .sigma-dl-status::before,
-          #sigma-hud-root .sigma-dl-card.engine a { animation: none !important; }
+          #sigma-hud-root .sigma-dl-card.engine a,
+          #sigma-hud-root .sigma-dl-btnslot a::before { animation: none !important; }
         }
 
         /* scrollbars finas */
