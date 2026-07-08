@@ -9,6 +9,7 @@ import { useFireProfile } from '@/app/lib/useFireProfile'
 import { cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 import { supabase } from '@/app/lib/supabase'
 import { createNotification } from '@/app/lib/notify'
+import { getLevelFromPoints } from './challenges'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
@@ -109,7 +110,7 @@ function Label({ text }: { text: string }) {
 }
 
 // ─── Camino 3D al objetivo — plano en perspectiva con compuertas ─────────────
-function FireRoad({ progress, color, capital, target }: { progress: number; color: string; capital: number; target: number }) {
+function FireRoad({ progress, color, capital, target, avatar }: { progress: number; color: string; capital: number; target: number; avatar: string }) {
   const pct = Math.min(Math.max(progress, 0), 100)
   return (
     <div style={{ padding: '18px 18px 10px' }}>
@@ -141,6 +142,7 @@ function FireRoad({ progress, color, capital, target }: { progress: number; colo
           <div className="fr-marker" style={{ left: `${pct}%` }}>
             <span className="fr-ray" />
             <span className="fr-orb" />
+            <span className="fr-avatar">{avatar}</span>
           </div>
         </div>
       </div>
@@ -168,6 +170,23 @@ export default function FirePage() {
   const [edad,    setEdad]    = useState(29)
   const [gasto,   setGasto]   = useState(MODES[1].defaultGasto)
   const [retornoMotor, setRetornoMotor] = useState<number | null>(null)
+  const [levelEmoji, setLevelEmoji] = useState('🌱')
+
+  // Nivel del juego de retos FIRE — mismo localStorage que FireChallenges,
+  // leído acá solo para mostrar el avatar en el camino 3D. Poll simple en vez
+  // de levantar el store completo, para no acoplar los dos componentes.
+  useEffect(() => {
+    function syncLevel() {
+      try {
+        const raw = localStorage.getItem('fire_challenges')
+        const pts = raw ? JSON.parse(raw)?.totalPoints ?? 0 : 0
+        setLevelEmoji(getLevelFromPoints(pts).emoji)
+      } catch {}
+    }
+    syncLevel()
+    const id = setInterval(syncLevel, 4000)
+    return () => clearInterval(id)
+  }, [])
 
   // Retorno real del motor en vivo (mismo origen de datos que el HUD/motor-en-vivo,
   // vía la ruta ya protegida /api/vps/portfolio) — solo precarga el slider una vez,
@@ -334,10 +353,13 @@ export default function FirePage() {
         .fr-orb { position:absolute; bottom:-4px; left:-4px; width:8px; height:8px; border-radius:50%;
           background:#5eeaf0; box-shadow:0 0 12px rgba(57,226,230,0.9); animation: frPulse 1.6s ease-in-out infinite; }
         @keyframes frPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.35); } }
+        .fr-avatar { position:absolute; bottom:10px; left:-9px; font-size:15px; line-height:1;
+          filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7)); animation: frBob 1.8s ease-in-out infinite; }
+        @keyframes frBob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
 
         @media (prefers-reduced-motion: reduce) {
           .fr-dashes { animation:none; }
-          .fr-orb { animation:none; }
+          .fr-orb, .fr-avatar { animation:none; }
           .fr-fill, .fr-marker { transition:none; }
         }
       `}</style>
@@ -459,7 +481,7 @@ export default function FirePage() {
             </div>
 
             {/* Progress — camino 3D en perspectiva con compuertas */}
-            <FireRoad progress={progress} color={m.color} capital={capital} target={target} />
+            <FireRoad progress={progress} color={m.color} capital={capital} target={target} avatar={levelEmoji} />
 
             {/* Chart */}
             <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
@@ -505,7 +527,7 @@ export default function FirePage() {
         </div>
 
         {/* ── Retos FIRE ── */}
-        <FireChallenges ahorro={ahorro} capital={capital} retorno={retorno} target={target} />
+        <FireChallenges ahorro={ahorro} gasto={gasto} capital={capital} retorno={retorno} target={target} />
 
       </div>
     </div>

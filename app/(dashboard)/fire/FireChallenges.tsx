@@ -40,9 +40,14 @@ interface ChallengeStore {
   notifiedMissedDate: string | null   // última fecha en que se avisó racha rota
   earnedBadges:       string[]        // ids de BADGES ya notificados como desbloqueados
   notifiedLevelIdx:   number          // índice más alto de LEVELS ya notificado
+  lastAhorroSeen:     number | null   // último valor real del slider de ahorro visto
+  lastGastoSeen:      number | null   // último valor real del slider de gasto visto
+  streakFreezes:      number          // "protectores de racha" disponibles (se ganan al subir de nivel)
+  frozenDates:        string[]        // fechas donde se usó un protector en vez de romper la racha
 }
 
 const STREAK_MILESTONES = [7, 30, 100, 365]
+const VERIFIED_XP = 25
 const DAILY_POINTS = 10
 const WEEKLY_POINTS: Record<Difficulty, number> = { 'FÁCIL': 20, 'MEDIO': 35, 'DIFÍCIL': 50 }
 
@@ -64,14 +69,14 @@ function getWeekKey(d = new Date()): string {
   return `${year}-W${week}`
 }
 
-function computeStreak(completed: Record<string, string[]>): number {
+function computeStreak(completed: Record<string, string[]>, frozen: string[] = []): number {
   const today = getToday()
-  const hasToday = (completed[today]?.length ?? 0) > 0
+  const hasToday = (completed[today]?.length ?? 0) > 0 || frozen.includes(today)
   let streak = 0
   for (let i = hasToday ? 0 : 1; i < 365; i++) {
     const d = new Date(); d.setDate(d.getDate() - i)
     const key = d.toISOString().split('T')[0]
-    if ((completed[key]?.length ?? 0) > 0) streak++
+    if ((completed[key]?.length ?? 0) > 0 || frozen.includes(key)) streak++
     else break
   }
   return streak
@@ -225,6 +230,7 @@ const WEEKLY_SETS = [WEEKLY_A, WEEKLY_B]
 const STORE_DEFAULT: ChallengeStore = {
   completed: {}, maxStreak: 0, totalCompleted: 0, totalSaved: 0, totalPoints: 0, weeklyProgress: {},
   notifiedStreaks: [], notifiedMissedDate: null, earnedBadges: [], notifiedLevelIdx: 0,
+  lastAhorroSeen: null, lastGastoSeen: null, streakFreezes: 0, frozenDates: [],
 }
 
 // Insignias que hoy tienen datos reales para calcular su desbloqueo (el resto
@@ -272,9 +278,9 @@ function ProgressBar({ value, max, color = GOLD }: { value: number; max: number;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-interface Props { ahorro: number; capital: number; retorno: number; target: number }
+interface Props { ahorro: number; gasto: number; capital: number; retorno: number; target: number }
 
-export default function FireChallenges({ ahorro, capital, retorno, target }: Props) {
+export default function FireChallenges({ ahorro, gasto, capital, retorno, target }: Props) {
   const [store,     setStore]     = useState<ChallengeStore>(STORE_DEFAULT)
   const [mounted,   setMounted]   = useState(false)
   const [showInput, setShowInput] = useState<string | null>(null)
@@ -309,7 +315,7 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
     return Math.max(0, baseline - boosted)
   }, [capital, ahorro, retorno, target, store.totalSaved])
 
-  const streak     = computeStreak(store.completed)
+  const streak     = computeStreak(store.completed, store.frozenDates)
   const isDailyDone = store.completed[today]?.includes(daily.id) ?? false
 
   const weekProgress = store.weeklyProgress[weekKey] ?? {}
@@ -326,7 +332,7 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
     if (isDailyDone) return
     const prev     = store.completed[today] ?? []
     const newComp  = { ...store.completed, [today]: [...prev, daily.id] }
-    const newStreak = computeStreak(newComp)
+    const newStreak = computeStreak(newComp, store.frozenDates)
     persist({
       ...store,
       completed:      newComp,
@@ -368,7 +374,7 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
       totalCompleted: !wasComplete && nowComplete ? store.totalCompleted + 1 : store.totalCompleted,
       totalSaved:     store.totalSaved + (ch.goalType === 'amount' ? value : 0),
       totalPoints:    !wasComplete && nowComplete ? store.totalPoints + WEEKLY_POINTS[ch.difficulty] : store.totalPoints,
-      maxStreak:      Math.max(store.maxStreak, computeStreak(newComp)),
+      maxStreak:      Math.max(store.maxStreak, computeStreak(newComp, store.frozenDates)),
     })
     setShowInput(null)
     setInputVal('')
@@ -392,6 +398,12 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
     }
   }
 
+  function shareProgress() {
+    const text = `🔥 Llevo ${streak} ${streak === 1 ? 'día' : 'días'} de racha y nivel ${currentLevel.name} ${currentLevel.emoji} en mi FIRE Planner de SquantDesk. ¡A construir libertad financiera!`
+    const url  = 'https://squantdesk.com/fire'
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
+  }
+
   // Yesterday message
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayKey = yesterday.toISOString().split('T')[0]
@@ -407,19 +419,28 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
     ? Math.min(100, ((store.totalPoints - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100)
     : 100
 
-  // ── Notificaciones pasivas: racha rota, hitos de racha, insignias ──────────
-  // Se detectan solo comparando contra lo ya notificado en el store (persistido
+  // ── Notificaciones pasivas: racha rota/protegida, hitos, insignias, nivel,
+  // y retos VERIFICADOS (ahorro/gasto real, no un clic de honor system) ──────
+  // Todo se detecta comparando contra lo ya notificado en el store (persistido
   // en localStorage), así cada evento avisa una única vez, no en cada render.
   useEffect(() => {
     if (!mounted || !userId || isUnconfigured) return
 
     const newMilestones = STREAK_MILESTONES.filter(m => streak >= m && !store.notifiedStreaks.includes(m))
-    const missedNow      = missedYesterday && store.notifiedMissedDate !== yesterdayKey
+    const canFreeze      = missedYesterday && store.streakFreezes > 0 && !store.frozenDates.includes(yesterdayKey)
+    const trueBreak       = missedYesterday && !canFreeze && store.notifiedMissedDate !== yesterdayKey
     const newBadgeIds    = computeEarnedBadges(store).filter(id => !store.earnedBadges.includes(id))
     const currentLevelIdx = LEVELS.indexOf(getLevelFromPoints(store.totalPoints))
     const leveledUp        = currentLevelIdx > store.notifiedLevelIdx
 
-    if (newMilestones.length === 0 && !missedNow && newBadgeIds.length === 0 && !leveledUp) return
+    // Verificado contra tus propios sliders reales (ahorro/gasto), no un clic
+    const ahorroVerified = store.lastAhorroSeen !== null && ahorro >= store.lastAhorroSeen + 100
+    const gastoVerified  = store.lastGastoSeen  !== null && gasto  <= store.lastGastoSeen - 50
+    const baselineInit   = store.lastAhorroSeen === null || store.lastGastoSeen === null
+
+    const nothingToDo = newMilestones.length === 0 && !canFreeze && !trueBreak && newBadgeIds.length === 0
+      && !leveledUp && !ahorroVerified && !gastoVerified && !baselineInit
+    if (nothingToDo) return
 
     for (const m of newMilestones) {
       createNotification({
@@ -433,11 +454,20 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
       })
     }
 
-    if (missedNow) {
+    if (canFreeze) {
+      createNotification({
+        userId,
+        title:       '🛡️ Racha protegida',
+        body:        `Ayer no completaste un reto, pero usamos un protector de racha para que no se rompa. Te quedan ${store.streakFreezes - 1}.`,
+        type:        'fire',
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+    } else if (trueBreak) {
       createNotification({
         userId,
         title:       'Se rompió tu racha FIRE',
-        body:        'No completaste tu reto de ayer. Hoy puedes empezar una nueva racha.',
+        body:        'No completaste tu reto de ayer y no tenías protectores disponibles. Hoy puedes empezar una nueva racha.',
         type:        'fire',
         accionLabel: 'Ver FIRE',
         accionHref:  '/fire',
@@ -463,9 +493,31 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
       createNotification({
         userId,
         title:       `¡Subiste a nivel ${lvl.name}!`,
-        body:        `${lvl.emoji} Alcanzaste ${store.totalPoints} XP en tus retos FIRE. Cada nivel te acerca más a tu libertad financiera.`,
+        body:        `${lvl.emoji} Alcanzaste ${store.totalPoints} XP en tus retos FIRE. Ganaste +1 protector de racha 🛡️.`,
         type:        'fire',
         urgente:     true,
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+    }
+
+    if (ahorroVerified) {
+      createNotification({
+        userId,
+        title:       '✅ Verificado: subiste tu ahorro real',
+        body:        `Tu ahorro mensual real subió a ${fmtUSD(ahorro)}. No fue un clic — lo vimos en tu propio slider. +${VERIFIED_XP} XP.`,
+        type:        'fire',
+        accionLabel: 'Ver FIRE',
+        accionHref:  '/fire',
+      })
+    }
+
+    if (gastoVerified) {
+      createNotification({
+        userId,
+        title:       '✅ Verificado: bajaste tu gasto real',
+        body:        `Tu gasto mensual FIRE bajó a ${fmtUSD(gasto)}. +${VERIFIED_XP} XP.`,
+        type:        'fire',
         accionLabel: 'Ver FIRE',
         accionHref:  '/fire',
       })
@@ -474,12 +526,17 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
     persist({
       ...store,
       notifiedStreaks:    [...store.notifiedStreaks, ...newMilestones],
-      notifiedMissedDate: missedNow ? yesterdayKey : store.notifiedMissedDate,
+      frozenDates:        canFreeze ? [...store.frozenDates, yesterdayKey] : store.frozenDates,
+      streakFreezes:      Math.min(3, (canFreeze ? store.streakFreezes - 1 : store.streakFreezes) + (leveledUp ? 1 : 0)),
+      notifiedMissedDate: trueBreak ? yesterdayKey : store.notifiedMissedDate,
       earnedBadges:       [...store.earnedBadges, ...newBadgeIds],
       notifiedLevelIdx:   leveledUp ? currentLevelIdx : store.notifiedLevelIdx,
+      totalPoints:        store.totalPoints + (ahorroVerified ? VERIFIED_XP : 0) + (gastoVerified ? VERIFIED_XP : 0),
+      lastAhorroSeen:     ahorro,
+      lastGastoSeen:      gasto,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, userId, isUnconfigured, streak, missedYesterday, yesterdayKey, store])
+  }, [mounted, userId, isUnconfigured, streak, missedYesterday, yesterdayKey, store, ahorro, gasto])
 
   if (!mounted) {
     return (
@@ -538,6 +595,19 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
             <div style={{ height: '100%', width: `${levelPct}%`, background: `linear-gradient(90deg,${GOLD},#5eeaf0)`, borderRadius: 4, transition: 'width 0.4s' }} />
           </div>
         </div>
+        <button
+          onClick={shareProgress}
+          title="Compartir tu progreso en Telegram"
+          style={{
+            fontFamily: MONO, fontSize: 9, letterSpacing: '0.08em', color: MUTED,
+            background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6,
+            padding: '6px 10px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = GOLD; (e.currentTarget as HTMLElement).style.color = GOLD }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLElement).style.color = MUTED }}
+        >
+          ↗ COMPARTIR
+        </button>
       </div>
 
       {/* Perfect week banner */}
@@ -768,6 +838,7 @@ export default function FireChallenges({ ahorro, capital, retorno, target }: Pro
           { emoji: '✓',  label: 'Completados',     val: `${store.totalCompleted} retos`             },
           { emoji: '💰', label: 'Ahorrado via retos', val: `$${Math.round(store.totalSaved)}`      },
           { emoji: '📅', label: 'Adelantaste tu FIRE', val: monthsAdvanced > 0 ? `${monthsAdvanced} ${monthsAdvanced === 1 ? 'mes' : 'meses'}` : '—' },
+          { emoji: '🛡️', label: 'Protectores de racha', val: `${store.streakFreezes}/3` },
         ].map((s, i, arr) => (
           <div key={s.label} style={{
             flex: 1, minWidth: 120, textAlign: 'center',
