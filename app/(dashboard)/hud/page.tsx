@@ -87,6 +87,41 @@ function dedupPositionRows(container: HTMLElement): void {
   })
 }
 
+// Notas educativas por estrategia para el Inspector HUD (lado web — el motor
+// no expone descripciones). Se matchea por substring sobre el texto de la
+// celda; las claves más específicas van primero.
+const STRAT_NOTES: Array<{ k: string; t: string; d: string }> = [
+  { k: 'regime_adaptive',  t: 'Adaptativo por régimen', d: 'Cambia su lógica según el régimen de mercado (bull, bear o rango).' },
+  { k: 'bearish_rs',       t: 'Divergencia bajista RSI', d: 'El precio sube pero el RSI no acompaña — anticipa techo.' },
+  { k: 'stoch_rsi',        t: 'Stoch RSI', d: 'Doble oscilador para timing fino de sobrecompra y sobreventa.' },
+  { k: 'volume_climax',    t: 'Clímax de volumen', d: 'Detecta agotamiento por volumen extremo en techos.' },
+  { k: 'energy_seasonal',  t: 'Estacionalidad energética', d: 'Patrones de calendario en commodities de energía.' },
+  { k: 'macro_momentum',   t: 'Momentum macro', d: 'Sigue el flujo direccional impulsado por el contexto macro.' },
+  { k: 'safe_haven',       t: 'Refugio', d: 'Rota hacia activos defensivos cuando el apetito de riesgo cae.' },
+  { k: 'dxy_weakness',     t: 'Debilidad del dólar', d: 'Opera activos que se benefician cuando el DXY retrocede.' },
+  { k: 'heikin_ashi',      t: 'Heikin Ashi', d: 'Suaviza el ruido de las velas para seguir la tendencia limpia.' },
+  { k: 'zscore',           t: 'Z-Score', d: 'Mide desviaciones estadísticas extremas del precio vs. su media.' },
+  { k: 'tema_cross',       t: 'Cruce TEMA', d: 'Cruces de medias triple-exponenciales de baja latencia.' },
+  { k: 'ichimoku',         t: 'Ichimoku', d: 'Nube de equilibrio: tendencia, soporte y momentum en un sistema.' },
+  { k: 'tma_bands',        t: 'Bandas TMA', d: 'Opera reversiones cuando el precio se estira lejos de su media triangular.' },
+  { k: 'three_cand',       t: 'Tres velas', d: 'Impulso sostenido tras tres cierres consecutivos en la misma dirección.' },
+  { k: 'dmi_bear',         t: 'DMI bajista', d: 'El índice direccional confirma dominio vendedor antes del corto.' },
+  { k: 'lower_high',       t: 'Techos descendentes', d: 'Detecta lower highs — estructura bajista clásica.' },
+  { k: 'williams_r',       t: 'Williams %R', d: 'Sobrecompra/sobreventa extrema como gatillo de reversión.' },
+  { k: 'wedge_brea',       t: 'Ruptura de cuña', d: 'Opera el escape de una cuña de compresión.' },
+  { k: 'psar_flip',        t: 'PSAR flip', d: 'Entra cuando el Parabolic SAR cambia de lado — giro de tendencia.' },
+  { k: 'supply_zon',       t: 'Zona de oferta', d: 'Rechazo del precio en un área institucional de venta.' },
+  { k: 'engulfing',        t: 'Vela envolvente', d: 'Reversión donde una vela absorbe por completo a la anterior.' },
+  { k: 'fibonacci',        t: 'Fibonacci', d: 'Reacciones en retrocesos clave (38.2% / 61.8%) de la onda previa.' },
+  { k: 'break_of_s',       t: 'Ruptura de estructura', d: 'Entra al quebrar un soporte o resistencia relevante.' },
+  { k: 'cci_revers',       t: 'Reversión CCI', d: 'Extremos del Commodity Channel Index como señal de giro.' },
+  { k: 'consecutiv',       t: 'Velas consecutivas', d: 'Racha direccional que anticipa continuación o agotamiento.' },
+  { k: 'breakout',         t: 'Breakout', d: 'Ruptura de rango con expansión de volatilidad.' },
+  { k: 'volatility',       t: 'Volatilidad', d: 'Entra cuando la volatilidad se expande tras una compresión.' },
+  { k: 'momentum',         t: 'Momentum', d: 'Sigue la fuerza del movimiento cuando la aceleración confirma la tendencia.' },
+]
+const STRAT_FALLBACK = 'Estrategia validada out-of-sample: supera los gates de robustez del motor antes de operar.'
+
 export default function HUDPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
@@ -271,9 +306,16 @@ export default function HUDPage() {
       const asset = cell.closest('tr')?.querySelector('.asset-name')?.textContent?.trim() ?? ''
       const ths = cell.closest('table')?.querySelectorAll('th')
       const tf = ths && ths[cell.cellIndex] ? (ths[cell.cellIndex].textContent?.trim() ?? '') : ''
+      // nota educativa: describe la(s) estrategia(s) presentes en la celda
+      const txt = (cell.textContent ?? '').toLowerCase()
+      const notes = STRAT_NOTES.filter(n => txt.includes(n.k)).slice(0, 2)
+      const noteHtml = (notes.length > 0 ? notes : [{ t: 'Campeón del motor', d: STRAT_FALLBACK }])
+        .map(n => `<div class="insp-note"><b>◈ ${n.t}</b> — ${n.d}</div>`)
+        .join('')
       insp.innerHTML =
         `<div class="insp-head"><span>${asset}</span><span>${tf}</span></div>` +
-        `<div class="insp-body">${cell.innerHTML}</div>`
+        `<div class="insp-body">${cell.innerHTML}</div>` +
+        `<div class="insp-notes">${noteHtml}</div>`
       insp.classList.add('on')
     }
     function onOut(e: MouseEvent) {
@@ -888,6 +930,21 @@ export default function HUDPage() {
         }
         /* zoom real: amplía también los tamaños inline del motor */
         #hud-inspector .insp-body { zoom: 1.9; }
+        /* nota educativa de la estrategia, bajo el detalle ampliado */
+        #hud-inspector .insp-notes {
+          margin-top: 12px; padding-top: 10px;
+          border-top: 1px dashed rgba(57,226,230,0.25);
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        #hud-inspector .insp-note {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 10.5px; line-height: 1.6; color: #8b97ad;
+          letter-spacing: 0.02em;
+        }
+        #hud-inspector .insp-note b {
+          color: #39e2e6; font-weight: 700;
+          text-shadow: 0 0 10px rgba(57,226,230,0.3);
+        }
         /* legibilidad dentro del inspector (vive fuera de #sigma-hud-root) */
         #hud-inspector [style*="color:#555"] { color: #8b97ad !important; }
         #hud-inspector [style*="color:#444"] { color: #7e8aa0 !important; }
