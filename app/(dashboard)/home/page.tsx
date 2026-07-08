@@ -572,15 +572,11 @@ export default function DashboardHome() {
     ? (() => {
         const bt = E.bestTrade!
         const sym = (bt.sym ?? '').toUpperCase()
-        const tf = bt.tf ?? ''
         // direction viene "?" en las MANUAL (reconciliadas desde Binance sin
-        // poder atribuir el lado con certeza) -- en ese caso mostrar TF+modo
-        // en vez de un "?" que no dice nada.
+        // poder atribuir el lado con certeza) -- mostrar "MANUAL" en su lugar.
         const dirKnown = !!bt.direction && bt.direction !== '?'
-        const parts = dirKnown
-          ? [sym, bt.direction!.toUpperCase()]
-          : [sym, tf, bt.mode === 'MANUAL' ? 'MANUAL' : bt.mode].filter(Boolean)
-        return { pnl: bt.pnl_dollar ?? 0, label: parts.join(' · '), closedAt: bt.closed_at ?? '' }
+        const label = dirKnown ? `${sym} · ${bt.direction!.toUpperCase()}` : `${sym} · MANUAL`
+        return { pnl: bt.pnl_dollar ?? 0, label, closedAt: bt.closed_at ?? '' }
       })()
     : null
   const weekPnlVal   = E ? E.weekPnl   : 0
