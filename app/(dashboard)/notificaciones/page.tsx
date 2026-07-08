@@ -83,7 +83,7 @@ function TypeIcon({ type }: { type: string }) {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </>)
 
-  if (type === 'fire')
+  if (type === 'fire' || type === 'fire_daily_digest')
     return (
       <span style={{
         width: size, height: size, borderRadius: 4, flexShrink: 0,
@@ -243,7 +243,12 @@ export default function NotificacionesPage() {
     }
   }
 
-  const filtered = filter === 'all' ? notifs : notifs.filter(n => n.type === filter)
+  // fire_daily_digest (cron proactivo) cae en el mismo balde visual que 'fire'
+  // (notificaciones reactivas al completar retos) — mismo icono, mismo tab.
+  const matchesType = (n: Notification, key: string) =>
+    key === 'fire' ? (n.type === 'fire' || n.type === 'fire_daily_digest') : n.type === key
+
+  const filtered = filter === 'all' ? notifs : notifs.filter(n => matchesType(n, filter))
   const unread   = notifs.filter(n => !n.read).length
   const groups   = groupByDate(filtered)
 
@@ -286,7 +291,7 @@ export default function NotificacionesPage() {
           {Object.entries(TYPE_LABELS).map(([key, label]) => {
             const unreadCount = key === 'all'
               ? notifs.filter(n => !n.read).length
-              : notifs.filter(n => n.type === key && !n.read).length
+              : notifs.filter(n => matchesType(n, key) && !n.read).length
             const active = filter === key
             return (
               <button
