@@ -40,7 +40,7 @@ function TypeIcon({ type, size = 20 }: { type: string; size?: number }) {
   }
 
   if (type === 'señal' || type === 'lp_signal')
-    return wrap('rgba(212,175,55,0.15)', '#d4af37', <>
+    return wrap('rgba(57,226,230,0.15)', '#39e2e6', <>
       <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
       <polyline points="16 7 22 7 22 13" />
     </>)
@@ -131,7 +131,7 @@ function ToastItem({ t, onDismiss, onNavigate }: {
   }
 
   const isRed       = t.notif.type === 'mercado' || t.notif.body?.toLowerCase().includes('sl') || t.notif.body?.toLowerCase().includes('vix')
-  const accentColor = isRed ? '#f87171' : '#d4af37'
+  const accentColor = isRed ? '#f87171' : '#39e2e6'
 
   return (
     <div
@@ -359,7 +359,7 @@ export default function NotificationBell({ collapsed }: Props) {
           style={{
             display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
             width: '100%', padding: '10px 12px', background: 'transparent',
-            border: 'none', cursor: 'pointer', color: open ? '#d4af37' : '#8b8fa8',
+            border: 'none', cursor: 'pointer', color: open ? '#39e2e6' : '#8b8fa8',
             position: 'relative', borderRadius: 8, transition: 'color 0.15s',
             fontFamily: 'var(--font-dm-mono)', fontSize: 14,
             justifyContent: collapsed ? 'center' : 'flex-start',
@@ -402,14 +402,14 @@ export default function NotificationBell({ collapsed }: Props) {
               padding: '11px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)',
               flexShrink: 0,
             }}>
-              <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '0.15em', color: '#d4af37' }}>
+              <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '0.15em', color: '#39e2e6' }}>
                 NOTIFICACIONES{unread > 0 ? ` · ${unread} sin leer` : ''}
               </span>
               {unread > 0 && (
                 <button
                   onClick={markAllRead}
                   style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#7a7f9a', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.08em' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#d4af37')}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#39e2e6')}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#7a7f9a')}
                 >LEER TODO</button>
               )}
@@ -425,10 +425,10 @@ export default function NotificationBell({ collapsed }: Props) {
                   {pinned.length > 0 && (
                     <>
                       <div style={{ padding: '7px 14px 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '0.18em', color: '#d4af37' }}>{'// URGENTES'}</span>
-                        <span style={{ flex: 1, height: 1, background: 'rgba(212,175,55,0.18)' }} />
+                        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '0.18em', color: '#39e2e6' }}>{'// URGENTES'}</span>
+                        <span style={{ flex: 1, height: 1, background: 'rgba(57,226,230,0.18)' }} />
                         {pinned.filter(n => !n.read).length > 0 && (
-                          <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 8, color: 'rgba(212,175,55,0.55)' }}>
+                          <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 8, color: 'rgba(57,226,230,0.55)' }}>
                             {pinned.filter(n => !n.read).length} sin leer
                           </span>
                         )}
@@ -436,13 +436,13 @@ export default function NotificationBell({ collapsed }: Props) {
                       {pinned.map(n => (
                         <div key={n.id} style={{
                           padding: '10px 14px',
-                          background: n.read ? 'transparent' : 'rgba(212,175,55,0.04)',
+                          background: n.read ? 'transparent' : 'rgba(57,226,230,0.04)',
                           borderBottom: '1px solid rgba(255,255,255,0.06)',
-                          borderLeft: `2px solid ${n.read ? 'rgba(212,175,55,0.25)' : '#d4af37'}`,
+                          borderLeft: `2px solid ${n.read ? 'rgba(57,226,230,0.25)' : '#39e2e6'}`,
                           transition: 'background 0.12s',
                         }}
                           onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#0b0d14')}
-                          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = n.read ? 'transparent' : 'rgba(212,175,55,0.04)')}
+                          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = n.read ? 'transparent' : 'rgba(57,226,230,0.04)')}
                         >
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                             <span style={{ width: 6, height: 6, borderRadius: 3, background: n.read ? 'transparent' : '#22c55e', flexShrink: 0, marginTop: 7 }} />
@@ -459,7 +459,7 @@ export default function NotificationBell({ collapsed }: Props) {
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
                                 <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#3a3f55' }}>{fmtTime(n.created_at)}</span>
-                                {n.accion_label && <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#d4af37', letterSpacing: '0.08em' }}>{n.accion_label} →</span>}
+                                {n.accion_label && <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#39e2e6', letterSpacing: '0.08em' }}>{n.accion_label} →</span>}
                               </div>
                             </div>
                             <button
@@ -512,7 +512,7 @@ export default function NotificationBell({ collapsed }: Props) {
                               {fmtTime(n.created_at)}
                             </span>
                             {n.accion_label && (
-                              <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#d4af37', letterSpacing: '0.08em' }}>
+                              <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#39e2e6', letterSpacing: '0.08em' }}>
                                 {n.accion_label} →
                               </span>
                             )}
@@ -530,7 +530,7 @@ export default function NotificationBell({ collapsed }: Props) {
               <button
                 onClick={() => { closeDropdown(); setTimeout(() => router.push('/notificaciones'), 150) }}
                 style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#7a7f9a', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.12em', width: '100%', textAlign: 'center' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#d4af37')}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#39e2e6')}
                 onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#7a7f9a')}
               >
                 VER HISTORIAL COMPLETO →
