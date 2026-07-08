@@ -251,6 +251,46 @@ export default function HUDPage() {
     }
   }, [])
 
+  // Inspector HUD — al posar el mouse sobre una celda campeón de las
+  // matrices, un panel fijo muestra su contenido AMPLIADO (zoom 1.9x).
+  // La celda no se mueve; el inspector lee el detalle por ti. 100% web.
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    const insp = document.createElement('div')
+    insp.id = 'hud-inspector'
+    insp.setAttribute('aria-hidden', 'true')
+    document.body.appendChild(insp)
+    let hideTimer: ReturnType<typeof setTimeout> | null = null
+
+    function onOver(e: MouseEvent) {
+      const cell = (e.target as HTMLElement).closest?.('.matrix td.cell-ok, .matrix td.cell-run') as HTMLTableCellElement | null
+      if (!cell) return
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null }
+      // contexto: activo de la fila + timeframe de la columna
+      const asset = cell.closest('tr')?.querySelector('.asset-name')?.textContent?.trim() ?? ''
+      const ths = cell.closest('table')?.querySelectorAll('th')
+      const tf = ths && ths[cell.cellIndex] ? (ths[cell.cellIndex].textContent?.trim() ?? '') : ''
+      insp.innerHTML =
+        `<div class="insp-head"><span>${asset}</span><span>${tf}</span></div>` +
+        `<div class="insp-body">${cell.innerHTML}</div>`
+      insp.classList.add('on')
+    }
+    function onOut(e: MouseEvent) {
+      const to = e.relatedTarget as HTMLElement | null
+      if (to && to.closest && to.closest('.matrix td.cell-ok, .matrix td.cell-run')) return
+      hideTimer = setTimeout(() => insp.classList.remove('on'), 160)
+    }
+    root.addEventListener('mouseover', onOver)
+    root.addEventListener('mouseout', onOut)
+    return () => {
+      root.removeEventListener('mouseover', onOver)
+      root.removeEventListener('mouseout', onOut)
+      if (hideTimer) clearTimeout(hideTimer)
+      insp.remove()
+    }
+  }, [])
+
   return (
     <>
       {/* Re-skin "Black & Gold" — overrides CSS del lado web. Vive en el
@@ -824,6 +864,41 @@ export default function HUDPage() {
           border-radius: 6px !important;
           padding: 3px 6px !important;
         }
+
+        /* INSPECTOR HUD — panel fijo que amplía la celda campeón al hover */
+        #hud-inspector {
+          position: fixed; right: 340px; top: 50%;
+          transform: translateY(-50%) translateX(10px);
+          width: 330px; z-index: 95; pointer-events: none;
+          opacity: 0; transition: opacity .22s ease, transform .28s cubic-bezier(.2,.6,.2,1);
+          background: linear-gradient(180deg, rgba(16,24,36,0.94), rgba(8,12,20,0.95));
+          border: 1px solid rgba(57,226,230,0.35);
+          border-radius: 14px; padding: 14px 16px;
+          box-shadow: 0 26px 70px rgba(0,0,0,0.7), 0 0 32px rgba(57,226,230,0.13), inset 0 1px 0 rgba(255,255,255,0.07);
+          backdrop-filter: blur(10px);
+        }
+        #hud-inspector.on { opacity: 1; transform: translateY(-50%) translateX(0); }
+        #hud-inspector .insp-head {
+          display: flex; justify-content: space-between; align-items: center;
+          font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700;
+          color: #39e2e6; letter-spacing: 0.22em; text-transform: uppercase;
+          border-bottom: 1px solid rgba(57,226,230,0.22);
+          padding-bottom: 8px; margin-bottom: 10px;
+          text-shadow: 0 0 12px rgba(57,226,230,0.35);
+        }
+        /* zoom real: amplía también los tamaños inline del motor */
+        #hud-inspector .insp-body { zoom: 1.9; }
+        /* legibilidad dentro del inspector (vive fuera de #sigma-hud-root) */
+        #hud-inspector [style*="color:#555"] { color: #8b97ad !important; }
+        #hud-inspector [style*="color:#444"] { color: #7e8aa0 !important; }
+        #hud-inspector .cell-sub { color: #9aa4b6 !important; }
+        #hud-inspector [style*="rgba(88,166,255,.05)"] {
+          background: rgba(88,166,255,0.1) !important;
+          border: 1px solid rgba(88,166,255,0.22) !important;
+          border-radius: 6px !important; padding: 3px 6px !important;
+        }
+        @media (max-width: 1500px) { #hud-inspector { right: 24px; width: 300px; } }
+        @media (max-width: 1100px) { #hud-inspector { display: none; } }
 
         /* CROSSHAIR — fila iluminada, el resto de la matriz se atenúa */
         #sigma-hud-root .matrix tbody:hover tr:not(:hover) td {
