@@ -220,34 +220,33 @@ function VaultShelf({ segments }: { segments: { name: string; color: string; usd
   }
   const visible = segments.filter(s => s.usd > 0 && s.pct > 0)
   return (
-    <div style={{ perspective: 900, marginBottom: 18 }}>
+    <div className="pf-vault-wrap" style={{ perspective: 900, marginBottom: 26 }}>
       <div ref={ref} className="pf-vault" onMouseMove={onMove} onMouseLeave={onLeave}>
         <div className="pf-shelf">
-          {visible.map(seg => {
-            const h = Math.round(46 + Math.min(seg.pct, 60) * 0.7)
-            const extr = Array.from({ length: 7 }, (_, k) => `${k + 1}px ${-(k + 1)}px 0 ${shade(seg.color, 0.6 - k * 0.05)}`).join(', ')
+          {visible.map((seg, i) => {
+            const h = Math.round(54 + Math.min(seg.pct, 60) * 0.95)
             return (
               <div
                 key={seg.name}
-                className="pf-ingot"
+                className="pf-ingot3d"
                 title={`${seg.name}: ${fmtUSD(seg.usd)} · ${pct(seg.pct)}${seg.monthlyIncome > 0 ? ` · ${fmtUSD(seg.monthlyIncome)}/mes` : ''}`}
                 style={{
-                  flexGrow: seg.pct, flexBasis: 0, minWidth: 38, height: h,
-                  background: `linear-gradient(180deg, ${shade(seg.color, 1.25)} 0%, ${seg.color} 42%, ${shade(seg.color, 0.68)} 100%)`,
-                  boxShadow: extr,
+                  flexGrow: seg.pct, flexBasis: 0, minWidth: 46, height: h,
+                  animationDelay: `${120 + i * 100}ms`,
+                  filter: `drop-shadow(0 16px 22px ${seg.color}38)`,
                 }}
               >
-                <span className="pf-ingot-shine" aria-hidden />
-                {seg.pct >= 7 && (
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: '#04050a', letterSpacing: '0.04em', position: 'relative' }}>
-                    {pct(seg.pct)}
-                  </span>
-                )}
-                {seg.pct >= 16 && (
-                  <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(4,5,10,0.75)', letterSpacing: '0.08em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90%', position: 'relative' }}>
-                    {seg.name}
-                  </span>
-                )}
+                {/* Cara superior — recibe la luz */}
+                <span className="pf-i-top" aria-hidden style={{ background: `linear-gradient(90deg, ${shade(seg.color, 1.5)}, ${shade(seg.color, 1.12)})` }} />
+                {/* Cara lateral — en sombra */}
+                <span className="pf-i-side" aria-hidden style={{ background: `linear-gradient(180deg, ${shade(seg.color, 0.55)}, ${shade(seg.color, 0.34)})` }} />
+                {/* Cara frontal — metal cepillado */}
+                <span className="pf-i-front" style={{ background: `linear-gradient(180deg, ${shade(seg.color, 1.28)} 0%, ${seg.color} 45%, ${shade(seg.color, 0.6)} 100%)` }}>
+                  <span className="pf-ingot-shine" aria-hidden />
+                  {seg.pct >= 7 && <span className="pf-i-pct">{pct(seg.pct)}</span>}
+                  {seg.pct >= 16 && <span className="pf-i-name">{seg.name}</span>}
+                  {seg.pct >= 26 && <span className="pf-i-val">{fmtUSD(seg.usd)}</span>}
+                </span>
               </div>
             )
           })}
@@ -616,24 +615,46 @@ export default function PortfolioPage() {
         .pf-rv { opacity: 0; transform: translateY(14px); transition: opacity .55s ease, transform .55s ease; }
         .pf-rv-in { opacity: 1; transform: none; }
 
-        /* ── Bóveda 3D ── */
-        .pf-vault { --px:0; --py:0; padding: 22px 14px 0 8px;
-          transform: rotateX(calc(var(--py) * -4deg)) rotateY(calc(var(--px) * 6deg));
+        /* ── Bóveda 3D — lingotes isométricos sobre repisa de vidrio ── */
+        .pf-vault-wrap { position: relative; }
+        .pf-vault-wrap::before { content: ''; position: absolute; inset: -36px -16px -12px; pointer-events: none;
+          background: radial-gradient(60% 85% at 50% 18%, rgba(57,226,230,0.07), transparent 70%); }
+        .pf-vault { --px:0; --py:0; padding: 38px 22px 0 8px;
+          transform: rotateX(calc(4deg + var(--py) * -6deg)) rotateY(calc(var(--px) * 8deg));
           transition: transform .45s ease; will-change: transform; }
-        .pf-shelf { display: flex; align-items: flex-end; gap: 7px; }
-        .pf-ingot { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-          border-radius: 2px; cursor: default; overflow: hidden;
-          transition: transform .25s ease, filter .25s ease; }
-        .pf-ingot:hover { transform: translateY(-7px); filter: brightness(1.12); z-index: 2; }
-        .pf-ingot-shine { position: absolute; inset: 0; pointer-events: none;
-          background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.22) 46%, transparent 62%);
+        .pf-shelf { display: flex; align-items: flex-end; gap: 11px;
+          -webkit-box-reflect: below 7px linear-gradient(rgba(0,0,0,0.22), transparent 44%); }
+        .pf-ingot3d { --d: 13px; position: relative; cursor: default;
+          transform-origin: bottom;
+          animation: pfRise .7s cubic-bezier(.22,1.1,.36,1) backwards;
+          transition: transform .25s ease; }
+        .pf-ingot3d:hover { transform: translateY(-9px); z-index: 2; }
+        @keyframes pfRise { from { transform: scaleY(0); opacity: 0; } }
+        .pf-i-front { position: absolute; inset: 0; border-radius: 2px; overflow: hidden;
+          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+        .pf-i-front::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+          background: repeating-linear-gradient(115deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 5px); }
+        .pf-i-top { position: absolute; left: 0; top: calc(var(--d) * -1); width: 100%; height: var(--d);
+          transform: translateX(var(--d)) skewX(-45deg); transform-origin: top left; }
+        .pf-i-side { position: absolute; top: 0; right: calc(var(--d) * -1); width: var(--d); height: 100%;
+          transform: skewY(-45deg); transform-origin: top left; }
+        .pf-i-pct { font-family: monospace; font-size: 11px; font-weight: 700; color: #04050a;
+          letter-spacing: .04em; position: relative; z-index: 1; text-shadow: 0 1px 0 rgba(255,255,255,0.22); }
+        .pf-i-name { font-family: monospace; font-size: 8px; color: rgba(4,5,10,0.78); letter-spacing: .08em;
+          text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          max-width: 90%; position: relative; z-index: 1; }
+        .pf-i-val { font-family: monospace; font-size: 9px; font-weight: 700; color: rgba(4,5,10,0.9);
+          letter-spacing: .04em; position: relative; z-index: 1; }
+        .pf-ingot-shine { position: absolute; inset: 0; pointer-events: none; z-index: 1;
+          background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.25) 46%, transparent 62%);
           background-size: 250% 100%; background-position: 120% 0; }
-        .pf-ingot:hover .pf-ingot-shine { animation: pfShine .7s ease forwards; }
+        .pf-ingot3d:hover .pf-ingot-shine { animation: pfShine .7s ease forwards; }
         @keyframes pfShine { to { background-position: -30% 0; } }
-        .pf-shelf-line { height: 1px; margin-top: 0;
-          background: linear-gradient(90deg, transparent, ${C.gold}55 12%, ${C.gold}55 88%, transparent); }
-        .pf-shelf-glow { height: 22px;
-          background: linear-gradient(180deg, ${C.gold}12, transparent);
+        .pf-shelf-line { height: 3px; margin-top: 2px; border-radius: 3px;
+          background: linear-gradient(90deg, transparent, ${C.gold}55 10%, ${C.gold}99 50%, ${C.gold}55 90%, transparent);
+          box-shadow: 0 0 16px rgba(57,226,230,0.3); }
+        .pf-shelf-glow { height: 24px;
+          background: linear-gradient(180deg, ${C.gold}14, transparent);
           -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
           mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); }
 
@@ -676,7 +697,7 @@ export default function PortfolioPage() {
         @media (prefers-reduced-motion: reduce) {
           .pf-rv { opacity: 1; transform: none; transition: none; }
           .pf-vault { transform: none !important; }
-          .pf-ingot, .pf-ingot:hover { transform: none; transition: none; }
+          .pf-ingot3d, .pf-ingot3d:hover { transform: none; transition: none; animation: none; }
           .pf-ingot-shine { display: none; }
         }
       `}</style>
