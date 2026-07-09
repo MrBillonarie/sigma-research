@@ -7,15 +7,19 @@ import { usePortfolio } from '@/app/lib/usePortfolio'
 import { useFireProfile } from '@/app/lib/useFireProfile'
 import type { User } from '@supabase/supabase-js'
 
-const GOLD   = '#F5C842'
+// Acento Cyan Deck — el nombre GOLD se mantiene por compatibilidad con el resto del archivo
+const GOLD   = '#39e2e6'
+const GLOW   = '#5eeaf0'
+const BLUE   = '#4f92ff'
 const BG     = '#04050a'
 const BORDER = 'rgba(255,255,255,0.08)'
 const TEXT   = '#e8e9f0'
 const MUTED  = 'rgba(255,255,255,0.38)'
 const DIM    = 'rgba(255,255,255,0.55)'
 const RED    = '#f87171'
-const GREEN  = '#34d399'
+const GREEN  = '#1D9E75'
 const MONO   = "var(--font-dm-mono,'DM Mono',monospace)"
+const EMBOSS = '0 2px 5px rgba(0,0,0,0.5), 0 -1px 0 rgba(255,255,255,0.1)'
 
 const MIN_REP = 10
 
@@ -29,25 +33,35 @@ const TF_OPTIONS = ['1m','5m','15m','1H','4H','1D','1W']
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const inputCss: React.CSSProperties = {
-  background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.12)',
+  background: '#0b0d14', border: '1px solid #1a1d2e',
   borderRadius: 8, outline: 'none', color: TEXT,
   fontFamily: MONO, fontSize: 13, padding: '12px 16px', width: '100%',
   transition: 'border-color 0.2s, box-shadow 0.2s',
+}
+// Panel contenedor de cada pestaña — card con elevación y filo cian
+const panelCss: React.CSSProperties = {
+  border: '1px solid #1a1d2e', borderRadius: 14, background: '#0b0d14',
+  overflow: 'hidden', boxShadow: '0 4px 18px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.05)',
+}
+const filoCss: React.CSSProperties = {
+  height: 2,
+  background: 'linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%)',
 }
 const labelCss: React.CSSProperties = {
   fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em',
   textTransform: 'uppercase', color: MUTED, marginBottom: 8, display: 'block',
 }
 const btnPrimary: React.CSSProperties = {
-  padding: '12px 24px', background: GOLD, color: '#000', fontWeight: 700,
+  padding: '12px 24px', background: `linear-gradient(100deg,${GLOW},${BLUE})`, color: '#04050a', fontWeight: 700,
   fontFamily: MONO, fontSize: 11, letterSpacing: '0.15em', border: 'none',
-  borderRadius: 8, cursor: 'pointer', transition: 'background 0.15s, transform 0.15s',
+  borderRadius: 8, cursor: 'pointer', transition: 'filter 0.15s, box-shadow 0.15s, transform 0.15s',
+  boxShadow: '0 0 18px rgba(57,226,230,0.22)',
 }
 const btnOutline: React.CSSProperties = {
   padding: '12px 24px', background: 'transparent', color: GOLD,
   fontFamily: MONO, fontSize: 11, letterSpacing: '0.15em',
-  border: `1px solid ${GOLD}80`, borderRadius: 8, cursor: 'pointer',
-  transition: 'background 0.15s',
+  border: `1px solid ${GOLD}66`, borderRadius: 8, cursor: 'pointer',
+  transition: 'background 0.15s, box-shadow 0.15s, border-color 0.15s',
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -120,6 +134,25 @@ export default function PerfilPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarMsg,     setAvatarMsg]     = useState('')
   const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  // Parallax 3D + brillo holográfico de la credencial
+  const idCardRef = useRef<HTMLDivElement>(null)
+  function onIdCardMove(e: React.MouseEvent) {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const el = idCardRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    el.style.setProperty('--px', ((e.clientX - r.left) / r.width - 0.5).toFixed(3))
+    el.style.setProperty('--py', ((e.clientY - r.top) / r.height - 0.5).toFixed(3))
+    el.style.setProperty('--mx', `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`)
+    el.style.setProperty('--my', `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`)
+  }
+  function onIdCardLeave() {
+    const el = idCardRef.current
+    if (!el) return
+    el.style.setProperty('--px', '0')
+    el.style.setProperty('--py', '0')
+  }
 
   // Credenciales de Binance/IBKR/MT5 guardadas con una versión anterior de
   // esta página — ya no hay formularios para editarlas, pero quien las
@@ -345,12 +378,46 @@ export default function PerfilPage() {
       <style>{`
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
         @keyframes pf-spin { to { transform: rotate(360deg) } }
-        .perf-input:focus { border-color:${GOLD}!important; box-shadow:0 0 0 2px rgba(245,200,66,0.15)!important; }
-        .btn-primary:hover { background:#e0b438!important; transform:scale(1.01); }
-        .btn-outline:hover { background:rgba(245,200,66,0.08)!important; }
-        .pf-stat { transition: background 0.15s; text-decoration: none; display: block; }
-        .pf-stat:hover { background: rgba(245,200,66,0.05); }
+        .perf-input:focus { border-color:${GOLD}!important; box-shadow:0 0 0 2px rgba(57,226,230,0.14)!important; }
+        .btn-primary:hover { filter: brightness(1.12); box-shadow: 0 0 28px rgba(57,226,230,0.35)!important; }
+        .btn-outline:hover { background:rgba(57,226,230,0.08)!important; box-shadow: 0 0 16px rgba(57,226,230,0.16); }
+        .pf-stat { transition: background 0.15s, box-shadow 0.15s; text-decoration: none; display: block; }
+        .pf-stat:hover { background: rgba(57,226,230,0.05); box-shadow: inset 0 2px 0 ${GOLD}; }
         .pf-tab:hover { color: ${TEXT} !important; }
+
+        /* ── Credencial holográfica ── */
+        .pf-idcard { --px:0; --py:0; --mx:50%; --my:40%;
+          position: relative; border-radius: 16px; overflow: hidden;
+          border: 1px solid rgba(57,226,230,0.26);
+          background: linear-gradient(160deg, rgba(57,226,230,0.09), #0b0d14 55%);
+          box-shadow: 0 14px 44px rgba(0,0,0,0.5), 0 0 40px rgba(57,226,230,0.10), inset 0 1px 0 rgba(255,255,255,0.06);
+          transform: perspective(1100px) rotateX(calc(var(--py) * -4deg)) rotateY(calc(var(--px) * 6deg));
+          transition: transform .4s ease; will-change: transform;
+        }
+        /* Brillo que sigue al mouse */
+        .pf-idcard::before { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+          background: radial-gradient(420px circle at var(--mx) var(--my), rgba(94,234,240,0.10), transparent 60%); }
+        /* Banda iridiscente en barrido perpetuo */
+        .pf-idcard::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: .55;
+          background: linear-gradient(115deg, transparent 30%, rgba(57,226,230,0.06) 42%, rgba(79,146,255,0.09) 50%, rgba(167,139,250,0.07) 58%, transparent 70%);
+          background-size: 250% 100%;
+          animation: pf-holo 7s ease-in-out infinite alternate; }
+        @keyframes pf-holo { from { background-position: 130% 0 } to { background-position: -30% 0 } }
+        /* Esquinas tipo credencial */
+        .pf-corner { position: absolute; width: 16px; height: 16px; z-index: 2; pointer-events: none; opacity: .7; }
+        .pf-corner.tl { top: 10px; left: 10px; border-top: 1px solid ${GOLD}; border-left: 1px solid ${GOLD}; }
+        .pf-corner.br { bottom: 10px; right: 10px; border-bottom: 1px solid ${GOLD}; border-right: 1px solid ${GOLD}; }
+        /* Chip Σ-ID con código de barras */
+        .pf-chip { display: inline-flex; align-items: center; gap: 8px;
+          border: 1px solid rgba(57,226,230,0.35); border-radius: 6px; padding: 3px 10px;
+          background: rgba(57,226,230,0.06); }
+        .pf-chip-bars { width: 26px; height: 10px;
+          background: repeating-linear-gradient(90deg, ${GOLD}99 0 1px, transparent 1px 3px, ${GOLD}55 3px 5px, transparent 5px 7px); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .pf-idcard { transform: none !important; }
+          .pf-idcard::after { animation: none; }
+        }
         @media(max-width:768px){
           .pf-row  { grid-template-columns: 1fr !important; gap: 10px !important; }
           .pf-head { flex-direction: column !important; align-items: flex-start !important; }
@@ -365,19 +432,27 @@ export default function PerfilPage() {
         </div>
         <h1 style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 'clamp(38px,5vw,60px)', lineHeight: 0.93, letterSpacing: '0.03em', margin: '0 0 24px' }}>
           <span style={{ color: TEXT }}>MI </span>
-          <span style={{ background: `linear-gradient(135deg,${GOLD},#5eeaf0)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PERFIL</span>
+          <span style={{ background: `linear-gradient(100deg,${GLOW},${BLUE})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PERFIL</span>
         </h1>
 
-        {/* ── Banda de identidad ── */}
-        <div style={{ position: 'relative', border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', marginBottom: 36, background: '#0b0d14' }}>
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 70% 120% at 0% 0%, rgba(245,200,66,0.08), transparent 55%)' }} />
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(rgba(245,200,66,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(245,200,66,0.025) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
+        {/* ── Credencial holográfica ── */}
+        <div ref={idCardRef} className="pf-idcard" onMouseMove={onIdCardMove} onMouseLeave={onIdCardLeave} style={{ marginBottom: 36 }}>
+          <div style={filoCss} />
+          <span className="pf-corner tl" aria-hidden />
+          <span className="pf-corner br" aria-hidden />
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(rgba(57,226,230,0.028) 1px, transparent 1px), linear-gradient(90deg, rgba(57,226,230,0.028) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
 
-          <div className="pf-head" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 24, padding: '30px 32px', flexWrap: 'wrap' }}>
+          {/* Cinta superior de la credencial */}
+          <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 32px 0', fontFamily: MONO, fontSize: 9, letterSpacing: '0.3em', color: 'rgba(94,234,240,0.55)' }}>
+            <span>CREDENCIAL SIGMA</span>
+            <span>ACCESO · {plan === 'pro' ? 'PRO' : 'FREE'}</span>
+          </div>
+
+          <div className="pf-head" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 24, padding: '20px 32px 30px', flexWrap: 'wrap' }}>
             {/* Avatar con anillo dorado animado */}
             <div style={{ position: 'relative', width: 92, height: 92, flexShrink: 0 }}>
-              <div style={{ position: 'absolute', inset: -3, borderRadius: '50%', background: `conic-gradient(from 0deg, transparent 0%, ${GOLD} 18%, transparent 40%)`, animation: 'pf-spin 5s linear infinite' }} />
-              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', overflow: 'hidden', border: '3px solid #0b0d14', background: 'rgba(245,200,66,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'absolute', inset: -3, borderRadius: '50%', background: `conic-gradient(from 0deg, transparent 0%, ${GOLD} 14%, ${BLUE} 26%, transparent 45%)`, animation: 'pf-spin 5s linear infinite', filter: 'drop-shadow(0 0 6px rgba(57,226,230,0.45))' }} />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', overflow: 'hidden', border: '3px solid #0b0d14', background: 'rgba(57,226,230,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {avatarUrl
                   ? <Image src={avatarUrl} alt="avatar" width={92} height={92} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
                   : <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 34, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>}
@@ -396,8 +471,11 @@ export default function PerfilPage() {
             {/* Identidad */}
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 34, color: TEXT, letterSpacing: '0.04em', lineHeight: 1 }}>{displayName}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.15em' }}>{sigmaId}</span>
+                <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 34, color: TEXT, letterSpacing: '0.04em', lineHeight: 1, textShadow: EMBOSS }}>{displayName}</span>
+                <span className="pf-chip">
+                  <span className="pf-chip-bars" aria-hidden />
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: GOLD, letterSpacing: '0.15em' }}>{sigmaId}</span>
+                </span>
               </div>
               <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, margin: '6px 0 12px' }}>{email}</div>
               <div style={{ display: 'flex', gap: '6px 18px', flexWrap: 'wrap', fontFamily: MONO, fontSize: 10, color: MUTED }}>
@@ -411,10 +489,10 @@ export default function PerfilPage() {
             {/* Plan + estado */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', borderRadius: 6, padding: '6px 16px',
-                color: plan === 'pro' ? '#000' : DIM,
-                background: plan === 'pro' ? `linear-gradient(135deg,${GOLD},#e0b438)` : 'rgba(255,255,255,0.05)',
+                color: plan === 'pro' ? '#04050a' : DIM,
+                background: plan === 'pro' ? `linear-gradient(100deg,${GLOW},${BLUE})` : 'rgba(255,255,255,0.05)',
                 border: plan === 'pro' ? 'none' : '1px solid rgba(255,255,255,0.12)',
-                boxShadow: plan === 'pro' ? '0 0 18px rgba(245,200,66,0.35)' : 'none',
+                boxShadow: plan === 'pro' ? '0 0 18px rgba(57,226,230,0.35)' : 'none',
               }}>
                 {plan === 'pro' ? 'PLAN PRO' : 'PLAN FREE'}
               </span>
@@ -430,7 +508,7 @@ export default function PerfilPage() {
             {headerStats.map((s, i) => {
               const inner = (
                 <>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 24, color: s.color, lineHeight: 1, marginBottom: 5 }}>{s.val}</div>
+                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 24, color: s.color, lineHeight: 1, marginBottom: 5, textShadow: EMBOSS }}>{s.val}</div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.15em' }}>{s.label}</div>
                 </>
               )
@@ -462,7 +540,9 @@ export default function PerfilPage() {
 
         {/* ══ CUENTA ══ */}
         {tab === 'cuenta' && (
-          <div>
+          <div style={panelCss}>
+            <div style={filoCss} />
+            <div style={{ padding: '0 26px 12px' }}>
 
             <Row label="Nombre visible" hint="Cómo te ven otros usuarios en la comunidad y en tus setups publicados.">
               <form onSubmit={handleSaveName} style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -505,12 +585,15 @@ export default function PerfilPage() {
               </Row>
             )}
 
+            </div>
           </div>
         )}
 
         {/* ══ SEGURIDAD ══ */}
         {tab === 'seguridad' && (
-          <div>
+          <div style={panelCss}>
+            <div style={filoCss} />
+            <div style={{ padding: '0 26px 12px' }}>
             {hasStoredCreds && (
               <Row label="Credenciales guardadas" hint="Claves de Binance, IBKR o MetaTrader 5 guardadas en una versión anterior. Ya no se gestionan ni sincronizan — puedes borrarlas de forma permanente.">
                 {clearMsg && <div style={{ fontFamily: MONO, fontSize: 11, color: clearMsg.startsWith('Error') ? RED : GREEN, marginBottom: 12 }}>{clearMsg}</div>}
@@ -556,12 +639,15 @@ export default function PerfilPage() {
                 </span>
               </Row>
             )}
+            </div>
           </div>
         )}
 
         {/* ══ COMUNIDAD ══ */}
         {tab === 'comunidad' && (
-          <div>
+          <div style={panelCss}>
+            <div style={filoCss} />
+            <div style={{ padding: '0 26px 12px' }}>
             {profile !== null && (
               <Row
                 label="Reputación"
@@ -648,6 +734,7 @@ export default function PerfilPage() {
                 </form>
               )}
             </Row>
+            </div>
           </div>
         )}
 
