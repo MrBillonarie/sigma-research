@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
+import { getPlanInfo, stripActionableFields } from '@/lib/plan'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
 
@@ -74,14 +75,17 @@ export async function GET() {
     }
   } catch { /* fall through */ }
 
-  // Fallback: public endpoint top_models
+  // Fallback: public endpoint top_models — a diferencia del path normalizado,
+  // viene crudo del motor (incluye price/sl/tp y sizing) → filtrar para no-PRO
   try {
     const r2 = await fetch(`${VPS}/api/public`, {
       signal: AbortSignal.timeout(8000),
     })
     if (r2.ok) {
       const d = await r2.json()
-      const list = d?.top_models ?? []
+      let list = d?.top_models ?? []
+      const { isPro } = await getPlanInfo()
+      if (!isPro) list = stripActionableFields(list)
       return NextResponse.json(list, {
         headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=30' },
       })

@@ -2,15 +2,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-
-function makeClient() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  )
-}
+import { getPlanInfo } from '@/lib/plan'
 
 function makeServiceClient() {
   const cookieStore = cookies()
@@ -25,17 +17,14 @@ export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = makeClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  // Plan via helper compartido (lib/plan.ts) — getUser() ya trae app_metadata
+  // fresco del servidor de auth, sin necesidad del lookup admin por service role
+  const { userId, isPro } = await getPlanInfo()
+  if (!userId) {
     return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
   }
 
   const service = makeServiceClient()
-
-  // Validate plan via app_metadata (subscriptions table doesn't exist)
-  const { data: authUser } = await service.auth.admin.getUserById(user.id)
-  const plan = (authUser?.user?.app_metadata?.plan as string) ?? 'free'
 
   // Fetch report
   const { data: reporte } = await service
@@ -52,7 +41,7 @@ export async function GET(
   }
 
   // Plan MENSUAL: solo el más reciente; PRO/ANUAL: todos
-  if (plan !== 'pro' && plan !== 'anual') {
+  if (!isPro) {
     const { data: latest } = await service
       .from('reportes')
       .select('id')
