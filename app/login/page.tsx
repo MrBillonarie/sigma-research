@@ -121,67 +121,37 @@ function LoginForm() {
   return (
     <div className="sigma-login-card relative p-8 overflow-hidden">
       <style>{`
-        /* ── Tarjeta premium Cyan Deck ─────────────────────────────────────── */
+        /* ── Tarjeta institucional Cyan Deck — sobria, sin efectos ─────────── */
         .sigma-login-card {
-          background:
-            linear-gradient(180deg, rgba(10,16,26,0.92), rgba(6,10,18,0.96)),
-            radial-gradient(120% 80% at 50% -10%, rgba(57,226,230,0.10), transparent 60%);
-          border: 1px solid rgba(57,226,230,0.16);
-          border-radius: 14px;
-          box-shadow: 0 24px 70px -30px rgba(0,0,0,0.9), inset 0 1px 0 rgba(94,234,240,0.10);
-          backdrop-filter: blur(6px);
+          background: #0a0e17;
+          border: 1px solid rgba(120,150,175,0.14);
+          border-radius: 10px;
+          box-shadow: 0 24px 60px -34px rgba(0,0,0,0.85);
         }
-        /* Riel cian superior */
+        /* Única acentuación: hairline cian al tope, discreto */
         .sigma-login-card::before {
-          content: ''; position: absolute; top: 0; left: 14px; right: 14px; height: 1px;
-          background: linear-gradient(90deg, transparent, #39e2e6 30%, #5eeaf0 50%, #4f92ff 70%, transparent);
-          opacity: .85;
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(57,226,230,0.55) 50%, transparent);
         }
-        /* Barrido holográfico diagonal — pasa lento sobre el vidrio */
-        .sigma-login-card::after {
-          content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: 14px;
-          background: linear-gradient(115deg, transparent 38%, rgba(94,234,240,0.07) 47%, rgba(255,255,255,0.05) 50%, rgba(79,146,255,0.06) 53%, transparent 62%);
-          background-size: 280% 280%;
-          animation: sigmaHolo 7s ease-in-out infinite;
-          mix-blend-mode: screen;
-        }
-        @keyframes sigmaHolo { 0%,100% { background-position: 120% 0; } 50% { background-position: -20% 0; } }
         .sigma-login-card > * { position: relative; z-index: 1; }
-        /* Corner brackets cian */
-        .sigma-bracket { position: absolute; width: 14px; height: 14px; border-color: rgba(57,226,230,0.5); z-index: 2; }
-        /* Inputs con focus cian + glow suave */
-        .sigma-input { border-radius: 8px; }
+        /* Inputs con focus cian sutil */
+        .sigma-input { border-radius: 6px; }
         .sigma-input:focus {
-          border-color: rgba(57,226,230,0.6) !important;
-          box-shadow: 0 0 0 3px rgba(57,226,230,0.10), 0 0 18px -6px rgba(57,226,230,0.5);
+          border-color: rgba(57,226,230,0.55) !important;
+          box-shadow: 0 0 0 2px rgba(57,226,230,0.10);
         }
-        /* Botón principal — degradé cian con glow y shimmer al hover */
+        /* Botón principal — cian sólido, plano y preciso */
         .sigma-submit {
-          position: relative; overflow: hidden; border: none;
-          color: #04121a; font-weight: 700;
-          background: linear-gradient(120deg, #39e2e6 0%, #5eeaf0 45%, #4f92ff 100%);
-          box-shadow: 0 10px 30px -12px rgba(57,226,230,0.65), inset 0 1px 0 rgba(255,255,255,0.35);
+          border: none; color: #04121a; font-weight: 700;
+          background: #39e2e6;
+          transition: background .2s ease, box-shadow .2s ease;
         }
-        .sigma-submit::after {
-          content: ''; position: absolute; inset: 0;
-          background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%);
-          transform: translateX(-120%); transition: transform .7s ease;
-        }
-        .sigma-submit:hover:not(:disabled)::after { transform: translateX(120%); }
-        .sigma-submit:hover:not(:disabled) { box-shadow: 0 14px 38px -12px rgba(57,226,230,0.85), inset 0 1px 0 rgba(255,255,255,0.4); }
+        .sigma-submit:hover:not(:disabled) { background: #5eeaf0; box-shadow: 0 6px 22px -12px rgba(57,226,230,0.7); }
         .sigma-submit:disabled { opacity: .7; }
-        .sigma-submit.is-granted {
-          background: linear-gradient(120deg, #1D9E75, #34d399);
-          box-shadow: 0 12px 34px -12px rgba(52,211,153,0.7);
-        }
-        @media (prefers-reduced-motion: reduce) { .sigma-login-card::after, .sigma-submit::after { animation: none; transition: none; } }
+        .sigma-submit.is-granted { background: #34d399; color: #04120c; }
       `}</style>
-      <span className="sigma-bracket" style={{ top: 9, left: 9, borderTop: '1px solid', borderLeft: '1px solid' }} />
-      <span className="sigma-bracket" style={{ top: 9, right: 9, borderTop: '1px solid', borderRight: '1px solid' }} />
-      <span className="sigma-bracket" style={{ bottom: 9, left: 9, borderBottom: '1px solid', borderLeft: '1px solid' }} />
-      <span className="sigma-bracket" style={{ bottom: 9, right: 9, borderBottom: '1px solid', borderRight: '1px solid' }} />
 
-      <h1 className="display-heading text-4xl mb-1" style={{ color: '#39e2e6', textShadow: '0 0 24px rgba(57,226,230,0.35)' }}>ACCESO TERMINAL</h1>
+      <h1 className="display-heading text-4xl mb-1" style={{ color: '#e8f2f5' }}>ACCESO TERMINAL</h1>
       <p className="terminal-text text-[#7d94a8] mb-8">Introduce tus credenciales para continuar.</p>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
@@ -314,8 +284,6 @@ function MarketConstellation() {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let angle = 0.6
     let rafId = 0
-    let pulse: { edge: [number, number]; t: number } | null = null
-    let lastPulse = 0
 
     function resize() {
       if (!canvas || !ctx) return
@@ -327,7 +295,7 @@ function MarketConstellation() {
     resize()
     window.addEventListener('resize', resize)
 
-    function frame(ts: number) {
+    function frame() {
       if (!canvas || !ctx) return
       const w = canvas.clientWidth, h = canvas.clientHeight
       ctx.clearRect(0, 0, w, h)
@@ -341,64 +309,37 @@ function MarketConstellation() {
         return { sx: cx + x * R * s, sy: cy + n.y * R * s * 0.92, z, s, sym: n.sym }
       })
 
-      // Aristas — trazo cian con profundidad: el frente sale grueso y brillante,
-      // el fondo se desvanece en el negro. Malla luminosa sobre oscuro.
+      // Aristas — malla tenue: casi imperceptible al fondo, apenas marcada al
+      // frente. Presencia técnica de fondo, no protagonista.
       for (const [a, b] of edges) {
         const A = proj[a], B = proj[b]
         const front = Math.max(0, -(A.z + B.z) / 2) // 0 (fondo) .. ~1 (frente)
-        const alpha = Math.min(0.05 + front * 0.34, 0.42)
-        ctx.strokeStyle = `rgba(57,226,230,${alpha.toFixed(3)})`
-        ctx.lineWidth = 0.5 + front * 1.6
+        const alpha = Math.min(0.03 + front * 0.16, 0.20)
+        ctx.strokeStyle = `rgba(120,160,185,${alpha.toFixed(3)})`
+        ctx.lineWidth = 0.5 + front * 0.9
         ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.stroke()
       }
 
-      // Pulso cian viajando por una arista (una señal cruzando el motor)
-      if (!reduced) {
-        if (!pulse && ts - lastPulse > 1300) {
-          pulse = { edge: edges[Math.floor(Math.random() * edges.length)], t: 0 }
-          lastPulse = ts
-        }
-        if (pulse) {
-          const [a, b] = pulse.edge
-          const A = proj[a], B = proj[b]
-          const px = A.sx + (B.sx - A.sx) * pulse.t
-          const py = A.sy + (B.sy - A.sy) * pulse.t
-          ctx.fillStyle = 'rgba(94,234,240,0.98)'
-          ctx.shadowColor = 'rgba(94,234,240,0.95)'
-          ctx.shadowBlur = 14
-          ctx.beginPath(); ctx.arc(px, py, 2.8, 0, Math.PI * 2); ctx.fill()
-          ctx.shadowBlur = 0
-          pulse.t += 0.018
-          if (pulse.t >= 1) pulse = null
-        }
-      }
-
-      // Nodos: el frente = cian sólido con halo brillante; el fondo = azul
-      // profundo difuminado. La profundidad hace que el modelo flote sobre el negro.
+      // Nodos: puntos precisos, cian sobrio al frente, azul apagado al fondo.
+      // Sin halos ni glow — legibilidad tipo instrumento, no decoración.
       for (const p of proj) {
         const front = Math.max(0, -p.z) // 0 (fondo) .. 1 (frente)
-        const rad = 1.6 + p.s * 2.4
+        const rad = 1.4 + p.s * 1.9
         const t = Math.min(front * 1.1, 1)
-        const cr = Math.round(54  + (94  - 54)  * t)
-        const cg = Math.round(110 + (234 - 110) * t)
-        const cb = Math.round(180 + (240 - 180) * t)
-        const alpha = Math.min(0.35 + front * 0.6, 0.98)
+        const cr = Math.round(60  + (57  - 60)  * t)
+        const cg = Math.round(100 + (200 - 100) * t)
+        const cb = Math.round(150 + (210 - 150) * t)
+        const alpha = Math.min(0.28 + front * 0.5, 0.85)
         ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha.toFixed(2)})`
         ctx.beginPath(); ctx.arc(p.sx, p.sy, rad, 0, Math.PI * 2); ctx.fill()
-        // Halo cian en los nodos del frente
-        if (front > 0.4) {
-          ctx.strokeStyle = `rgba(94,234,240,${(front * 0.6).toFixed(2)})`
-          ctx.lineWidth = 1
-          ctx.beginPath(); ctx.arc(p.sx, p.sy, rad + 2.6, 0, Math.PI * 2); ctx.stroke()
-        }
-        if (p.z < 0.15) {
-          ctx.fillStyle = `rgba(200,232,240,${(0.34 + front * 0.5).toFixed(2)})`
-          ctx.font = '10px monospace'
-          ctx.fillText(p.sym, p.sx + 7, p.sy + 3)
+        if (p.z < 0.05) {
+          ctx.fillStyle = `rgba(150,178,195,${(0.22 + front * 0.4).toFixed(2)})`
+          ctx.font = '9px monospace'
+          ctx.fillText(p.sym, p.sx + 6, p.sy + 3)
         }
       }
 
-      if (!reduced) angle += 0.0016
+      if (!reduced) angle += 0.0006 // rotación muy lenta, casi contemplativa
       rafId = requestAnimationFrame(frame)
     }
     rafId = requestAnimationFrame(frame)
@@ -417,7 +358,6 @@ function LivePanel() {
   const [live, setLive] = useState<{ regime: string; signals: number } | null>(null)
   const panelRef   = useRef<HTMLDivElement>(null)
   const constRef   = useRef<HTMLDivElement>(null)
-  const floorRef   = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const rafRef     = useRef<number | null>(null)
 
@@ -444,13 +384,12 @@ function LivePanel() {
     const ny = (e.clientY - r.top) / r.height - 0.5
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null
-      if (constRef.current)   constRef.current.style.transform   = `translate3d(${(nx * 16).toFixed(1)}px, ${(ny * 12).toFixed(1)}px, 0)`
-      if (floorRef.current)   floorRef.current.style.transform   = `translate3d(${(nx * 7).toFixed(1)}px, ${(ny * 5).toFixed(1)}px, 0)`
-      if (contentRef.current) contentRef.current.style.transform = `translate3d(${(-nx * 9).toFixed(1)}px, ${(-ny * 7).toFixed(1)}px, 0)`
+      if (constRef.current)   constRef.current.style.transform   = `translate3d(${(nx * 8).toFixed(1)}px, ${(ny * 6).toFixed(1)}px, 0)`
+      if (contentRef.current) contentRef.current.style.transform = `translate3d(${(-nx * 4).toFixed(1)}px, ${(-ny * 3).toFixed(1)}px, 0)`
     })
   }
   function onLeave() {
-    for (const ref of [constRef, floorRef, contentRef]) {
+    for (const ref of [constRef, contentRef]) {
       if (ref.current) ref.current.style.transform = 'translate3d(0,0,0)'
     }
   }
@@ -464,36 +403,20 @@ function LivePanel() {
       onMouseLeave={onLeave}
       className="hidden lg:flex relative w-[46%] overflow-hidden items-center"
     >
-      <style>{`
-        @keyframes tronMove { from { background-position: 0 0; } to { background-position: 0 44px; } }
-        @media (prefers-reduced-motion: reduce) { .tron-floor { animation: none !important; } }
-      `}</style>
+      {/* Retícula técnica de fondo — muy tenue, quieta */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: 'linear-gradient(rgba(120,160,185,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(120,160,185,0.05) 1px, transparent 1px)',
+        backgroundSize: '52px 52px',
+        maskImage: 'radial-gradient(120% 90% at 70% 45%, black, transparent 75%)',
+        WebkitMaskImage: 'radial-gradient(120% 90% at 70% 45%, black, transparent 75%)',
+      }} />
 
-      {/* Capa 1 — constelación de mercados en 3D */}
+      {/* Capa 1 — constelación de mercados en 3D (tenue) */}
       <div ref={constRef} className="absolute inset-0" style={layerStyle}>
         <MarketConstellation />
       </div>
 
-      {/* Capa 2 — suelo Tron en perspectiva */}
-      <div ref={floorRef} className="absolute inset-x-0 bottom-0 h-[42%] pointer-events-none" style={{ ...layerStyle, perspective: '420px' }}>
-        <div
-          className="tron-floor absolute top-0"
-          style={{
-            left: '-40%', right: '-40%', bottom: '-70%',
-            transform: 'rotateX(62deg)',
-            transformOrigin: 'top center',
-            backgroundImage: 'linear-gradient(rgba(57,226,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(57,226,230,0.11) 1px, transparent 1px)',
-            backgroundSize: '44px 44px',
-            animation: 'tronMove 4.5s linear infinite',
-            maskImage: 'linear-gradient(to bottom, transparent, black 24%, black 78%, transparent)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 24%, black 78%, transparent)',
-          }}
-        />
-        {/* Resplandor del horizonte */}
-        <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(to bottom, rgba(57,226,230,0.16), transparent)' }} />
-      </div>
-
-      {/* Capa 3 — contenido (se mueve en contra: profundidad) */}
+      {/* Capa 2 — contenido (se mueve en contra: profundidad) */}
       <div ref={contentRef} className="relative z-10 max-w-sm pl-14 pr-8" style={layerStyle}>
         <div className="flex items-center gap-2.5 mb-7">
           <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#0a7f52', boxShadow: '0 0 10px rgba(10,127,82,0.7)' }} />
@@ -502,7 +425,7 @@ function LivePanel() {
 
         <h2 className="display-heading text-5xl leading-[0.95] mb-5" style={{ textWrap: 'balance', color: '#e8f2f5' }}>
           EL MOTOR<br />
-          <span style={{ color: '#39e2e6', textShadow: '0 0 30px rgba(57,226,230,0.45)' }}>NO DUERME.</span>
+          <span style={{ color: '#39e2e6' }}>NO DUERME.</span>
         </h2>
 
         <p className="terminal-text text-sm leading-relaxed mb-8" style={{ color: '#7d94a8' }}>
