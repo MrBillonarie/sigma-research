@@ -65,21 +65,30 @@ export async function GET(req: NextRequest) {
   }
 
   const raw = (req.nextUrl.searchParams.get('symbol') ?? '').toUpperCase()
-  // El motor pide `${sym}USDT`. Validar duro para evitar SSRF hacia fapi.
+  // El motor pide `${sym}USDT`. Validar duro para evitar SSRF hacia Binance.
   if (!/^[A-Z0-9]{4,15}$/.test(raw)) {
     return NextResponse.json({ price: null, error: 'bad symbol' }, { status: 200 })
   }
+  const base = raw.endsWith('USDT') ? raw.slice(0, -4) : raw
 
-  // 1) Binance Futures (fuente primaria, igual que el motor original).
-  let price = await binanceFapi(raw)
-  let source = 'fapi'
+  let price: number | null = null
+  let source = 'none'
 
-  // 2) Fallback: símbolos sin par en fapi (NG, y cualquier otro M2/M3) →
-  //    caches yfinance del motor. Base = símbolo sin sufijo USDT.
-  if (price === null && raw.endsWith('USDT')) {
-    const base = raw.slice(0, -4)
-    price = await motorPrice(base)
-    source = 'motor'
+  // Prioridad por clase de activo (correctitud financiera):
+  //  - Stocks M3: yfinance real. En Futures {SYM}USDT existe pero CVXUSDT es
+  //    "Convex Finance" (cripto), NO Chevron → NUNCA usar fapi de primario aquí.
+  //  - Commodities M2: cache yfinance del motor (no tienen par en spot v3).
+  //  - Resto (cripto + índices SPY/QQQ/IWM/XLE): perp de Binance Futures, que sí
+  //    lista los perps tradfi que el spot v3 del motor no tenía.
+  if (M3_SET.has(base)) {
+    price = await motorPrice(base); source = 'motor'
+    if (price === null) { price = await binanceFapi(raw); source = 'fapi' }
+  } else if (M2_SET.has(base)) {
+    price = await motorPrice(base); source = 'motor'
+    if (price === null) { price = await binanceFapi(raw); source = 'fapi' }
+  } else {
+    price = await binanceFapi(raw); source = 'fapi'
+    if (price === null) { price = await motorPrice(base); source = 'motor' }
   }
 
   return NextResponse.json(

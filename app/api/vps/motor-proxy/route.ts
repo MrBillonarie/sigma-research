@@ -76,12 +76,15 @@ export async function GET() {
     html = html.replace(/href="\/download\//g, 'href="/api/vps/motor-download/')
     html = html.replace(/href='\/download\//g, "href='/api/vps/motor-download/")
 
-    // 3c. Patch the browser's live-price fetch. The motor JS hits
-    // https://fapi.binance.com/.../ticker/price?symbol=${sym}USDT directly, which
-    // the embed's CSP/geo blocks → LIVE cae a `entry` y P&L live queda 0.00%.
-    // Redirigir a un proxy same-origin (server-side, con fallback M2/M3 para NG).
+    // 3c. Patch the browser's live-price fetch. El dashboard del motor pega
+    // directo a https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT
+    // (Binance SPOT) para todo lo no-commodity. En el embed ese fetch cross-origin
+    // lo bloquea el CSP/geo → LIVE cae a `entry` y P&L live queda 0.00% (SOL);
+    // y peor, SPOT ni siquiera lista AAPL/XLE (perps tradfi) → siempre stale.
+    // Se redirige a un proxy same-origin server-side que usa Binance Futures
+    // (tiene los perps AAPL/XLE/SPY/…) + fallback a los caches yfinance del motor.
     html = html.replace(
-      /https:\/\/fapi\.binance\.com\/fapi\/v1\/ticker\/price\?symbol=/g,
+      /https:\/\/api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/g,
       '/api/vps/binance-price?symbol='
     )
 
