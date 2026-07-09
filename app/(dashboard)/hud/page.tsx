@@ -475,6 +475,69 @@ export default function HUDPage() {
     return () => { obs.disconnect(); clearInterval(poll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
+  // Exposición abierta — el donut del motor solo cuenta posiciones con
+  // mode=PAPER/LIVE y deja fuera las de mode=None (mostraba "1" cuando hay 5
+  // abiertas). Lo recalculamos en la web desde /api/vps/trades, deduplicado
+  // igual que la tabla de posiciones. No toca el motor (parche de display).
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    type Pos = { sym?: string; tf?: string; direction?: string; strategy?: string }
+    let positions: Pos[] = []
+    let raf = 0
+    const PAL = ['#39e2e6', '#4f92ff', '#2fd39a', '#9a7bff', '#ffb454', '#ff6d7a', '#5eeaf0', '#3fb950']
+    const keyOf = (p: Pos) => `${p.sym}|${p.tf}|${p.direction}|${p.strategy}`
+
+    function buildDonut(): string {
+      const n = positions.length
+      if (n === 0) return '<div style="color:#8b97ad;font-size:11px;padding:12px;text-align:center">Sin posiciones abiertas</div>'
+      const C = 2 * Math.PI * 40
+      let off = 0
+      const segs = positions.map((_, i) => {
+        const len = C / n
+        const dash = `${(len - 1.6).toFixed(2)} ${(C - len + 1.6).toFixed(2)}`
+        const s = `<circle cx="50" cy="50" r="40" fill="transparent" stroke="${PAL[i % PAL.length]}" stroke-width="16" stroke-dasharray="${dash}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 50 50)"/>`
+        off += len
+        return s
+      }).join('')
+      const svg = `<svg viewBox="0 0 100 100" width="100" height="100" style="vertical-align:middle;filter:drop-shadow(0 0 10px rgba(57,226,230,0.25))">${segs}<text x="50" y="50" text-anchor="middle" dy=".35em" fill="#eef1f7" font-family="IBM Plex Mono" font-size="18" font-weight="700">${n}</text></svg>`
+      const bySym: Record<string, { c: number; col: string }> = {}
+      positions.forEach((p, i) => { const s = p.sym ?? '—'; if (!bySym[s]) bySym[s] = { c: 0, col: PAL[i % PAL.length] }; bySym[s].c++ })
+      const legend = Object.entries(bySym).map(([sym, v]) =>
+        `<div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#aab3c2;margin:2px 0"><span style="width:10px;height:10px;background:${v.col};border-radius:2px;display:inline-block"></span>${sym} (${v.c})</div>`
+      ).join('')
+      return `<div style="display:flex;align-items:center;gap:16px">${svg}<div>${legend}</div></div>`
+    }
+
+    function apply() {
+      const labels = Array.from(root!.querySelectorAll('div[style*="0.8px"]')) as HTMLElement[]
+      const labelEl = labels.find(el => el.childElementCount === 0 && (el.textContent ?? '').trim().toLowerCase().startsWith('exposicion'))
+      const holder = labelEl?.nextElementSibling as HTMLElement | null
+      if (!holder) return
+      if (holder.getAttribute('data-sigma-expo') === String(positions.length) && holder.querySelector('.sigma-expo-mark')) return
+      holder.innerHTML = '<span class="sigma-expo-mark" style="display:none"></span>' + buildDonut()
+      holder.setAttribute('data-sigma-expo', String(positions.length))
+    }
+
+    async function fetchOpen() {
+      try {
+        const res = await fetch('/api/vps/trades', { cache: 'no-store' })
+        if (!res.ok) return
+        const j = await res.json()
+        const arr = (Array.isArray(j.open) ? j.open : []) as Pos[]
+        const seen = new Set<string>()
+        positions = arr.filter(p => { const k = keyOf(p); if (seen.has(k)) return false; seen.add(k); return true })
+        apply()
+      } catch { /* si falla, se deja el donut del motor */ }
+    }
+
+    fetchOpen()
+    const dataInt = setInterval(fetchOpen, 30_000)
+    const obs = new MutationObserver(() => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; apply() }) })
+    obs.observe(root, { childList: true, subtree: true })
+    return () => { clearInterval(dataInt); obs.disconnect(); if (raf) cancelAnimationFrame(raf) }
+  }, [])
+
   return (
     <>
       {/* Re-skin "Black & Gold" — overrides CSS del lado web. Vive en el
