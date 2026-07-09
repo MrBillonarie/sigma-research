@@ -76,6 +76,15 @@ export async function GET() {
     html = html.replace(/href="\/download\//g, 'href="/api/vps/motor-download/')
     html = html.replace(/href='\/download\//g, "href='/api/vps/motor-download/")
 
+    // 3c. Patch the browser's live-price fetch. The motor JS hits
+    // https://fapi.binance.com/.../ticker/price?symbol=${sym}USDT directly, which
+    // the embed's CSP/geo blocks → LIVE cae a `entry` y P&L live queda 0.00%.
+    // Redirigir a un proxy same-origin (server-side, con fallback M2/M3 para NG).
+    html = html.replace(
+      /https:\/\/fapi\.binance\.com\/fapi\/v1\/ticker\/price\?symbol=/g,
+      '/api/vps/binance-price?symbol='
+    )
+
     // 4. Also patch POST /login calls (not needed on squantdesk)
     // Strip login modal entirely — user is already authenticated via squantdesk
     html = html.replace(/id=["']auth[_-]?modal["'][^>]*>[\s\S]*?<\/div>/i, '')
