@@ -136,7 +136,7 @@ async function fetchEiaSeries(url: string, extraParams: Record<string, string>, 
     'sort[0][column]': 'period', 'sort[0][direction]': 'desc',
     length: '2', offset: '0', ...extraParams,
   })
-  const res = await fetch(`${url}?${params.toString()}`, { cache: 'no-store' })
+  const res = await fetch(`${url}?${params.toString()}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
   if (!res.ok) return []
   const json = await res.json()
   return (json?.response?.data ?? []) as { period: string; value: string }[]

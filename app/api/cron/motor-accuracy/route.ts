@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
     const res  = await fetch(`${BASE_URL}/api/motor/accuracy`, {
       cache:   'no-store',
       headers: { 'x-cron-secret': process.env.CRON_SECRET ?? '' },
+      signal:  AbortSignal.timeout(15000),
     })
     const json = await res.json()
 

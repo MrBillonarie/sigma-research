@@ -44,7 +44,7 @@ function priceAt(days: { date: string; price: number }[], target: Date): number 
 async function fetchJson(url: string, treat404AsEmpty = false): Promise<any> {
   const RETRY_DELAYS = [2000, 5000]
   for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
-    const res = await fetch(url, { headers: FINTUAL_HEADERS, cache: 'no-store' })
+    const res = await fetch(url, { headers: FINTUAL_HEADERS, cache: 'no-store', signal: AbortSignal.timeout(12000) })
     if (res.status === 429) {
       if (attempt < RETRY_DELAYS.length) { await delay(RETRY_DELAYS[attempt]); continue }
       throw new Error(`HTTP 429 rate-limit (3 intentos) — ${url.replace(FINTUAL_BASE, '')}`)

@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
           'x-cron-secret': process.env.CRON_SECRET ?? '',
         },
         cache:   'no-store',
+        signal:  AbortSignal.timeout(15000),
       })
       results[profile] = res.ok ? `ok (${res.status})` : `error (${res.status})`
     } catch (e) {

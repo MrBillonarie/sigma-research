@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     // Spot — balances con valor > 0
     const response = await fetch(
       `https://api.binance.com/api/v3/account?${query}&signature=${signature}`,
-      { headers: { 'X-MBX-APIKEY': binance_api_key } }
+      { headers: { 'X-MBX-APIKEY': binance_api_key }, signal: AbortSignal.timeout(8000) }
     )
 
     const account = await response.json()

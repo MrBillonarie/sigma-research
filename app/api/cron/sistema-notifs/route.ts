@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   try {
     const cgRes = await fetch(
       'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true',
-      { next: { revalidate: 0 } }
+      { next: { revalidate: 0 }, signal: AbortSignal.timeout(8000) }
     )
     if (cgRes.ok) {
       const prices = await cgRes.json()

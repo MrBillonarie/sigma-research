@@ -1,6 +1,7 @@
 export async function getBtcPrice(): Promise<number> {
   const res  = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', {
     cache: 'no-store',
+    signal: AbortSignal.timeout(8000),
   })
   const data = await res.json()
   return parseFloat(data.price)
@@ -17,7 +18,7 @@ export interface Kline {
 export async function getBtcKlines24h(): Promise<Kline[]> {
   const res  = await fetch(
     'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=24',
-    { cache: 'no-store' }
+    { cache: 'no-store', signal: AbortSignal.timeout(8000) }
   )
   const raw = await res.json()
   console.log('[binance-rest] klines raw:', JSON.stringify(raw).slice(0, 200))

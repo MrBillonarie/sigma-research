@@ -18,7 +18,7 @@ async function fetchYahoo(): Promise<number | null> {
   try {
     const res = await fetch(
       'https://query1.finance.yahoo.com/v8/finance/chart/USDCLP=X?range=1d&interval=5m&includePrePost=false',
-      { headers: YAHOO_HEADERS, next: { revalidate: 0 } }
+      { headers: YAHOO_HEADERS, next: { revalidate: 0 }, signal: AbortSignal.timeout(8000) }
     )
     if (!res.ok) return null
     const json = await res.json()
@@ -31,7 +31,7 @@ async function fetchYahoo(): Promise<number | null> {
 
 async function fetchStooq(): Promise<number | null> {
   try {
-    const res = await fetch('https://stooq.com/q/l/?s=usdclp&f=sd2t2ohlcv&h&e=csv', { next: { revalidate: 0 } })
+    const res = await fetch('https://stooq.com/q/l/?s=usdclp&f=sd2t2ohlcv&h&e=csv', { next: { revalidate: 0 }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) return null
     const lines = (await res.text()).trim().split('\n')
     if (lines.length < 2) return null

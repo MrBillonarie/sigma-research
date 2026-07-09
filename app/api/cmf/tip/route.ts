@@ -9,7 +9,7 @@ export async function GET() {
     const year = new Date().getFullYear();
     const url = `https://api.cmfchile.cl/api-sbifv3/recursos_api/tip/${year}?apikey=${apiKey}&formato=json`;
 
-    const res = await fetch(url, { next: { revalidate: 86400 } }); // cache 24h
+    const res = await fetch(url, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) }); // cache 24h
     const data = await res.json();
 
     return NextResponse.json({ ok: true, data: data.TIPs?.TIP || [] });

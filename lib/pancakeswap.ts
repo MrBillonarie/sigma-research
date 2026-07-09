@@ -38,10 +38,10 @@ export async function fetchPoolData(poolKey: PoolKey): Promise<PoolData | null> 
   const cfg = POOLS[poolKey]
   try {
     const [dexRes, klinesRes] = await Promise.all([
-      fetch(`${DEXSCREENER}/${cfg.id}`, { cache: 'no-store' }),
+      fetch(`${DEXSCREENER}/${cfg.id}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) }),
       fetch(
         `https://api.binance.com/api/v3/klines?symbol=${cfg.binanceSymbol}&interval=1d&limit=7`,
-        { cache: 'no-store' }
+        { cache: 'no-store', signal: AbortSignal.timeout(8000) }
       ),
     ])
 

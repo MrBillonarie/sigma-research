@@ -78,7 +78,7 @@ export async function GET(
   }
 
   // Proxy the PDF so the URL stays server-side
-  const pdfRes = await fetch(pdfUrl.toString())
+  const pdfRes = await fetch(pdfUrl.toString(), { signal: AbortSignal.timeout(15000) })
   if (!pdfRes.ok) {
     return NextResponse.json({ error: 'Error al obtener el PDF.' }, { status: 502 })
   }

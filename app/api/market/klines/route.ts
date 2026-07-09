@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ySym)}?interval=${cfg.interval}&range=${cfg.range}&includePrePost=false`
-    const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 0 } })
+    const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 0 }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) throw new Error(`Yahoo ${res.status}`)
     const json   = await res.json()
     const result = json?.chart?.result?.[0]

@@ -16,7 +16,7 @@ async function fetchYahoo(symbol: string): Promise<Ticker | null> {
   try {
     // Try v8 endpoint first
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m&includePrePost=false`
-    const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 0 } })
+    const res = await fetch(url, { headers: YAHOO_HEADERS, next: { revalidate: 0 }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const json = await res.json()
     const meta = json?.chart?.result?.[0]?.meta
@@ -37,7 +37,7 @@ async function fetchYahoo(symbol: string): Promise<Ticker | null> {
 async function fetchStooq(symbol: string): Promise<Ticker | null> {
   try {
     const url = `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&f=sd2t2ohlcv&h&e=csv`
-    const res = await fetch(url, { next: { revalidate: 0 } })
+    const res = await fetch(url, { next: { revalidate: 0 }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) return null
     const text = await res.text()
     const lines = text.trim().split('\n')

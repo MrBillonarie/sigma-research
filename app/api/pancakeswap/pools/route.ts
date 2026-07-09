@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   try {
     const res = await fetch(
       `https://api.geckoterminal.com/api/v2/networks/bsc/pools/${addr}`,
-      { headers: { Accept: 'application/json;version=20230302' }, next: { revalidate: 300 } }
+      { headers: { Accept: 'application/json;version=20230302' }, next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) }
     )
     if (!res.ok) return NextResponse.json(FALLBACK)
 

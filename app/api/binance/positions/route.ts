@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     const response = await fetch(
       `https://fapi.binance.com/fapi/v2/positionRisk?${query}&signature=${signature}`,
-      { headers: { 'X-MBX-APIKEY': binance_api_key } }
+      { headers: { 'X-MBX-APIKEY': binance_api_key }, signal: AbortSignal.timeout(8000) }
     )
 
     const positions = await response.json()

@@ -2,8 +2,22 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
+import { checkAdminAuth } from '@/lib/adminAuth'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
+
+// El motor hace bypass de auth para requests de localhost sin headers de proxy
+// (_is_authenticated en web_server.py), y este proxy reenvía desde 127.0.0.1 sin
+// esos headers → el motor confía en cualquier POST que le llegue por aquí. Por eso
+// las mutaciones NO pueden quedar abiertas a "cualquier sesión Supabase": un free
+// podría cerrar/abrir trades reales o sobreescribir el pine del HUD. Los endpoints
+// de escritura del motor solo se exponen a sesión admin firmada; el resto es lectura.
+const MUTATING_PATHS = ['trades/open', 'trades/close', 'trades/', 'upload/', 'aum_update']
+
+function isMutatingPath(path: string): boolean {
+  const p = path.replace(/^\/+/, '').toLowerCase()
+  return MUTATING_PATHS.some(m => p === m || p.startsWith(m))
+}
 
 function makeClient() {
   const cookieStore = cookies()
@@ -19,6 +33,17 @@ async function proxy(req: NextRequest, path: string) {
   const engineCookie = cookies().get('sigma_engine_session')?.value
   if (!user && !verifyEngineMonitorSession(engineCookie)) {
     return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
+  }
+
+  // Barrera de escritura: cualquier método que muta estado (o ruta sensible del
+  // motor) exige sesión admin, no basta con estar logueado. Cierra el hueco de
+  // que un suscriptor cualquiera dispare trades/close, trades/open o upload.
+  const mutating = req.method !== 'GET' || isMutatingPath(path)
+  if (mutating && !checkAdminAuth(req)) {
+    return NextResponse.json(
+      { error: 'Operación restringida: requiere sesión de administrador.' },
+      { status: 403 }
+    )
   }
 
   // Forward query string
