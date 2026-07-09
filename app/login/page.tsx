@@ -119,15 +119,76 @@ function LoginForm() {
   }
 
   return (
-    <div className="glass-card p-8 shadow-card">
-      <h1 className="display-heading text-4xl gold-text mb-1">ACCESO TERMINAL</h1>
-      <p className="terminal-text text-[#7a7f9a] mb-8">Introduce tus credenciales para continuar.</p>
+    <div className="sigma-login-card relative p-8 overflow-hidden">
+      <style>{`
+        /* ── Tarjeta premium Cyan Deck ─────────────────────────────────────── */
+        .sigma-login-card {
+          background:
+            linear-gradient(180deg, rgba(10,16,26,0.92), rgba(6,10,18,0.96)),
+            radial-gradient(120% 80% at 50% -10%, rgba(57,226,230,0.10), transparent 60%);
+          border: 1px solid rgba(57,226,230,0.16);
+          border-radius: 14px;
+          box-shadow: 0 24px 70px -30px rgba(0,0,0,0.9), inset 0 1px 0 rgba(94,234,240,0.10);
+          backdrop-filter: blur(6px);
+        }
+        /* Riel cian superior */
+        .sigma-login-card::before {
+          content: ''; position: absolute; top: 0; left: 14px; right: 14px; height: 1px;
+          background: linear-gradient(90deg, transparent, #39e2e6 30%, #5eeaf0 50%, #4f92ff 70%, transparent);
+          opacity: .85;
+        }
+        /* Barrido holográfico diagonal — pasa lento sobre el vidrio */
+        .sigma-login-card::after {
+          content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: 14px;
+          background: linear-gradient(115deg, transparent 38%, rgba(94,234,240,0.07) 47%, rgba(255,255,255,0.05) 50%, rgba(79,146,255,0.06) 53%, transparent 62%);
+          background-size: 280% 280%;
+          animation: sigmaHolo 7s ease-in-out infinite;
+          mix-blend-mode: screen;
+        }
+        @keyframes sigmaHolo { 0%,100% { background-position: 120% 0; } 50% { background-position: -20% 0; } }
+        .sigma-login-card > * { position: relative; z-index: 1; }
+        /* Corner brackets cian */
+        .sigma-bracket { position: absolute; width: 14px; height: 14px; border-color: rgba(57,226,230,0.5); z-index: 2; }
+        /* Inputs con focus cian + glow suave */
+        .sigma-input { border-radius: 8px; }
+        .sigma-input:focus {
+          border-color: rgba(57,226,230,0.6) !important;
+          box-shadow: 0 0 0 3px rgba(57,226,230,0.10), 0 0 18px -6px rgba(57,226,230,0.5);
+        }
+        /* Botón principal — degradé cian con glow y shimmer al hover */
+        .sigma-submit {
+          position: relative; overflow: hidden; border: none;
+          color: #04121a; font-weight: 700;
+          background: linear-gradient(120deg, #39e2e6 0%, #5eeaf0 45%, #4f92ff 100%);
+          box-shadow: 0 10px 30px -12px rgba(57,226,230,0.65), inset 0 1px 0 rgba(255,255,255,0.35);
+        }
+        .sigma-submit::after {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%);
+          transform: translateX(-120%); transition: transform .7s ease;
+        }
+        .sigma-submit:hover:not(:disabled)::after { transform: translateX(120%); }
+        .sigma-submit:hover:not(:disabled) { box-shadow: 0 14px 38px -12px rgba(57,226,230,0.85), inset 0 1px 0 rgba(255,255,255,0.4); }
+        .sigma-submit:disabled { opacity: .7; }
+        .sigma-submit.is-granted {
+          background: linear-gradient(120deg, #1D9E75, #34d399);
+          box-shadow: 0 12px 34px -12px rgba(52,211,153,0.7);
+        }
+        @media (prefers-reduced-motion: reduce) { .sigma-login-card::after, .sigma-submit::after { animation: none; transition: none; } }
+      `}</style>
+      <span className="sigma-bracket" style={{ top: 9, left: 9, borderTop: '1px solid', borderLeft: '1px solid' }} />
+      <span className="sigma-bracket" style={{ top: 9, right: 9, borderTop: '1px solid', borderRight: '1px solid' }} />
+      <span className="sigma-bracket" style={{ bottom: 9, left: 9, borderBottom: '1px solid', borderLeft: '1px solid' }} />
+      <span className="sigma-bracket" style={{ bottom: 9, right: 9, borderBottom: '1px solid', borderRight: '1px solid' }} />
+
+      <h1 className="display-heading text-4xl mb-1" style={{ color: '#39e2e6', textShadow: '0 0 24px rgba(57,226,230,0.35)' }}>ACCESO TERMINAL</h1>
+      <p className="terminal-text text-[#7d94a8] mb-8">Introduce tus credenciales para continuar.</p>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
 
         {/* Email */}
         <div className="flex flex-col gap-1.5">
-          <label className="section-label text-[#7a7f9a]">Email</label>
+          <label className="section-label text-[#7d94a8]">Email</label>
           <input
             type="email"
             required
@@ -135,14 +196,14 @@ function LoginForm() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="operador@sigma.io"
-            className="bg-[#0b0d14] border border-[#1a1d2e] focus:border-[#d4af37]/60 outline-none px-4 py-2.5 terminal-text text-[#e8e9f0] placeholder:text-[#3a3f55] transition-colors"
+            className="sigma-input bg-[#080c15] border border-[#16203a] outline-none px-4 py-2.5 terminal-text text-[#e8f2f5] placeholder:text-[#3a4763] transition-colors"
           />
           {errors.email && <span className="terminal-text text-red-400 text-xs">{errors.email}</span>}
         </div>
 
         {/* Password */}
         <div className="flex flex-col gap-1.5">
-          <label className="section-label text-[#7a7f9a]">Contraseña</label>
+          <label className="section-label text-[#7d94a8]">Contraseña</label>
           <input
             type="password"
             required
@@ -150,7 +211,7 @@ function LoginForm() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="bg-[#0b0d14] border border-[#1a1d2e] focus:border-[#d4af37]/60 outline-none px-4 py-2.5 terminal-text text-[#e8e9f0] placeholder:text-[#3a3f55] transition-colors"
+            className="sigma-input bg-[#080c15] border border-[#16203a] outline-none px-4 py-2.5 terminal-text text-[#e8f2f5] placeholder:text-[#3a4763] transition-colors"
           />
           {errors.password && <span className="terminal-text text-red-400 text-xs">{errors.password}</span>}
         </div>
@@ -159,7 +220,7 @@ function LoginForm() {
             navegador (no hay opción real de "sesión temporal" en este
             esquema de cookies), así que no se ofrece un toggle que no haría nada. */}
         <div className="flex items-center justify-end">
-          <Link href="/recuperar" className="terminal-text text-xs text-[#7a7f9a] hover:text-[#d4af37] transition-colors">
+          <Link href="/recuperar" className="terminal-text text-xs text-[#7d94a8] hover:text-[#39e2e6] transition-colors">
             ¿Olvidaste tu contraseña?
           </Link>
         </div>
@@ -174,15 +235,15 @@ function LoginForm() {
         {/* Reenviar confirmación — antes solo un admin podía dispararlo;
             cualquier email perdido/en spam dejaba al usuario sin salida. */}
         {needsConfirm && (
-          <div className="border border-[#d4af37]/30 bg-[#d4af37]/5 px-4 py-2.5 flex flex-col gap-2">
-            <p className="terminal-text text-[#7a7f9a] text-xs">¿No te llegó el correo de confirmación?</p>
+          <div className="border border-[#39e2e6]/30 bg-[#39e2e6]/5 px-4 py-2.5 flex flex-col gap-2 rounded-lg">
+            <p className="terminal-text text-[#7d94a8] text-xs">¿No te llegó el correo de confirmación?</p>
             <button
               type="button" onClick={handleResendConfirmation} disabled={resending}
-              className="terminal-text text-xs text-[#d4af37] hover:text-[#f0cc5a] transition-colors text-left disabled:opacity-50"
+              className="terminal-text text-xs text-[#39e2e6] hover:text-[#5eeaf0] transition-colors text-left disabled:opacity-50"
             >
               {resending ? 'Enviando…' : 'Reenviar email de confirmación'}
             </button>
-            {resendMsg && <p className="terminal-text text-[#7a7f9a] text-xs">{resendMsg}</p>}
+            {resendMsg && <p className="terminal-text text-[#7d94a8] text-xs">{resendMsg}</p>}
           </div>
         )}
 
@@ -190,10 +251,8 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className={`mt-1 section-label py-3 transition-all duration-300 disabled:cursor-not-allowed ${
-            phase === 'granted' || phase === 'opening'
-              ? 'bg-emerald-400 text-[#04050a]'
-              : 'bg-[#d4af37] text-[#04050a] hover:bg-[#f0cc5a] disabled:opacity-70'
+          className={`sigma-submit mt-1 section-label py-3 rounded-lg transition-all duration-300 disabled:cursor-not-allowed ${
+            phase === 'granted' || phase === 'opening' ? 'is-granted' : ''
           }`}
         >
           {phase === 'verifying' ? '> VERIFICANDO CREDENCIALES…'
@@ -204,9 +263,9 @@ function LoginForm() {
 
         {/* Divider */}
         <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-border" />
-          <span className="terminal-text text-xs text-[#3a3f55]">o continúa con</span>
-          <div className="flex-1 h-px bg-border" />
+          <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(57,226,230,0.22), transparent)' }} />
+          <span className="terminal-text text-xs text-[#3a4763]">o continúa con</span>
+          <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(57,226,230,0.22), transparent)' }} />
         </div>
 
         {/* Google OAuth */}
@@ -214,7 +273,7 @@ function LoginForm() {
           type="button"
           onClick={handleGoogle}
           disabled={gLoading}
-          className="flex items-center justify-center gap-3 border border-[#1a1d2e] bg-[#0b0d14] hover:border-[#d4af37]/40 px-4 py-2.5 terminal-text text-[#7a7f9a] hover:text-[#e8e9f0] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center gap-3 rounded-lg border border-[#16203a] bg-[#080c15] hover:border-[#39e2e6]/40 hover:bg-[#0b1220] px-4 py-2.5 terminal-text text-[#7d94a8] hover:text-[#e8f2f5] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <GoogleIcon />
           {gLoading ? 'Redirigiendo…' : 'Continuar con Google'}
@@ -282,18 +341,18 @@ function MarketConstellation() {
         return { sx: cx + x * R * s, sy: cy + n.y * R * s * 0.92, z, s, sym: n.sym }
       })
 
-      // Aristas — tinta oscura con profundidad: el frente sale grueso y
-      // marcado, el fondo se desvanece. Fuerte contraste sobre papel claro.
+      // Aristas — trazo cian con profundidad: el frente sale grueso y brillante,
+      // el fondo se desvanece en el negro. Malla luminosa sobre oscuro.
       for (const [a, b] of edges) {
         const A = proj[a], B = proj[b]
         const front = Math.max(0, -(A.z + B.z) / 2) // 0 (fondo) .. ~1 (frente)
-        const alpha = Math.min(0.08 + front * 0.55, 0.66)
-        ctx.strokeStyle = `rgba(23,21,15,${alpha.toFixed(3)})`
-        ctx.lineWidth = 0.5 + front * 1.7
+        const alpha = Math.min(0.05 + front * 0.34, 0.42)
+        ctx.strokeStyle = `rgba(57,226,230,${alpha.toFixed(3)})`
+        ctx.lineWidth = 0.5 + front * 1.6
         ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.stroke()
       }
 
-      // Pulso dorado viajando por una arista (una señal cruzando el motor)
+      // Pulso cian viajando por una arista (una señal cruzando el motor)
       if (!reduced) {
         if (!pulse && ts - lastPulse > 1300) {
           pulse = { edge: edges[Math.floor(Math.random() * edges.length)], t: 0 }
@@ -304,9 +363,9 @@ function MarketConstellation() {
           const A = proj[a], B = proj[b]
           const px = A.sx + (B.sx - A.sx) * pulse.t
           const py = A.sy + (B.sy - A.sy) * pulse.t
-          ctx.fillStyle = 'rgba(184,145,42,0.98)'
-          ctx.shadowColor = 'rgba(184,145,42,0.95)'
-          ctx.shadowBlur = 13
+          ctx.fillStyle = 'rgba(94,234,240,0.98)'
+          ctx.shadowColor = 'rgba(94,234,240,0.95)'
+          ctx.shadowBlur = 14
           ctx.beginPath(); ctx.arc(px, py, 2.8, 0, Math.PI * 2); ctx.fill()
           ctx.shadowBlur = 0
           pulse.t += 0.018
@@ -314,26 +373,26 @@ function MarketConstellation() {
         }
       }
 
-      // Nodos: el frente = tinta sólida con halo dorado; el fondo = bronce
-      // claro difuminado. La profundidad hace que el modelo "salte" del papel.
+      // Nodos: el frente = cian sólido con halo brillante; el fondo = azul
+      // profundo difuminado. La profundidad hace que el modelo flote sobre el negro.
       for (const p of proj) {
         const front = Math.max(0, -p.z) // 0 (fondo) .. 1 (frente)
         const rad = 1.6 + p.s * 2.4
         const t = Math.min(front * 1.1, 1)
-        const cr = Math.round(184 + (23 - 184) * t)
-        const cg = Math.round(145 + (21 - 145) * t)
-        const cb = Math.round(42  + (15 - 42) * t)
-        const alpha = Math.min(0.4 + front * 0.55, 0.98)
+        const cr = Math.round(54  + (94  - 54)  * t)
+        const cg = Math.round(110 + (234 - 110) * t)
+        const cb = Math.round(180 + (240 - 180) * t)
+        const alpha = Math.min(0.35 + front * 0.6, 0.98)
         ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha.toFixed(2)})`
         ctx.beginPath(); ctx.arc(p.sx, p.sy, rad, 0, Math.PI * 2); ctx.fill()
-        // Halo dorado en los nodos del frente
+        // Halo cian en los nodos del frente
         if (front > 0.4) {
-          ctx.strokeStyle = `rgba(184,145,42,${(front * 0.55).toFixed(2)})`
+          ctx.strokeStyle = `rgba(94,234,240,${(front * 0.6).toFixed(2)})`
           ctx.lineWidth = 1
           ctx.beginPath(); ctx.arc(p.sx, p.sy, rad + 2.6, 0, Math.PI * 2); ctx.stroke()
         }
         if (p.z < 0.15) {
-          ctx.fillStyle = `rgba(23,21,15,${(0.3 + front * 0.55).toFixed(2)})`
+          ctx.fillStyle = `rgba(200,232,240,${(0.34 + front * 0.5).toFixed(2)})`
           ctx.font = '10px monospace'
           ctx.fillText(p.sym, p.sx + 7, p.sy + 3)
         }
@@ -423,7 +482,7 @@ function LivePanel() {
             left: '-40%', right: '-40%', bottom: '-70%',
             transform: 'rotateX(62deg)',
             transformOrigin: 'top center',
-            backgroundImage: 'linear-gradient(rgba(23,21,15,0.13) 1px, transparent 1px), linear-gradient(90deg, rgba(23,21,15,0.13) 1px, transparent 1px)',
+            backgroundImage: 'linear-gradient(rgba(57,226,230,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(57,226,230,0.11) 1px, transparent 1px)',
             backgroundSize: '44px 44px',
             animation: 'tronMove 4.5s linear infinite',
             maskImage: 'linear-gradient(to bottom, transparent, black 24%, black 78%, transparent)',
@@ -431,7 +490,7 @@ function LivePanel() {
           }}
         />
         {/* Resplandor del horizonte */}
-        <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(to bottom, rgba(184,145,42,0.12), transparent)' }} />
+        <div className="absolute inset-x-0 top-0 h-14" style={{ background: 'linear-gradient(to bottom, rgba(57,226,230,0.16), transparent)' }} />
       </div>
 
       {/* Capa 3 — contenido (se mueve en contra: profundidad) */}
@@ -441,19 +500,19 @@ function LivePanel() {
           <span className="terminal-text text-[10px] tracking-[0.28em]" style={{ color: '#0a7f52' }}>SIGMA ENGINE · OPERANDO</span>
         </div>
 
-        <h2 className="display-heading text-5xl leading-[0.95] mb-5" style={{ textWrap: 'balance', color: '#17150f' }}>
+        <h2 className="display-heading text-5xl leading-[0.95] mb-5" style={{ textWrap: 'balance', color: '#e8f2f5' }}>
           EL MOTOR<br />
-          <span style={{ color: '#8a6d15' }}>NO DUERME.</span>
+          <span style={{ color: '#39e2e6', textShadow: '0 0 30px rgba(57,226,230,0.45)' }}>NO DUERME.</span>
         </h2>
 
-        <p className="terminal-text text-sm leading-relaxed mb-8" style={{ color: '#514c40' }}>
+        <p className="terminal-text text-sm leading-relaxed mb-8" style={{ color: '#7d94a8' }}>
           3 motores · 16 activos · decisiones validadas out-of-sample, las 24 horas.
         </p>
 
         {live && (
-          <div className="flex flex-wrap gap-x-7 gap-y-2 terminal-text text-xs" style={{ color: '#514c40' }}>
-            <span>RÉGIMEN <span className="font-bold" style={{ color: live.regime?.toUpperCase().includes('BEAR') ? '#c1322f' : live.regime?.toUpperCase().includes('BULL') ? '#0a7f52' : '#8a6d15' }}>{live.regime}</span></span>
-            <span><span className="font-bold" style={{ color: '#17150f' }}>{live.signals}</span> SEÑALES ACTIVAS</span>
+          <div className="flex flex-wrap gap-x-7 gap-y-2 terminal-text text-xs" style={{ color: '#7d94a8' }}>
+            <span>RÉGIMEN <span className="font-bold" style={{ color: live.regime?.toUpperCase().includes('BEAR') ? '#f87171' : live.regime?.toUpperCase().includes('BULL') ? '#34d399' : '#39e2e6' }}>{live.regime}</span></span>
+            <span><span className="font-bold" style={{ color: '#e8f2f5' }}>{live.signals}</span> SEÑALES ACTIVAS</span>
           </div>
         )}
       </div>
@@ -464,17 +523,15 @@ function LivePanel() {
 export default function LoginPage() {
   return (
     <main className="min-h-screen flex" style={{
-      // Degradé de unión: el formulario (izq) sobre tinta oscura funde
-      // suavemente hacia el papel claro del panel del motor (der).
-      // Rampa horizontal pura (90deg): tinta bajo el formulario, papel cálido
-      // estable bajo el contenido del motor (termina en ~58%, el texto empieza
-      // ~57.5%), sin velos encima -> sin costura en el borde del panel.
-      background: 'linear-gradient(90deg, #04050a 0%, #04050a 28%, #0f0e0b 34%, #221e16 39%, #3d372b 44%, #615a49 48%, #8a8270 52%, #b3ab99 55%, #d0cabb 58%, #e0dacb 63%, #e8e2d4 72%, #eae4d7 100%)',
-      // Tokens en oscuro para las clases var-based del formulario (izq).
-      ['--bg' as string]: '#04050a', ['--surface' as string]: '#0b0d14',
-      ['--border' as string]: '#1a1d2e', ['--border-2' as string]: '#252840',
-      ['--gold' as string]: '#d4af37', ['--gold-glow' as string]: '#f0cc5a',
-      ['--text' as string]: '#e8e9f0', ['--text-dim' as string]: '#7a7f9a', ['--text-muted' as string]: '#3a3f55',
+      // Cyan Deck: todo oscuro. El formulario (izq) sobre negro-tinta funde a un
+      // negro-azulado hacia el panel del motor (der), con un halo cian radial
+      // detrás de la constelación 3D — sin costura, todo en la misma familia.
+      background: 'radial-gradient(115% 95% at 82% 42%, rgba(57,226,230,0.10), rgba(79,146,255,0.05) 34%, transparent 60%), linear-gradient(90deg, #04050a 0%, #05060d 42%, #070b16 66%, #08111f 100%)',
+      // Tokens Cyan Deck para las clases var-based del formulario (izq).
+      ['--bg' as string]: '#04050a', ['--surface' as string]: '#0a0e18',
+      ['--border' as string]: '#16203a', ['--border-2' as string]: '#213258',
+      ['--gold' as string]: '#39e2e6', ['--gold-glow' as string]: '#5eeaf0',
+      ['--text' as string]: '#e8f2f5', ['--text-dim' as string]: '#7d94a8', ['--text-muted' as string]: '#3a4763',
       ['--green' as string]: '#1D9E75', ['--red' as string]: '#f87171',
     }}>
 
@@ -484,26 +541,26 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-7 h-7 border border-[#d4af37] flex items-center justify-center">
-              <span className="display-heading text-[#d4af37] text-sm leading-none">Σ</span>
+            <div className="w-7 h-7 border flex items-center justify-center rounded-[3px]" style={{ borderColor: '#39e2e6', boxShadow: '0 0 16px -4px rgba(57,226,230,0.6)' }}>
+              <span className="display-heading text-sm leading-none" style={{ color: '#39e2e6' }}>Σ</span>
             </div>
-            <Link href="/" className="display-heading text-xl tracking-widest text-[#e8e9f0]">
+            <Link href="/" className="display-heading text-xl tracking-widest text-[#e8f2f5]">
               SQUANT DESK
             </Link>
           </div>
 
           {/* Suspense required by useSearchParams in Next.js 14 App Router */}
           <Suspense fallback={
-            <div className="glass-card p-8 flex items-center justify-center">
-              <span className="section-label text-[#7a7f9a]">Cargando…</span>
+            <div className="p-8 flex items-center justify-center rounded-[14px]" style={{ background: 'linear-gradient(180deg, rgba(10,16,26,0.92), rgba(6,10,18,0.96))', border: '1px solid rgba(57,226,230,0.16)' }}>
+              <span className="section-label text-[#7d94a8]">Cargando…</span>
             </div>
           }>
             <LoginForm />
           </Suspense>
 
-          <p className="terminal-text text-center text-[#7a7f9a] mt-6">
+          <p className="terminal-text text-center text-[#7d94a8] mt-6">
             ¿No tienes cuenta?{' '}
-            <Link href="/registro" className="text-[#d4af37] hover:text-[#f0cc5a] transition-colors">
+            <Link href="/registro" className="transition-colors" style={{ color: '#39e2e6' }}>
               CREAR CUENTA
             </Link>
           </p>
@@ -512,7 +569,7 @@ export default function LoginPage() {
           <div className="mt-10 flex justify-center">
             <Link
               href="/admin"
-              className="terminal-text text-xs text-[#3a3f55] hover:text-[#d4af37] transition-colors duration-300 select-none tracking-widest"
+              className="terminal-text text-xs text-[#3a4763] hover:text-[#39e2e6] transition-colors duration-300 select-none tracking-widest"
               tabIndex={-1}
             >
               · · ·
