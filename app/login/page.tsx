@@ -283,6 +283,7 @@ function MarketConstellation() {
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let angle = 0.6
+    let tphase = 0.9 // fase de la inclinación (cabeceo) — arranca ya inclinada
     let rafId = 0
 
     function resize() {
@@ -299,14 +300,19 @@ function MarketConstellation() {
       if (!canvas || !ctx) return
       const w = canvas.clientWidth, h = canvas.clientHeight
       ctx.clearRect(0, 0, w, h)
-      const R  = Math.min(w, h) * 0.42
-      const cx = w * 0.50, cy = h * 0.44
-      const cos = Math.cos(angle), sin = Math.sin(angle)
+      const R  = Math.min(w, h) * 0.40
+      const cx = w * 0.56, cy = h * 0.46
+      const cosA = Math.cos(angle), sinA = Math.sin(angle)
+      const beta = 0.30 * Math.sin(tphase) // cabeceo lento en el eje X
+      const cosB = Math.cos(beta), sinB = Math.sin(beta)
       const proj = nodes.map(n => {
-        const x = n.x * cos + n.z * sin
-        const z = -n.x * sin + n.z * cos
-        const s = 1.6 / (1.6 + z)
-        return { sx: cx + x * R * s, sy: cy + n.y * R * s * 0.92, z, s, sym: n.sym }
+        // rotación Y (giro) seguida de inclinación X (cabeceo) → volumen real
+        const x1 = n.x * cosA + n.z * sinA
+        const z1 = -n.x * sinA + n.z * cosA
+        const y2 = n.y * cosB - z1 * sinB
+        const z2 = n.y * sinB + z1 * cosB
+        const s  = 1.7 / (1.7 + z2)
+        return { sx: cx + x1 * R * s, sy: cy + y2 * R * s * 0.92, z: z2, s, sym: n.sym }
       })
 
       // Aristas — malla tenue: casi imperceptible al fondo, apenas marcada al
@@ -339,7 +345,7 @@ function MarketConstellation() {
         }
       }
 
-      if (!reduced) angle += 0.0006 // rotación muy lenta, casi contemplativa
+      if (!reduced) { angle += 0.0006; tphase += 0.0042 } // giro lento + cabeceo aún más lento
       rafId = requestAnimationFrame(frame)
     }
     rafId = requestAnimationFrame(frame)
@@ -403,18 +409,30 @@ function LivePanel() {
       onMouseLeave={onLeave}
       className="hidden lg:flex relative w-[46%] overflow-hidden items-center"
     >
-      {/* Retícula técnica de fondo — muy tenue, quieta */}
+      {/* Retícula técnica de fondo — muy tenue, quieta, difuminada al entrar */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'linear-gradient(rgba(120,160,185,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(120,160,185,0.05) 1px, transparent 1px)',
+        backgroundImage: 'linear-gradient(rgba(120,160,185,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(120,160,185,0.045) 1px, transparent 1px)',
         backgroundSize: '52px 52px',
-        maskImage: 'radial-gradient(120% 90% at 70% 45%, black, transparent 75%)',
-        WebkitMaskImage: 'radial-gradient(120% 90% at 70% 45%, black, transparent 75%)',
+        maskImage: 'linear-gradient(90deg, transparent 0, black 30%), radial-gradient(120% 95% at 72% 45%, black, transparent 78%)',
+        WebkitMaskImage: 'linear-gradient(90deg, transparent 0, black 30%), radial-gradient(120% 95% at 72% 45%, black, transparent 78%)',
+        WebkitMaskComposite: 'source-in',
+        maskComposite: 'intersect',
       }} />
 
-      {/* Capa 1 — constelación de mercados en 3D (tenue) */}
-      <div ref={constRef} className="absolute inset-0" style={layerStyle}>
+      {/* Capa 1 — constelación de mercados en 3D (tenue, entra difuminada) */}
+      <div ref={constRef} className="absolute inset-0" style={{
+        ...layerStyle,
+        maskImage: 'linear-gradient(90deg, transparent 0, black 28%)',
+        WebkitMaskImage: 'linear-gradient(90deg, transparent 0, black 28%)',
+      }}>
         <MarketConstellation />
       </div>
+
+      {/* Velo de unión — la tinta del formulario sangra hacia el panel para
+          fundir la costura entre ambas mitades (sin borde duro). */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'linear-gradient(90deg, #04050a 0%, rgba(4,5,10,0.55) 16%, rgba(4,5,10,0) 36%)',
+      }} />
 
       {/* Capa 2 — contenido (se mueve en contra: profundidad) */}
       <div ref={contentRef} className="relative z-10 max-w-sm pl-14 pr-8" style={layerStyle}>
@@ -446,10 +464,10 @@ function LivePanel() {
 export default function LoginPage() {
   return (
     <main className="min-h-screen flex" style={{
-      // Cyan Deck: todo oscuro. El formulario (izq) sobre negro-tinta funde a un
-      // negro-azulado hacia el panel del motor (der), con un halo cian radial
-      // detrás de la constelación 3D — sin costura, todo en la misma familia.
-      background: 'radial-gradient(115% 95% at 82% 42%, rgba(57,226,230,0.10), rgba(79,146,255,0.05) 34%, transparent 60%), linear-gradient(90deg, #04050a 0%, #05060d 42%, #070b16 66%, #08111f 100%)',
+      // Cyan Deck: todo oscuro. Ramp horizontal muy gradual (sin escalones) del
+      // negro-tinta del formulario al negro-azulado del panel, con un halo cian
+      // amplio y difuso detrás de la constelación. La unión se difumina abajo.
+      background: 'radial-gradient(150% 130% at 90% 46%, rgba(57,226,230,0.08), rgba(79,146,255,0.035) 42%, transparent 68%), linear-gradient(90deg, #04050a 0%, #04060c 38%, #05080f 58%, #060b15 78%, #07101a 100%)',
       // Tokens Cyan Deck para las clases var-based del formulario (izq).
       ['--bg' as string]: '#04050a', ['--surface' as string]: '#0a0e18',
       ['--border' as string]: '#16203a', ['--border-2' as string]: '#213258',
@@ -459,7 +477,7 @@ export default function LoginPage() {
     }}>
 
       {/* ── Columna del formulario ── */}
-      <div className="flex-1 bg-grid-pattern bg-grid flex items-center justify-center px-4 py-12">
+      <div className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
         <div className="w-full max-w-md">
 
           {/* Logo */}
