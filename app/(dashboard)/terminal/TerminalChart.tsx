@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react'
 import { createChart, ColorType, CrosshairMode, AreaSeries, LineSeries } from 'lightweight-charts'
 
-const C = { bg: '#04050a', border: '#1a1d2e', gold: '#39e2e6', surface: '#0b0d14', dimText: '#7a7f9a', text: '#e8e9f0' }
+const C = { bg: '#04050a', border: '#1a1d2e', gold: '#39e2e6', glow: '#5eeaf0', surface: '#0b0d14', dimText: '#7a7f9a', text: '#e8e9f0' }
 
 const fmt = (v: number) =>
   v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
@@ -23,14 +23,14 @@ export default function TerminalChart({ labels, total, platforms }: Props) {
       width:  containerRef.current.clientWidth,
       height: 320,
       layout: {
-        background: { type: ColorType.Solid, color: C.bg },
+        background: { type: ColorType.VerticalGradient, topColor: '#081324', bottomColor: '#04070f' },
         textColor: C.dimText,
         fontFamily: 'monospace',
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: C.border },
-        horzLines: { color: C.border },
+        vertLines: { color: 'rgba(57,226,230,0.045)' },
+        horzLines: { color: 'rgba(57,226,230,0.055)' },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -50,11 +50,11 @@ export default function TerminalChart({ labels, total, platforms }: Props) {
     const toTime = (i: number) =>
       Math.floor((now - (labels.length - 1 - i) * 30 * 24 * 3600 * 1000) / 1000) as unknown as import('lightweight-charts').Time
 
-    // Serie principal — total patrimonio (área dorada) — API v5
+    // Serie principal — total patrimonio (área acento) — API v5
     const totalSeries = chart.addSeries(AreaSeries, {
-      lineColor: C.gold,
-      topColor: C.gold + '28',
-      bottomColor: C.gold + '04',
+      lineColor: C.glow,
+      topColor: 'rgba(57,226,230,0.22)',
+      bottomColor: 'rgba(57,226,230,0.00)',
       lineWidth: 2,
       priceFormat: { type: 'custom', formatter: fmt },
     })
@@ -88,8 +88,31 @@ export default function TerminalChart({ labels, total, platforms }: Props) {
   }, [labels, total, platforms])
 
   return (
-    <div style={{ background: C.bg, padding: '12px 0 4px' }}>
+    <div style={{ position: 'relative' }}>
+      {/* Leyenda — total + plataformas */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: '6px 16px',
+        padding: '10px 14px 8px',
+        background: 'linear-gradient(180deg, #081324, rgba(8,19,36,0))',
+      }}>
+        {[{ name: 'TOTAL', color: C.glow }, ...platforms].map(p => (
+          <span key={p.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 2, background: p.color, borderRadius: 1, flexShrink: 0 }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.12em', color: p.name === 'TOTAL' ? C.text : C.dimText, textTransform: 'uppercase' }}>
+              {p.name}
+            </span>
+          </span>
+        ))}
+      </div>
       <div ref={containerRef} style={{ width: '100%' }} />
+      {/* Watermark Σ — decorativo, no intercepta el mouse */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none', zIndex: 1,
+      }}>
+        <span style={{ fontFamily: "var(--font-bebas,'Bebas Neue',Impact,sans-serif)", fontSize: 90, lineHeight: 1, color: 'rgba(57,226,230,0.04)' }}>Σ</span>
+      </div>
     </div>
   )
 }

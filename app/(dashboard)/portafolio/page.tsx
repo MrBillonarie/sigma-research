@@ -312,10 +312,19 @@ interface PassivePosition {
 type PortfolioRow = Record<string, number>
 
 const inputStyle: React.CSSProperties = {
-  background: C.bg, border: `1px solid ${C.border}`, outline: 'none',
+  background: C.bg, border: `1px solid ${C.border}`, outline: 'none', borderRadius: 8,
   color: C.text, fontFamily: 'monospace', fontSize: 13, padding: '8px 12px',
   fontVariantNumeric: 'tabular-nums', width: '100%',
 }
+
+// Filo cian superior — mismo detalle de las cards del HUD/Terminal
+const FILO: React.CSSProperties = {
+  height: 2,
+  background: 'linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%)',
+}
+
+// Cabecera de card con gradiente sutil (mismo patrón de la toolbar del Terminal)
+const CARD_HEAD_BG = 'linear-gradient(90deg, rgba(57,226,230,0.05), rgba(255,255,255,0.015) 45%)'
 
 // ─── Main page ───────────────────────────���──────────────────────────────���─────
 export default function PortfolioPage() {
@@ -628,6 +637,42 @@ export default function PortfolioPage() {
           -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
           mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); }
 
+        /* ── Botones — lenguaje Cyan Deck ── */
+        .pf-cta {
+          font-family: monospace; letter-spacing: .2em; cursor: pointer;
+          border: none; border-radius: 8px; color: #04050a;
+          background: linear-gradient(100deg, #5eeaf0, #4f92ff);
+          box-shadow: 0 0 18px rgba(57,226,230,0.22);
+          transition: filter .15s, box-shadow .15s;
+        }
+        .pf-cta:hover:not(:disabled) { filter: brightness(1.12); box-shadow: 0 0 28px rgba(57,226,230,0.35); }
+        .pf-cta:disabled { opacity: .4; cursor: default; }
+        .pf-ghost {
+          font-family: monospace; cursor: pointer; border-radius: 8px;
+          background: transparent; border: 1px solid ${C.border}; color: ${C.dimText};
+          transition: border-color .15s, color .15s, box-shadow .15s;
+        }
+        .pf-ghost:hover { border-color: rgba(57,226,230,0.55); color: ${C.glow}; box-shadow: 0 0 14px rgba(57,226,230,0.14); }
+        .pf-ghost-accent {
+          font-family: monospace; cursor: pointer; border-radius: 8px;
+          background: transparent; border: 1px solid ${C.gold}66; color: ${C.gold};
+          transition: border-color .15s, box-shadow .15s, background .15s;
+        }
+        .pf-ghost-accent:hover { border-color: ${C.gold}; background: rgba(57,226,230,0.08); box-shadow: 0 0 18px rgba(57,226,230,0.18); }
+        .pf-opt {
+          padding: 8px 16px; font-family: monospace; font-size: 11px; letter-spacing: .08em;
+          background: transparent; border: 1px solid ${C.border}; color: ${C.dimText};
+          cursor: pointer; border-radius: 8px;
+          transition: border-color .15s, color .15s, background .15s, box-shadow .15s;
+        }
+        .pf-opt:hover { border-color: ${C.border2}; color: ${C.text}; }
+        .pf-opt.on {
+          border-color: rgba(57,226,230,0.55);
+          background: linear-gradient(180deg, rgba(57,226,230,0.16), rgba(57,226,230,0.04));
+          color: ${C.glow};
+          box-shadow: 0 0 14px rgba(57,226,230,0.14);
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .pf-rv { opacity: 1; transform: none; transition: none; }
           .pf-vault { transform: none !important; }
@@ -649,7 +694,7 @@ export default function PortfolioPage() {
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: C.surface, border: `1px solid ${C.border}` }}>
+            <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', backgroundColor: C.surface, backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.008))' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: C.dimText }}>TRM CLP/USD</span>
                 <span style={{ fontFamily: 'monospace', fontSize: 9, color: trmLive ? C.green : C.muted, letterSpacing: '0.1em' }}>
@@ -659,7 +704,7 @@ export default function PortfolioPage() {
               <input
                 type="number" value={trm} min={1}
                 onChange={e => { setTrm(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value) || 0))); setTrmLive(false) }}
-                style={{ width: 80, background: C.bg, border: `1px solid ${C.gold}44`, color: C.gold, fontFamily: 'monospace', fontSize: 13, padding: '4px 8px', outline: 'none', textAlign: 'right' }}
+                style={{ width: 80, background: C.bg, border: `1px solid ${C.gold}44`, borderRadius: 6, color: C.gold, fontFamily: 'monospace', fontSize: 13, padding: '4px 8px', outline: 'none', textAlign: 'right' }}
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -668,7 +713,7 @@ export default function PortfolioPage() {
                   Guardado {new Date(lastSaved).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
-              <button onClick={openModal} style={{ padding: '10px 22px', border: `1px solid ${C.gold}`, background: 'transparent', color: C.gold, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', cursor: 'pointer' }}>
+              <button onClick={openModal} className="pf-ghost-accent" style={{ padding: '10px 22px', fontSize: 11, letterSpacing: '0.2em' }}>
                 EDITAR PORTAFOLIO
               </button>
             </div>
@@ -696,9 +741,9 @@ export default function PortfolioPage() {
             </div>
           </div>
         ) : !hasSavedData ? (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: '48px', textAlign: 'center' }}>
+          <div style={{ ...heroCardStyle, padding: '48px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginBottom: 20 }}>No tienes datos de portafolio guardados todavía.</div>
-            <button onClick={openModal} style={{ padding: '12px 28px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: 'none', cursor: 'pointer' }}>
+            <button onClick={openModal} className="pf-cta" style={{ padding: '12px 28px', fontSize: 12 }}>
               CONFIGURAR PORTAFOLIO
             </button>
           </div>
@@ -757,7 +802,8 @@ export default function PortfolioPage() {
             {/* ── 3. CAPITAL EVOLUTION CHART ── */}
             <Reveal>
             <div style={{ ...cardStyle, background: C.surface, marginBottom: 24, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}` }}>
+              <div style={FILO} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: CARD_HEAD_BG }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>EVOLUCIÓN DE CAPITAL · 24 MESES</span>
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>base: USD equiv. · curva estimada hasta sync</span>
               </div>
@@ -786,8 +832,9 @@ export default function PortfolioPage() {
             <style>{`@keyframes skp{0%{background-position:-200% 0}100%{background-position:200% 0}}.skp{background:linear-gradient(90deg,${C.border} 25%,${C.surface} 50%,${C.border} 75%);background-size:200% 100%;animation:skp 1.4s ease infinite;border-radius:2px}`}</style>
             <Reveal>
             <div style={{ ...cardStyle, marginBottom: 24, overflow: 'hidden' }}>
-              <div style={{ background: C.surface, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+              <div style={FILO} />
+              <div style={{ background: C.surface, backgroundImage: CARD_HEAD_BG, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444', flexShrink: 0 }} />
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>BINANCE FUTURES · POSICIONES ABIERTAS</span>
               </div>
               <div style={{ background: C.bg, padding: '16px 18px' }}>
@@ -842,8 +889,9 @@ export default function PortfolioPage() {
             {/* ── 6. BINANCE SPOT BALANCES ── */}
             <Reveal>
             <div style={{ ...cardStyle, marginBottom: 40, overflow: 'hidden' }}>
-              <div style={{ background: C.surface, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
+              <div style={FILO} />
+              <div style={{ background: C.surface, backgroundImage: CARD_HEAD_BG, padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 8px #f59e0b', flexShrink: 0 }} />
                 <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>BINANCE SPOT · BALANCES</span>
               </div>
               <div style={{ background: C.bg, padding: '16px 18px' }}>
@@ -880,6 +928,7 @@ export default function PortfolioPage() {
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>DETALLE POR PLATAFORMA</SectionTitle>
               <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden', overflowX: 'auto' }}>
+                <div style={FILO} />
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -969,7 +1018,11 @@ export default function PortfolioPage() {
                     {pct(fireAnim)}
                   </div>
                   <div style={{ height: 6, background: C.border, borderRadius: 3, marginBottom: 14 }}>
-                    <div style={{ width: `${fireAnim}%`, height: '100%', borderRadius: 3, background: D.firePct >= 100 ? C.green : `linear-gradient(90deg,${C.gold},${C.glow})` }} />
+                    <div style={{
+                      width: `${fireAnim}%`, height: '100%', borderRadius: 3,
+                      background: D.firePct >= 100 ? C.green : `linear-gradient(90deg,${C.goldDim},${C.gold},${C.glow})`,
+                      boxShadow: `0 0 12px ${D.firePct >= 100 ? C.green : C.gold}66`,
+                    }} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>
                     <span>Actual: <span style={{ color: C.text }}>{fmtUSD(D.totalUSD)}</span></span>
@@ -1026,7 +1079,7 @@ export default function PortfolioPage() {
                     ].map(opt => (
                       <button key={opt.value}
                         onClick={() => setQuizAnswers(a => ({ ...a, horizonte: opt.value }))}
-                        style={{ padding: '8px 16px', background: quizAnswers.horizonte === opt.value ? C.gold + '20' : 'transparent', border: `1px solid ${quizAnswers.horizonte === opt.value ? C.gold : C.border}`, color: quizAnswers.horizonte === opt.value ? C.gold : C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer', letterSpacing: '0.08em' }}>
+                        className={`pf-opt${quizAnswers.horizonte === opt.value ? ' on' : ''}`}>
                         {opt.label}
                       </button>
                     ))}
@@ -1046,7 +1099,7 @@ export default function PortfolioPage() {
                     ].map(opt => (
                       <button key={opt.value}
                         onClick={() => setQuizAnswers(a => ({ ...a, reaccion: opt.value }))}
-                        style={{ padding: '8px 16px', background: quizAnswers.reaccion === opt.value ? C.gold + '20' : 'transparent', border: `1px solid ${quizAnswers.reaccion === opt.value ? C.gold : C.border}`, color: quizAnswers.reaccion === opt.value ? C.gold : C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer', letterSpacing: '0.08em' }}>
+                        className={`pf-opt${quizAnswers.reaccion === opt.value ? ' on' : ''}`}>
                         {opt.label}
                       </button>
                     ))}
@@ -1066,7 +1119,7 @@ export default function PortfolioPage() {
                     ].map(opt => (
                       <button key={opt.value}
                         onClick={() => setQuizAnswers(a => ({ ...a, objetivo: opt.value }))}
-                        style={{ padding: '8px 16px', background: quizAnswers.objetivo === opt.value ? C.gold + '20' : 'transparent', border: `1px solid ${quizAnswers.objetivo === opt.value ? C.gold : C.border}`, color: quizAnswers.objetivo === opt.value ? C.gold : C.dimText, fontFamily: 'monospace', fontSize: 11, cursor: 'pointer', letterSpacing: '0.08em' }}>
+                        className={`pf-opt${quizAnswers.objetivo === opt.value ? ' on' : ''}`}>
                         {opt.label}
                       </button>
                     ))}
@@ -1076,7 +1129,7 @@ export default function PortfolioPage() {
                 <button
                   disabled={!quizAnswers.horizonte || !quizAnswers.reaccion || !quizAnswers.objetivo}
                   onClick={() => setQuizResult(calcProfile(quizAnswers))}
-                  style={{ padding: '12px 32px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: 'none', cursor: 'pointer', opacity: (!quizAnswers.horizonte || !quizAnswers.reaccion || !quizAnswers.objetivo) ? 0.4 : 1 }}>
+                  className="pf-cta" style={{ padding: '12px 32px', fontSize: 12 }}>
                   VER MI PERFIL →
                 </button>
               </div>
@@ -1091,7 +1144,7 @@ export default function PortfolioPage() {
                   </div>
                   <button
                     onClick={() => { setQuizResult(null); setQuizAnswers({ horizonte: '', reaccion: '', objetivo: '' }) }}
-                    style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: C.dimText, background: 'transparent', border: `1px solid ${C.border}`, padding: '5px 14px', cursor: 'pointer' }}>
+                    className="pf-ghost" style={{ fontSize: 10, letterSpacing: '0.15em', padding: '5px 14px' }}>
                     REPETIR TEST
                   </button>
                 </div>
@@ -1106,6 +1159,13 @@ export default function PortfolioPage() {
                   <div>
                     <div style={{ position: 'relative', width: '100%', height: 200, marginBottom: 16 }}>
                       <canvas ref={donutRef} />
+                      {/* Centro del donut — perfil activo */}
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', gap: 2 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.3em', color: C.muted }}>PERFIL</span>
+                        <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, letterSpacing: '0.08em', color: activeProfile.badgeColor, textShadow: numberEmboss }}>
+                          {activeProfile.label.toUpperCase()}
+                        </span>
+                      </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {activeProfile.allocation.map(a => (
@@ -1120,7 +1180,8 @@ export default function PortfolioPage() {
 
                   {/* Comparison table */}
                   <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
+                    <div style={FILO} />
+                    <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: CARD_HEAD_BG }}>
                       <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>RECOMENDADO vs. TU CARTERA ACTUAL</span>
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -1210,11 +1271,11 @@ export default function PortfolioPage() {
             )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={savePortfolio} disabled={saving}
-                style={{ flex: 1, padding: '12px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: 'none', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                className="pf-cta" style={{ flex: 1, padding: '12px', fontSize: 12, opacity: saving ? 0.6 : 1 }}>
                 {saving ? 'GUARDANDO…' : 'GUARDAR'}
               </button>
               <button onClick={() => setModalOpen(false)}
-                style={{ padding: '12px 20px', background: 'transparent', color: C.dimText, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.2em', border: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                className="pf-ghost" style={{ padding: '12px 20px', fontSize: 12, letterSpacing: '0.2em' }}>
                 CANCELAR
               </button>
             </div>
