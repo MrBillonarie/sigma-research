@@ -440,6 +440,20 @@ export default function MisReportesPage() {
   const [genStep,     setGenStep]     = useState(-1)   // -1 idle · 0..n paso actual · n+ = listo
   const [userEmail,   setUserEmail]   = useState('')
   const [portfolio,   setPortfolio]   = useState<PortfolioRow | null>(null)
+  const [isPro,       setIsPro]       = useState(false)
+
+  // Regla de planes: reportes semanales; free = la primera edición de cada mes.
+  // (Espejo del check server-side en /api/reportes/[id]/download — el server manda.)
+  const freeIds = (() => {
+    const byMonth = new Map<string, ReporteRow>()
+    for (const r of reportes) {
+      const m = r.fecha?.slice(0, 7) ?? ''
+      if (!m) continue
+      const cur = byMonth.get(m)
+      if (!cur || r.fecha < cur.fecha || (r.fecha === cur.fecha && r.numero < cur.numero)) byMonth.set(m, r)
+    }
+    return new Set(Array.from(byMonth.values()).map(r => r.id))
+  })()
 
   const totalPatrimonio = portfolio
     ? Object.keys(PLATFORM_LABELS).reduce((s, k) => s + ((portfolio as unknown as Record<string, number>)[k] ?? 0), 0)
@@ -450,6 +464,8 @@ export default function MisReportesPage() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { setLoading(false); return }
       setUserEmail(data.user.email ?? '')
+      const plan = (data.user.app_metadata?.plan as string) ?? 'free'
+      setIsPro(plan === 'pro' || plan === 'anual')
 
       const [reportesRes, portfolioRes] = await Promise.all([
         supabase.from('reportes').select('id,numero,titulo,fecha,descripcion,url_pdf').eq('activo', true).order('numero', { ascending: false }),
@@ -577,9 +593,11 @@ export default function MisReportesPage() {
         <div style={{ marginBottom: 1 }}>
           <div style={{ background: C.surface, padding: '12px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.gold }}>
-              REPORTES PUBLICADOS · DESCARGA
+              REPORTES PUBLICADOS · RESEARCH SEMANAL
             </span>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted }}>PLAN PRO</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: isPro ? C.gold : C.muted }}>
+              PLAN {isPro ? 'PRO' : 'FREE · 1 REPORTE/MES'}
+            </span>
           </div>
 
           {loading ? (
@@ -599,29 +617,32 @@ export default function MisReportesPage() {
             <div style={{ background: C.bg, padding: '28px 24px 20px', borderTop: 'none' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 20 }}>
                 {reportes.map(r => {
-                  const disponible = !!r.url_pdf
+                  const unlocked   = isPro || freeIds.has(r.id)
+                  const disponible = !!r.url_pdf && unlocked
+                  const lockedPro  = !!r.url_pdf && !unlocked
                   const num        = String(r.numero).padStart(3, '0')
-                  const fileName   = `SIGMA_Reporte_Mensual_#${num}_${r.fecha?.slice(0, 7) ?? ''}.pdf`
+                  const fileName   = `SIGMA_Reporte_#${num}_${r.fecha?.slice(0, 7) ?? ''}.pdf`
                   return (
                     <div key={r.id} className={`rep-card${disponible ? ' avail' : ''}`} style={{
                       position: 'relative', display: 'flex', flexDirection: 'column',
-                      background: disponible ? 'linear-gradient(180deg,#0c0e16,#07080d)' : '#08090e',
-                      border: disponible ? `1px solid ${C.border}` : `1px dashed rgba(107,114,128,0.35)`,
+                      background: disponible || lockedPro ? 'linear-gradient(180deg,#0c0e16,#07080d)' : '#08090e',
+                      border: disponible ? `1px solid ${C.border}` : lockedPro ? '1px solid rgba(255,180,84,0.25)' : `1px dashed rgba(107,114,128,0.35)`,
                       padding: '16px 16px 14px', minHeight: 250, overflow: 'hidden',
                     }}>
-                      {/* filo dorado superior solo si está disponible */}
+                      {/* filo superior: cian si está disponible, ámbar si es exclusivo PRO */}
                       {disponible && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C.gold},#2f6bd6)` }} />}
+                      {lockedPro && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg,#ffb454,transparent 70%)' }} />}
                       {/* Σ marca de agua */}
                       <div aria-hidden style={{ position: 'absolute', right: -6, bottom: -18, fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 120, lineHeight: 1, color: disponible ? 'rgba(57,226,230,0.05)' : 'rgba(139,143,168,0.05)', pointerEvents: 'none' }}>Σ</div>
                       {/* cinta de estado */}
                       <span style={{
                         position: 'absolute', top: disponible ? 10 : 8, right: 10,
                         fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.16em', padding: '3px 8px',
-                        background: disponible ? 'rgba(57,226,230,0.12)' : 'rgba(107,114,128,0.12)',
-                        color:      disponible ? C.gold : '#6b7280',
-                        border:     `1px solid ${disponible ? 'rgba(57,226,230,0.3)' : 'rgba(107,114,128,0.2)'}`,
+                        background: disponible ? 'rgba(57,226,230,0.12)' : lockedPro ? 'rgba(255,180,84,0.10)' : 'rgba(107,114,128,0.12)',
+                        color:      disponible ? C.gold : lockedPro ? '#ffb454' : '#6b7280',
+                        border:     `1px solid ${disponible ? 'rgba(57,226,230,0.3)' : lockedPro ? 'rgba(255,180,84,0.3)' : 'rgba(107,114,128,0.2)'}`,
                       }}>
-                        {disponible ? 'DISPONIBLE' : 'PRÓXIMAMENTE'}
+                        {disponible ? 'DISPONIBLE' : lockedPro ? '🔒 PRO' : 'PRÓXIMAMENTE'}
                       </span>
 
                       <div style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.2em', color: C.muted, marginBottom: 10 }}>EDICIÓN</div>
@@ -643,11 +664,19 @@ export default function MisReportesPage() {
                               style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                               ↓ DESCARGAR
                             </a>
-                            <a href={r.url_pdf} target="_blank" rel="noopener noreferrer" title="Visualizar en el navegador"
+                            <a href={`/api/reportes/${r.id}/download?inline=1`} target="_blank" rel="noopener noreferrer" title="Visualizar en el navegador"
                               style={{ padding: '8px 12px', background: 'transparent', color: C.dimText, border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                               VER
                             </a>
                           </>
+                        ) : lockedPro ? (
+                          <a href="/planes" style={{
+                            flex: 1, textAlign: 'center', padding: '8px 0',
+                            fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none',
+                            color: '#ffb454', border: '1px solid rgba(255,180,84,0.35)', whiteSpace: 'nowrap',
+                          }}>
+                            🔒 ACTIVAR PRO →
+                          </a>
                         ) : (
                           <span style={{ flex: 1, textAlign: 'center', padding: '8px 0', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', color: C.muted, border: `1px dashed ${C.border}` }}>
                             EN PREPARACIÓN

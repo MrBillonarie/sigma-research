@@ -14,9 +14,11 @@ function makeServiceClient() {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
+  // ?inline=1 → abrir en el navegador (botón VER); default → descarga
+  const inline = new URL(req.url).searchParams.get('inline') === '1'
   // Plan via helper compartido (lib/plan.ts) — getUser() ya trae app_metadata
   // fresco del servidor de auth, sin necesidad del lookup admin por service role
   const { userId, isPro } = await getPlanInfo()
@@ -40,17 +42,28 @@ export async function GET(
     return NextResponse.json({ error: 'PDF aún no disponible.' }, { status: 404 })
   }
 
-  // Plan MENSUAL: solo el más reciente; PRO/ANUAL: todos
+  // Regla de planes (2026-07-09): los reportes se publican semanalmente.
+  // FREE: 1 reporte al mes — la primera edición de cada mes calendario.
+  // PRO/ANUAL: todas las ediciones + hemeroteca completa.
   if (!isPro) {
-    const { data: latest } = await service
-      .from('reportes')
-      .select('id')
-      .eq('activo', true)
-      .order('numero', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (latest && latest.id !== params.id) {
-      return NextResponse.json({ error: 'Tu plan solo incluye el reporte más reciente.' }, { status: 403 })
+    const month = (reporte.fecha as string | null)?.slice(0, 7) ?? ''
+    const { data: monthFirst } = month
+      ? await service
+          .from('reportes')
+          .select('id')
+          .eq('activo', true)
+          .gte('fecha', `${month}-01`)
+          .lte('fecha', `${month}-31`)
+          .order('fecha',  { ascending: true })
+          .order('numero', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : { data: null }
+    if (!monthFirst || monthFirst.id !== params.id) {
+      return NextResponse.json(
+        { error: 'Tu plan incluye 1 reporte al mes (la primera edición). Las ediciones semanales son del plan PRO.' },
+        { status: 403 }
+      )
     }
   }
 
@@ -77,7 +90,7 @@ export async function GET(
   return new NextResponse(pdfRes.body, {
     headers: {
       'Content-Type':              'application/pdf',
-      'Content-Disposition':       `attachment; filename="${fileName}"`,
+      'Content-Disposition':       `${inline ? 'inline' : 'attachment'}; filename="${fileName}"`,
       'X-Content-Type-Options':    'nosniff',
       'Cache-Control':             'private, no-cache, no-store',
       'Content-Security-Policy':   "default-src 'none'",
