@@ -19,6 +19,7 @@ const AllocationDonut = dynamic(() => import('./components/AllocationDonut'), {
 
 const STORAGE_KEY   = 'sigma_motor_profile'
 const AUTO_INTERVAL = 30 * 60 * 1000
+const MONO = 'var(--font-dm-mono, monospace)'   // versión a nivel de módulo para los componentes free
 
 // ─── CountUp — encendido de cifras ────────────────────────────────────────────
 function useCountUp(target: number, dur = 1300) {
@@ -63,6 +64,77 @@ function Reveal({ children }: { children: React.ReactNode }) {
     return () => io.disconnect()
   }, [])
   return <div ref={ref} className={on ? 'md-rv md-rv-in' : 'md-rv'}>{children}</div>
+}
+
+// ─── Vista free — "solo dirección" (el sizing/allocation es PRO) ──────────────
+const SIG_META: Record<string, { lbl: string; c: string }> = {
+  comprar:  { lbl: 'COMPRAR',  c: '#1D9E75' },
+  reducir:  { lbl: 'REDUCIR',  c: '#f87171' },
+  mantener: { lbl: 'MANTENER', c: '#7a7f9a' },
+  neutral:  { lbl: 'NEUTRAL',  c: '#7a7f9a' },
+}
+
+function LockPanel({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div style={{
+      background: 'linear-gradient(180deg, rgba(255,180,84,0.05), #0b0d14 60%)',
+      border: '1px solid rgba(255,180,84,0.25)', borderRadius: 12,
+      padding: '28px 24px', textAlign: 'center',
+    }}>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: '#ffb454', letterSpacing: '0.12em', marginBottom: 8 }}>🔒 {title}</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, color: '#7a7f9a', lineHeight: 1.7, maxWidth: 460, margin: '0 auto 14px' }}>{sub}</div>
+      <a href="/planes" style={{
+        display: 'inline-block', fontFamily: MONO, fontSize: 10, letterSpacing: '0.18em',
+        color: '#ffb454', border: '1px solid rgba(255,180,84,0.35)', borderRadius: 6,
+        padding: '9px 20px', textDecoration: 'none',
+      }}>ACTIVAR PRO →</a>
+    </div>
+  )
+}
+
+function FreeDirectionTable({ data }: { data: SignalsResponse }) {
+  const rows = [...data.signals].sort((a, b) => {
+    const order = (s: string) => (s === 'comprar' ? 0 : s === 'reducir' ? 1 : 2)
+    return order(a.signal) - order(b.signal)
+  })
+  return (
+    <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 12, overflow: 'hidden', overflowX: 'auto' }}>
+      <div style={{ height: 2, background: 'linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%)' }} />
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+        <thead>
+          <tr style={{ background: '#0e1019' }}>
+            {['Activo', 'Señal', '30D', '90D', '1A'].map((h, i) => (
+              <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '11px 16px', fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: '#7a7f9a', fontWeight: 400, borderBottom: '1px solid #252840' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(a => {
+            const m = SIG_META[a.signal] ?? SIG_META.neutral
+            const ret = (v: number) => <span style={{ fontFamily: MONO, fontSize: 11, color: v > 0 ? '#1D9E75' : v < 0 ? '#f87171' : '#7a7f9a' }}>{v > 0 ? '+' : ''}{v.toFixed(1)}%</span>
+            return (
+              <tr key={a.id} style={{ borderBottom: '1px solid #1a1d2e' }}>
+                <td style={{ padding: '10px 16px' }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: '#e8e9f0' }}>{a.ticker ?? a.name}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: '#6b7688' }}>{a.category ?? a.assetClass}</div>
+                </td>
+                <td style={{ padding: '10px 16px', textAlign: 'right' }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: m.c, background: `${m.c}18`, border: `1px solid ${m.c}40`, borderRadius: 4, padding: '2px 8px', letterSpacing: '0.06em' }}>{m.lbl}</span>
+                </td>
+                <td style={{ padding: '10px 16px', textAlign: 'right' }}>{ret(a.return30d)}</td>
+                <td style={{ padding: '10px 16px', textAlign: 'right' }}>{ret(a.return90d)}</td>
+                <td style={{ padding: '10px 16px', textAlign: 'right' }}>{ret(a.return1y)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid #1a1d2e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: '#7a7f9a' }}>🔒 Sizing, score, EV y montos sugeridos por activo — plan PRO</span>
+        <a href="/planes" style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.16em', color: '#ffb454', textDecoration: 'none', whiteSpace: 'nowrap' }}>VER SEÑAL COMPLETA →</a>
+      </div>
+    </div>
+  )
 }
 
 function LoadingSkeleton() {
@@ -139,7 +211,6 @@ export default function MotorDecisionPage() {
     try { localStorage.setItem(STORAGE_KEY, p) } catch {}
   }
 
-  const MONO  = 'var(--font-dm-mono, monospace)'
   const BEBAS = "'Bebas Neue', Impact, sans-serif"
 
   // Color del régimen — tiñe el ambiente de toda la página
@@ -336,14 +407,21 @@ export default function MotorDecisionPage() {
           <Reveal>
           <section style={{ marginBottom: 24 }}>
             <SectionLabel>MÉTRICAS DEL PORTAFOLIO</SectionLabel>
-            <MetricCards
-              metrics={data.metrics}
-              flowScore={data.flowScore}
-              buyCount={data.buyCount}
-              sellCount={data.sellCount}
-              holdCount={data.holdCount}
-              capital={portfolioUSD}
-            />
+            {data.gated || !data.metrics ? (
+              <LockPanel
+                title="MÉTRICAS Y ASIGNACIÓN ÓPTIMA · PRO"
+                sub="Retorno esperado, volatilidad, Sharpe, drawdown y el reparto óptimo del capital por clase de activo son parte del plan PRO."
+              />
+            ) : (
+              <MetricCards
+                metrics={data.metrics}
+                flowScore={data.flowScore}
+                buyCount={data.buyCount}
+                sellCount={data.sellCount}
+                holdCount={data.holdCount}
+                capital={portfolioUSD}
+              />
+            )}
           </section>
           </Reveal>
 
@@ -352,8 +430,10 @@ export default function MotorDecisionPage() {
           <section style={{ marginBottom: 24 }}>
             <SectionLabel>ASIGNACIÓN Y FLUJO CROSS-MARKET</SectionLabel>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <AllocationDonut allocation={data.allocation} metrics={data.metrics} capital={portfolioUSD} currency="USD" />
-              <FlowIndicator   signals={data.flowSignals}  flowScore={data.flowScore} />
+              {data.gated || !data.metrics
+                ? <LockPanel title="ASIGNACIÓN ÓPTIMA · PRO" sub="El motor reparte tu capital entre fondos, ETFs, renta fija y crypto según el régimen. Disponible en PRO." />
+                : <AllocationDonut allocation={data.allocation} metrics={data.metrics} capital={portfolioUSD} currency="USD" />}
+              <FlowIndicator signals={data.flowSignals} flowScore={data.flowScore} />
             </div>
           </section>
           </Reveal>
@@ -362,14 +442,18 @@ export default function MotorDecisionPage() {
           <Reveal>
           <section style={{ marginBottom: 24 }}>
             <SectionLabel>SEÑALES POR ACTIVO</SectionLabel>
-            <SignalTable assets={data.signals} capital={portfolioUSD} currency="USD" allocation={data.allocation} />
+            {data.gated
+              ? <FreeDirectionTable data={data} />
+              : <SignalTable assets={data.signals} capital={portfolioUSD} currency="USD" allocation={data.allocation} />}
           </section>
           </Reveal>
 
           {/* ── CTA Reporte ──────────────────────────────────────────────── */}
           <Reveal>
           <div style={{
-            background: 'linear-gradient(135deg, rgba(29,158,117,0.08), rgba(55,138,221,0.08))',
+            background: data.gated
+              ? 'linear-gradient(135deg, rgba(255,180,84,0.06), rgba(55,138,221,0.06))'
+              : 'linear-gradient(135deg, rgba(29,158,117,0.08), rgba(55,138,221,0.08))',
             border: '1px solid #1a1d2e', borderRadius: 12,
             padding: '24px', textAlign: 'center',
           }}>
@@ -377,22 +461,31 @@ export default function MotorDecisionPage() {
               margin: '0 0 8px', fontFamily: BEBAS, fontSize: 22,
               letterSpacing: 1, color: '#e8e9f0',
             }}>
-              REPORTE EJECUTIVO LISTO
+              {data.gated ? 'EL REPORTE EJECUTIVO ES PRO' : 'REPORTE EJECUTIVO LISTO'}
             </h3>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: '#7a7f9a', fontFamily: MONO }}>
-              Descarga el análisis completo con top 5 movimientos, señal Sigma IA y score de flujo cross-market
+              {data.gated
+                ? 'Top 5 movimientos, señal Sigma IA, asignación óptima y score de flujo cross-market en un PDF descargable.'
+                : 'Descarga el análisis completo con top 5 movimientos, señal Sigma IA y score de flujo cross-market'}
             </p>
-            <Link href="/motor-decision/reporte"
-              style={{
-                display: 'inline-block',
-                background: '#1D9E75', color: '#000',
-                textDecoration: 'none', borderRadius: 8,
-                padding: '10px 28px', fontSize: 13,
-                fontWeight: 700, fontFamily: MONO,
-              }}
-            >
-              📄 Generar y Descargar Reporte PDF
-            </Link>
+            {data.gated ? (
+              <Link href="/planes" style={{
+                display: 'inline-block', background: 'transparent', color: '#ffb454',
+                textDecoration: 'none', borderRadius: 8, padding: '10px 28px',
+                fontSize: 12, fontWeight: 700, fontFamily: MONO, letterSpacing: '0.14em',
+                border: '1px solid rgba(255,180,84,0.4)',
+              }}>
+                🔒 ACTIVAR PRO →
+              </Link>
+            ) : (
+              <Link href="/motor-decision/reporte" style={{
+                display: 'inline-block', background: '#1D9E75', color: '#000',
+                textDecoration: 'none', borderRadius: 8, padding: '10px 28px',
+                fontSize: 13, fontWeight: 700, fontFamily: MONO,
+              }}>
+                📄 Generar y Descargar Reporte PDF
+              </Link>
+            )}
           </div>
           </Reveal>
         </>

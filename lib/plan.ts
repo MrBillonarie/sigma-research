@@ -82,3 +82,25 @@ const INSPECTOR_FIELDS = new Set([
 export function stripInspectorFields<T>(list: T): T {
   return stripFields(list, INSPECTOR_FIELDS)
 }
+
+// ─── Motor de decisión — free = solo dirección ────────────────────────────────
+// El campo `signal` (comprar/reducir/mantener) y los retornos quedan libres:
+// el free ve QUÉ hace el motor. El sizing y el edge (score, Kelly, EV, RSI,
+// condiciones, MACD/EMA/BB) + la allocation/métricas del portafolio son PRO.
+const DECISION_ASSET_FIELDS = new Set([
+  'score', 'confidence', 'evNeto', 'kellyPct', 'volScalar', 'edgeVerified',
+  'conditionsMet', 'conditionsTotal', 'rsi', 'momentum', 'volatility',
+  'macdBullish', 'emaBullish', 'bbPosition', 'priceAtSignal', 'netFlow',
+])
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function gateDecisionResponse(body: any): any {
+  return {
+    ...body,
+    signals: stripFields(body.signals ?? [], DECISION_ASSET_FIELDS),
+    // La asignación óptima y las métricas del portafolio son el producto PRO
+    allocation: { fondos: 0, etfs: 0, renta_fija: 0, crypto: 0 },
+    metrics: null,
+    gated: true,
+  }
+}

@@ -27,6 +27,12 @@ export default function ReportePage() {
         if (!res.ok) throw new Error('Error cargando señales')
         const data = await res.json() as SignalsResponse
 
+        // Plan free: el reporte ejecutivo (asignación + métricas) es PRO
+        if (data.gated || !data.metrics) {
+          router.replace('/planes')
+          return
+        }
+
         const rep = generateReport(
           data.profile,
           data.signals,
@@ -44,7 +50,7 @@ export default function ReportePage() {
     }
 
     load()
-  }, [])
+  }, [router])
 
   const BEBAS = "'Bebas Neue', Impact, sans-serif"
   const MONO  = 'monospace'

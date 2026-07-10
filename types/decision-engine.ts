@@ -98,7 +98,7 @@ export interface SignalsResponse {
   profile:      Profile
   signals:      Asset[]
   allocation:   Allocation
-  metrics:      PortfolioMetrics
+  metrics:      PortfolioMetrics | null   // null cuando el plan free no incluye métricas
   flowSignals:  FlowSignal[]
   flowScore:    number
   totalAssets:  number
@@ -108,4 +108,5 @@ export interface SignalsResponse {
   generatedAt:  string
   regime:       MarketRegime
   regimeLabel:  string
+  gated?:       boolean                   // true = plan free (solo dirección, sin sizing/allocation)
 }

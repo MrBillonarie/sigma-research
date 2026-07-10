@@ -56,6 +56,7 @@ import {
   computeFlowSignals, computeFlowScore, detectMarketRegime,
 } from '@/lib/signalEngine'
 import { computeAllocation, computeMetrics, applyProfileSizing } from '@/lib/allocator'
+import { getPlanInfo, gateDecisionResponse } from '@/lib/plan'
 import type { ProfileType, Profile, SignalsResponse, Asset, SignalType, MarketRegime } from '@/types/decision-engine'
 
 // ─── Perfiles ─────────────────────────────────────────────────────────────────
@@ -271,26 +272,24 @@ async function saveSignalHistory(
   }
 }
 
-async function isAuthorized(req: NextRequest): Promise<boolean> {
+// 'cron' = acceso interno (guarda historial, necesita todo) · 'pro' = suscriptor
+// con señal completa · 'free' = usuario logueado, solo dirección · null = sin auth
+async function authKind(req: NextRequest): Promise<'cron' | 'pro' | 'free' | null> {
   // Internal cron bypass — timing-safe comparison
   const cronSecret = process.env.CRON_SECRET
   const providedCronSecret = req.headers.get('x-cron-secret') ?? ''
   if (cronSecret && providedCronSecret.length === cronSecret.length) {
-    if (timingSafeEqual(Buffer.from(providedCronSecret), Buffer.from(cronSecret))) return true
+    if (timingSafeEqual(Buffer.from(providedCronSecret), Buffer.from(cronSecret))) return 'cron'
   }
-  // Regular user session via Supabase auth
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  return !!user
+  // Regular user session — plan vía helper compartido
+  const { userId, isPro } = await getPlanInfo()
+  if (!userId) return null
+  return isPro ? 'pro' : 'free'
 }
 
 export async function GET(req: NextRequest) {
-  if (!await isAuthorized(req)) {
+  const kind = await authKind(req)
+  if (!kind) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -470,5 +469,7 @@ export async function GET(req: NextRequest) {
     regimeLabel: REGIME_LABELS[regime],
   }
 
-  return NextResponse.json(body)
+  // Gating por plan (el historial ya se guardó arriba con datos completos):
+  // el free recibe dirección + retornos; el sizing/allocation/métricas es PRO.
+  return NextResponse.json(kind === 'free' ? gateDecisionResponse(body) : body)
 }
