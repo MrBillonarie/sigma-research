@@ -1,29 +1,32 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
+import { getPlanInfo } from '@/lib/plan'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
-
-function makeClient() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  )
-}
 
 // Proxy de descargas del motor (/download/*) -- mismo patron que motor-api,
 // pero forwardeando Content-Disposition para que el navegador dispare el
 // "Guardar como" con el nombre de archivo correcto. El fetch hacia el motor
 // corre server-side en la misma VPS (127.0.0.1) y no necesita cookie/token
 // propio, pero exigimos sesión de squantdesk antes de llegar a este proxy.
+//
+// Gating por plan: todo lo descargable del motor (.pine de SIGMA TERMINAL /
+// strategy / HUD, archivos de modelos, engine) es activo PRO según la tabla
+// Free vs PRO. La sesión interna de monitoreo del engine no pasa por planes.
 export async function GET(_req: NextRequest, { params }: { params: { path: string[] } }) {
-  const { data: { user } } = await makeClient().auth.getUser()
   const engineCookie = cookies().get('sigma_engine_session')?.value
-  if (!user && !verifyEngineMonitorSession(engineCookie)) {
+  const engineOk = verifyEngineMonitorSession(engineCookie)
+  const { userId, isPro } = await getPlanInfo()
+
+  if (!userId && !engineOk) {
     return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
+  }
+  if (!isPro && !engineOk) {
+    return NextResponse.json(
+      { error: 'Las descargas del motor requieren plan PRO.' },
+      { status: 403 }
+    )
   }
 
   try {
