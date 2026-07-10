@@ -76,11 +76,27 @@ export default function ReportesPage() {
   const [reportes,  setReportes]  = useState<ReporteRow[]>([])
   const [loadingR,  setLoadingR]  = useState(true)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isPro,     setIsPro]     = useState(false)
+
+  // Regla de planes: reportes semanales; free = la primera edición de cada mes.
+  // Espejo del check server-side en /api/reportes/[id]/download — el server manda.
+  const freeIds = (() => {
+    const byMonth = new Map<string, ReporteRow>()
+    for (const r of reportes) {
+      const m = r.fecha?.slice(0, 7) ?? ''
+      if (!m) continue
+      const cur = byMonth.get(m)
+      if (!cur || r.fecha < cur.fecha || (r.fecha === cur.fecha && r.numero < cur.numero)) byMonth.set(m, r)
+    }
+    return new Set(Array.from(byMonth.values()).map(r => r.id))
+  })()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) { setLoadingR(false); return }
       setIsLoggedIn(true)
+      const plan = (data.user.app_metadata?.plan as string) ?? 'free'
+      setIsPro(plan === 'pro' || plan === 'anual')
       supabase
         .from('reportes')
         .select('id,numero,titulo,fecha,descripcion,url_pdf')
@@ -151,10 +167,15 @@ export default function ReportesPage() {
                       <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginBottom: 4 }}>{r.descripcion}</div>
                       <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted }}>{r.fecha}</div>
                     </div>
-                    {r.url_pdf ? (
-                      <a href={r.url_pdf} target="_blank" rel="noopener noreferrer"
+                    {r.url_pdf && (isPro || freeIds.has(r.id)) ? (
+                      <a href={`/api/reportes/${r.id}/download`} download
                         style={{ padding: '10px 22px', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                         DESCARGAR PDF
+                      </a>
+                    ) : r.url_pdf ? (
+                      <a href="/planes"
+                        style={{ padding: '10px 22px', background: 'transparent', color: '#ffb454', border: '1px solid rgba(255,180,84,0.35)', fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        🔒 EDICIÓN SEMANAL · PRO →
                       </a>
                     ) : (
                       <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, border: `1px solid ${C.border}`, padding: '10px 22px' }}>

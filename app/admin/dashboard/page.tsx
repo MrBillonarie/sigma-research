@@ -1724,7 +1724,7 @@ export default function AdminDashboard() {
                       <div className="terminal-text text-xs text-muted mt-0.5">{r.fecha}</div>
                     </div>
                     {r.url_pdf
-                      ? <a href={r.url_pdf} target="_blank" rel="noopener noreferrer" className="terminal-text text-xs text-gold hover:underline">PDF ↗</a>
+                      ? <a href={`/api/reportes/${r.id}/download?inline=1`} target="_blank" rel="noopener noreferrer" className="terminal-text text-xs text-gold hover:underline">PDF ↗</a>
                       : <span className="terminal-text text-xs text-muted">sin PDF</span>
                     }
                     <button onClick={() => toggleActivo(r.id, r.activo)}

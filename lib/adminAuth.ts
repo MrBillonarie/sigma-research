@@ -19,14 +19,14 @@ function verifySessionToken(cookieValue: string, secret: string): boolean {
   return !isNaN(expires) && expires > Date.now()
 }
 
+// Variante para rutas sin NextRequest (Request plano + next/headers cookies())
+export function checkAdminSessionCookie(cookieValue: string | undefined): boolean {
+  const secret = process.env.ADMIN_SECRET
+  if (!secret || !cookieValue) return false
+  return verifySessionToken(cookieValue, secret)
+}
+
 // ─── Admin auth — solo session tokens HMAC-firmados, sin raw secrets ──────────
 export function checkAdminAuth(req: NextRequest): boolean {
-  const secret = process.env.ADMIN_SECRET
-  if (!secret) return false
-
-  // Solo acepta sesiones firmadas generadas por /api/admin/login
-  const sessionCookie = req.cookies.get('sigma_admin_session')?.value
-  if (sessionCookie && verifySessionToken(sessionCookie, secret)) return true
-
-  return false
+  return checkAdminSessionCookie(req.cookies.get('sigma_admin_session')?.value)
 }
