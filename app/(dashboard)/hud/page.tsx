@@ -1,5 +1,25 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/app/lib/supabase'
+
+// Gate de UX del Pine: el servidor ya bloquea la descarga a no-PRO
+// (/api/vps/motor-download exige PRO/admin). Esto es solo la experiencia — el
+// free ve un botón "Activar PRO" que lleva a /planes en vez de chocar con un
+// 403. Solo actúa cuando sabemos que el plan es free (isPro === false).
+function gatePineAnchors(root: HTMLElement | null, isPro: boolean | null) {
+  if (!root || isPro !== false) return
+  root.querySelectorAll<HTMLAnchorElement>('a[href*="motor-download"]').forEach(a => {
+    if (a.dataset.sigmaGated === '1') return
+    a.dataset.sigmaGated = '1'
+    a.setAttribute('href', '/planes')
+    a.removeAttribute('download')
+    a.removeAttribute('target')
+    a.removeAttribute('onclick')
+    a.onclick = null
+    a.innerHTML = '<span style="display:inline-flex;align-items:center;gap:7px;font-family:var(--font-dm-mono,monospace);font-size:12px;letter-spacing:0.06em">🔒 Activar PRO — incluye el Pine</span>'
+    a.style.cssText = 'background:linear-gradient(100deg,#ffce7a,#f0913a);color:#1a1200;font-weight:700;text-decoration:none;border-radius:8px;padding:11px 18px;display:inline-flex;box-shadow:0 0 18px rgba(255,180,84,0.28)'
+  })
+}
 
 // ── Decision de arquitectura (2026-07-03) ───────────────────────────────────
 // Esta pagina scrapea el HTML del motor (DOMParser + innerHTML) en vez de
@@ -125,6 +145,19 @@ const STRAT_FALLBACK = 'Estrategia validada out-of-sample: supera los gates de r
 export default function HUDPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
+  const isProRef = useRef<boolean | null>(null)
+
+  // Plan del usuario — decide si el botón del Pine descarga o lleva a /planes.
+  useEffect(() => {
+    let dead = false
+    supabase.auth.getUser().then(({ data }) => {
+      if (dead) return
+      const plan = (data.user?.app_metadata?.plan as string) ?? 'free'
+      isProRef.current = plan === 'pro' || plan === 'anual'
+      gatePineAnchors(containerRef.current, isProRef.current)
+    }).catch(() => {})
+    return () => { dead = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -454,6 +487,8 @@ export default function HUDPage() {
       wrap.querySelector('[data-slot="terminal"]')?.appendChild(keep)
       const cv = wrap.querySelector('.sigma-dl-bg') as HTMLCanvasElement | null
       if (cv) requestAnimationFrame(() => drawChart(cv))
+      // Free → el botón del Pine lleva a /planes (server ya bloquea la descarga)
+      gatePineAnchors(root, isProRef.current)
       } catch (e) { console.warn('[sigma-dl] enhance failed', e) }
     }
 
