@@ -49,7 +49,7 @@ export default function MotorEnVivoPage() {
 
       containerRef.current.querySelectorAll('a[href^="/"]').forEach(a => {
         const href = a.getAttribute('href') ?? ''
-        if (href.startsWith('/api/') || href.startsWith('/download/') || href.startsWith('/motor-en-vivo') || href === '/hud') return
+        if (href.startsWith('/api/') || href.startsWith('/download/') || href.startsWith('/motor-en-vivo') || href === '/hud' || href.startsWith('/planes')) return
         if (href === '/') { a.setAttribute('href', '/hud'); return }
         a.setAttribute('href', `/motor-en-vivo${href}`)
       })
@@ -97,7 +97,7 @@ export default function MotorEnVivoPage() {
       const a = target.closest('a[href^="/"]') as HTMLAnchorElement | null
       if (!a) return
       const href = a.getAttribute('href') ?? ''
-      if (href.startsWith('/api/') || href.startsWith('/download/') || href.startsWith('/motor-en-vivo') || href === '/hud') return
+      if (href.startsWith('/api/') || href.startsWith('/download/') || href.startsWith('/motor-en-vivo') || href === '/hud' || href.startsWith('/planes')) return
       e.preventDefault()
       window.location.href = href === '/' ? '/hud' : `/motor-en-vivo${href}`
     }

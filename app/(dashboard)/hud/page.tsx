@@ -276,7 +276,9 @@ export default function HUDPage() {
       const a = target.closest('a[href^="/"]') as HTMLAnchorElement | null
       if (!a) return
       const href = a.getAttribute('href') ?? ''
-      if (href.startsWith('/api/') || href.startsWith('/download/') || href.startsWith('/motor-en-vivo')) return
+      // /planes es una ruta REAL de la app (el upsell del Pine para free), no una
+      // sub-página del motor → dejar que navegue directo, no reenviar al proxy.
+      if (href.startsWith('/api/') || href.startsWith('/download/') || href.startsWith('/motor-en-vivo') || href.startsWith('/planes')) return
       e.preventDefault()
       window.location.href = `/motor-en-vivo${href}`
     }
