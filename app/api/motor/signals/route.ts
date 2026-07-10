@@ -3,8 +3,6 @@ export const dynamic = 'force-dynamic'
 import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
-import { createServerClient }        from '@supabase/ssr'
-import { cookies }                   from 'next/headers'
 
 // ─── Rate limiting distribuido via Supabase (escala entre instancias serverless)
 // Fallback a Map en memoria si Supabase no está disponible
