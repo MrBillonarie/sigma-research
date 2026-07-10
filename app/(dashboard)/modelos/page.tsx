@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { supabase } from '@/app/lib/supabase'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface KellyLedger {
@@ -247,6 +248,27 @@ function DetailPanel({ c }: { c: Champion }) {
   )
 }
 
+// ─── Inspector bloqueado — plan free (el server ya filtra los campos) ─────────
+function LockedInspector() {
+  return (
+    <div style={{ background:SURF, borderBottom:`1px solid ${BDR}`, padding:'22px 16px', textAlign:'center' }}>
+      <div style={{ fontFamily:MONO, fontSize:11, color:'#ffb454', letterSpacing:'0.12em', marginBottom:6 }}>
+        🔒 INSPECTOR COMPLETO · EXCLUSIVO PRO
+      </div>
+      <div style={{ fontFamily:MONO, fontSize:10, color:MUTED, lineHeight:1.7, maxWidth:440, margin:'0 auto 12px' }}>
+        Walk-forward, Monte Carlo, sizing Kelly, derivados y validación live del modelo.
+      </div>
+      <a href="/planes" onClick={e=>e.stopPropagation()} style={{
+        display:'inline-block', fontFamily:MONO, fontSize:10, letterSpacing:'0.18em',
+        color:'#ffb454', border:'1px solid rgba(255,180,84,0.35)', borderRadius:6,
+        padding:'8px 18px', textDecoration:'none',
+      }}>
+        ACTIVAR PRO →
+      </a>
+    </div>
+  )
+}
+
 const RANK_STYLE: Record<number, { bg:string; fg:string }> = {
   1: { bg:'linear-gradient(135deg,#ffe9a8,#39e2e6)', fg:'#1a1300' },
   2: { bg:'linear-gradient(135deg,#eef0f5,#9aa3b5)', fg:'#13151c' },
@@ -261,8 +283,8 @@ const PODIUM_FRAME: Record<number, { grad:string; glow:string; wm:string }> = {
 }
 
 // ─── Tarjeta de champion (vitrina) ───────────────────────────────────────────
-function ChampCard({ c, rank, motorColor, expanded, onToggle, podium }: {
-  c:Champion; rank?:number; motorColor:string; expanded:boolean; onToggle:()=>void; podium?:boolean
+function ChampCard({ c, rank, motorColor, expanded, onToggle, podium, isPro }: {
+  c:Champion; rank?:number; motorColor:string; expanded:boolean; onToggle:()=>void; podium?:boolean; isPro:boolean
 }) {
   const d = champDir(c)
   const isShort = d==='short', isAdapt = d==='adaptive'
@@ -360,7 +382,7 @@ function ChampCard({ c, rank, motorColor, expanded, onToggle, podium }: {
         <span style={{ color: wftClr }}>WFT {c.wft_verdict||'—'}</span>
       </div>
 
-      {expanded && <div onClick={e=>e.stopPropagation()} style={{ marginTop:4, marginLeft:isFirst?-18:-14, marginRight:isFirst?-18:-14, marginBottom:isFirst?-16:-12, position:'relative' }}><DetailPanel c={c} /></div>}
+      {expanded && <div onClick={e=>e.stopPropagation()} style={{ marginTop:4, marginLeft:isFirst?-18:-14, marginRight:isFirst?-18:-14, marginBottom:isFirst?-16:-12, position:'relative' }}>{isPro ? <DetailPanel c={c} /> : <LockedInspector />}</div>}
     </div>
   )
 }
@@ -456,7 +478,7 @@ function TickerBar({ champs }: { champs:Champion[] }) {
 }
 
 // ─── Tablero de un motor: filtros + grilla plana ─────────────────────────────
-function ChampionsBoard({ motor, champs }: { motor:MotorDef; champs:Champion[] }) {
+function ChampionsBoard({ motor, champs, isPro }: { motor:MotorDef; champs:Champion[]; isPro:boolean }) {
   const [filter, setFilter]   = useState<'all'|'long'|'short'|'adaptive'>('all')
   const [expandedKey, setKey] = useState<string|null>(null)
   const toggle = (k:string) => setKey(prev=>prev===k?null:k)
@@ -520,7 +542,7 @@ function ChampionsBoard({ motor, champs }: { motor:MotorDef; champs:Champion[] }
               const k = champKey(c)
               const card = (
                 <ChampCard
-                  c={c} motorColor={motor.color} rank={idx+1} podium
+                  c={c} motorColor={motor.color} rank={idx+1} podium isPro={isPro}
                   expanded={expandedKey===k} onToggle={()=>toggle(k)}
                 />
               )
@@ -540,7 +562,7 @@ function ChampionsBoard({ motor, champs }: { motor:MotorDef; champs:Champion[] }
                 return (
                   <div key={k} className="mdl-in" style={{ gridColumn: expandedKey===k?'1 / -1':undefined, animationDelay:`${220+Math.min(i,10)*50}ms` }}>
                     <ChampCard
-                      c={c} motorColor={motor.color}
+                      c={c} motorColor={motor.color} isPro={isPro}
                       expanded={expandedKey===k} onToggle={()=>toggle(k)}
                     />
                   </div>
@@ -556,7 +578,7 @@ function ChampionsBoard({ motor, champs }: { motor:MotorDef; champs:Champion[] }
             return (
               <div key={k} className="mdl-in" style={{ gridColumn: expandedKey===k?'1 / -1':undefined, animationDelay:`${Math.min(i,10)*50}ms` }}>
                 <ChampCard
-                  c={c} motorColor={motor.color}
+                  c={c} motorColor={motor.color} isPro={isPro}
                   rank={i<3?i+1:undefined}
                   expanded={expandedKey===k} onToggle={()=>toggle(k)}
                 />
@@ -575,6 +597,16 @@ export default function ModelosPage() {
   const [loading,    setLoading]    = useState(true)
   const [lastUpdate, setLastUpdate] = useState<string|null>(null)
   const [selMotor,   setSelMotor]   = useState(1)
+  const [isPro,      setIsPro]      = useState(false)
+
+  // Plan del usuario — solo para elegir la UI (candado vs Inspector);
+  // el server ya filtra los campos del detalle para no-PRO.
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const plan = (data.user?.app_metadata?.plan as string) ?? 'free'
+      setIsPro(plan === 'pro' || plan === 'anual')
+    }).catch(() => {})
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -688,7 +720,7 @@ export default function ModelosPage() {
             <TickerBar champs={motorChamps} />
 
             {/* Tablero del motor seleccionado */}
-            <ChampionsBoard motor={motor} champs={motorChamps} />
+            <ChampionsBoard motor={motor} champs={motorChamps} isPro={isPro} />
           </>
         )}
 

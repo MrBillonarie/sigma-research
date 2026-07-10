@@ -48,14 +48,37 @@ const ACTIONABLE_FIELDS = new Set([
   'eff_risk_pct', '_kelly_ledger',
 ])
 
-export function stripActionableFields<T>(list: T): T {
+function stripFields<T>(list: T, fields: Set<string>): T {
   if (!Array.isArray(list)) return list
   return list.map(item => {
     if (item === null || typeof item !== 'object') return item
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(item)) {
-      if (!ACTIONABLE_FIELDS.has(k)) out[k] = v
+      if (!fields.has(k)) out[k] = v
     }
     return out
   }) as T
+}
+
+export function stripActionableFields<T>(list: T): T {
+  return stripFields(list, ACTIONABLE_FIELDS)
+}
+
+// ─── Detalle del Inspector de modelos — PRO ───────────────────────────────────
+// La vitrina queda libre (grade, CAGR, WR, DD, trades, veredictos resumidos
+// wft_verdict/val_mc que se muestran en la card). El detalle de validación
+// profunda y sizing (walk-forward, Monte Carlo, Kelly, live/bayesian,
+// robustez) es del Inspector expandido → exclusivo PRO.
+const INSPECTOR_FIELDS = new Set([
+  'val_wft', 'wft_windows', 'wft_pass_rate',
+  'mc_confidence', 'mc_cagr_p05', 'mc_dd_p95', 'val_confidence',
+  'score', 'robustness_score', 'robustness_action', 'robustness_gates',
+  'n_live_trades', 'live_wr', 'ev',
+  'lsr', 'lsr_long_pct', 'oi_change_pct', 'funding_pct', 'fg', 'fg_label',
+  'recommendation', 'reason', 'regime_ok',
+  'stress_mult', 'ens_mult', 'conf_mult',
+])
+
+export function stripInspectorFields<T>(list: T): T {
+  return stripFields(list, INSPECTOR_FIELDS)
 }

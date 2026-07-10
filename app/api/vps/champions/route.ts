@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
-import { getPlanInfo, stripActionableFields } from '@/lib/plan'
+import { getPlanInfo, stripActionableFields, stripInspectorFields } from '@/lib/plan'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
 
@@ -50,9 +50,16 @@ function normalizeChampion(raw: RawChampion) {
 export async function GET() {
   const { data: { user } } = await makeClient().auth.getUser()
   const engineCookie = cookies().get('sigma_engine_session')?.value
-  if (!user && !verifyEngineMonitorSession(engineCookie)) {
+  const engineOk = verifyEngineMonitorSession(engineCookie)
+  if (!user && !engineOk) {
     return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
   }
+
+  // Gating por plan: la vitrina (grade/CAGR/WR/DD/trades + veredictos MC/WFT)
+  // es libre; el detalle del Inspector (validación profunda, sizing) y lo
+  // accionable (entrada/SL/TP) son PRO. La sesión de monitoreo ve todo.
+  const { isPro } = await getPlanInfo()
+  const full = isPro || engineOk
 
   // Primary: /api/v2/champions — full champion list with all metrics
   // Fallback: /api/public top_models — always available
@@ -68,7 +75,9 @@ export async function GET() {
           ? (data as Record<string, unknown>).champions as RawChampion[]
           : Object.values(data as Record<string, unknown>) as RawChampion[]
       if (list.length > 0) {
-        return NextResponse.json(list.map(normalizeChampion), {
+        let normalized = list.map(normalizeChampion)
+        if (!full) normalized = stripInspectorFields(stripActionableFields(normalized))
+        return NextResponse.json(normalized, {
           headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=30' },
         })
       }
@@ -84,8 +93,7 @@ export async function GET() {
     if (r2.ok) {
       const d = await r2.json()
       let list = d?.top_models ?? []
-      const { isPro } = await getPlanInfo()
-      if (!isPro) list = stripActionableFields(list)
+      if (!full) list = stripInspectorFields(stripActionableFields(list))
       return NextResponse.json(list, {
         headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=30' },
       })

@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
 import { checkAdminAuth } from '@/lib/adminAuth'
+import { getPlanInfo, stripActionableFields } from '@/lib/plan'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
 
@@ -17,6 +18,23 @@ const MUTATING_PATHS = ['trades/open', 'trades/close', 'trades/', 'upload/', 'au
 function isMutatingPath(path: string): boolean {
   const p = path.replace(/^\/+/, '').toLowerCase()
   return MUTATING_PATHS.some(m => p === m || p.startsWith(m))
+}
+
+// Endpoints del motor cuya respuesta lleva señales accionables (entrada/SL/TP
+// + sizing) dentro de arrays de modelos. Para no-PRO se filtran esos campos —
+// el HUD del motor degrada solo (guards `m.sl || '—'` y filtros por m.price).
+// trades/stats/regime NO están aquí: el paper trading es la vitrina free.
+const SIGNAL_PATHS = new Set(['signals', 'public'])
+
+function stripSignalPayload(payload: unknown): unknown {
+  if (payload === null || typeof payload !== 'object') return payload
+  if (Array.isArray(payload)) return stripActionableFields(payload)
+  const out: Record<string, unknown> = { ...(payload as Record<string, unknown>) }
+  for (const key of ['models', 'top_models', 'signals']) {
+    if (Array.isArray(out[key])) out[key] = stripActionableFields(out[key])
+  }
+  out.gated = true
+  return out
 }
 
 function makeClient() {
@@ -65,6 +83,29 @@ async function proxy(req: NextRequest, path: string) {
 
   const res = await fetch(url, init)
   const ct = res.headers.get('content-type') ?? 'application/json'
+
+  // Gating por plan: en los endpoints de señales, no-PRO recibe los modelos
+  // sin entrada/SL/TP ni sizing. Admin y sesión de monitoreo ven todo.
+  const cleanPath = path.replace(/^\/+/, '').toLowerCase()
+  if (req.method === 'GET' && SIGNAL_PATHS.has(cleanPath) && ct.includes('json')) {
+    const engineOk = verifyEngineMonitorSession(cookies().get('sigma_engine_session')?.value)
+    const adminOk  = checkAdminAuth(req)
+    if (!engineOk && !adminOk) {
+      const { isPro } = await getPlanInfo()
+      if (!isPro) {
+        try {
+          const data = await res.json()
+          return NextResponse.json(stripSignalPayload(data), {
+            status: res.status,
+            headers: { 'Cache-Control': 'no-store' },
+          })
+        } catch {
+          return NextResponse.json({ error: 'Respuesta del motor inválida.' }, { status: 502 })
+        }
+      }
+    }
+  }
+
   const body = await res.arrayBuffer()
 
   return new NextResponse(body, {

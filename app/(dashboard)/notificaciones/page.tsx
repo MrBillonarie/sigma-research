@@ -157,6 +157,7 @@ export default function NotificacionesPage() {
   const [userId,  setUserId]  = useState<string | null>(null)
   const [filter,  setFilter]  = useState('all')
   const [signals, setSignals] = useState<MotorSignal[]>([])
+  const [gated,   setGated]   = useState(false)  // plan free: el server ya quitó E/SL/TP
 
   // Señales en vivo del motor (mismo origen que el HUD) — refresh cada 60s
   useEffect(() => {
@@ -168,6 +169,7 @@ export default function NotificacionesPage() {
         const d = await r.json()
         if (!dead && Array.isArray(d?.signals)) {
           setSignals(d.signals.filter((s: MotorSignal) => s.signal))
+          setGated(d?.gated === true)
         }
       } catch {}
     }
@@ -363,11 +365,28 @@ export default function NotificacionesPage() {
                         {s.strategy}
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
-                      {s.price != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>E <span style={{ color: TEXT }}>{s.price}</span></span>}
-                      {s.sl    != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>SL <span style={{ color: RED }}>{s.sl}</span></span>}
-                      {s.tp    != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>TP <span style={{ color: GREEN }}>{s.tp}</span></span>}
-                    </div>
+                    {gated ? (
+                      /* Plan free — el server quitó E/SL/TP; el blur va sobre
+                         placeholders decorativos, nunca sobre datos reales */
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <span aria-hidden style={{ fontFamily: MONO, fontSize: 9, color: DIM, filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}>
+                          E 00000 · SL 00000 · TP 00000
+                        </span>
+                        <a href="/planes" style={{
+                          fontFamily: MONO, fontSize: 8, letterSpacing: '0.1em', whiteSpace: 'nowrap',
+                          color: '#ffb454', border: '1px solid rgba(255,180,84,0.35)', borderRadius: 3,
+                          padding: '2px 7px', textDecoration: 'none',
+                        }}>
+                          🔒 SEÑAL COMPLETA · PRO
+                        </a>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
+                        {s.price != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>E <span style={{ color: TEXT }}>{s.price}</span></span>}
+                        {s.sl    != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>SL <span style={{ color: RED }}>{s.sl}</span></span>}
+                        {s.tp    != null && <span style={{ fontFamily: MONO, fontSize: 9, color: DIM }}>TP <span style={{ color: GREEN }}>{s.tp}</span></span>}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
                       {s.wr   != null && <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>WR <span style={{ color: DIM }}>{s.wr.toFixed(0)}%</span></span>}
                       {s.cagr != null && <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>CAGR <span style={{ color: s.cagr >= 0 ? GREEN : RED }}>{s.cagr >= 0 ? '+' : ''}{s.cagr.toFixed(1)}%</span></span>}
