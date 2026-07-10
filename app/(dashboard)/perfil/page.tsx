@@ -496,6 +496,11 @@ export default function PerfilPage() {
               }}>
                 {plan === 'pro' ? 'PLAN PRO' : 'PLAN FREE'}
               </span>
+              {plan !== 'pro' && plan !== 'anual' && (
+                <a href="/planes" style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', color: GOLD, textDecoration: 'none' }}>
+                  ACTIVAR PRO →
+                </a>
+              )}
               <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: MONO, fontSize: 10, color: GREEN, letterSpacing: '0.1em' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: GREEN, animation: 'pulse-dot 2s ease infinite' }} />
                 CUENTA ACTIVA
