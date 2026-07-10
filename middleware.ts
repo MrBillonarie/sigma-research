@@ -29,6 +29,7 @@ const PUBLIC = new Set([
   '/en/contacto',
   '/recursos',
   '/reportes',
+  '/planes', // pricing Free vs PRO — destino de los CTA "Activar PRO", visible sin cuenta
   '/roadmap',
   '/white-paper',
   '/api-docs',
