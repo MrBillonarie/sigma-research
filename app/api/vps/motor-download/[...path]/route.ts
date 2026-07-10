@@ -1,28 +1,29 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
-import { verifyEngineMonitorSession } from '@/lib/engineMonitorAuth'
 import { getPlanInfo } from '@/lib/plan'
+import { checkAdminSessionCookie } from '@/lib/adminAuth'
 
 const VPS = process.env.VPS_INTERNAL ?? 'http://127.0.0.1:8080'
 
 // Proxy de descargas del motor (/download/*) -- mismo patron que motor-api,
 // pero forwardeando Content-Disposition para que el navegador dispare el
 // "Guardar como" con el nombre de archivo correcto. El fetch hacia el motor
-// corre server-side en la misma VPS (127.0.0.1) y no necesita cookie/token
-// propio, pero exigimos sesión de squantdesk antes de llegar a este proxy.
+// corre server-side en la misma VPS (127.0.0.1) y no necesita cookie/token propio.
 //
-// Gating por plan: todo lo descargable del motor (.pine de SIGMA TERMINAL /
-// strategy / HUD, archivos de modelos, engine) es activo PRO según la tabla
-// Free vs PRO. La sesión interna de monitoreo del engine no pasa por planes.
+// Gating por plan: el .pine de SIGMA TERMINAL (y strategy/HUD/modelos/engine) es
+// el activo PRO más valioso → exige plan PRO o sesión de ADMIN. Ojo: NO se acepta
+// la sesión de monitoreo del engine (sigma_engine_session) como bypass — esa se
+// obtiene con la contraseña compartida de /motor-en-vivo (ruta pública, sin
+// cuenta), un candado más débil que pagar PRO; aceptarla dejaba descargar la joya
+// a cualquiera que conociera esa clave interna (leak detectado 2026-07-10).
 export async function GET(_req: NextRequest, { params }: { params: { path: string[] } }) {
-  const engineCookie = cookies().get('sigma_engine_session')?.value
-  const engineOk = verifyEngineMonitorSession(engineCookie)
+  const isAdmin = checkAdminSessionCookie(cookies().get('sigma_admin_session')?.value)
   const { userId, isPro } = await getPlanInfo()
 
-  if (!userId && !engineOk) {
+  if (!userId && !isAdmin) {
     return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
   }
-  if (!isPro && !engineOk) {
+  if (!isPro && !isAdmin) {
     return NextResponse.json(
       { error: 'Las descargas del motor requieren plan PRO.' },
       { status: 403 }
