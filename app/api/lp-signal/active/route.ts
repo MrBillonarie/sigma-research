@@ -1,19 +1,19 @@
 export const dynamic    = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { getPlanInfo } from '@/lib/plan'
 
 export async function GET() {
-  // Verify authenticated user
-  const cookieStore = await cookies()
-  const supabaseAuth = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  )
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Regla de planes: la calculadora LP de /lp-defi es libre; la señal del
+  // MODELO (rangos + Kelly generados por el cron y aprobados por admin) es PRO.
+  const { userId, isPro } = await getPlanInfo()
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isPro) {
+    return NextResponse.json(
+      { error: 'Las señales LP del modelo requieren plan PRO.', gated: true },
+      { status: 403 }
+    )
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

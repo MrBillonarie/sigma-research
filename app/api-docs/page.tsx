@@ -76,7 +76,7 @@ const endpoints = [
     color:  G,
     method: 'GET',
     path:   '/api/lp-signal/active',
-    desc:   'Señal LP activa aprobada por el sistema con hipótesis, rango de precio, Kelly sizing y días proyectados.',
+    desc:   'Señal LP activa aprobada por el sistema con hipótesis, rango de precio, Kelly sizing y días proyectados. Requiere plan PRO.',
     auth:   true,
     response: `{
   "signal": {
