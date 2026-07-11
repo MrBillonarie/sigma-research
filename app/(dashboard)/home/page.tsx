@@ -619,13 +619,13 @@ export default function DashboardHome() {
 
   function getToolBadge(id: string): string | null {
     switch (id) {
-      case 'hud':        return 'Régimen: —'
+      case 'hud':        return 'Señales y régimen en vivo'
       case 'terminal':   return D.totalUSD > 0 ? 'Live: BTC · ETH · SOL' : 'Sin posiciones abiertas'
       case 'journal':    return D.weekCount > 0 ? `${D.weekCount} trades esta semana` : 'Sin trades esta semana'
       case 'montecarlo': return fireProbability !== null ? `${fireProbability}% prob. FIRE` : 'Sin simulación reciente'
       case 'fire':       return D.fireYears !== null ? (D.fireYears === 0 ? '¡Meta alcanzada!' : `~${D.fireYears} años restantes`) : 'Configura tu meta'
       case 'modelos':    return 'Modelos disponibles'
-      case 'reportes':   return D.totalTrades > 0 ? `${D.totalTrades} trades analizados` : 'Sin datos'
+      case 'reportes':   return D.totalTrades > 0 ? `${D.totalTrades} ${D.totalTrades === 1 ? 'trade analizado' : 'trades analizados'}` : 'Research semanal'
       case 'lp-defi':    return 'Posiciones activas'
       case 'calendario': return D.nextEvent ? D.nextEvent.title.slice(0, 28) + '…' : 'Sin eventos próximos'
       default:           return null
@@ -664,10 +664,20 @@ export default function DashboardHome() {
         .h3d.h3d-on .h3d-shine { opacity:1 }
 
         /* ── Tool cards: identidad visual ── */
-        .tviz { width:36px; height:36px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
-          border:1px solid ${C.border}; color:${C.dimText};
+        .tviz { width:44px; height:44px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+          border:1px solid rgba(57,226,230,0.2); border-radius:10px; color:${C.dimText};
+          background: linear-gradient(180deg, rgba(57,226,230,0.07), rgba(57,226,230,0.015));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
           transition: color .2s, border-color .2s, box-shadow .2s }
-        .tool-card:hover .tviz { color:${C.gold}; border-color:${C.gold}55; box-shadow:0 0 14px ${C.gold}22 }
+        .tviz svg { width:24px; height:24px }
+        .tool-card:hover .tviz { color:${C.glow}; border-color:${C.gold}66; box-shadow:0 0 16px ${C.gold}2e, inset 0 1px 0 rgba(255,255,255,0.08) }
+        .tc-filo { position:absolute; left:12%; right:12%; bottom:0; height:2px; opacity:0; pointer-events:none;
+          background:linear-gradient(90deg, transparent, ${C.gold}, rgba(79,146,255,0.6), transparent);
+          transition: opacity .22s ease }
+        .tool-card:hover .tc-filo { opacity:.9 }
+        .tc-open { font-family:monospace; font-size:10px; color:${C.gold}; letter-spacing:0.12em; white-space:nowrap;
+          opacity:0; transform:translateX(-6px); transition: opacity .2s ease, transform .2s ease }
+        .tool-card:hover .tc-open { opacity:1; transform:none }
         .tool-card::before, .tool-card::after { content:''; position:absolute; width:10px; height:10px;
           opacity:.28; transition: opacity .2s, border-color .2s; pointer-events:none }
         .tool-card::before { top:7px; left:7px; border-top:1px solid ${C.gold}; border-left:1px solid ${C.gold} }
@@ -1065,11 +1075,15 @@ export default function DashboardHome() {
             )
           })()}
 
-          {/* ══ SEPARATOR ══ */}
+          {/* ══ SEPARATOR — riel del lanzador ══ */}
           <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
-            <div style={{ flex:1, height:1, background:C.border }} />
-            <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.35em', textTransform:'uppercase', color:C.dimText }}>HERRAMIENTAS</div>
-            <div style={{ flex:1, height:1, background:C.border }} />
+            <div style={{ flex:1, height:1, background:`linear-gradient(90deg, transparent, ${C.gold}44 60%, ${C.gold}77)` }} />
+            <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+              <span aria-hidden style={{ width:5, height:5, borderRadius:'50%', background:C.gold, boxShadow:`0 0 10px ${C.gold}` }} />
+              <span style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.35em', textTransform:'uppercase', color:C.dimText }}>LANZADOR · HERRAMIENTAS</span>
+              <span aria-hidden style={{ width:5, height:5, borderRadius:'50%', background:C.gold, boxShadow:`0 0 10px ${C.gold}` }} />
+            </div>
+            <div style={{ flex:1, height:1, background:`linear-gradient(90deg, ${C.gold}77, ${C.gold}44 40%, transparent)` }} />
           </div>
 
           {/* ══ TOOL CARDS (3×3) ══ */}
@@ -1083,50 +1097,46 @@ export default function DashboardHome() {
                   href={tool.href}
                   className="tool-card"
                   onClick={() => trackActivity(tool.id)}
-                  style={{ ...cardStyle, background:C.surface, padding:'20px 20px', textDecoration:'none', display:'flex', flexDirection:'column', gap:0, position:'relative' }}
-                  title={tool.key ? `[${tool.key}] ${tool.label}` : undefined}
+                  style={{ ...cardStyle, backgroundColor:C.surface, backgroundImage:'linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.006))', padding:'16px 18px 14px', textDecoration:'none', display:'flex', flexDirection:'column', gap:0, position:'relative' }}
+                  title={`${tool.key ? `[${tool.key}] ` : ''}${tool.label}${lastSeen ? ` · último acceso ${timeAgo(lastSeen)}` : ''}`}
                 >
-                  {/* Barrido de luz al hover */}
+                  {/* Barrido de luz + filo inferior que enciende al hover */}
                   <span className="tc-sweep" aria-hidden />
+                  <span className="tc-filo" aria-hidden />
 
                   {/* Live dot top-right */}
                   {tool.isLive && (
-                    <div style={{ position:'absolute', top:14, right:14, display:'flex', alignItems:'center', gap:5 }}>
-                      <LiveDot />
+                    <div style={{ position:'absolute', top:12, right:12 }}>
+                      <LiveDot size={7} />
                     </div>
                   )}
 
-                  {/* Viz + label + shortcut key */}
-                  <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+                  {/* Viz protagonista + label + shortcut key */}
+                  <div style={{ display:'flex', alignItems:'center', gap:14 }}>
                     <ToolViz id={tool.id} />
-                    <div style={{ minWidth:0 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                        <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color:C.text, letterSpacing:'0.05em', lineHeight:1 }}>
+                    <div style={{ minWidth:0, flex:1 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                        <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:21, color:C.text, letterSpacing:'0.05em', lineHeight:1 }}>
                           {tool.label}
                         </div>
                         {tool.key && (
-                          <kbd style={{ fontFamily:'monospace', fontSize:8, color:C.dimText, background:C.bg, border:`1px solid ${C.border}`, padding:'1px 4px', lineHeight:'14px', flexShrink:0, opacity:0.65 }}>
+                          <kbd style={{ fontFamily:'monospace', fontSize:8, color:C.dimText, background:C.bg, border:`1px solid ${C.border}`, borderRadius:3, padding:'1px 5px', lineHeight:'14px', flexShrink:0, opacity:0.65 }}>
                             {tool.key}
                           </kbd>
                         )}
                       </div>
-                      <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{tool.sub}</div>
+                      <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{tool.sub}</div>
                     </div>
                   </div>
 
-                  {/* Live badge */}
-                  {badge && (
-                    <div style={{ fontFamily:'monospace', fontSize:10, color:tool.isLive ? C.green : C.gold, background:tool.isLive ? C.green+'12' : C.gold+'10', borderRadius:C.radiusSm, padding:'3px 8px', marginBottom:14, display:'inline-block', letterSpacing:'0.04em', alignSelf:'flex-start' }}>
-                      {badge}
-                    </div>
-                  )}
-
-                  {/* Footer */}
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'auto', paddingTop:10, borderTop:`1px solid ${C.border}` }}>
-                    <div style={{ fontFamily:'monospace', fontSize:9, color:C.muted }}>
-                      {lastSeen ? `Último acceso: ${timeAgo(lastSeen)}` : 'Sin accesos recientes'}
-                    </div>
-                    <span style={{ fontFamily:'monospace', fontSize:10, color:C.gold, letterSpacing:'0.1em' }}>ABRIR →</span>
+                  {/* Línea de estado: badge a la izquierda, ABRIR → aparece al hover */}
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginTop:13, minHeight:20 }}>
+                    {badge ? (
+                      <div style={{ fontFamily:'monospace', fontSize:10, color:tool.isLive ? C.green : C.gold, background:tool.isLive ? C.green+'12' : C.gold+'10', borderRadius:C.radiusSm, padding:'2px 8px', letterSpacing:'0.04em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                        {badge}
+                      </div>
+                    ) : <span />}
+                    <span className="tc-open" aria-hidden>ABRIR →</span>
                   </div>
                 </Link>
               )
