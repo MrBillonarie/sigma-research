@@ -1143,11 +1143,24 @@ export default function DashboardHome() {
             })}
           </div>
 
+          {/* ══ SEPARATOR — riel de datos ══ */}
+          <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
+            <div style={{ flex:1, height:1, background:`linear-gradient(90deg, transparent, ${C.gold}44 60%, ${C.gold}77)` }} />
+            <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+              <span aria-hidden style={{ width:5, height:5, borderRadius:'50%', background:C.gold, boxShadow:`0 0 10px ${C.gold}` }} />
+              <span style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.35em', textTransform:'uppercase', color:C.dimText }}>DATA · TU OPERACIÓN</span>
+              <span aria-hidden style={{ width:5, height:5, borderRadius:'50%', background:C.gold, boxShadow:`0 0 10px ${C.gold}` }} />
+            </div>
+            <div style={{ flex:1, height:1, background:`linear-gradient(90deg, ${C.gold}77, ${C.gold}44 40%, transparent)` }} />
+          </div>
+
           {/* ══ TRES COLUMNAS — DATA ══ */}
           <div className="sp-bottom-grid" style={{ display:'grid', gridTemplateColumns:'35% 35% 30%', gap:12, marginBottom:32, alignItems:'start' }}>
 
             {/* Portfolio snapshot */}
-            <div style={{ ...cardStyle, background:C.surface, padding:'20px 20px', display:'flex', flexDirection:'column', gap:14 }}>
+            <div style={{ ...cardStyle, backgroundColor:C.surface, backgroundImage:'linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.006))', padding:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+              <div aria-hidden style={{ height:2, flexShrink:0, background:`linear-gradient(90deg, ${C.gold}, rgba(79,146,255,0.45) 55%, transparent 85%)` }} />
+              <div style={{ padding:'16px 20px 20px', display:'flex', flexDirection:'column', gap:14, flex:1 }}>
               <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText }}>PORTAFOLIO SNAPSHOT</div>
               {D.segments.length === 0 ? (
                 <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin datos — <a href="/portafolio" style={{ color:C.gold, textDecoration:'none' }}>configura tu portafolio →</a></div>
@@ -1187,12 +1200,18 @@ export default function DashboardHome() {
               <Link href="/portafolio" style={{ fontFamily:'monospace', fontSize:10, color:C.gold, letterSpacing:'0.15em', textDecoration:'none', textTransform:'uppercase' }}>
                 Ver portfolio completo →
               </Link>
+              </div>
             </div>
 
             {/* Últimos 5 trades */}
-            <div style={{ ...cardStyle, background:C.surface, padding:'20px 20px', display:'flex', flexDirection:'column', gap:14 }}>
+            <div style={{ ...cardStyle, backgroundColor:C.surface, backgroundImage:'linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.006))', padding:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+              <div aria-hidden style={{ height:2, flexShrink:0, background:`linear-gradient(90deg, ${C.gold}, rgba(79,146,255,0.45) 55%, transparent 85%)` }} />
+              <div style={{ padding:'16px 20px 20px', display:'flex', flexDirection:'column', gap:14, flex:1 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText }}>ÚLTIMOS TRADES</div>
+                <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText }}>
+                  ÚLTIMOS TRADES
+                  <span style={{ marginLeft:8, fontSize:8, letterSpacing:'0.14em', color:C.muted, border:`1px solid ${C.border2}`, borderRadius:999, padding:'1px 7px' }}>JOURNAL</span>
+                </div>
                 {D.streak > 0 && (
                   <div style={{ fontFamily:'monospace', fontSize:10, color:C.green, background:C.green+'18', borderRadius:C.radiusSm, padding:'2px 8px', letterSpacing:'0.1em' }}>🔥 {D.streak}W STREAK</div>
                 )}
@@ -1222,23 +1241,32 @@ export default function DashboardHome() {
                   </tbody>
                 </table>
               )}
+              {/* Sin trades decisivos este mes → cifras en neutro, no verde/rojo
+                  contradictorio (+$0 verde junto a 0.0% rojo) */}
               <div style={{ background:C.bg, borderRadius:C.radiusSm, padding:'10px 12px', display:'flex', justifyContent:'space-between' }}>
                 <div>
                   <div style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, marginBottom:2 }}>PNL ESTE MES</div>
-                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color:D.monthPnL >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(D.monthPnL)}</div>
+                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color: D.monthTradesCount === 0 ? C.dimText : D.monthPnL >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>
+                    {D.monthTradesCount === 0 ? '—' : fmtDiff(D.monthPnL)}
+                  </div>
                 </div>
                 <div style={{ textAlign:'right' }}>
                   <div style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, marginBottom:2 }}>WIN RATE</div>
-                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color:D.winRate >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(D.winRate)}</div>
+                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:22, color: D.monthTradesCount === 0 ? C.dimText : D.winRate >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>
+                    {D.monthTradesCount === 0 ? '—' : pct(D.winRate)}
+                  </div>
                 </div>
               </div>
               <Link href="/journal" style={{ fontFamily:'monospace', fontSize:10, color:C.gold, letterSpacing:'0.15em', textDecoration:'none', textTransform:'uppercase' }}>
                 Ver journal completo →
               </Link>
+              </div>
             </div>
 
             {/* Eventos macro */}
-            <div style={{ ...cardStyle, background:C.surface, padding:'20px 18px', display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ ...cardStyle, backgroundColor:C.surface, backgroundImage:'linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.006))', padding:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+              <div aria-hidden style={{ height:2, flexShrink:0, background:`linear-gradient(90deg, ${C.gold}, rgba(79,146,255,0.45) 55%, transparent 85%)` }} />
+              <div style={{ padding:'16px 18px 20px', display:'flex', flexDirection:'column', gap:10, flex:1 }}>
               <div style={{ fontFamily:'monospace', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText }}>PRÓXIMOS EVENTOS HIGH</div>
               {D.upcoming.length === 0 ? (
                 <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin eventos próximos</div>
@@ -1246,13 +1274,26 @@ export default function DashboardHome() {
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                   {D.upcoming.map((ev, i) => {
                     const isNext = i === 0
+                    // Fecha legible + countdown con urgencia (mismo lenguaje que la barra de estado)
+                    const d = new Date(`${ev.date}T00:00:00`)
+                    const dateLabel = isNaN(d.getTime()) ? ev.date : `${DAYS_ES[d.getDay()].slice(0, 3)} ${d.getDate()} ${MONTHS_ES[d.getMonth()].slice(0, 3)}`
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+                    const days = isNaN(d.getTime()) ? null : Math.round((d.getTime() - today.getTime()) / 86400000)
+                    const urgC = days === 0 ? C.red : days === 1 ? C.yellow : C.dimText
                     return (
                       <div key={i} style={{ padding:'10px 12px', borderRadius:C.radiusSm, background:isNext ? C.gold+'0c' : C.bg, border:`1px solid ${isNext ? C.gold+'44' : C.border}` }}>
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:6, marginBottom:4 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:6, marginBottom:5 }}>
                           <span style={{ fontFamily:'monospace', fontSize:10, color:isNext ? C.gold : C.dimText, lineHeight:1.4, flex:1 }}>{ev.title}</span>
                           <span style={{ fontFamily:'monospace', fontSize:8, letterSpacing:'0.1em', color:C.red, background:C.red+'18', padding:'1px 5px', whiteSpace:'nowrap', flexShrink:0 }}>HIGH</span>
                         </div>
-                        <div style={{ fontFamily:'monospace', fontSize:9, color:C.muted, letterSpacing:'0.05em' }}>{ev.date} · {ev.time}</div>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ fontFamily:'monospace', fontSize:9, color:C.muted, letterSpacing:'0.05em' }}>{dateLabel} · {ev.time}</span>
+                          {days != null && days >= 0 && (
+                            <span style={{ fontFamily:'monospace', fontSize:8, letterSpacing:'0.1em', color:urgC, border:`1px solid ${urgC}44`, borderRadius:999, padding:'0px 6px', whiteSpace:'nowrap' }}>
+                              {days === 0 ? 'HOY' : days === 1 ? 'MAÑANA' : `EN ${days}D`}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
@@ -1261,6 +1302,7 @@ export default function DashboardHome() {
               <Link href="/calendario" style={{ fontFamily:'monospace', fontSize:10, color:C.gold, letterSpacing:'0.15em', textDecoration:'none', textTransform:'uppercase', marginTop:4 }}>
                 Ver calendario completo →
               </Link>
+              </div>
             </div>
           </div>
 
