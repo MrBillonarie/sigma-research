@@ -125,6 +125,49 @@ function MiniBarChart({ data, w = 48, h = 20 }: { data: number[]; w?: number; h?
   )
 }
 
+// ─── Donut holográfico del snapshot — anillo inclinado sobre la mesa ──────────
+// Proyección 3D del reparto por plataforma: el anillo yace en el plano del
+// piso holográfico (rotateX) y el total flota erguido sobre él.
+function SnapshotDonut({ segments, total }: { segments: { id: string; name: string; color: string; pct: number }[]; total: number }) {
+  const R = 46, CX = 64, CY = 64, SW = 13
+  const CIRC = 2 * Math.PI * R
+  const GAP = segments.length > 1 ? 3 : 0
+  let acc = 0
+  return (
+    <div style={{ position:'relative', width:'100%', height:150, flexShrink:0 }}>
+      {/* Anillo inclinado */}
+      <svg viewBox="0 0 128 128" style={{ position:'absolute', left:'50%', top:'54%', width:158, height:158, transform:'translate(-50%,-50%) perspective(340px) rotateX(56deg)' }}>
+        <circle cx={CX} cy={CY} r={R} fill="none" stroke={C.border2} strokeWidth={SW} opacity={0.45} />
+        {segments.map(s => {
+          const len = Math.max(0, (s.pct / 100) * CIRC - GAP)
+          const off = -acc
+          acc += (s.pct / 100) * CIRC
+          return (
+            <circle
+              key={s.id} cx={CX} cy={CY} r={R} fill="none"
+              stroke={s.color} strokeWidth={SW}
+              strokeDasharray={`${len} ${CIRC - len}`} strokeDashoffset={off}
+              transform={`rotate(-90 ${CX} ${CY})`}
+              style={{ filter:`drop-shadow(0 0 5px ${s.color}90)` }}
+            >
+              <title>{`${s.name} · ${s.pct.toFixed(1)}%`}</title>
+            </circle>
+          )
+        })}
+      </svg>
+      {/* Sombra de asiento sobre la mesa */}
+      <div aria-hidden style={{ position:'absolute', left:'50%', top:'88%', width:130, height:26, transform:'translate(-50%,-50%)', background:'radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,0.55), transparent 70%)', filter:'blur(4px)' }} />
+      {/* Total — flota erguido sobre el anillo */}
+      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', pointerEvents:'none', paddingBottom:12, gap:2 }}>
+        <span style={{ fontFamily:'monospace', fontSize:8, letterSpacing:'0.28em', color:C.muted }}>TOTAL</span>
+        <span style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:26, lineHeight:1, color:'#aef7fa', textShadow:'0 1px 0 #2fb9bd, 0 2px 0 #1f7a7d, 0 5px 10px rgba(0,0,0,0.6), 0 0 18px rgba(57,226,230,0.35)' }}>
+          {fmtUSD(total)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Pulsing live dot ─────────────────────────────────────────────────────────
 function LiveDot({ size = 8 }: { size?: number }) {
   return (
@@ -1166,35 +1209,36 @@ export default function DashboardHome() {
                 <div style={{ fontFamily:'monospace', fontSize:12, color:C.muted }}>Sin datos — <a href="/portafolio" style={{ color:C.gold, textDecoration:'none' }}>configura tu portafolio →</a></div>
               ) : (
                 <>
-                  <div style={{ display:'flex', height:8, borderRadius:2, overflow:'hidden', background:C.border }}>
-                    {D.segments.map(s => <div key={s.id} style={{ width:`${s.pct}%`, background:s.color }} title={`${s.name} ${pct(s.pct)}`} />)}
-                  </div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <SnapshotDonut segments={D.segments} total={D.totalUSD} />
+                  <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
                     {D.segments.map(s => (
-                      <div key={s.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                          <div style={{ width:7, height:7, background:s.color, borderRadius:1, flexShrink:0 }} />
-                          <span style={{ fontFamily:'monospace', fontSize:11, color:C.dimText }}>{s.name}</span>
+                      <div key={s.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:7, minWidth:0 }}>
+                          <div style={{ width:7, height:7, background:s.color, borderRadius:2, boxShadow:`0 0 6px ${s.color}66`, flexShrink:0 }} />
+                          <span style={{ fontFamily:'monospace', fontSize:11, color:C.dimText, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.name}</span>
                         </div>
-                        <div style={{ textAlign:'right' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
                           <span style={{ fontFamily:'monospace', fontSize:11, color:C.text }}>{fmtUSD(s.usd)}</span>
-                          <span style={{ fontFamily:'monospace', fontSize:10, color:C.muted, marginLeft:6 }}>{pct(s.pct)}</span>
+                          <span aria-hidden style={{ width:36, height:3, borderRadius:2, background:C.border, overflow:'hidden' }}>
+                            <span style={{ display:'block', width:`${Math.min(s.pct, 100)}%`, height:'100%', background:s.color, borderRadius:2 }} />
+                          </span>
+                          <span style={{ fontFamily:'monospace', fontSize:10, color:s.color, width:38, textAlign:'right' }}>{pct(s.pct)}</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </>
               )}
-              <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                  <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>Total</span>
-                  <span style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:20, color:C.gold, lineHeight:1, textShadow:numberEmboss }}>{fmtUSD(D.totalUSD)}</span>
+              <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:10, marginTop:'auto' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:5 }}>
+                  <span style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', color:C.dimText }}>PROGRESO FIRE</span>
+                  <span style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:16, color:C.gold, lineHeight:1, textShadow:numberEmboss }}>{pct(D.firePct)}</span>
                 </div>
                 <div style={{ height:3, background:C.border, borderRadius:2 }}>
-                  <div style={{ width:`${cFire}%`, height:'100%', background:`linear-gradient(90deg,${C.gold},${C.glow})`, borderRadius:2 }} />
+                  <div style={{ width:`${cFire}%`, height:'100%', background:`linear-gradient(90deg,${C.gold},${C.glow})`, borderRadius:2, boxShadow:`0 0 8px ${C.gold}55` }} />
                 </div>
                 <div style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, marginTop:4 }}>
-                  FIRE {pct(D.firePct)} · meta {fmtUSD(D.FIRE_TARGET)}
+                  meta {fmtUSD(D.FIRE_TARGET)}
                 </div>
               </div>
               <Link href="/portafolio" style={{ fontFamily:'monospace', fontSize:10, color:C.gold, letterSpacing:'0.15em', textDecoration:'none', textTransform:'uppercase' }}>
