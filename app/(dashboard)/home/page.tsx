@@ -33,22 +33,6 @@ const DAYS_ES   = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','S
 const MONTHS_ES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE']
 const TRM_DEFAULT = 950
 
-// Curva plasma del header — mismo lenguaje visual del hero de la landing,
-// pero estática: se dibuja una sola vez al entrar (sin loop) como firma de marca.
-const HEADER_CURVE_PTS: number[][] = [[0,86],[70,70],[140,78],[210,50],[280,58],[350,30],[420,38],[490,12],[560,20]]
-function headerCurvePath(pts: number[][]): string {
-  const [sx, sy] = pts[0]
-  let d = `M ${sx} ${sy}`
-  for (let i = 1; i < pts.length; i++) {
-    const [cx, cy] = pts[i - 1]
-    const [nx, ny] = pts[i]
-    const mx = (cx + nx) / 2
-    d += ` C ${mx} ${cy} ${mx} ${ny} ${nx} ${ny}`
-  }
-  return d
-}
-const HEADER_CURVE_D = headerCurvePath(HEADER_CURVE_PTS)
-
 function fmtUSD(n: number)  { return '$' + Math.round(n).toLocaleString('es-CL') }
 function pct(n: number)     { return n.toFixed(1) + '%' }
 function fmtDiff(n: number) { return (n >= 0 ? '+' : '') + fmtUSD(n) }
@@ -243,7 +227,6 @@ export default function DashboardHome() {
   const [showShortcuts,   setShowShortcuts]   = useState(false)
   const [trm,             setTrm]             = useState(TRM_DEFAULT)
   const [trmLive,         setTrmLive]         = useState(false)
-  const [headerDrawn,     setHeaderDrawn]     = useState(false)
   const [motorReturn,     setMotorReturn]     = useState<{ monthlyReturnPct: number; cumulativeReturnPct: number; daysActive: number } | null>(null)
   // Datos crudos del motor (mismas ejecuciones que muestra el HUD) — el motor
   // abre y cierra trades todo el día; de aquí salen PnL/Win Rate reales.
@@ -285,17 +268,35 @@ export default function DashboardHome() {
     return () => clearInterval(id)
   }, [])
 
-  // Trazo del header — se dibuja una sola vez al entrar, no en loop
-  useEffect(() => {
-    const t = setTimeout(() => setHeaderDrawn(true), 150)
-    return () => clearTimeout(t)
-  }, [])
-
-  // Movimiento reducido — apaga cometa y brasas (elementos SMIL/decorativos)
+  // Movimiento reducido — apaga scanlines, parallax y pulsos decorativos
   const [rm, setRm] = useState(false)
   useEffect(() => {
     setRm(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   }, [])
+
+  // Parallax global por profundidad — un solo listener de mouse que alimenta
+  // CSS vars (--gx/--gy en -1..1); las capas .holo-d1/.holo-d2/.holo-d3 se
+  // desplazan proporcional a su profundidad. Sin re-render de React.
+  const pageRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (rm) return
+    const el = pageRef.current
+    if (!el) return
+    let raf = 0
+    let mx = 0, my = 0
+    function onMove(e: MouseEvent) {
+      mx = (e.clientX / window.innerWidth  - 0.5) * 2
+      my = (e.clientY / window.innerHeight - 0.5) * 2
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        el!.style.setProperty('--gx', mx.toFixed(3))
+        el!.style.setProperty('--gy', my.toFixed(3))
+      })
+    }
+    window.addEventListener('mousemove', onMove, { passive: true })
+    return () => { window.removeEventListener('mousemove', onMove); if (raf) cancelAnimationFrame(raf) }
+  }, [rm])
 
   // TRM en vivo
   useEffect(() => {
@@ -685,21 +686,89 @@ export default function DashboardHome() {
         @keyframes spDraw { to { stroke-dashoffset:0 } }
         .sp-dotin { opacity:0; animation: spDotIn .35s 1.3s ease forwards }
         @keyframes spDotIn { to { opacity:1 } }
-        .hg-ember { position:absolute; width:3px; height:3px; border-radius:50%; background:${C.glow};
-          box-shadow:0 0 6px ${C.gold}; opacity:0; pointer-events:none; z-index:0;
-          animation: hgEmber 7s linear infinite }
-        @keyframes hgEmber {
-          0%   { transform:translateY(14px) scale(0.8); opacity:0 }
-          18%  { opacity:.45 }
-          60%  { opacity:.22 }
-          100% { transform:translateY(-72px) scale(1.1); opacity:0 }
-        }
         .hg-ring { padding:2px; border-radius:50%; position:relative }
         .hg-ring::before { content:''; position:absolute; inset:0; border-radius:50%;
           background:conic-gradient(from 0deg, transparent 8%, ${C.gold}cc 22%, ${C.glow} 28%, transparent 45%);
           animation: hgSpin 5.5s linear infinite }
         .hg-ring > div { position:relative }
         @keyframes hgSpin { to { transform:rotate(360deg) } }
+
+        /* ══ HUD holográfico 3D ══════════════════════════════════════════ */
+        /* Piso de rejilla en perspectiva — la mesa de operaciones. Fijo al
+           viewport: el contenido scrollea por encima del plano. */
+        .holo-floor { position:fixed; left:-20%; right:-20%; bottom:-12vh; height:70vh;
+          pointer-events:none; z-index:0;
+          background-image:
+            linear-gradient(rgba(57,226,230,0.13) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(57,226,230,0.09) 1px, transparent 1px);
+          background-size: 56px 56px;
+          transform: perspective(900px) rotateX(58deg) translate3d(calc(var(--gx,0) * -14px), 0, 0);
+          transform-origin: 50% 0;
+          -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 26%, #000 82%, transparent);
+          mask-image: linear-gradient(180deg, transparent 0, #000 26%, #000 82%, transparent);
+          opacity:.42 }
+        /* Línea de horizonte — donde el plano se pierde */
+        .holo-horizon { position:fixed; left:6%; right:6%; top:42vh; height:1px;
+          pointer-events:none; z-index:0;
+          background:linear-gradient(90deg, transparent, rgba(57,226,230,0.4) 28%, rgba(94,234,240,0.75) 50%, rgba(57,226,230,0.4) 72%, transparent);
+          box-shadow:0 0 20px rgba(57,226,230,0.3);
+          opacity:.35 }
+        /* Scanlines — acabado de pantalla holográfica, casi subliminal */
+        .holo-scan { position:fixed; inset:0; pointer-events:none; z-index:50; opacity:.5;
+          background: repeating-linear-gradient(180deg, rgba(57,226,230,0.024) 0 1px, transparent 1px 3px);
+          animation: holoScan 10s linear infinite }
+        @keyframes holoScan { to { background-position: 0 120px } }
+
+        /* Capas de profundidad — se desplazan contra el mouse (--gx/--gy) */
+        .holo-d1 { transform: translate3d(calc(var(--gx,0) * -7px),  calc(var(--gy,0) * -5px),  0); transition: transform .18s ease-out }
+        .holo-d3 { transform: translate3d(calc(var(--gx,0) * -20px), calc(var(--gy,0) * -14px), 0); transition: transform .18s ease-out }
+
+        /* Sello Σ holográfico — flota detrás del saludo, capa más profunda */
+        .holo-seal { position:absolute; right:16%; top:-46px; width:220px; height:220px;
+          pointer-events:none; z-index:0 }
+        .holo-seal-sigma { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+          font-family:'Bebas Neue',Impact,sans-serif;
+          font-size:150px; line-height:1; color:rgba(57,226,230,0.09);
+          filter: drop-shadow(0 0 26px rgba(57,226,230,0.22)) }
+        .holo-seal-ring { position:absolute; inset:5%; border-radius:50%;
+          border:1px dashed rgba(57,226,230,0.26); animation: hgSpin 28s linear infinite }
+        .holo-seal-ring.r2 { inset:16%; border:1px solid rgba(79,146,255,0.12);
+          border-top-color: rgba(94,234,240,0.5); animation: hgSpin 15s linear infinite reverse }
+
+        /* Barra de estado — instrumentos de cabina */
+        .holo-status { position:relative; z-index:1; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+          border:1px solid ${C.border}; border-radius:10px; padding:9px 14px;
+          background: linear-gradient(90deg, rgba(57,226,230,0.05), rgba(255,255,255,0.015) 45%);
+          box-shadow: ${C.shadowCard}, inset 0 1px 0 rgba(255,255,255,0.05) }
+        .hs-item { display:inline-flex; align-items:center; gap:8px; background:none; border:none; padding:0 }
+        .hs-btn { cursor:pointer; border:1px solid ${C.border}; border-radius:8px; padding:4px 10px;
+          transition: border-color .15s, box-shadow .15s }
+        .hs-btn:hover { border-color: rgba(57,226,230,0.5); box-shadow:0 0 12px rgba(57,226,230,0.15) }
+        .hs-k { font-family:monospace; font-size:9px; letter-spacing:0.18em; color:${C.muted} }
+        .hs-v { font-family:monospace; font-size:11px; color:${C.text}; letter-spacing:0.06em }
+        .hs-sep { width:1px; height:16px; background:${C.border2}; flex-shrink:0 }
+
+        /* Patrimonio extruido — relieve real por capas apiladas */
+        .holo-extrude { color:#aef7fa; letter-spacing:0.02em;
+          text-shadow:
+            0 1px 0 #2fb9bd, 0 2px 0 #27999c, 0 3px 0 #1f7a7d, 0 4px 0 #175c5e, 0 5px 0 #104244,
+            0 8px 16px rgba(0,0,0,0.65), 0 0 28px rgba(57,226,230,0.38) }
+
+        /* Módulo MOTOR · LIVE — panel de instrumento unificado */
+        .holo-motor { position:relative; overflow:hidden; display:flex; flex-direction:column;
+          border:1px solid rgba(57,226,230,0.22); border-radius:${C.radiusMd}px;
+          background: linear-gradient(180deg, rgba(57,226,230,0.05), ${C.surface} 55%);
+          box-shadow: ${C.shadowCard}, 0 0 24px rgba(57,226,230,0.07), inset 0 1px 0 rgba(255,255,255,0.05) }
+        .hm-filo { height:2px; flex-shrink:0 }
+        .hm-head { display:flex; align-items:center; gap:9px; padding:10px 16px; border-bottom:1px solid ${C.border} }
+        .hm-title { font-family:monospace; font-size:9px; letter-spacing:0.22em; color:${C.dimText} }
+        .hm-tag { font-family:monospace; font-size:8px; letter-spacing:0.14em; border:1px solid; border-radius:999px; padding:2px 8px }
+        .hm-body { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px 16px 8px }
+        .hm-k { font-family:monospace; font-size:9px; letter-spacing:0.22em; color:${C.dimText}; margin-bottom:8px; text-transform:uppercase }
+        .hm-sub { font-family:monospace; font-size:9px; color:${C.gold}; margin-top:5px; letter-spacing:0.04em; min-height:12px }
+        .hm-foot { display:flex; gap:8px 20px; flex-wrap:wrap; padding:9px 16px; border-top:1px solid ${C.border};
+          background: rgba(255,255,255,0.015); font-family:monospace; font-size:10px }
+        .hm-fk { font-size:8px; letter-spacing:0.16em; color:${C.muted}; font-weight:400 }
 
         @media (prefers-reduced-motion: reduce) {
           .h3d, .h3d.h3d-on { transform:none !important; transition:none }
@@ -710,8 +779,11 @@ export default function DashboardHome() {
           .hg-sweep { animation:none; background-position:0% 0 }
           .sp-draw  { animation:none; stroke-dashoffset:0 }
           .sp-dotin { animation:none; opacity:1 }
-          .hg-ember { display:none }
           .hg-ring::before { animation:none }
+          .holo-scan { display:none }
+          .holo-d1, .holo-d3 { transform:none !important; transition:none }
+          .holo-floor { transform: perspective(900px) rotateX(58deg) !important }
+          .holo-seal-ring, .holo-seal-ring.r2 { animation:none }
         }
       `}</style>
 
@@ -730,94 +802,35 @@ export default function DashboardHome() {
       )}
 
       {/* ── Page ── */}
-      <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"var(--font-dm-mono,'DM Mono',monospace)", position:'relative', overflow:'hidden' }}>
-        {/* Profundidad atmosférica — orbes de luz dispersos, asimétricos, estáticos */}
-        <div style={{ position:'absolute', top:-140, right:-100, width:520, height:520, background:`radial-gradient(circle,${C.gold}14,transparent 70%)`, pointerEvents:'none' }} />
-        <div style={{ position:'absolute', top:320, left:-160, width:380, height:380, background:`radial-gradient(circle,${C.gold}09,transparent 72%)`, pointerEvents:'none' }} />
-        <div style={{ position:'absolute', top:680, right:60, width:260, height:260, background:`radial-gradient(circle,${C.green}08,transparent 70%)`, pointerEvents:'none' }} />
-        <div style={{ position:'absolute', bottom:-120, left:200, width:340, height:340, background:`radial-gradient(circle,${C.gold}07,transparent 70%)`, pointerEvents:'none' }} />
+      <div ref={pageRef} style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"var(--font-dm-mono,'DM Mono',monospace)", position:'relative', overflow:'hidden' }}>
+        {/* ── Piso holográfico: rejilla en perspectiva que se aleja al horizonte ── */}
+        <div className="holo-floor" aria-hidden />
+        <div className="holo-horizon" aria-hidden />
+        {/* Profundidad atmosférica — orbes de luz dispersos, asimétricos */}
+        <div className="holo-d1" style={{ position:'absolute', top:-140, right:-100, width:520, height:520, background:`radial-gradient(circle,${C.gold}14,transparent 70%)`, pointerEvents:'none' }} />
+        <div className="holo-d1" style={{ position:'absolute', top:320, left:-160, width:380, height:380, background:`radial-gradient(circle,${C.gold}09,transparent 72%)`, pointerEvents:'none' }} />
+        <div className="holo-d1" style={{ position:'absolute', top:680, right:60, width:260, height:260, background:`radial-gradient(circle,${C.green}08,transparent 70%)`, pointerEvents:'none' }} />
+        <div className="holo-d1" style={{ position:'absolute', bottom:-120, left:200, width:340, height:340, background:`radial-gradient(circle,${C.gold}07,transparent 70%)`, pointerEvents:'none' }} />
+        {/* Scanlines — acabado de pantalla holográfica, casi subliminal */}
+        {!rm && <div className="holo-scan" aria-hidden />}
         <div className="dash-content" style={{ maxWidth:1280, margin:'0 auto', padding:'72px 24px 56px', position:'relative' }}>
 
-          {/* ══ HEADER ══ */}
-          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:32, position:'relative' }}>
-            {/* Línea de marca EN VIVO — recorre todo el ancho del header. Se
-                traza una vez al entrar y luego un pulso fluye por ella sin parar. */}
-            <svg
-              viewBox="0 0 560 100" preserveAspectRatio="none"
-              style={{ position:'absolute', left:0, top:-10, width:'100%', height:118, zIndex:0, pointerEvents:'none', opacity:0.6 }}
-            >
-              <defs>
-                <linearGradient id="homeHeaderLine" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%"  stopColor={C.gold} stopOpacity="0" />
-                  <stop offset="30%" stopColor={C.gold} stopOpacity="0.45" />
-                  <stop offset="100%" stopColor={C.glow} stopOpacity="0.95" />
-                </linearGradient>
-                <filter id="homeHeaderGlow" x="-20%" y="-300%" width="140%" height="700%">
-                  <feGaussianBlur stdDeviation="2.4" result="b" />
-                  <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-                </filter>
-              </defs>
-              {/* Riel base — trazado una vez, queda tenue de fondo */}
-              <path
-                d={HEADER_CURVE_D} fill="none" stroke="url(#homeHeaderLine)" strokeWidth="1.4"
-                strokeLinejoin="round" filter="url(#homeHeaderGlow)"
-                style={{ strokeDasharray:700, strokeDashoffset: headerDrawn ? 0 : 700, transition:'stroke-dashoffset 1.6s cubic-bezier(0.4,0,0.2,1)', opacity:0.5 }}
-              />
-              {/* Pulso vivo — un segmento brillante que fluye por la línea en loop */}
-              {!rm && (
-                <path
-                  d={HEADER_CURVE_D} fill="none" stroke={C.glow} strokeWidth="2.1"
-                  strokeLinecap="round" strokeLinejoin="round" filter="url(#homeHeaderGlow)"
-                  pathLength={1000} strokeDasharray="90 910"
-                  style={{ animation: headerDrawn ? 'home-header-flow 4.6s linear infinite' : undefined, animationDelay:'1.6s' }}
-                />
-              )}
-              {/* Cabeza cometa que persigue al pulso */}
-              {!rm && (
-                <circle r="2.6" fill="#fff3cf" filter="url(#homeHeaderGlow)" opacity="0.95">
-                  <animateMotion dur="4.6s" begin="1.6s" repeatCount="indefinite" path={HEADER_CURVE_D} keyPoints="0.09;1;0.09" keyTimes="0;0.91;1" calcMode="linear" />
-                </circle>
-              )}
-            </svg>
-            {/* Brasas doradas — ascienden lento desde la zona del saludo */}
-            {!rm && [
-              { l: '6%',  t: 58, d: 0.0, s: 6.5 },
-              { l: '15%', t: 74, d: 2.1, s: 8.0 },
-              { l: '24%', t: 50, d: 4.3, s: 7.2 },
-              { l: '33%', t: 80, d: 1.2, s: 9.0 },
-              { l: '42%', t: 62, d: 5.4, s: 7.8 },
-              { l: '51%', t: 72, d: 3.2, s: 6.8 },
-            ].map((e, i) => (
-              <span key={i} className="hg-ember" aria-hidden style={{ left: e.l, top: e.t, animationDelay: `${e.d}s`, animationDuration: `${e.s}s` }} />
-            ))}
+          {/* ══ HEADER — cabina holográfica ══ */}
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14, position:'relative' }}>
+            {/* Sello Σ holográfico — flota detrás del saludo, capa profunda del parallax */}
+            <div className="holo-seal holo-d3" aria-hidden>
+              <span className="holo-seal-sigma">Σ</span>
+              <span className="holo-seal-ring" />
+              <span className="holo-seal-ring r2" />
+            </div>
             <div style={{ position:'relative', zIndex:1 }}>
               <div style={{ fontFamily:'monospace', fontSize:11, letterSpacing:'0.3em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>
                 {'// SIGMA RESEARCH · MORNING BRIEFING'}
               </div>
-              <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(32px,5vw,60px)', lineHeight:0.95, letterSpacing:'0.04em', marginBottom:8 }}>
+              <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:'clamp(32px,5vw,60px)', lineHeight:0.95, letterSpacing:'0.04em' }}>
                 <span className="hg-sweep" style={{ WebkitTextFillColor:'transparent' }}>
                   {greeting}
                 </span>
-              </div>
-              <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-                <span style={{ fontFamily:'monospace', fontSize:12, color:C.dimText, letterSpacing:'0.12em' }}>{dateStr}</span>
-                <span style={{ color:C.border }}>·</span>
-                {/* TRM badge */}
-                <span style={{ display:'flex', alignItems:'center', gap:5, fontFamily:'monospace', fontSize:10, color: trmLive ? C.green : C.dimText, background: trmLive ? 'rgba(52,211,153,0.08)' : 'transparent', border:`1px solid ${trmLive ? 'rgba(52,211,153,0.25)' : C.border}`, borderRadius:C.radiusSm, padding:'2px 8px' }}>
-                  {trmLive && <span style={{ width:5, height:5, borderRadius:'50%', background:C.green, display:'inline-block', animation:'sp-ping 1.5s infinite' }} />}
-                  USD/CLP {trm.toLocaleString('es-CL')}
-                  {trmLive ? ' · live' : ' · est.'}
-                </span>
-                <span style={{ color:C.border }}>·</span>
-                <button
-                  onClick={() => { setSpotlight(true); setSpotQuery(''); setSpotIdx(0) }}
-                  style={{ background:'none', border:`1px solid ${C.border}`, borderRadius:C.radiusSm, padding:'3px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}
-                >
-                  <span style={{ fontFamily:'monospace', fontSize:9, color:C.dimText, letterSpacing:'0.1em' }}>
-                    <kbd style={{ background:C.surface, padding:'1px 4px', marginRight:4, fontSize:9 }}>⌘K</kbd>
-                    BÚSQUEDA
-                  </span>
-                </button>
               </div>
             </div>
             {/* Avatar — anillo dorado giratorio, mismo lenguaje que /perfil */}
@@ -826,6 +839,41 @@ export default function DashboardHome() {
                 {initials}
               </div>
             </div>
+          </div>
+
+          {/* ══ BARRA DE ESTADO — instrumentos de cabina ══ */}
+          <div className="holo-status" style={{ marginBottom:30 }}>
+            <span className="hs-item">
+              <span className="hs-k">SESIÓN</span>
+              <span className="hs-v">{dateStr}</span>
+            </span>
+            <span className="hs-sep" aria-hidden />
+            <span className="hs-item">
+              <span className="hs-k">USD/CLP</span>
+              <span className="hs-v" style={{ color: trmLive ? C.green : C.dimText, display:'inline-flex', alignItems:'center', gap:5 }}>
+                {trmLive && <span style={{ width:5, height:5, borderRadius:'50%', background:C.green, display:'inline-block', animation:'sp-ping 1.5s infinite' }} />}
+                {trm.toLocaleString('es-CL')}{trmLive ? ' · LIVE' : ' · EST'}
+              </span>
+            </span>
+            {D.nextEvent && (
+              <>
+                <span className="hs-sep" aria-hidden />
+                <Link href="/calendario" className="hs-item" style={{ textDecoration:'none' }} title={D.nextEvent.title}>
+                  <span className="hs-k" style={{ color: D.nextEvent.daysUntil === 0 ? C.red : D.nextEvent.daysUntil === 1 ? C.yellow : undefined }}>
+                    {D.nextEvent.daysUntil === 0 ? '⚠ HOY' : D.nextEvent.daysUntil === 1 ? 'MAÑANA' : `EN ${D.nextEvent.daysUntil}D`}
+                  </span>
+                  <span className="hs-v" style={{ maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{D.nextEvent.title}</span>
+                </Link>
+              </>
+            )}
+            <span style={{ flex:1 }} />
+            <button
+              onClick={() => { setSpotlight(true); setSpotQuery(''); setSpotIdx(0) }}
+              className="hs-item hs-btn"
+            >
+              <kbd style={{ background:C.surface, padding:'1px 5px', fontSize:9, border:`1px solid ${C.border2}`, borderRadius:3 }}>⌘K</kbd>
+              <span className="hs-k">BÚSQUEDA</span>
+            </button>
           </div>
 
           {/* ══ GETTING STARTED BANNER ══ */}
@@ -880,7 +928,7 @@ export default function DashboardHome() {
                 {/* Cifra + sparkline — capa frontal: flota hacia el mouse */}
                 <div className="h3d-front" style={{ position:'relative', display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
                   {loading ? <Sk w={90} h={32} /> : (
-                    <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:34, lineHeight:1, background:`linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', textShadow:numberEmboss }}>
+                    <div className="holo-extrude" style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:42, lineHeight:1 }}>
                       {fmtUSD(cTotal)}
                     </div>
                   )}
@@ -892,59 +940,71 @@ export default function DashboardHome() {
               </Hero3D>
             </div>
 
-            {/* Par de rendimiento — PnL y Win Rate del MOTOR (mismo origen que el
-                HUD), unidos por un cable en vivo. El pulso viaja de PnL -> Win
-                Rate y se tiñe según el signo del mes. */}
+            {/* MOTOR · LIVE — panel unificado con las mismas ejecuciones que el
+                HUD. Antes eran 4 tarjetas dispersas (PnL, WR, mejor trade y
+                semanal); ahora un módulo holográfico con jerarquía propia. */}
             {(() => {
-              const wire = monthPnlVal >= 0 ? C.green : C.red
-              // Etiqueta de fuente: cuando hay datos del motor, marcarlo en vivo
-              const motorTag = E ? (
-                <span style={{ display:'inline-flex', alignItems:'center', gap:4, marginLeft:8, verticalAlign:'middle' }}>
-                  <span style={{ width:5, height:5, borderRadius:'50%', background:C.green, display:'inline-block', animation:'sp-ping 1.5s infinite' }} />
-                  <span style={{ fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>
-                </span>
-              ) : null
-              const monthSpark = E ? E.sparkMonth : []
-              const last10     = E ? E.last10 : []
+              const tone = monthPnlVal >= 0 ? C.green : C.red
               return (
-            <div className="sp-pair" style={{ position:'relative', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-
-            {/* PnL Mes — realizado del motor este mes */}
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'90ms' }}>
-              <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PNL DEL MES{motorTag}</div>
-              <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
-                {engineLoading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:monthPnlVal >= 0 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(cMonth)}</div>}
-                {!engineLoading && monthSpark.length > 1 && <Sparkline data={monthSpark} w={56} h={22} />}
-              </div>
-              <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>
-                {engineLoading ? '' : E ? `${E.monthClosed} cerrados · ${E.openCount} abiertas` : 'sin operación registrada'}
-              </div>
-              {E && <div style={{ fontFamily:'monospace', fontSize:9, color:C.gold, marginTop:3, letterSpacing:'0.04em' }}>
-                motor {fmtDiff(E.trackPnlTotal)} · PF {E.profitFactor.toFixed(2)}
-              </div>}
-            </div>
-
-            {/* Win Rate — del motor este mes; histórico como apoyo */}
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'180ms' }}>
-              <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>WIN RATE MES{motorTag}</div>
-              <div style={{ display:'flex', alignItems:'flex-end', gap:10, marginBottom:6 }}>
-                {engineLoading ? <Sk w={70} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:winRateVal >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(cWin)}</div>}
-                {!engineLoading && last10.length > 0 && <MiniBarChart data={last10} w={52} h={22} />}
-              </div>
-              {!engineLoading && E && (
-                <div style={{ fontFamily:'monospace', fontSize:9, color:C.gold, letterSpacing:'0.04em' }}>histórico {E.trackWinRate.toFixed(1)}% · {E.trackTotal} trades</div>
-              )}
-            </div>
-
-            {/* Cable en vivo: baseline compartida que une PnL <-> Win Rate */}
-            <div aria-hidden style={{ position:'absolute', left:16, right:16, bottom:0, height:2, pointerEvents:'none', zIndex:3 }}>
-              <div style={{ position:'absolute', inset:0, borderRadius:2, background:`linear-gradient(90deg, ${wire}00 0%, ${wire}55 16%, ${wire}cc 50%, ${wire}55 84%, ${wire}00 100%)` }} />
-              <span style={{ position:'absolute', left:'25%', top:'50%', width:5, height:5, marginLeft:-2.5, marginTop:-2.5, borderRadius:'50%', background:wire, boxShadow:`0 0 8px ${wire}` }} />
-              <span style={{ position:'absolute', left:'75%', top:'50%', width:5, height:5, marginLeft:-2.5, marginTop:-2.5, borderRadius:'50%', background:wire, boxShadow:`0 0 8px ${wire}` }} />
-              {!rm && <span className="home-wire-pulse" style={{ background:'#fff', boxShadow:`0 0 10px ${wire}, 0 0 4px ${wire}` }} />}
-            </div>
-
-            </div>
+                <div className="sp-pair sp-fadein holo-motor" style={{ animationDelay:'90ms' }}>
+                  <div className="hm-filo" aria-hidden style={{ background:`linear-gradient(90deg, ${tone}, rgba(79,146,255,0.45) 55%, transparent 85%)` }} />
+                  {/* Cabecera de instrumento */}
+                  <div className="hm-head">
+                    <LiveDot size={7} />
+                    <span className="hm-title">MOTOR SIGMA · EJECUCIONES REALES</span>
+                    <span style={{ flex:1 }} />
+                    {!engineLoading && E && (
+                      <span className="hm-tag" style={{ color:tone, borderColor:`${tone}44`, background:`${tone}10` }}>
+                        {E.openCount} ABIERTAS
+                      </span>
+                    )}
+                  </div>
+                  {/* Cuerpo: PnL del mes + Win Rate */}
+                  <div className="hm-body">
+                    <div>
+                      <div className="hm-k">PNL DEL MES</div>
+                      <div style={{ display:'flex', alignItems:'flex-end', gap:12 }}>
+                        {engineLoading ? <Sk w={86} h={30} /> : (
+                          <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:32, color:tone, lineHeight:1, textShadow:numberEmboss }}>{fmtDiff(cMonth)}</div>
+                        )}
+                        {!engineLoading && E && E.sparkMonth.length > 1 && <Sparkline data={E.sparkMonth} w={92} h={26} />}
+                      </div>
+                      <div className="hm-sub">{engineLoading ? ' ' : E ? `${E.monthClosed} cerrados este mes` : 'sin operación registrada'}</div>
+                    </div>
+                    <div>
+                      <div className="hm-k">WIN RATE MES</div>
+                      <div style={{ display:'flex', alignItems:'flex-end', gap:12 }}>
+                        {engineLoading ? <Sk w={70} h={30} /> : (
+                          <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:32, color:winRateVal >= 50 ? C.green : C.red, lineHeight:1, textShadow:numberEmboss }}>{pct(cWin)}</div>
+                        )}
+                        {!engineLoading && E && E.last10.length > 0 && <MiniBarChart data={E.last10} w={64} h={26} />}
+                      </div>
+                      <div className="hm-sub">{!engineLoading && E ? `histórico ${E.trackWinRate.toFixed(1)}% · ${E.trackTotal} trades` : ' '}</div>
+                    </div>
+                  </div>
+                  {/* Pie: track record · mejor trade · semanal */}
+                  <div className="hm-foot">
+                    <span>
+                      <b className="hm-fk">TRACK</b>{' '}
+                      <span style={{ color: E && E.trackPnlTotal >= 0 ? C.green : C.red }}>{E ? fmtDiff(E.trackPnlTotal) : '—'}</span>
+                      <span style={{ color:C.dimText }}> · PF {E ? E.profitFactor.toFixed(2) : '—'}</span>
+                    </span>
+                    <span>
+                      <b className="hm-fk">★ MEJOR</b>{' '}
+                      {bestTradeVal ? (
+                        <>
+                          <span style={{ color:C.green }}>{(bestTradeVal.pnl >= 0 ? '+' : '') + '$' + bestTradeVal.pnl.toFixed(2)}</span>
+                          <span style={{ color:C.dimText }}> {bestTradeVal.label}</span>
+                        </>
+                      ) : <span style={{ color:C.muted }}>sin trades este mes</span>}
+                    </span>
+                    <span>
+                      <b className="hm-fk">7 DÍAS</b>{' '}
+                      <span style={{ color: weekPnlVal >= 0 ? C.green : C.red }}>{fmtDiff(weekPnlVal)}</span>
+                      <span style={{ color:C.dimText }}> · {weekCountVal} trades</span>
+                    </span>
+                  </div>
+                </div>
               )
             })()}
 
@@ -1004,72 +1064,6 @@ export default function DashboardHome() {
               </div>
             )
           })()}
-
-          {/* ══ QUICK SUMMARY BAR ══ */}
-          <div className="sp-summary-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:40 }}>
-
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14, animationDelay:'420ms' }}>
-              <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.gold, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>★</div>
-              <div>
-                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>MEJOR TRADE DEL MES{E && <span style={{ marginLeft:6, fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>}</div>
-                {engineLoading ? <Sk w={80} h={14} /> : bestTradeVal ? (
-                  <div style={{ display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
-                    <span style={{ fontFamily:'monospace', fontSize:13, color:C.green }}>
-                      {(bestTradeVal.pnl >= 0 ? '+' : '') + '$' + bestTradeVal.pnl.toFixed(2)}
-                    </span>
-                    <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{bestTradeVal.label}</span>
-                    {bestTradeVal.closedAt && (
-                      <span style={{ fontFamily:'monospace', fontSize:9, color:C.muted }}>{bestTradeVal.closedAt.slice(5, 10)}</span>
-                    )}
-                  </div>
-                ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin trades este mes</span>}
-              </div>
-            </div>
-
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14, animationDelay:'480ms' }}>
-              <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:weekPnlVal >= 0 ? C.green : C.red, lineHeight:1, flexShrink:0, width:20, textAlign:'center' }}>
-                {weekPnlVal >= 0 ? '▲' : '▼'}
-              </div>
-              <div>
-                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>P&L SEMANAL{E && <span style={{ marginLeft:6, fontSize:8, letterSpacing:'0.14em', color:C.green }}>MOTOR</span>}</div>
-                {engineLoading ? <Sk w={80} h={14} /> : (
-                  <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-                    <span style={{ fontFamily:'monospace', fontSize:13, color:weekPnlVal >= 0 ? C.green : C.red }}>{fmtDiff(weekPnlVal)}</span>
-                    <span style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>{weekCountVal} trades</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface2, padding:'14px 18px', display:'flex', alignItems:'center', gap:14, animationDelay:'540ms' }}>
-              <div style={{ flexShrink:0 }}>
-                {D.nextEvent ? (
-                  <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, lineHeight:1, textAlign:'center', width:20,
-                    color: D.nextEvent.daysUntil === 0 ? C.red : D.nextEvent.daysUntil === 1 ? C.yellow : C.dimText }}>
-                    {D.nextEvent.daysUntil === 0 ? '!' : D.nextEvent.daysUntil <= 2 ? '⚡' : '◎'}
-                  </div>
-                ) : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:24, color:C.dimText, width:20 }}>◎</div>}
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:C.dimText, marginBottom:4 }}>PRÓXIMO EVENTO HIGH</div>
-                {D.nextEvent ? (
-                  <div>
-                    <div style={{ fontFamily:'monospace', fontSize:11, color:C.text, marginBottom:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{D.nextEvent.title}</div>
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <span style={{ fontFamily:'monospace', fontSize:9, color:C.dimText }}>{D.nextEvent.date} · {D.nextEvent.time}</span>
-                      <span style={{ fontFamily:'monospace', fontSize:9, fontWeight:700, padding:'1px 6px',
-                        color:   D.nextEvent.daysUntil === 0 ? C.red : D.nextEvent.daysUntil === 1 ? C.yellow : C.gold,
-                        background: D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.12)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.12)' : 'rgba(57,226,230,0.08)',
-                        border: `1px solid ${D.nextEvent.daysUntil === 0 ? 'rgba(248,113,113,0.3)' : D.nextEvent.daysUntil === 1 ? 'rgba(251,191,36,0.3)' : 'rgba(57,226,230,0.2)'}`,
-                      }}>
-                        {D.nextEvent.daysUntil === 0 ? 'HOY' : D.nextEvent.daysUntil === 1 ? 'MAÑANA' : `en ${D.nextEvent.daysUntil}d`}
-                      </span>
-                    </div>
-                  </div>
-                ) : <span style={{ fontFamily:'monospace', fontSize:11, color:C.muted }}>Sin eventos próximos</span>}
-              </div>
-            </div>
-          </div>
 
           {/* ══ SEPARATOR ══ */}
           <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
