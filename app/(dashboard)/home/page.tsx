@@ -279,6 +279,7 @@ export default function DashboardHome() {
   // reales, para no mostrar "$0 / sin trades" como si fuera un hecho cuando en
   // realidad el dato todavía viene en camino.
   const [engineLoading,   setEngineLoading]   = useState(true)
+  const [engTs,           setEngTs]           = useState<number | null>(null)
 
   // Ejecuciones reales del motor — se refresca cada 60s una vez que hay
   // datos; si el fetch falla o llega vacío, reintenta rápido (5s) en vez de
@@ -295,6 +296,7 @@ export default function DashboardHome() {
         if (hasData) {
           setEngRaw(j)
           setEngineLoading(false)
+          setEngTs(Date.now())
           timer = setTimeout(load, 60_000)
         } else {
           timer = setTimeout(load, 5_000)
@@ -833,8 +835,32 @@ export default function DashboardHome() {
         .hm-foot { display:flex; gap:8px 20px; flex-wrap:wrap; padding:9px 16px; border-top:1px solid ${C.border};
           background: rgba(255,255,255,0.015); font-family:monospace; font-size:10px }
         .hm-fk { font-size:8px; letter-spacing:0.16em; color:${C.muted}; font-weight:400 }
+        .hm-age { font-family:monospace; font-size:8px; letter-spacing:0.12em; color:${C.muted}; text-transform:uppercase }
+
+        /* ══ Tarjetas-atajo: realce sutil al hover/foco, coherente con el avatar ══ */
+        .kpi-link { text-decoration:none; color:inherit; transition:transform .16s ease, box-shadow .16s ease; }
+        .kpi-link:hover { transform:translateY(-2px); box-shadow:0 14px 34px -20px ${C.gold}cc; }
+        .kpi-link:focus-visible { outline:2px solid ${C.gold}; outline-offset:3px; border-radius:${C.radiusMd}px; }
+        .kpi-cue { position:absolute; top:12px; right:12px; font-family:monospace; font-size:11px; color:${C.gold};
+          opacity:0; transform:translateX(-3px); transition:opacity .16s ease, transform .16s ease; pointer-events:none; z-index:3 }
+        .kpi-link:hover .kpi-cue { opacity:0.9; transform:translateX(0) }
+
+        /* ══ Responsividad — las 3 grillas colapsan (columnas van inline, por eso !important) ══ */
+        @media (max-width: 1024px) {
+          .sp-kpi-grid    { grid-template-columns:1fr 1fr !important; }
+          .sp-bottom-grid { grid-template-columns:1fr !important; }
+        }
+        @media (max-width: 680px) {
+          .sp-kpi-grid  { grid-template-columns:1fr !important; }
+          .sp-tool-grid { grid-template-columns:1fr 1fr !important; }
+          .hm-body      { grid-template-columns:1fr !important; }
+        }
+        @media (max-width: 380px) {
+          .sp-tool-grid { grid-template-columns:1fr !important; }
+        }
 
         @media (prefers-reduced-motion: reduce) {
+          .kpi-link:hover { transform:none; }
           .h3d, .h3d.h3d-on { transform:none !important; transition:none }
           .h3d-back, .h3d-front { transform:none !important }
           .h3d-shine { display:none }
@@ -982,7 +1008,8 @@ export default function DashboardHome() {
           <div className="sp-kpi-grid" style={{ display:'grid', gridTemplateColumns:'1.6fr 2fr 1fr 1fr', gap:12, marginBottom:32 }}>
 
             {/* Patrimonio — hero KPI: ancla visual de la página, rompe la grilla a propósito */}
-            <div style={{ position:'relative' }}>
+            <Link href="/portafolio" className="kpi-link" style={{ position:'relative', display:'block' }} title="Ver portafolio">
+              <span className="kpi-cue" aria-hidden>→</span>
               {/* Capas fantasma — profundidad apilada detrás del hero (glassmorphism) */}
               <div style={{ position:'absolute', inset:0, transform:'translate(7px,9px)', background:`${C.gold}07`, border:`1px solid ${C.gold}14`, borderRadius:C.radiusMd, zIndex:-2 }} />
               <div style={{ position:'absolute', inset:0, transform:'translate(3px,4px)', background:`${C.gold}0a`, border:`1px solid ${C.gold}1c`, borderRadius:C.radiusMd, zIndex:-1 }} />
@@ -1003,7 +1030,7 @@ export default function DashboardHome() {
                   {hasDailyTrades ? `${fmtDiff(D.dailyPnL)} / ${D.dailyPnL >= 0 ? '+' : ''}${D.dailyPct.toFixed(2)}% hoy` : '— sin operaciones hoy'}
                 </div>
               </Hero3D>
-            </div>
+            </Link>
 
             {/* MOTOR · LIVE — panel unificado con las mismas ejecuciones que el
                 HUD. Antes eran 4 tarjetas dispersas (PnL, WR, mejor trade y
@@ -1011,13 +1038,15 @@ export default function DashboardHome() {
             {(() => {
               const tone = monthPnlVal >= 0 ? C.green : C.red
               return (
-                <div className="sp-pair sp-fadein holo-motor" style={{ animationDelay:'90ms' }}>
+                <Link href="/hud" className="sp-pair sp-fadein holo-motor kpi-link" style={{ animationDelay:'90ms', display:'flex' }} title="Abrir el HUD del motor">
+                  <span className="kpi-cue" aria-hidden style={{ top:10, right:10 }}>↗</span>
                   <div className="hm-filo" aria-hidden style={{ background:`linear-gradient(90deg, ${tone}, rgba(79,146,255,0.45) 55%, transparent 85%)` }} />
                   {/* Cabecera de instrumento */}
                   <div className="hm-head">
                     <LiveDot size={7} />
                     <span className="hm-title">MOTOR SIGMA · EJECUCIONES REALES</span>
                     <span style={{ flex:1 }} />
+                    {engTs && <span className="hm-age" style={{ marginRight:8 }}>act. {timeAgo(engTs)}</span>}
                     {!engineLoading && E && (
                       <span className="hm-tag" style={{ color:tone, borderColor:`${tone}44`, background:`${tone}10` }}>
                         {E.openCount} ABIERTAS
@@ -1069,26 +1098,26 @@ export default function DashboardHome() {
                       <span style={{ color:C.dimText }}> · {weekCountVal} trades</span>
                     </span>
                   </div>
-                </div>
+                </Link>
               )
             })()}
 
-            {/* Ingreso pasivo */}
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'270ms' }}>
+            {/* Ingreso pasivo — atajo a ingresos pasivos */}
+            <Link href="/ingresos-pasivos" className="sp-fadein kpi-link" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'270ms', position:'relative', display:'block' }} title="Ver ingresos pasivos">
+              <span className="kpi-cue" aria-hidden>→</span>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>INGRESO/MES</div>
               {loading ? <Sk w={80} h={28} /> : <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:C.green, lineHeight:1, marginBottom:6, textShadow:numberEmboss }}>{fmtUSD(cPassive)}</div>}
               <div style={{ fontFamily:'monospace', fontSize:10, color:C.dimText }}>ingreso pasivo</div>
-            </div>
+            </Link>
 
-            {/* FIRE */}
-            <div className="sp-fadein" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'360ms' }}>
+            {/* FIRE — atajo al planner */}
+            <Link href="/fire" className="sp-fadein kpi-link" style={{ ...cardStyle, background:C.surface, padding:'16px 18px', animationDelay:'360ms', position:'relative', display:'block' }} title="Ver progreso FIRE">
+              <span className="kpi-cue" aria-hidden>→</span>
               <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:8 }}>PROGRESO FIRE</div>
               {loading ? <Sk w={80} h={28} /> : !fireConfigured ? (
-                <Link href="/fire" style={{ textDecoration:'none' }}>
-                  <div style={{ fontFamily:'monospace', fontSize:10, color:C.gold, border:`1px solid ${C.gold}44`, padding:'7px 10px', letterSpacing:'0.1em', display:'inline-block' }}>
-                    Configurar objetivo →
-                  </div>
-                </Link>
+                <div style={{ fontFamily:'monospace', fontSize:10, color:C.gold, border:`1px solid ${C.gold}44`, padding:'7px 10px', letterSpacing:'0.1em', display:'inline-block' }}>
+                  Configurar objetivo →
+                </div>
               ) : (
                 <>
                   <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:28, color:C.gold, lineHeight:1, marginBottom:8, textShadow:numberEmboss }}>{pct(cFire)}</div>
@@ -1100,7 +1129,7 @@ export default function DashboardHome() {
                   </div>
                 </>
               )}
-            </div>
+            </Link>
           </div>
 
           {/* ══ GANANCIA EQUIVALENTE SIGMA ══ */}
