@@ -536,7 +536,7 @@ export default function HUDPage() {
       if (canvas) canvas.style.display = 'none'
 
       const W = Math.max(320, wrap.clientWidth - 28)
-      const H = 210
+      const H = 224
       const L = 46, R = 64, T = 14, B = 20
       const iw = W - L - R, ih = H - T - B
 
@@ -549,7 +549,8 @@ export default function HUDPage() {
       const lo = Math.min(...vals), hi = Math.max(...vals)
       const pad = Math.max((hi - lo) * 0.12, 1)
       const yMin = lo - pad, yMax = hi + pad
-      const X = (i: number) => L + (i / (pts.length - 1)) * iw
+      const n = pts.length
+      const X = (i: number) => L + (i / (n - 1)) * iw
       const Y = (v: number) => T + (1 - (v - yMin) / (yMax - yMin)) * ih
 
       // Ticks "bonitos" del eje: paso 1/2/5/10/25 según rango
@@ -563,34 +564,61 @@ export default function HUDPage() {
           `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="${zero ? 'rgba(139,151,173,0.3)' : 'rgba(57,226,230,0.08)'}" stroke-width="1"${zero ? ' stroke-dasharray="4 4"' : ''}/>` +
           `<text x="${L - 8}" y="${y + 3}" text-anchor="end" class="eqc-tick${zero ? ' zero' : ''}">${v > 0 ? '+' : ''}${v}%</text>`
       }
+      // Mesh vertical tenue — profundidad de "mesa de operaciones" sin ruido
+      let vgrid = ''
+      const VCOLS = 5
+      for (let c = 1; c < VCOLS; c++) {
+        const x = L + (c / VCOLS) * iw
+        vgrid += `<line x1="${x.toFixed(1)}" y1="${T}" x2="${x.toFixed(1)}" y2="${H - B}" stroke="rgba(148,163,196,0.05)" stroke-width="1" stroke-dasharray="1 5"/>`
+      }
+
+      // High-water mark: récord acumulado corrida a corrida (arranca en 0%,
+      // el capital inicial). La cinta entre el récord y la línea real marca
+      // los tramos "bajo el agua" — lectura de riesgo de un vistazo, no solo
+      // de rendimiento (lenguaje de un tear-sheet cuant).
+      let peak = 0
+      const hwm = pts.map(p => { peak = Math.max(peak, p.pct); return peak })
+      const hwmD = hwm.map((v, i) => `${i === 0 ? 'M' : 'L'} ${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ')
+      const ddTop = hwm.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' L ')
+      const ddBottom = pts.map((p, i) => `${X(i).toFixed(1)},${Y(p.pct).toFixed(1)}`).reverse().join(' L ')
+      const ddD = `M ${ddTop} L ${ddBottom} Z`
 
       const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${X(i).toFixed(1)} ${Y(p.pct).toFixed(1)}`).join(' ')
-      const areaD = `${lineD} L ${X(pts.length - 1).toFixed(1)} ${Y(yMin).toFixed(1)} L ${L} ${Y(yMin).toFixed(1)} Z`
+      const areaD = `${lineD} L ${X(n - 1).toFixed(1)} ${Y(yMin).toFixed(1)} L ${L} ${Y(yMin).toFixed(1)} Z`
       const dots = pts.map((p, i) =>
         `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.pct).toFixed(1)}" r="2.4" fill="${p.win ? '#3fb950' : '#ff5d6c'}" stroke="#04070f" stroke-width="1"><title>${esc(p.sym)} · ${p.pnl >= 0 ? '+' : ''}$${p.pnl.toFixed(2)} · ${esc(p.date.slice(0, 10))} · acum ${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(2)}%</title></circle>`
       ).join('')
 
-      const lx = X(pts.length - 1), ly = Y(lastPct)
+      const lx = X(n - 1), ly = Y(lastPct)
       // Extensión flotante: segmento punteado hasta el valor con abiertas
       const floatSeg = floatY != null
         ? `<line x1="${lx.toFixed(1)}" y1="${ly.toFixed(1)}" x2="${(W - R + 22).toFixed(1)}" y2="${Y(floatY).toFixed(1)}" stroke="#ffb454" stroke-width="1.6" stroke-dasharray="4 4"/><circle cx="${(W - R + 22).toFixed(1)}" cy="${Y(floatY).toFixed(1)}" r="3.4" fill="none" stroke="#ffb454" stroke-width="1.6"/>`
         : ''
       const chipCls = lastPct >= 0 ? 'pos' : 'neg'
+      const chipTxt = `${lastPct >= 0 ? '+' : ''}${lastPct.toFixed(1)}%`
+      const chipW = 26 + chipTxt.length * 6.4
 
       let svg = wrap.querySelector(':scope > svg.sigma-eq-chart') as SVGSVGElement | null
       const markup =
         `<defs>` +
-          `<linearGradient id="eqcArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(57,226,230,0.22)"/><stop offset="100%" stop-color="rgba(57,226,230,0)"/></linearGradient>` +
+          `<linearGradient id="eqcArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(57,226,230,0.22)"/><stop offset="100%" stop-color="rgba(79,146,255,0)"/></linearGradient>` +
+          `<linearGradient id="eqcLine" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#39e2e6"/><stop offset="100%" stop-color="#4f92ff"/></linearGradient>` +
+          `<radialGradient id="eqcVign" cx="50%" cy="45%" r="75%"><stop offset="0%" stop-color="rgba(57,226,230,0.05)"/><stop offset="100%" stop-color="rgba(57,226,230,0)"/></radialGradient>` +
           `<filter id="eqcGlow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="3.2" flood-color="#5eeaf0" flood-opacity="0.5"/></filter>` +
         `</defs>` +
-        ticks +
+        `<rect x="${L}" y="${T}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" fill="url(#eqcVign)"/>` +
+        `<text x="${(L + iw / 2).toFixed(1)}" y="${(T + ih / 2 + 26).toFixed(1)}" text-anchor="middle" class="eqc-wm" pointer-events="none">Σ</text>` +
+        vgrid + ticks +
+        `<path d="${ddD}" class="eqc-dd"/>` +
         `<path d="${areaD}" fill="url(#eqcArea)"/>` +
-        `<g filter="url(#eqcGlow)"><path d="${lineD}" fill="none" stroke="#5eeaf0" stroke-width="2" stroke-linejoin="round"/></g>` +
+        `<path d="${hwmD}" class="eqc-hwm"/>` +
+        `<g filter="url(#eqcGlow)"><path d="${lineD}" fill="none" stroke="url(#eqcLine)" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/></g>` +
         dots + floatSeg +
         `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="#5eeaf0" stroke="#04070f" stroke-width="1.5"/>` +
-        `<text x="${(W - R + 10).toFixed(1)}" y="${(ly - 8).toFixed(1)}" class="eqc-last ${chipCls}">${lastPct >= 0 ? '+' : ''}${lastPct.toFixed(1)}%</text>` +
+        `<rect x="${(W - R + 6).toFixed(1)}" y="${(ly - 23).toFixed(1)}" width="${chipW.toFixed(1)}" height="19" rx="5" class="eqc-chip-bg ${chipCls}"/>` +
+        `<text x="${(W - R + 6 + chipW / 2).toFixed(1)}" y="${(ly - 9.5).toFixed(1)}" text-anchor="middle" class="eqc-last ${chipCls}">${chipTxt}</text>` +
         `<text x="${L}" y="${H - 5}" class="eqc-x">${esc((pts[0].date || '').slice(0, 10))}</text>` +
-        `<text x="${(W - R).toFixed(1)}" y="${H - 5}" text-anchor="end" class="eqc-x">${esc((pts[pts.length - 1].date || '').slice(0, 10))} · ${pts.length} trades</text>`
+        `<text x="${(W - R).toFixed(1)}" y="${H - 5}" text-anchor="end" class="eqc-x">${esc((pts[n - 1].date || '').slice(0, 10))} · ${n} trades</text>`
 
       if (!svg) {
         svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
@@ -641,7 +669,7 @@ export default function HUDPage() {
         `<span class="eqh-item"><b>TRADES</b><span class="eqh-v">${stats.total ?? '—'}${stats.open != null ? ` <small>· ${stats.open} abiertas</small>` : ''}</span></span>` +
         `<span class="eqh-item"><b>WIN RATE</b><span class="eqh-v${cls(wr == null ? null : wr - 50)}">${wr != null ? wr.toFixed(1) + '%' : '—'}</span></span>` +
         (stats.profit_factor != null ? `<span class="eqh-item"><b>PF</b><span class="eqh-v">${Number(stats.profit_factor).toFixed(2)}</span></span>` : '') +
-        '<span class="eqh-legend"><i class="w"></i> win <i class="l"></i> loss <i class="f"></i> flotante</span>'
+        '<span class="eqh-legend"><i class="w"></i> win <i class="l"></i> loss <i class="f"></i> flotante <i class="h"></i> récord</span>'
 
       buildChart(wrap, initial, floatPct)
     }
@@ -981,16 +1009,31 @@ export default function HUDPage() {
         #sigma-hud-root .sigma-eq-chart { display: block; }
         #sigma-hud-root .sigma-eq-chart .eqc-tick { font-family: 'IBM Plex Mono', monospace; font-size: 10px; fill: #8b97ad; }
         #sigma-hud-root .sigma-eq-chart .eqc-tick.zero { fill: #aab3c2; }
-        #sigma-hud-root .sigma-eq-chart .eqc-last { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; }
+        #sigma-hud-root .sigma-eq-chart .eqc-last { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 800; }
         #sigma-hud-root .sigma-eq-chart .eqc-last.pos { fill: #3fb950; }
         #sigma-hud-root .sigma-eq-chart .eqc-last.neg { fill: #ff5d6c; }
+        #sigma-hud-root .sigma-eq-chart .eqc-chip-bg { stroke-width: 1; }
+        #sigma-hud-root .sigma-eq-chart .eqc-chip-bg.pos { fill: rgba(63,185,80,0.14); stroke: rgba(63,185,80,0.45); }
+        #sigma-hud-root .sigma-eq-chart .eqc-chip-bg.neg { fill: rgba(255,93,108,0.14); stroke: rgba(255,93,108,0.45); }
         #sigma-hud-root .sigma-eq-chart .eqc-x { font-family: 'IBM Plex Mono', monospace; font-size: 9px; fill: #55607a; letter-spacing: 0.05em; }
+        /* Watermark Σ — misma firma visual que el resto de gráficos de la web */
+        #sigma-hud-root .sigma-eq-chart .eqc-wm {
+          font-family: var(--font-bebas,'Bebas Neue',Impact,sans-serif); font-size: 110px; fill: rgba(57,226,230,0.045);
+        }
+        /* High-water-mark: récord acumulado + cinta "bajo el agua" — el mismo
+           lenguaje de un tear-sheet cuant, para leer riesgo y no solo retorno */
+        #sigma-hud-root .sigma-eq-chart .eqc-hwm {
+          fill: none; stroke: rgba(255,180,84,0.4); stroke-width: 1; stroke-dasharray: 3 3;
+        }
+        #sigma-hud-root .sigma-eq-chart .eqc-dd { fill: rgba(255,93,108,0.08); }
         #sigma-hud-root .eqh-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
           font-size: 9px; color: #6b7688; letter-spacing: 0.06em; white-space: nowrap; }
         #sigma-hud-root .eqh-legend i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
         #sigma-hud-root .eqh-legend i.w { background: #3fb950; }
         #sigma-hud-root .eqh-legend i.l { background: #ff5d6c; }
         #sigma-hud-root .eqh-legend i.f { background: transparent; border: 1.5px solid #ffb454; }
+        #sigma-hud-root .eqh-legend i.h { background: none; border-radius: 0; width: 10px; height: 0;
+          border-top: 1.5px dashed rgba(255,180,84,0.7); }
         /* tooltip del monitor: vidrio con borde cian */
         #sigma-hud-root #equity-tooltip {
           background: rgba(10,14,22,0.92) !important;
