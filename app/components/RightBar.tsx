@@ -29,6 +29,18 @@ const M4_ASSETS = ['SPY', 'QQQ', 'IWM', 'XLE'] as const
 const M5_ASSETS = ['EWJ', 'EWT', 'EWY'] as const   // Internacional: Japón · Taiwán · Corea (EWZ excluido por tracking)
 type MotorTab = 'm1' | 'm2' | 'm3' | 'm4' | 'm5'
 
+// Acordeón de PRECIOS — un grupo por motor con color de identidad (mismos
+// acentos que las matrices del HUD y /modelos). Con 5 motores las tabs ya no
+// caben en el rail; el acordeón muestra los 5 siempre y escala al llegar M6+.
+const PRICE_MOTORS: { id: MotorTab; label: string; color: string; syms: readonly string[] }[] = [
+  { id: 'm1', label: 'M1 · CRYPTO',  color: '#39e2e6', syms: SYMBOLS },
+  { id: 'm2', label: 'M2 · COMM',    color: '#1D9E75', syms: M2_ASSETS },
+  { id: 'm3', label: 'M3 · STOCKS',  color: '#378ADD', syms: M3_ASSETS },
+  { id: 'm4', label: 'M4 · ÍNDICES', color: '#5b8def', syms: M4_ASSETS },
+  { id: 'm5', label: 'M5 · INTL',    color: '#a78bfa', syms: M5_ASSETS },
+]
+const ALL_EXT_SYMBOLS: readonly string[] = [...M2_ASSETS, ...M3_ASSETS, ...M4_ASSETS, ...M5_ASSETS]
+
 interface ExtQuote { price: number; change24h: number; spark: number[] }
 
 // ─── Motor live trades ────────────────────────────────────────────────────────
@@ -129,17 +141,18 @@ export default function RightBar() {
     LTC: { price: 0, change24h: 0, flash: null },
   })
   const [sparks, setSparks] = useState<Record<string, number[]>>({})
-  // Selector de motor en PRECIOS — la elección se recuerda entre sesiones
-  const [motorTab, setMotorTabState] = useState<MotorTab>(() => {
+  // Grupo expandido del acordeón de PRECIOS — se recuerda entre sesiones
+  // (null = todo colapsado; al recargar vuelve a m1)
+  const [motorTab, setMotorTabState] = useState<MotorTab | null>(() => {
     if (typeof window === 'undefined') return 'm1'
     try {
       const s = window.localStorage.getItem('sigma_rb_motor')
       return s === 'm2' || s === 'm3' || s === 'm4' || s === 'm5' ? s : 'm1'
     } catch { return 'm1' }
   })
-  const setMotorTab = (t: MotorTab) => {
+  const setMotorTab = (t: MotorTab | null) => {
     setMotorTabState(t)
-    try { localStorage.setItem('sigma_rb_motor', t) } catch {}
+    try { if (t) localStorage.setItem('sigma_rb_motor', t) } catch {}
   }
   // Cotizaciones M2/M3 vía proxy Yahoo (precio + %24h + sparkline)
   const [extData, setExtData] = useState<Record<string, ExtQuote>>({})
@@ -283,14 +296,13 @@ export default function RightBar() {
     return () => { dead = true; clearInterval(id) }
   }, [])
 
-  // Cotizaciones del motor seleccionado (M2 commodities / M3 stocks) vía el
-  // proxy Yahoo — solo se piden los activos de la pestaña activa, refresh 60s
+  // Cotizaciones M2–M5 vía proxy Yahoo — se piden TODOS los grupos (los
+  // headers colapsados del acordeón muestran el resumen ▲/▼ y lo necesitan),
+  // refresh 90s
   useEffect(() => {
-    if (motorTab === 'm1') return
-    const list: readonly string[] = motorTab === 'm2' ? M2_ASSETS : motorTab === 'm3' ? M3_ASSETS : motorTab === 'm4' ? M4_ASSETS : M5_ASSETS
     let dead = false
     async function load() {
-      const results = await Promise.all(list.map(async sym => {
+      const results = await Promise.all(ALL_EXT_SYMBOLS.map(async sym => {
         try {
           const r = await fetch(`/api/market/klines?symbol=${sym}&tf=1h`)
           if (!r.ok) return null
@@ -310,9 +322,9 @@ export default function RightBar() {
       })
     }
     load()
-    const id = setInterval(load, 60_000)
+    const id = setInterval(load, 90_000)
     return () => { dead = true; clearInterval(id) }
-  }, [motorTab])
+  }, [])
 
   function addAlert() {
     const p = parseFloat(formPrice)
@@ -475,92 +487,108 @@ export default function RightBar() {
         {/* ══ PRECIOS — separados por motor ══ */}
         <Section label="PRECIOS" />
 
-        {/* Selector de motor — la elección se recuerda */}
-        <div style={{ display: 'flex', gap: 4, padding: '8px 10px', borderBottom: `1px solid ${T.border}` }}>
-          {([['m1', 'M1·CRYPTO'], ['m2', 'M2·COMM'], ['m3', 'M3·STOCKS'], ['m4', 'M4·ÍNDICES'], ['m5', 'M5·INTL']] as const).map(([id, lbl]) => {
-            const active = motorTab === id
-            return (
-              <button
-                key={id}
-                onClick={() => setMotorTab(id)}
-                style={{
-                  flex: 1, fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.06em',
-                  padding: '4px 2px', borderRadius: 3, cursor: 'pointer',
-                  background: active ? 'rgba(212,175,55,0.12)' : 'transparent',
-                  border: `1px solid ${active ? T.gold : T.border}`,
-                  color: active ? T.gold : T.dimText,
-                  transition: 'color 0.15s, border-color 0.15s, background 0.15s',
-                }}
-              >
-                {lbl}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Aviso de mercado cerrado para stocks/índices/ETFs intl (NYSE ~13:30–20:00 UTC, L-V) */}
-        {(motorTab === 'm3' || motorTab === 'm4' || motorTab === 'm5') && (() => {
-          const d = utcNow.getUTCDay()
-          const h = utcNow.getUTCHours() + utcNow.getUTCMinutes() / 60
-          const open = d >= 1 && d <= 5 && h >= 13.5 && h < 20
-          return !open ? (
-            <div style={{ padding: '5px 12px', borderBottom: `1px solid ${T.border}`, fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.1em', color: T.muted }}>
-              ◦ NYSE CERRADO · último cierre
-            </div>
-          ) : null
-        })()}
-
+        {/* Acordeón por motor — los 5 siempre visibles; el abierto se recuerda.
+            Headers colapsados muestran resumen ▲/▼ del grupo en vivo. */}
         <div style={{ padding: '0 0 8px' }}>
-          {/* M1 — cripto en tiempo real (Binance WS) */}
-          {motorTab === 'm1' && SYMBOLS.map(sym => {
-            const t    = tickers[sym]
-            const up   = t.change24h >= 0
-            const bg   = t.flash === 'up' ? T.green + '22' : t.flash === 'down' ? T.red + '22' : 'transparent'
+          {PRICE_MOTORS.map(m => {
+            const open = motorTab === m.id
+            let upN = 0, dnN = 0
+            if (m.id === 'm1') {
+              SYMBOLS.forEach(s => { const t = tickers[s]; if (t && t.price > 0) { if (t.change24h >= 0) upN++; else dnN++ } })
+            } else {
+              m.syms.forEach(s => { const q = extData[s]; if (q && q.price > 0) { if (q.change24h >= 0) upN++; else dnN++ } })
+            }
+            const nyseClosed = (m.id === 'm3' || m.id === 'm4' || m.id === 'm5') && (() => {
+              const d = utcNow.getUTCDay()
+              const h = utcNow.getUTCHours() + utcNow.getUTCMinutes() / 60
+              return !(d >= 1 && d <= 5 && h >= 13.5 && h < 20)
+            })()
             return (
-              <div key={sym} style={{ padding: '7px 12px', transition: 'background 0.15s', background: bg, borderBottom: `1px solid ${T.border}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: T.gold }}>{SYM_LABEL[sym]}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 9, color: up ? T.green : T.red }}>
-                    {up ? '▲' : '▼'} {Math.abs(t.change24h).toFixed(2)}%
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
-                    {fmtPrice(t.price)}
-                  </span>
-                  <Spark data={sparks[sym]} up={up} />
-                </div>
-              </div>
-            )
-          })}
-
-          {/* M2 / M3 / M4 / M5 — commodities, stocks, índices y ETFs país vía proxy Yahoo */}
-          {motorTab !== 'm1' && (motorTab === 'm2' ? M2_ASSETS : motorTab === 'm3' ? M3_ASSETS : motorTab === 'm4' ? M4_ASSETS : M5_ASSETS).map(sym => {
-            const q  = extData[sym]
-            const up = (q?.change24h ?? 0) >= 0
-            return (
-              <div key={sym} style={{ padding: '7px 12px', borderBottom: `1px solid ${T.border}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: T.gold }}>{sym}</span>
-                    {sym === 'SPX' && (
-                      <span style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: '0.1em', color: T.muted, border: `1px solid ${T.muted}40`, padding: '1px 4px' }}>ÍNDICE</span>
-                    )}
-                  </div>
-                  {q ? (
-                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: up ? T.green : T.red }}>
-                      {up ? '▲' : '▼'} {Math.abs(q.change24h).toFixed(2)}%
+              <div key={m.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                {/* Cabecera del grupo */}
+                <button
+                  onClick={() => setMotorTab(open ? null : m.id)}
+                  aria-expanded={open}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 7,
+                    padding: '8px 12px 8px 0', cursor: 'pointer',
+                    background: open ? `${m.color}0d` : 'transparent',
+                    border: 'none', borderLeft: `3px solid ${open ? m.color : 'transparent'}`,
+                    transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                >
+                  <span aria-hidden style={{ width: 6, height: 6, borderRadius: 2, background: m.color, boxShadow: open ? `0 0 8px ${m.color}` : 'none', marginLeft: 9, flexShrink: 0 }} />
+                  <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.14em', color: open ? m.color : T.dimText, whiteSpace: 'nowrap' }}>{m.label}</span>
+                  <span style={{ flex: 1 }} />
+                  {(upN + dnN) > 0 && (
+                    <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: T.green }}>▲{upN}</span>
+                      <span style={{ color: T.red, marginLeft: 5 }}>▼{dnN}</span>
                     </span>
-                  ) : (
-                    <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>…</span>
                   )}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
-                    {q && q.price > 0 ? fmtPrice(q.price) : '—'}
-                  </span>
-                  <Spark data={q?.spark} up={up} />
-                </div>
+                  <span aria-hidden style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>▾</span>
+                </button>
+
+                {/* Aviso NYSE cerrado — dentro del grupo expandido */}
+                {open && nyseClosed && (
+                  <div style={{ padding: '3px 12px 6px', fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.1em', color: T.muted }}>
+                    ◦ NYSE CERRADO · último cierre
+                  </div>
+                )}
+
+                {/* M1 — cripto en tiempo real (Binance WS) */}
+                {open && m.id === 'm1' && SYMBOLS.map(sym => {
+                  const t    = tickers[sym]
+                  const up   = t.change24h >= 0
+                  const bg   = t.flash === 'up' ? T.green + '22' : t.flash === 'down' ? T.red + '22' : 'transparent'
+                  return (
+                    <div key={sym} style={{ padding: '7px 12px', transition: 'background 0.15s', background: bg, borderTop: `1px solid ${T.border}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: T.gold }}>{SYM_LABEL[sym]}</span>
+                        <span style={{ fontFamily: 'monospace', fontSize: 9, color: up ? T.green : T.red }}>
+                          {up ? '▲' : '▼'} {Math.abs(t.change24h).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
+                          {fmtPrice(t.price)}
+                        </span>
+                        <Spark data={sparks[sym]} up={up} />
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* M2–M5 — commodities, stocks, índices y ETFs país vía proxy Yahoo */}
+                {open && m.id !== 'm1' && m.syms.map(sym => {
+                  const q  = extData[sym]
+                  const up = (q?.change24h ?? 0) >= 0
+                  return (
+                    <div key={sym} style={{ padding: '7px 12px', borderTop: `1px solid ${T.border}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.15em', color: T.gold }}>{sym}</span>
+                          {sym === 'SPX' && (
+                            <span style={{ fontFamily: 'monospace', fontSize: 7, letterSpacing: '0.1em', color: T.muted, border: `1px solid ${T.muted}40`, padding: '1px 4px' }}>ÍNDICE</span>
+                          )}
+                        </div>
+                        {q ? (
+                          <span style={{ fontFamily: 'monospace', fontSize: 9, color: up ? T.green : T.red }}>
+                            {up ? '▲' : '▼'} {Math.abs(q.change24h).toFixed(2)}%
+                          </span>
+                        ) : (
+                          <span style={{ fontFamily: 'monospace', fontSize: 9, color: T.muted }}>…</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 13, color: T.text, letterSpacing: '0.02em', lineHeight: 1 }}>
+                          {q && q.price > 0 ? fmtPrice(q.price) : '—'}
+                        </span>
+                        <Spark data={q?.spark} up={up} />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )
           })}
