@@ -512,6 +512,87 @@ export default function HUDPage() {
     return () => { obs.disconnect(); clearInterval(poll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
+  // Monitor de equity — instrumentos nativos SIEMPRE visibles (la info clave
+  // ya no depende del tooltip al hover). Fuentes: #capital-live y #equity-float
+  // del propio DOM del motor (espejados vía MutationObserver, cero cálculo
+  // duplicado = siempre consistente con lo que dibuja el canvas) + WR/PF/counts
+  // de /api/vps/trades cada 60s. Reemplaza la fila de header tenue del motor.
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    let raf = 0
+    let lastSnapshot = ''
+    let stats: { total?: number; win_rate?: number; profit_factor?: number; open?: number } = {}
+
+    const fmtMoney = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+
+    function apply() {
+      const wrap = root!.querySelector('#equity-wrap') as HTMLElement | null
+      if (!wrap || !wrap.parentElement) return
+
+      const cap      = root!.querySelector('#capital-live') as HTMLElement | null
+      const initial  = Number(cap?.dataset.initial ?? 10000) || 10000
+      const capVal   = Number((cap?.textContent ?? '').replace(/[^0-9.]/g, '')) || null
+      const floatTxt = (root!.querySelector('#equity-float')?.textContent ?? '').trim()
+
+      // Snapshot: si nada cambió, no re-renderizar (evita bucle con el observer)
+      const snap = [capVal, floatTxt, stats.total, stats.open, stats.win_rate, stats.profit_factor].join('|')
+      const existing = wrap.parentElement.querySelector(':scope > .sigma-eq-hud') as HTMLElement | null
+      if (existing && snap === lastSnapshot) return
+      lastSnapshot = snap
+
+      let bar = existing
+      if (!bar) {
+        bar = document.createElement('div')
+        bar.className = 'sigma-eq-hud'
+        wrap.parentElement.insertBefore(bar, wrap)
+        // la fila vieja "Curva de Equity · N trades · flotante" queda reemplazada
+        const oldHeader = wrap.previousElementSibling === bar ? bar.previousElementSibling as HTMLElement | null : null
+        if (oldHeader && /curva de equity/i.test(oldHeader.textContent ?? '')) oldHeader.style.display = 'none'
+      }
+
+      const realizedPct = capVal != null ? ((capVal - initial) / initial) * 100 : null
+      const wrRaw = stats.win_rate
+      const wr = wrRaw == null ? null : wrRaw <= 1 ? wrRaw * 100 : wrRaw
+      const cls = (v: number | null) => v == null ? '' : v >= 0 ? ' pos' : ' neg'
+
+      bar.innerHTML =
+        '<span class="eqh-title"><span class="eqh-dot"></span>EQUITY · CUENTA MOTOR</span>' +
+        `<span class="eqh-item"><b>REALIZADO</b><span class="eqh-v${cls(realizedPct)}">${capVal != null ? fmtMoney(capVal) : '—'}${realizedPct != null ? ` <small>${realizedPct >= 0 ? '+' : ''}${realizedPct.toFixed(2)}%</small>` : ''}</span></span>` +
+        `<span class="eqh-item"><b>FLOTANTE</b><span class="eqh-v${floatTxt.startsWith('-') ? ' neg' : ' pos'}">${floatTxt ? esc(floatTxt) : '—'}</span></span>` +
+        `<span class="eqh-item"><b>TRADES</b><span class="eqh-v">${stats.total ?? '—'}${stats.open != null ? ` <small>· ${stats.open} abiertas</small>` : ''}</span></span>` +
+        `<span class="eqh-item"><b>WIN RATE</b><span class="eqh-v${cls(wr == null ? null : wr - 50)}">${wr != null ? wr.toFixed(1) + '%' : '—'}</span></span>` +
+        (stats.profit_factor != null ? `<span class="eqh-item"><b>PF</b><span class="eqh-v">${Number(stats.profit_factor).toFixed(2)}</span></span>` : '')
+    }
+
+    async function loadStats() {
+      try {
+        const r = await fetch('/api/vps/trades', { cache: 'no-store' })
+        if (!r.ok) return
+        const j = await r.json()
+        stats = {
+          total:         j?.stats?.total,
+          win_rate:      j?.stats?.win_rate,
+          profit_factor: j?.stats?.profit_factor,
+          open:          Array.isArray(j?.open) ? j.open.length : undefined,
+        }
+        apply()
+      } catch {}
+    }
+
+    const obs = new MutationObserver(() => {
+      if (raf) return
+      raf = requestAnimationFrame(() => { raf = 0; apply() })
+    })
+    obs.observe(root, { childList: true, subtree: true, characterData: true })
+    loadStats()
+    const id = setInterval(loadStats, 60_000)
+    const poll = setInterval(() => { apply(); if (root.querySelector('.sigma-eq-hud')) clearInterval(poll) }, 500)
+    setTimeout(() => clearInterval(poll), 20000)
+    return () => { obs.disconnect(); clearInterval(id); clearInterval(poll); if (raf) cancelAnimationFrame(raf) }
+  }, [])
+
   // Exposición abierta — el donut del motor solo cuenta posiciones con
   // mode=PAPER/LIVE y deja fuera las de mode=None (mostraba "1" cuando hay 5
   // abiertas). Lo recalculamos en la web desde /api/vps/trades, deduplicado
@@ -768,17 +849,33 @@ export default function HUDPage() {
             inset 0 1px 0 rgba(94,234,240,0.16),
             0 34px 80px rgba(0,0,0,0.5),
             0 0 70px rgba(57,226,230,0.08);
-          transform: perspective(1200px) rotateX(3.2deg);
+          /* tilt estático suave — sin "enderezarse" al hover: la lectura del
+             gráfico ya no depende de poner el cursor encima (2026-07-11) */
+          transform: perspective(1200px) rotateX(2deg);
           transform-origin: 50% 100%;
-          transition: transform .55s cubic-bezier(.2,.6,.2,1), box-shadow .55s ease;
         }
-        #sigma-hud-root #equity-wrap:hover {
-          transform: perspective(1200px) rotateX(0deg);
-          box-shadow:
-            inset 0 1px 0 rgba(94,234,240,0.22),
-            0 22px 60px rgba(0,0,0,0.5),
-            0 0 90px rgba(57,226,230,0.13);
+
+        /* ── Barra de instrumentos del equity: la info clave SIEMPRE visible ── */
+        #sigma-hud-root .sigma-eq-hud {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;
+          padding: 10px 16px; margin: 2px 0 10px;
+          background: linear-gradient(90deg, rgba(57,226,230,0.06), rgba(255,255,255,0.015) 55%);
+          border: 1px solid rgba(57,226,230,0.18); border-radius: 12px;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 18px rgba(0,0,0,0.3);
+          font-family: 'IBM Plex Mono', monospace;
         }
+        #sigma-hud-root .eqh-title { display: inline-flex; align-items: center; gap: 7px;
+          font-size: 9px; letter-spacing: 0.22em; color: #5eeaf0; margin-right: 4px; white-space: nowrap; }
+        #sigma-hud-root .eqh-dot { width: 6px; height: 6px; border-radius: 50%; background: #3fb950;
+          box-shadow: 0 0 8px #3fb950; animation: eqhPulse 1.6s ease-in-out infinite; }
+        @keyframes eqhPulse { 50% { opacity: 0.35 } }
+        #sigma-hud-root .eqh-item { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+        #sigma-hud-root .eqh-item b { font-size: 8px; letter-spacing: 0.18em; color: #6b7688; font-weight: 600; }
+        #sigma-hud-root .eqh-v { font-size: 14px; font-weight: 700; color: #dde3f5;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        #sigma-hud-root .eqh-v small { font-size: 10px; font-weight: 600; opacity: 0.85; }
+        #sigma-hud-root .eqh-v.pos { color: #3fb950; }
+        #sigma-hud-root .eqh-v.neg { color: #ff5d6c; }
         /* Neón de la curva CONTENIDO: los drop-shadow del canvas afectan a TODO
            lo dibujado — incluidos los rótulos del eje (+5%/+10%/…), que con
            tres halos apilados quedaban difuminados. Un solo halo tenue mantiene
@@ -1706,6 +1803,7 @@ export default function HUDPage() {
           #sigma-hud-root .card, #sigma-hud-root .kpi-card,
           #sigma-hud-root .risk-cell, #sigma-hud-root .asset-box { transition: none !important; }
           #sigma-hud-root #equity-wrap { transform: none !important; transition: none !important; }
+          #sigma-hud-root .eqh-dot { animation: none !important; }
           #sigma-hud-root div[style*="rgba(46,204,113,.06)"],
           #sigma-hud-root div[style*="background:#f1c40f"],
           #sigma-hud-root .matrix td.cell-run, #sigma-hud-root .cell-run,
