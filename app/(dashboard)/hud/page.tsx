@@ -512,20 +512,96 @@ export default function HUDPage() {
     return () => { obs.disconnect(); clearInterval(poll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
-  // Monitor de equity — instrumentos nativos SIEMPRE visibles (la info clave
-  // ya no depende del tooltip al hover). Fuentes: #capital-live y #equity-float
-  // del propio DOM del motor (espejados vía MutationObserver, cero cálculo
-  // duplicado = siempre consistente con lo que dibuja el canvas) + WR/PF/counts
-  // de /api/vps/trades cada 60s. Reemplaza la fila de header tenue del motor.
+  // Monitor de equity NATIVO — la curva se dibuja en la web (SVG) con los
+  // mismos datos del motor (/api/vps/trades). El canvas del motor se oculta:
+  // era imposible dar contraste a sus rótulos (texto dentro de canvas, CSS no
+  // lo recolorea) y su info clave exigía hover. Aquí: eje nítido en nuestra
+  // paleta, glow SOLO en la línea (grupo SVG filtrado, texto fuera), puntos
+  // win/loss, chip de último valor, y barra de instrumentos siempre visible.
+  // REALIZADO/FLOTANTE se espejan del DOM del motor (#capital-live/#equity-float).
   useEffect(() => {
     const root = containerRef.current
     if (!root) return
     let raf = 0
     let lastSnapshot = ''
     let stats: { total?: number; win_rate?: number; profit_factor?: number; open?: number } = {}
+    let hist: { pnl?: number; sym?: string; date?: string }[] = []
 
     const fmtMoney = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+
+    function buildChart(wrap: HTMLElement, initial: number, floatPct: number | null) {
+      if (hist.length < 2) return
+      const canvas = wrap.querySelector('#equity-curve') as HTMLElement | null
+      if (canvas) canvas.style.display = 'none'
+
+      const W = Math.max(320, wrap.clientWidth - 28)
+      const H = 210
+      const L = 46, R = 64, T = 14, B = 20
+      const iw = W - L - R, ih = H - T - B
+
+      // Serie: % acumulado vs capital inicial, trade a trade
+      let acc = initial
+      const pts = hist.map(t => { acc += t.pnl ?? 0; return { pct: ((acc - initial) / initial) * 100, win: (t.pnl ?? 0) >= 0, sym: t.sym ?? '', pnl: t.pnl ?? 0, date: t.date ?? '' } })
+      const lastPct = pts[pts.length - 1].pct
+      const floatY = floatPct != null ? lastPct + floatPct : null
+      const vals = pts.map(p => p.pct).concat([0], floatY != null ? [floatY] : [])
+      const lo = Math.min(...vals), hi = Math.max(...vals)
+      const pad = Math.max((hi - lo) * 0.12, 1)
+      const yMin = lo - pad, yMax = hi + pad
+      const X = (i: number) => L + (i / (pts.length - 1)) * iw
+      const Y = (v: number) => T + (1 - (v - yMin) / (yMax - yMin)) * ih
+
+      // Ticks "bonitos" del eje: paso 1/2/5/10/25 según rango
+      const span = yMax - yMin
+      const step = span <= 6 ? 1 : span <= 14 ? 2 : span <= 30 ? 5 : span <= 60 ? 10 : 25
+      let ticks = ''
+      for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) {
+        const y = Y(v)
+        const zero = v === 0
+        ticks +=
+          `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="${zero ? 'rgba(139,151,173,0.3)' : 'rgba(57,226,230,0.08)'}" stroke-width="1"${zero ? ' stroke-dasharray="4 4"' : ''}/>` +
+          `<text x="${L - 8}" y="${y + 3}" text-anchor="end" class="eqc-tick${zero ? ' zero' : ''}">${v > 0 ? '+' : ''}${v}%</text>`
+      }
+
+      const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${X(i).toFixed(1)} ${Y(p.pct).toFixed(1)}`).join(' ')
+      const areaD = `${lineD} L ${X(pts.length - 1).toFixed(1)} ${Y(yMin).toFixed(1)} L ${L} ${Y(yMin).toFixed(1)} Z`
+      const dots = pts.map((p, i) =>
+        `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.pct).toFixed(1)}" r="2.4" fill="${p.win ? '#3fb950' : '#ff5d6c'}" stroke="#04070f" stroke-width="1"><title>${esc(p.sym)} · ${p.pnl >= 0 ? '+' : ''}$${p.pnl.toFixed(2)} · ${esc(p.date.slice(0, 10))} · acum ${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(2)}%</title></circle>`
+      ).join('')
+
+      const lx = X(pts.length - 1), ly = Y(lastPct)
+      // Extensión flotante: segmento punteado hasta el valor con abiertas
+      const floatSeg = floatY != null
+        ? `<line x1="${lx.toFixed(1)}" y1="${ly.toFixed(1)}" x2="${(W - R + 22).toFixed(1)}" y2="${Y(floatY).toFixed(1)}" stroke="#ffb454" stroke-width="1.6" stroke-dasharray="4 4"/><circle cx="${(W - R + 22).toFixed(1)}" cy="${Y(floatY).toFixed(1)}" r="3.4" fill="none" stroke="#ffb454" stroke-width="1.6"/>`
+        : ''
+      const chipCls = lastPct >= 0 ? 'pos' : 'neg'
+
+      let svg = wrap.querySelector(':scope > svg.sigma-eq-chart') as SVGSVGElement | null
+      const markup =
+        `<defs>` +
+          `<linearGradient id="eqcArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(57,226,230,0.22)"/><stop offset="100%" stop-color="rgba(57,226,230,0)"/></linearGradient>` +
+          `<filter id="eqcGlow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="3.2" flood-color="#5eeaf0" flood-opacity="0.5"/></filter>` +
+        `</defs>` +
+        ticks +
+        `<path d="${areaD}" fill="url(#eqcArea)"/>` +
+        `<g filter="url(#eqcGlow)"><path d="${lineD}" fill="none" stroke="#5eeaf0" stroke-width="2" stroke-linejoin="round"/></g>` +
+        dots + floatSeg +
+        `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="#5eeaf0" stroke="#04070f" stroke-width="1.5"/>` +
+        `<text x="${(W - R + 10).toFixed(1)}" y="${(ly - 8).toFixed(1)}" class="eqc-last ${chipCls}">${lastPct >= 0 ? '+' : ''}${lastPct.toFixed(1)}%</text>` +
+        `<text x="${L}" y="${H - 5}" class="eqc-x">${esc((pts[0].date || '').slice(0, 10))}</text>` +
+        `<text x="${(W - R).toFixed(1)}" y="${H - 5}" text-anchor="end" class="eqc-x">${esc((pts[pts.length - 1].date || '').slice(0, 10))} · ${pts.length} trades</text>`
+
+      if (!svg) {
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        svg.setAttribute('class', 'sigma-eq-chart')
+        wrap.insertBefore(svg, wrap.firstChild)
+      }
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`)
+      svg.setAttribute('width', '100%')
+      svg.setAttribute('height', String(H))
+      svg.innerHTML = markup
+    }
 
     function apply() {
       const wrap = root!.querySelector('#equity-wrap') as HTMLElement | null
@@ -535,9 +611,10 @@ export default function HUDPage() {
       const initial  = Number(cap?.dataset.initial ?? 10000) || 10000
       const capVal   = Number((cap?.textContent ?? '').replace(/[^0-9.]/g, '')) || null
       const floatTxt = (root!.querySelector('#equity-float')?.textContent ?? '').trim()
+      const floatPct = /^-?\d/.test(floatTxt.replace('+', '')) ? parseFloat(floatTxt.replace('%', '').replace('+', '')) : null
 
       // Snapshot: si nada cambió, no re-renderizar (evita bucle con el observer)
-      const snap = [capVal, floatTxt, stats.total, stats.open, stats.win_rate, stats.profit_factor].join('|')
+      const snap = [capVal, floatTxt, stats.total, stats.open, hist.length, wrap.clientWidth].join('|')
       const existing = wrap.parentElement.querySelector(':scope > .sigma-eq-hud') as HTMLElement | null
       if (existing && snap === lastSnapshot) return
       lastSnapshot = snap
@@ -563,7 +640,10 @@ export default function HUDPage() {
         `<span class="eqh-item"><b>FLOTANTE</b><span class="eqh-v${floatTxt.startsWith('-') ? ' neg' : ' pos'}">${floatTxt ? esc(floatTxt) : '—'}</span></span>` +
         `<span class="eqh-item"><b>TRADES</b><span class="eqh-v">${stats.total ?? '—'}${stats.open != null ? ` <small>· ${stats.open} abiertas</small>` : ''}</span></span>` +
         `<span class="eqh-item"><b>WIN RATE</b><span class="eqh-v${cls(wr == null ? null : wr - 50)}">${wr != null ? wr.toFixed(1) + '%' : '—'}</span></span>` +
-        (stats.profit_factor != null ? `<span class="eqh-item"><b>PF</b><span class="eqh-v">${Number(stats.profit_factor).toFixed(2)}</span></span>` : '')
+        (stats.profit_factor != null ? `<span class="eqh-item"><b>PF</b><span class="eqh-v">${Number(stats.profit_factor).toFixed(2)}</span></span>` : '') +
+        '<span class="eqh-legend"><i class="w"></i> win <i class="l"></i> loss <i class="f"></i> flotante</span>'
+
+      buildChart(wrap, initial, floatPct)
     }
 
     async function loadStats() {
@@ -577,6 +657,11 @@ export default function HUDPage() {
           profit_factor: j?.stats?.profit_factor,
           open:          Array.isArray(j?.open) ? j.open.length : undefined,
         }
+        const rows: { closed_at?: string; pnl_dollar?: number; sym?: string }[] = Array.isArray(j?.history) ? j.history : []
+        hist = rows
+          .slice()
+          .sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
+          .map(t => ({ pnl: t.pnl_dollar ?? 0, sym: (t.sym ?? '').toUpperCase(), date: t.closed_at ?? '' }))
         apply()
       } catch {}
     }
@@ -586,11 +671,13 @@ export default function HUDPage() {
       raf = requestAnimationFrame(() => { raf = 0; apply() })
     })
     obs.observe(root, { childList: true, subtree: true, characterData: true })
+    const onResize = () => { if (!raf) { raf = requestAnimationFrame(() => { raf = 0; apply() }) } }
+    window.addEventListener('resize', onResize)
     loadStats()
     const id = setInterval(loadStats, 60_000)
     const poll = setInterval(() => { apply(); if (root.querySelector('.sigma-eq-hud')) clearInterval(poll) }, 500)
     setTimeout(() => clearInterval(poll), 20000)
-    return () => { obs.disconnect(); clearInterval(id); clearInterval(poll); if (raf) cancelAnimationFrame(raf) }
+    return () => { obs.disconnect(); window.removeEventListener('resize', onResize); clearInterval(id); clearInterval(poll); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
   // Exposición abierta — el donut del motor solo cuenta posiciones con
@@ -886,16 +973,24 @@ export default function HUDPage() {
           border-radius: 10px !important;
           filter: saturate(1.18) brightness(1.1) drop-shadow(0 0 5px rgba(94,234,240,0.35));
         }
-        /* grid técnico + viñeta sobre el canvas (decorativo, no bloquea el tooltip).
-           Viñeta suavizada: la versión anterior oscurecía los rótulos del eje. */
-        #sigma-hud-root #equity-wrap::before {
-          content: ''; position: absolute; inset: 14px; border-radius: 10px;
-          pointer-events: none; z-index: 1;
-          background:
-            linear-gradient(rgba(57,226,230,0.05) 1px, transparent 1px) 0 0 / 100% 36px,
-            linear-gradient(90deg, rgba(57,226,230,0.04) 1px, transparent 1px) 0 0 / 48px 100%,
-            radial-gradient(ellipse 120% 90% at 50% 0%, transparent 68%, rgba(0,0,0,0.14));
-        }
+        /* (la viñeta/grid overlay se eliminó: el chart SVG nativo trae su propia
+           grilla y cualquier capa encima volvía a apagar los rótulos del eje) */
+
+        /* ── Chart SVG nativo del equity: texto SIEMPRE nítido (fuera del grupo
+           con glow — el filtro solo envuelve la línea) ── */
+        #sigma-hud-root .sigma-eq-chart { display: block; }
+        #sigma-hud-root .sigma-eq-chart .eqc-tick { font-family: 'IBM Plex Mono', monospace; font-size: 10px; fill: #8b97ad; }
+        #sigma-hud-root .sigma-eq-chart .eqc-tick.zero { fill: #aab3c2; }
+        #sigma-hud-root .sigma-eq-chart .eqc-last { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; }
+        #sigma-hud-root .sigma-eq-chart .eqc-last.pos { fill: #3fb950; }
+        #sigma-hud-root .sigma-eq-chart .eqc-last.neg { fill: #ff5d6c; }
+        #sigma-hud-root .sigma-eq-chart .eqc-x { font-family: 'IBM Plex Mono', monospace; font-size: 9px; fill: #55607a; letter-spacing: 0.05em; }
+        #sigma-hud-root .eqh-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+          font-size: 9px; color: #6b7688; letter-spacing: 0.06em; white-space: nowrap; }
+        #sigma-hud-root .eqh-legend i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+        #sigma-hud-root .eqh-legend i.w { background: #3fb950; }
+        #sigma-hud-root .eqh-legend i.l { background: #ff5d6c; }
+        #sigma-hud-root .eqh-legend i.f { background: transparent; border: 1.5px solid #ffb454; }
         /* tooltip del monitor: vidrio con borde cian */
         #sigma-hud-root #equity-tooltip {
           background: rgba(10,14,22,0.92) !important;
