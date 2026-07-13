@@ -565,6 +565,49 @@ export default function HUDPage() {
     return () => { obs.disconnect(); clearInterval(poll) }
   }, [])
 
+  // Badges 3D del KPI strip — un emblema circular con degradado + sombra por
+  // categoría (panel instrumental, no plano). Se ancla al div de VALOR de
+  // cada KPI (#kpi-equity, #kpi-realized...), que el motor solo actualiza por
+  // textContent — nunca reemplaza el nodo ni el resto de la tarjeta — así que
+  // una vez insertado el badge sobrevive a todos los refrescos sin re-crearse.
+  // Régimen queda afuera: ya tiene su propio ícono junto al valor.
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    const cap = (s: string) => `<circle cx="12" cy="12" r="7.2"/>${s}`
+    const CATS: { id: string; color: string; icon: string }[] = [
+      { id: 'equity', color: '#39e2e6', icon: cap('<path d="M12 8.3v7.4M14.3 9.8c-.3-.9-1.2-1.3-2.3-1.3-1.3 0-2.3.6-2.3 1.6 0 1 1 1.3 2.3 1.5 1.3.2 2.3.6 2.3 1.6 0 1-1 1.6-2.3 1.6-1.1 0-2-.4-2.3-1.3"/>') },
+      { id: 'realized', color: '#3fb950', icon: '<path d="M12 3.5l6.5 2.4v5c0 4.2-2.7 7.6-6.5 9-3.8-1.4-6.5-4.8-6.5-9v-5L12 3.5Z"/><path d="M8.8 12.2l2.2 2.2 4.2-4.6"/>' },
+      { id: 'floating', color: '#ffb454', icon: '<path d="M3.6 12h3l1.8-4.6L11.6 16l2-8 1.6 4.6h3.6"/>' },
+      { id: 'winrate', color: '#f5c842', icon: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3.8"/><circle cx="12" cy="12" r="1" fill="rgba(255,255,255,0.92)" stroke="none"/>' },
+      { id: 'signals', color: '#4f92ff', icon: '<path d="M5 17v-3.4M10 17V9.3M15 17V6M19 17V3.6"/>' },
+      { id: 'leverage', color: '#a78bfa', icon: '<path d="M4.5 16.5a7.5 7.5 0 0 1 15 0"/><path d="M12 16.5l3.6-4.4"/><circle cx="12" cy="16.5" r="1.1" fill="rgba(255,255,255,0.92)" stroke="none"/>' },
+    ]
+
+    function apply() {
+      const strip = root!.querySelector('#kpi-strip')
+      if (!strip) return
+      for (const c of CATS) {
+        const val = strip.querySelector(`#kpi-${c.id}`)
+        const card = val?.closest('.kpi-card') as HTMLElement | null
+        if (!card || card.querySelector(':scope > .kpi-badge')) continue
+        const badge = document.createElement('div')
+        badge.className = 'kpi-badge'
+        badge.style.background = `radial-gradient(circle at 32% 28%, ${c.color}, #05070d 78%)`
+        badge.style.boxShadow = `0 3px 8px rgba(0,0,0,0.55), inset 0 1px 1px rgba(255,255,255,0.28), 0 0 10px ${c.color}66`
+        badge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.92)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg>`
+        card.appendChild(badge)
+      }
+    }
+
+    apply()
+    const obs = new MutationObserver(() => apply())
+    obs.observe(root, { childList: true, subtree: true })
+    const poll = setInterval(apply, 800)
+    setTimeout(() => clearInterval(poll), 20000)
+    return () => { obs.disconnect(); clearInterval(poll) }
+  }, [])
+
   // Monitor de equity NATIVO — la curva se dibuja en la web (SVG) con los
   // mismos datos del motor (/api/vps/trades). El canvas del motor se oculta:
   // era imposible dar contraste a sus rótulos (texto dentro de canvas, CSS no
@@ -1017,14 +1060,38 @@ export default function HUDPage() {
         }
 
         /* KPIs / risk cells / asset boxes → vidrio con hover */
-        #sigma-hud-root .kpi-strip { background: transparent !important; }
+        #sigma-hud-root .kpi-strip {
+          background: transparent !important;
+          /* panel instrumental: leve inclinacion estatica, mismo lenguaje que
+             el monitor de equity — sin depender del cursor */
+          transform: perspective(1400px) rotateX(1.6deg);
+          transform-origin: 50% 100%;
+        }
         #sigma-hud-root .kpi-card, #sigma-hud-root .risk-cell, #sigma-hud-root .asset-box {
           background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)) !important;
           border: 1px solid rgba(255,255,255,0.07) !important;
           border-radius: 12px !important;
           transition: transform .25s ease, border-color .25s ease, background .25s ease;
         }
+        /* bisel: luz arriba + sombra abajo simulando relieve fisico + la
+           tarjeta "flota" sobre el fondo — solo en el kpi-strip, no en
+           risk-cell/asset-box para no duplicar el efecto en toda la pagina */
+        #sigma-hud-root #kpi-strip .kpi-card {
+          position: relative;
+          box-shadow:
+            0 10px 22px rgba(0,0,0,0.35),
+            inset 0 1px 0 rgba(255,255,255,0.10),
+            inset 0 -10px 16px -12px rgba(0,0,0,0.5) !important;
+        }
         #sigma-hud-root .kpi-card { margin: 4px !important; }
+        /* Badge circular 3D por categoría — esfera con degradado + glow del
+           color propio, icono de línea blanco encima (ver useEffect dedicado) */
+        #sigma-hud-root .kpi-badge {
+          position: absolute; top: 8px; right: 8px;
+          width: 24px; height: 24px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          border: 1px solid rgba(255,255,255,0.14);
+        }
         #sigma-hud-root .kpi-card:hover, #sigma-hud-root .risk-cell:hover, #sigma-hud-root .asset-box:hover {
           transform: translateY(-1px);
           border-color: rgba(57,226,230,0.3) !important;
@@ -1033,6 +1100,8 @@ export default function HUDPage() {
         #sigma-hud-root .kpi-label, #sigma-hud-root .risk-cell-label {
           color: #8b97ad !important; letter-spacing: 0.2em !important; text-transform: uppercase;
         }
+        /* deja aire para el badge circular en la esquina */
+        #sigma-hud-root #kpi-strip .kpi-label { padding-right: 26px; }
         /* números: peso + glow del propio color (cian pos / rojo neg) */
         #sigma-hud-root .kpi-value, #sigma-hud-root .risk-cell-val { font-weight: 600 !important; text-shadow: 0 0 16px currentColor; }
         #sigma-hud-root .kpi-neg { color: #ff5d6c !important; }
