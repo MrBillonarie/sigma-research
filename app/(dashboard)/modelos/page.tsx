@@ -37,10 +37,11 @@ const MOTORS: MotorDef[] = [
   { id:2, name:'M2', label:'COMMODITIES',     color:'#1D9E75', syms:['XAU','XAG','WTI','HG','NG','PL'], status:'ACTIVO',       desc:'XAU · XAG · WTI · HG · NG · PL — CFDs futuros yfinance' },
   { id:3, name:'M3', label:'STOCKS US',       color:'#378ADD', syms:['AAPL','NVDA','TSLA','JPM','XOM'], status:'ACTIVO',       desc:'AAPL · NVDA · TSLA · JPM · XOM — Acciones S&P 500 · 15m/1h/4h/1d' },
   { id:4, name:'M4', label:'ÍNDICES',         color:'#5b8def', syms:['SPY','QQQ','IWM','XLE'],           status:'ACTIVO',       desc:'SPY · QQQ · IWM · XLE — ETFs de índices y sectores US · 15m/1h/4h/1d' },
-  { id:5, name:'M5', label:'BONOS & MACRO',   color:'#7a7f9a', syms:['TLT','HYG','TBT','ZN','ZB'],       status:'PRÓXIMAMENTE', desc:'Treasury 20Y+ · High Yield · Notas/Bonos 10Y-30Y — duration y crédito · Broker: IBKR' },
-  { id:6, name:'M6', label:'FUTUROS ÍNDICES', color:'#7a7f9a', syms:['MES','MNQ','MYM'],                status:'PRÓXIMAMENTE', desc:'S&P 500 · Nasdaq 100 · Dow Jones — micro-futuros CME · Broker: IBKR' },
-  { id:7, name:'M7', label:'FOREX & ÍNDICES INTL', color:'#7a7f9a', syms:['EUR/USD','GBP/USD','USD/JPY','USD/CHF'], status:'PRÓXIMAMENTE', desc:'Majors vía IBKR IDEALPRO — DAX/FTSE/Nikkei en fase 2 (margen multi-moneda)' },
-  { id:8, name:'M8', label:'LATAM',           color:'#7a7f9a', syms:[],                                  status:'PRÓXIMAMENTE', desc:'Acciones Chile · Brasil · México' },
+  { id:5, name:'M5', label:'INTERNACIONAL',   color:'#a78bfa', syms:['EWJ','EWT','EWY'],                status:'ACTIVO',       desc:'EWJ (Japón) · EWT (Taiwán) · EWY (Corea) — ETFs país vía yfinance · EWZ excluido por tracking' },
+  { id:6, name:'M6', label:'BONOS & MACRO',   color:'#7a7f9a', syms:['TLT','HYG','TBT','ZN','ZB'],       status:'PRÓXIMAMENTE', desc:'Treasury 20Y+ · High Yield · Notas/Bonos 10Y-30Y — duration y crédito · Broker: IBKR' },
+  { id:7, name:'M7', label:'FUTUROS ÍNDICES', color:'#7a7f9a', syms:['MES','MNQ','MYM'],                status:'PRÓXIMAMENTE', desc:'S&P 500 · Nasdaq 100 · Dow Jones — micro-futuros CME · Broker: IBKR' },
+  { id:8, name:'M8', label:'FOREX & ÍNDICES INTL', color:'#7a7f9a', syms:['EUR/USD','GBP/USD','USD/JPY','USD/CHF'], status:'PRÓXIMAMENTE', desc:'Majors vía IBKR IDEALPRO — DAX/FTSE/Nikkei en fase 2 (margen multi-moneda)' },
+  { id:9, name:'M9', label:'LATAM',           color:'#7a7f9a', syms:[],                                  status:'PRÓXIMAMENTE', desc:'Acciones Chile · Brasil · México' },
 ]
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────

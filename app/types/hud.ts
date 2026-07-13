@@ -133,7 +133,7 @@ export interface CombinedEstimate {
 // Generado por dashboard.py build_matrix_data() cada 5 min (via regen_dashboard()),
 // servido por /api/matrix_data (web_server.py) -> /api/vps/matrix-data (Next.js).
 export interface MatrixCellData {
-  motor?: 'M1' | 'M2' | 'M3'
+  motor?: 'M1' | 'M2' | 'M3' | 'M4' | 'M5'
   sym?: string
   tf?: string
   long?: ModelStats | null

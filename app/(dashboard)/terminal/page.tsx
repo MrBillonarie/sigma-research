@@ -33,6 +33,10 @@ const SYMBOLS: SymCfg[] = [
   { label: 'QQQ',  src: 'yahoo' },
   { label: 'IWM',  src: 'yahoo' },
   { label: 'XLE',  src: 'yahoo' },
+  // Motor 5 — internacional (ETFs país vía Yahoo)
+  { label: 'EWJ',  src: 'yahoo' },
+  { label: 'EWT',  src: 'yahoo' },
+  { label: 'EWY',  src: 'yahoo' },
 ]
 
 // Agrupación visual por motor (mismos labels que el rail de precios del HUD)
@@ -41,6 +45,7 @@ const SYMBOL_GROUPS = [
   { tag: 'M2 · COMM',   labels: ['XAU', 'WTI'] },
   { tag: 'M3 · STOCKS', labels: ['AAPL', 'NVDA', 'TSLA', 'JPM', 'XOM'] },
   { tag: 'M4 · ÍNDICES', labels: ['SPY', 'QQQ', 'IWM', 'XLE'] },
+  { tag: 'M5 · INTL', labels: ['EWJ', 'EWT', 'EWY'] },
 ]
 
 type SymLabel = string

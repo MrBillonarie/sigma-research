@@ -1267,6 +1267,8 @@ export default function HUDPage() {
         #sigma-hud-root #matrix-section-m3.card::before { background: linear-gradient(90deg, #3fb950, rgba(63,185,80,0.3) 50%, transparent 85%); }
         #sigma-hud-root #matrix-section-m4.card { border-color: rgba(91,141,239,0.35) !important; }
         #sigma-hud-root #matrix-section-m4.card::before { background: linear-gradient(90deg, #5b8def, rgba(91,141,239,0.35) 50%, transparent 85%); }
+        #sigma-hud-root #matrix-section-m5.card { border-color: rgba(167,139,250,0.35) !important; }
+        #sigma-hud-root #matrix-section-m5.card::before { background: linear-gradient(90deg, #a78bfa, rgba(167,139,250,0.35) 50%, transparent 85%); }
 
         /* ══ 10. Franjas bajo las matrices — consola de cierre (sobrio) ══ */
         /* resumen "Portafolio operable": franja principal con rail cian */

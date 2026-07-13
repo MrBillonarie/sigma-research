@@ -31,7 +31,7 @@ const MATRIX: MatrixRow[] = [
   { feat: 'Panel de Señales (HUD)', sub: 'sistema de decisión en vivo',
     free: ['part', 'Régimen, activos, estados y grades — sin entrada/SL/TP'],
     pro:  ['pro',  'Señales completas y accionables en tiempo real'] },
-  { feat: 'Matrices de modelos M1–M4', sub: 'campeones por activo/timeframe',
+  { feat: 'Matrices de modelos M1–M5', sub: 'campeones por activo/timeframe',
     free: ['part', 'Estados (listo/optimizando) y win rate'],
     pro:  ['pro',  'Parámetros y detalle completo (Inspector)'] },
   { feat: 'Paper trading · Equity · Proof of Work', sub: 'la prueba de honestidad',

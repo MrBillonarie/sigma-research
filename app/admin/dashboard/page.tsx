@@ -237,17 +237,21 @@ export default function AdminDashboard() {
           const byMotor: Record<number, typeof champions> = {}
           champions.forEach((c: { sym?: string; grade?: string; cagr?: number }) => {
             const CRYPTO = ['BTC','ETH','SOL','BNB','LTC']
-            const COMM   = ['XAU','XAG','WTI','HG','NG','PL']
-            const STOCKS = ['AAPL','NVDA','TSLA','JPM','XOM']
-            const motor  = CRYPTO.includes((c.sym ?? '').toUpperCase()) ? 1
-              : COMM.includes((c.sym ?? '').toUpperCase()) ? 2
-              : STOCKS.includes((c.sym ?? '').toUpperCase()) ? 3 : 0
+            const COMM   = ['XAU','XAG','WTI','HG','NG','PL','URNM','XPD']
+            const STOCKS = ['AAPL','NVDA','TSLA','JPM','XOM','CVX']
+            const INDEX  = ['SPY','QQQ','IWM','XLE']
+            const INTL   = ['EWJ','EWT','EWY']
+            const s = (c.sym ?? '').toUpperCase()
+            const motor = CRYPTO.includes(s) ? 1 : COMM.includes(s) ? 2 : STOCKS.includes(s) ? 3
+              : INDEX.includes(s) ? 4 : INTL.includes(s) ? 5 : 0
             if (motor > 0) { if (!byMotor[motor]) byMotor[motor] = []; byMotor[motor].push(c) }
           })
           const rows: ModeloRow[] = [
             { tag: 'M1-CRYPTO',  name: 'MOTOR 1 — CRYPTO',  status: 'PRODUCCIÓN', accuracy: `${byMotor[1]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[1]?.length ?? 0) > 0 },
             { tag: 'M2-COMM',    name: 'MOTOR 2 — COMMODITIES', status: 'PRODUCCIÓN', accuracy: `${byMotor[2]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[2]?.length ?? 0) > 0 },
             { tag: 'M3-STOCKS',  name: 'MOTOR 3 — S&P 500 STOCKS', status: 'PRODUCCIÓN', accuracy: `${byMotor[3]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[3]?.length ?? 0) > 0 },
+            { tag: 'M4-ÍNDICES', name: 'MOTOR 4 — ÍNDICES', status: 'PRODUCCIÓN', accuracy: `${byMotor[4]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[4]?.length ?? 0) > 0 },
+            { tag: 'M5-INTL',    name: 'MOTOR 5 — INTERNACIONAL', status: 'PRODUCCIÓN', accuracy: `${byMotor[5]?.length ?? 0} champions`, metric: 'Champions activos', activo: (byMotor[5]?.length ?? 0) > 0 },
           ]
           setModelos(rows)
           return
