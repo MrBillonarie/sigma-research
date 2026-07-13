@@ -512,6 +512,62 @@ export default function HUDPage() {
     return () => { obs.disconnect(); clearInterval(poll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
+  // Constelación de régimen — el motor inyecta "🐂 BULL" / "🐻 BEAR" / "🦘
+  // RANGE" en #kpi-regime via textContent en cada refresh (pisa cualquier
+  // cosa que le pongamos encima), así que en vez de un flag "ya lo apliqué"
+  // el guard es "¿el texto trae la MISMA palabra Y el ícono sigue ahí?" —
+  // si el motor lo acaba de pisar, el ícono ya no está y se reconstruye.
+  // Sin cálculo propio: el color sale de currentColor (kpi-pos/neg/warn que
+  // el motor ya decide), solo se redibuja el mismo dato con más carácter.
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    let lastWord = ''
+    type Regime = 'BULL' | 'BEAR' | 'RANGE'
+    const STARS: Record<Regime, { pts: [number, number][]; links: [number, number][] }> = {
+      BEAR: {
+        pts: [[6, 4], [8, 8], [16, 8], [18, 4], [5, 14], [19, 14], [8, 20], [16, 20], [12, 21]],
+        links: [[0, 1], [1, 4], [4, 6], [6, 8], [8, 7], [7, 5], [5, 3], [2, 3], [1, 2], [1, 7], [2, 6]],
+      },
+      BULL: {
+        pts: [[3, 3], [8, 9], [16, 9], [21, 3], [6, 15], [18, 15], [9, 20], [15, 20], [12, 21]],
+        links: [[0, 1], [1, 4], [4, 6], [6, 8], [8, 7], [7, 5], [5, 3], [2, 3], [1, 2], [1, 7], [2, 6]],
+      },
+      RANGE: {
+        pts: [[2, 13], [7, 7], [12, 15], [17, 7], [22, 13], [4, 4], [20, 20]],
+        links: [[0, 1], [1, 2], [2, 3], [3, 4]],
+      },
+    }
+
+    function buildIcon(word: Regime): string {
+      const d = STARS[word]
+      const lines = d.links.map(([a, b]) => {
+        const [x1, y1] = d.pts[a], [x2, y2] = d.pts[b]
+        return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="0.7" opacity="0.55"/>`
+      }).join('')
+      const dots = d.pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="currentColor"/>`).join('')
+      return `<svg class="regime-ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">${lines}${dots}</svg>`
+    }
+
+    function apply() {
+      const el = root!.querySelector('#kpi-regime') as HTMLElement | null
+      if (!el) return
+      const m = (el.textContent || '').match(/BULL|BEAR|RANGE/)
+      if (!m) return
+      const word = m[0] as Regime
+      if (word === lastWord && el.querySelector('.regime-ico')) return
+      lastWord = word
+      el.innerHTML = buildIcon(word) + `<span class="regime-txt">${word}</span>`
+    }
+
+    apply()
+    const obs = new MutationObserver(() => apply())
+    obs.observe(root, { childList: true, subtree: true, characterData: true })
+    const poll = setInterval(apply, 800)
+    setTimeout(() => clearInterval(poll), 20000)
+    return () => { obs.disconnect(); clearInterval(poll) }
+  }, [])
+
   // Monitor de equity NATIVO — la curva se dibuja en la web (SVG) con los
   // mismos datos del motor (/api/vps/trades). El canvas del motor se oculta:
   // era imposible dar contraste a sus rótulos (texto dentro de canvas, CSS no
@@ -983,7 +1039,32 @@ export default function HUDPage() {
         /* números: peso + glow del propio color (cian pos / rojo neg) */
         #sigma-hud-root .kpi-value, #sigma-hud-root .risk-cell-val { font-weight: 600 !important; text-shadow: 0 0 16px currentColor; }
         #sigma-hud-root .kpi-neg { color: #ff5d6c !important; }
+        /* kpi-warn (Win Rate medio / régimen RANGE) sin glow propio en el motor
+           — se lo damos para que no rompa la consistencia del resto de KPIs */
+        #sigma-hud-root .kpi-warn { text-shadow: 0 0 16px currentColor !important; }
         #sigma-hud-root .cell-ok { text-shadow: 0 0 10px rgba(47,211,154,0.45); }
+
+        /* Acento de categoría por tarjeta del KPI strip: lectura rápida por
+           posición, independiente del color dinámico del valor (pos/neg/warn).
+           Régimen queda neutro: su propio valor ya cambia de color solo. */
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(1) { border-top: 2px solid rgba(57,226,230,0.4) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(2) { border-top: 2px solid rgba(63,185,80,0.4) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(3) { border-top: 2px solid rgba(255,180,84,0.4) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(4) { border-top: 2px solid rgba(245,158,11,0.4) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(5) { border-top: 2px solid rgba(79,146,255,0.4) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(6) { border-top: 2px solid rgba(148,163,196,0.22) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(7) { border-top: 2px solid rgba(167,139,250,0.4) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(1):hover { border-color: rgba(57,226,230,0.55) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(2):hover { border-color: rgba(63,185,80,0.55) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(3):hover { border-color: rgba(255,180,84,0.55) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(4):hover { border-color: rgba(245,158,11,0.55) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(5):hover { border-color: rgba(79,146,255,0.55) !important; }
+        #sigma-hud-root #kpi-strip .kpi-card:nth-child(7):hover { border-color: rgba(167,139,250,0.55) !important; }
+
+        /* Constelación de régimen — reemplaza 🐂/🐻/🦘 (ver useEffect dedicado) */
+        #sigma-hud-root #kpi-regime { display: inline-flex; align-items: center; gap: 6px; }
+        #sigma-hud-root .regime-ico { filter: drop-shadow(0 0 5px currentColor); flex-shrink: 0; }
+        #sigma-hud-root .regime-txt { font-weight: 700; letter-spacing: 0.04em; }
 
         /* Unificar paneles azules del motor (inline) a superficie oscura */
         #sigma-hud-root [style*="#141b38"], #sigma-hud-root [style*="#1a2240"],
