@@ -779,26 +779,25 @@ export default function HUDPage() {
             0 22px 60px rgba(0,0,0,0.5),
             0 0 90px rgba(57,226,230,0.13);
         }
-        /* La línea del motor con neón real: núcleo blanco caliente + halo
-           medio + resplandor ancho. clearRect del motor = canvas transparente,
-           así el drop-shadow sigue la silueta de línea/puntos, no el rectángulo. */
+        /* Neón de la curva CONTENIDO: los drop-shadow del canvas afectan a TODO
+           lo dibujado — incluidos los rótulos del eje (+5%/+10%/…), que con
+           tres halos apilados quedaban difuminados. Un solo halo tenue mantiene
+           el carácter de la línea y deja los números nítidos (fix 2026-07-11:
+           en un gráfico de ganancias/pérdidas la legibilidad manda). */
         #sigma-hud-root #equity-curve {
           background: transparent !important;
           border-radius: 10px !important;
-          filter:
-            saturate(1.28) brightness(1.05)
-            drop-shadow(0 0 1.5px rgba(255,255,255,0.55))
-            drop-shadow(0 0 9px rgba(94,234,240,0.4))
-            drop-shadow(0 0 26px rgba(57,226,230,0.2));
+          filter: saturate(1.18) brightness(1.1) drop-shadow(0 0 5px rgba(94,234,240,0.35));
         }
-        /* grid técnico + viñeta sobre el canvas (decorativo, no bloquea el tooltip) */
+        /* grid técnico + viñeta sobre el canvas (decorativo, no bloquea el tooltip).
+           Viñeta suavizada: la versión anterior oscurecía los rótulos del eje. */
         #sigma-hud-root #equity-wrap::before {
           content: ''; position: absolute; inset: 14px; border-radius: 10px;
           pointer-events: none; z-index: 1;
           background:
             linear-gradient(rgba(57,226,230,0.05) 1px, transparent 1px) 0 0 / 100% 36px,
             linear-gradient(90deg, rgba(57,226,230,0.04) 1px, transparent 1px) 0 0 / 48px 100%,
-            radial-gradient(ellipse 120% 90% at 50% 0%, transparent 55%, rgba(0,0,0,0.32));
+            radial-gradient(ellipse 120% 90% at 50% 0%, transparent 68%, rgba(0,0,0,0.14));
         }
         /* tooltip del monitor: vidrio con borde cian */
         #sigma-hud-root #equity-tooltip {
