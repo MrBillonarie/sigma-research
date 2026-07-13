@@ -512,41 +512,38 @@ export default function HUDPage() {
     return () => { obs.disconnect(); clearInterval(poll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
-  // Constelación de régimen — el motor inyecta "🐂 BULL" / "🐻 BEAR" / "🦘
-  // RANGE" en #kpi-regime via textContent en cada refresh (pisa cualquier
-  // cosa que le pongamos encima), así que en vez de un flag "ya lo apliqué"
-  // el guard es "¿el texto trae la MISMA palabra Y el ícono sigue ahí?" —
-  // si el motor lo acaba de pisar, el ícono ya no está y se reconstruye.
+  // Icono de régimen — el motor inyecta "🐂 BULL" / "🐻 BEAR" / "🦘 RANGE"
+  // en #kpi-regime via textContent en cada refresh (pisa cualquier cosa que
+  // le pongamos encima), así que en vez de un flag "ya lo apliqué" el guard
+  // es "¿el texto trae la MISMA palabra Y el ícono sigue ahí?" — si el motor
+  // lo acaba de pisar, el ícono ya no está y se reconstruye.
   // Sin cálculo propio: el color sale de currentColor (kpi-pos/neg/warn que
   // el motor ya decide), solo se redibuja el mismo dato con más carácter.
+  // (Primer intento: constelación de puntos — ilegible a 20px, descartada.
+  // Silueta de línea limpia, estilo Feather/Lucide: reconocible aun chica.)
   useEffect(() => {
     const root = containerRef.current
     if (!root) return
     let lastWord = ''
     type Regime = 'BULL' | 'BEAR' | 'RANGE'
-    const STARS: Record<Regime, { pts: [number, number][]; links: [number, number][] }> = {
-      BEAR: {
-        pts: [[6, 4], [8, 8], [16, 8], [18, 4], [5, 14], [19, 14], [8, 20], [16, 20], [12, 21]],
-        links: [[0, 1], [1, 4], [4, 6], [6, 8], [8, 7], [7, 5], [5, 3], [2, 3], [1, 2], [1, 7], [2, 6]],
-      },
-      BULL: {
-        pts: [[3, 3], [8, 9], [16, 9], [21, 3], [6, 15], [18, 15], [9, 20], [15, 20], [12, 21]],
-        links: [[0, 1], [1, 4], [4, 6], [6, 8], [8, 7], [7, 5], [5, 3], [2, 3], [1, 2], [1, 7], [2, 6]],
-      },
-      RANGE: {
-        pts: [[2, 13], [7, 7], [12, 15], [17, 7], [22, 13], [4, 4], [20, 20]],
-        links: [[0, 1], [1, 2], [2, 3], [3, 4]],
-      },
+    const ICONS: Record<Regime, string> = {
+      BEAR:
+        '<circle cx="7" cy="6.5" r="2.1"/><circle cx="17" cy="6.5" r="2.1"/>' +
+        '<path d="M5.3 12 Q5 20 12 20 Q19 20 18.7 12 Q18.4 7.6 12 7.6 Q5.6 7.6 5.3 12 Z"/>' +
+        '<circle cx="12" cy="15.3" r="1.3" fill="currentColor" stroke="none"/>',
+      BULL:
+        '<path d="M4.2 4 Q6.3 8.2 8.7 9.7"/><path d="M19.8 4 Q17.7 8.2 15.3 9.7"/>' +
+        '<path d="M6 13.2 Q6 20 12 20 Q18 20 18 13.2 Q18 8.6 12 8.6 Q6 8.6 6 13.2 Z"/>' +
+        '<circle cx="9.6" cy="14" r="0.9" fill="currentColor" stroke="none"/>' +
+        '<circle cx="14.4" cy="14" r="0.9" fill="currentColor" stroke="none"/>',
+      RANGE:
+        '<path d="M3.2 12h2.3M18.5 12h2.3"/><path d="M4.3 8.3 L3 12 L4.3 15.7"/><path d="M19.7 8.3 L21 12 L19.7 15.7"/>' +
+        '<path d="M7 12 Q9 7.5 12 12 Q15 16.5 17 12"/>',
     }
 
     function buildIcon(word: Regime): string {
-      const d = STARS[word]
-      const lines = d.links.map(([a, b]) => {
-        const [x1, y1] = d.pts[a], [x2, y2] = d.pts[b]
-        return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="0.7" opacity="0.55"/>`
-      }).join('')
-      const dots = d.pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="currentColor"/>`).join('')
-      return `<svg class="regime-ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">${lines}${dots}</svg>`
+      return `<svg class="regime-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
+        `stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[word]}</svg>`
     }
 
     function apply() {
