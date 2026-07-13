@@ -525,10 +525,82 @@ export default function HUDPage() {
     let raf = 0
     let lastSnapshot = ''
     let stats: { total?: number; win_rate?: number; profit_factor?: number; open?: number } = {}
-    let hist: { pnl?: number; sym?: string; date?: string }[] = []
+    let hist: { pnl?: number; sym?: string; date?: string; dir?: string; tf?: string; strategy?: string; grade?: string; reason?: string }[] = []
+    type TradePoint = { pct: number; win: boolean; sym: string; pnl: number; date: string; dir: string; tf: string; strategy: string; grade: string; reason: string }
+    let activePts: TradePoint[] = []
+    let tt: HTMLDivElement | null = null
 
     const fmtMoney = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    const humanize = (s: string) => s ? s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—'
+
+    function ensureTooltip(): HTMLDivElement {
+      if (tt) return tt
+      tt = document.createElement('div')
+      tt.className = 'sigma-eq-tt'
+      document.body.appendChild(tt)
+      return tt
+    }
+
+    // Tarjeta de trade "de otro nivel": ancla exacta al punto (no al cursor),
+    // con caret propio, barra de magnitud de PnL y datos reales del motor
+    // (dirección, grade, estrategia, motivo de cierre) — reemplaza el <title>
+    // nativo del navegador, que era minúsculo e ilegible.
+    function showTooltip(hit: SVGElement) {
+      const i = Number(hit.getAttribute('data-i'))
+      const p = activePts[i]
+      if (!p) return
+      const rect = hit.getBoundingClientRect()
+      const cx = rect.left + rect.width / 2
+      const cy = rect.top + rect.height / 2
+
+      const svgEl = hit.closest('svg.sigma-eq-chart')
+      svgEl?.querySelectorAll('.eqc-dot.eqc-active').forEach(d => d.classList.remove('eqc-active'))
+      svgEl?.querySelector(`.eqc-dot[data-i="${i}"]`)?.classList.add('eqc-active')
+
+      const dirRaw = (p.dir || '').toLowerCase()
+      const isLong = dirRaw === 'long', isShort = dirRaw === 'short'
+      const dirLabel = isLong ? '▲ LONG' : isShort ? '▼ SHORT' : '● MANUAL'
+      const dirCls = isLong ? 'long' : isShort ? 'short' : 'manual'
+      const gradeColor = p.grade.startsWith('A') ? '#39e2e6' : p.grade.startsWith('B') ? '#4f92ff' : p.grade ? '#8b97ad' : '#55607a'
+      const maxAbs = Math.max(1, ...activePts.map(q => Math.abs(q.pnl)))
+      const barPct = Math.min(100, Math.round(Math.abs(p.pnl) / maxAbs * 100))
+      const reasonMap: Record<string, string> = { TP_HIT: 'Take Profit', SL_HIT: 'Stop Loss', MANUAL_CLOSE: 'Cierre manual', TRAIL_HIT: 'Trailing stop', TIME_HIT: 'Cierre por tiempo' }
+      const reasonLabel = reasonMap[p.reason] || humanize(p.reason)
+      const dateLabel = (p.date || '').slice(0, 16).replace('T', ' ')
+
+      const el = ensureTooltip()
+      el.className = `sigma-eq-tt ${p.win ? 'win' : 'loss'}`
+      el.innerHTML =
+        `<div class="eq-tt-top"><span class="eq-tt-dir ${dirCls}">${dirLabel}</span><span class="eq-tt-grade" style="color:${gradeColor};border-color:${gradeColor}55">${esc(p.grade) || '—'}</span></div>` +
+        `<div class="eq-tt-sym">${esc(p.sym)}${p.tf ? ` <small>${esc(p.tf)}</small>` : ''}</div>` +
+        `<div class="eq-tt-pnl ${p.win ? 'pos' : 'neg'}">${p.pnl >= 0 ? '+' : ''}$${p.pnl.toFixed(2)}</div>` +
+        `<div class="eq-tt-bar"><i style="width:${barPct}%"></i></div>` +
+        `<div class="eq-tt-row"><span>${esc(humanize(p.strategy))}</span><span class="eq-tt-reason">${esc(reasonLabel)}</span></div>` +
+        `<div class="eq-tt-foot"><span>${esc(dateLabel)}</span><span>acum ${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(2)}%</span></div>` +
+        `<i class="eq-tt-caret"></i>`
+
+      el.style.visibility = 'hidden'
+      el.style.display = 'block'
+      const wTT = el.offsetWidth || 216
+      const hTT = el.offsetHeight || 128
+      const margin = 10
+      let left = cx - wTT / 2
+      left = Math.max(margin, Math.min(left, window.innerWidth - margin - wTT))
+      const above = cy - hTT - 16 > 8
+      el.style.top = `${above ? cy - hTT - 14 : cy + 14}px`
+      el.style.left = `${left}px`
+      el.classList.toggle('flip', !above)
+      const caretLeft = Math.min(wTT - 16, Math.max(16, cx - left))
+      const caret = el.querySelector('.eq-tt-caret') as HTMLElement | null
+      if (caret) caret.style.left = `${caretLeft}px`
+      el.style.visibility = 'visible'
+    }
+
+    function hideTooltip() {
+      if (tt) tt.style.display = 'none'
+      root!.querySelectorAll('.eqc-dot.eqc-active').forEach(d => d.classList.remove('eqc-active'))
+    }
 
     function buildChart(wrap: HTMLElement, initial: number, floatPct: number | null) {
       if (hist.length < 2) return
@@ -542,7 +614,15 @@ export default function HUDPage() {
 
       // Serie: % acumulado vs capital inicial, trade a trade
       let acc = initial
-      const pts = hist.map(t => { acc += t.pnl ?? 0; return { pct: ((acc - initial) / initial) * 100, win: (t.pnl ?? 0) >= 0, sym: t.sym ?? '', pnl: t.pnl ?? 0, date: t.date ?? '' } })
+      const pts: TradePoint[] = hist.map(t => {
+        acc += t.pnl ?? 0
+        return {
+          pct: ((acc - initial) / initial) * 100, win: (t.pnl ?? 0) >= 0,
+          sym: t.sym ?? '', pnl: t.pnl ?? 0, date: t.date ?? '',
+          dir: t.dir ?? '', tf: t.tf ?? '', strategy: t.strategy ?? '', grade: t.grade ?? '', reason: t.reason ?? '',
+        }
+      })
+      activePts = pts
       const lastPct = pts[pts.length - 1].pct
       const floatY = floatPct != null ? lastPct + floatPct : null
       const vals = pts.map(p => p.pct).concat([0], floatY != null ? [floatY] : [])
@@ -586,7 +666,12 @@ export default function HUDPage() {
       const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${X(i).toFixed(1)} ${Y(p.pct).toFixed(1)}`).join(' ')
       const areaD = `${lineD} L ${X(n - 1).toFixed(1)} ${Y(yMin).toFixed(1)} L ${L} ${Y(yMin).toFixed(1)} Z`
       const dots = pts.map((p, i) =>
-        `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.pct).toFixed(1)}" r="2.4" fill="${p.win ? '#3fb950' : '#ff5d6c'}" stroke="#04070f" stroke-width="1"><title>${esc(p.sym)} · ${p.pnl >= 0 ? '+' : ''}$${p.pnl.toFixed(2)} · ${esc(p.date.slice(0, 10))} · acum ${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(2)}%</title></circle>`
+        `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.pct).toFixed(1)}" r="2.6" fill="${p.win ? '#3fb950' : '#ff5d6c'}" stroke="#04070f" stroke-width="1" class="eqc-dot" data-i="${i}"/>`
+      ).join('')
+      // Hit-target invisible y más grande que el punto visible: hover preciso
+      // sin depender de acertarle a 2.6px de radio.
+      const hitDots = pts.map((p, i) =>
+        `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.pct).toFixed(1)}" r="8" fill="transparent" class="eqc-hit" data-i="${i}"/>`
       ).join('')
 
       const lx = X(n - 1), ly = Y(lastPct)
@@ -613,7 +698,7 @@ export default function HUDPage() {
         `<path d="${areaD}" fill="url(#eqcArea)"/>` +
         `<path d="${hwmD}" class="eqc-hwm"/>` +
         `<g filter="url(#eqcGlow)"><path d="${lineD}" fill="none" stroke="url(#eqcLine)" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/></g>` +
-        dots + floatSeg +
+        dots + hitDots + floatSeg +
         `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="#5eeaf0" stroke="#04070f" stroke-width="1.5"/>` +
         `<rect x="${(W - R + 6).toFixed(1)}" y="${(ly - 23).toFixed(1)}" width="${chipW.toFixed(1)}" height="19" rx="5" class="eqc-chip-bg ${chipCls}"/>` +
         `<text x="${(W - R + 6 + chipW / 2).toFixed(1)}" y="${(ly - 9.5).toFixed(1)}" text-anchor="middle" class="eqc-last ${chipCls}">${chipTxt}</text>` +
@@ -685,11 +770,15 @@ export default function HUDPage() {
           profit_factor: j?.stats?.profit_factor,
           open:          Array.isArray(j?.open) ? j.open.length : undefined,
         }
-        const rows: { closed_at?: string; pnl_dollar?: number; sym?: string }[] = Array.isArray(j?.history) ? j.history : []
+        const rows: { closed_at?: string; pnl_dollar?: number; sym?: string; direction?: string; tf?: string; strategy?: string; grade?: string; reason?: string; status?: string }[] = Array.isArray(j?.history) ? j.history : []
         hist = rows
           .slice()
           .sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
-          .map(t => ({ pnl: t.pnl_dollar ?? 0, sym: (t.sym ?? '').toUpperCase(), date: t.closed_at ?? '' }))
+          .map(t => ({
+            pnl: t.pnl_dollar ?? 0, sym: (t.sym ?? '').toUpperCase(), date: t.closed_at ?? '',
+            dir: t.direction ?? '', tf: t.tf && t.tf !== '?' ? t.tf : '', strategy: t.strategy ?? '',
+            grade: t.grade ?? '', reason: t.reason ?? t.status ?? '',
+          }))
         apply()
       } catch {}
     }
@@ -701,11 +790,23 @@ export default function HUDPage() {
     obs.observe(root, { childList: true, subtree: true, characterData: true })
     const onResize = () => { if (!raf) { raf = requestAnimationFrame(() => { raf = 0; apply() }) } }
     window.addEventListener('resize', onResize)
+
+    const findHit = (e: Event) => (e.target as Element | null)?.closest?.('circle.eqc-hit') as SVGElement | null
+    const onOver = (e: Event) => { const hit = findHit(e); if (hit) showTooltip(hit) }
+    const onOut = (e: Event) => { const hit = findHit(e); if (hit) hideTooltip() }
+    root.addEventListener('pointerover', onOver)
+    root.addEventListener('pointerout', onOut)
+
     loadStats()
     const id = setInterval(loadStats, 60_000)
     const poll = setInterval(() => { apply(); if (root.querySelector('.sigma-eq-hud')) clearInterval(poll) }, 500)
     setTimeout(() => clearInterval(poll), 20000)
-    return () => { obs.disconnect(); window.removeEventListener('resize', onResize); clearInterval(id); clearInterval(poll); if (raf) cancelAnimationFrame(raf) }
+    return () => {
+      obs.disconnect(); window.removeEventListener('resize', onResize); clearInterval(id); clearInterval(poll)
+      if (raf) cancelAnimationFrame(raf)
+      root.removeEventListener('pointerover', onOver); root.removeEventListener('pointerout', onOut)
+      tt?.remove()
+    }
   }, [])
 
   // Exposición abierta — el donut del motor solo cuenta posiciones con
@@ -1026,6 +1127,52 @@ export default function HUDPage() {
           fill: none; stroke: rgba(255,180,84,0.4); stroke-width: 1; stroke-dasharray: 3 3;
         }
         #sigma-hud-root .sigma-eq-chart .eqc-dd { fill: rgba(255,93,108,0.08); }
+        #sigma-hud-root .sigma-eq-chart .eqc-dot { transition: r 0.12s ease; }
+        #sigma-hud-root .sigma-eq-chart .eqc-dot.eqc-active { r: 5.5px; filter: drop-shadow(0 0 6px rgba(255,255,255,0.6)); }
+        #sigma-hud-root .sigma-eq-chart .eqc-hit { cursor: pointer; }
+
+        /* ── Tarjeta de trade al hover: ancla al punto, no al cursor ── */
+        .sigma-eq-tt {
+          position: fixed; z-index: 10000; width: 216px;
+          padding: 12px 14px 10px;
+          background: linear-gradient(165deg, rgba(12,18,30,0.97), rgba(4,7,14,0.98));
+          border: 1px solid rgba(148,163,196,0.16);
+          border-radius: 12px;
+          box-shadow: 0 18px 46px rgba(0,0,0,0.55);
+          backdrop-filter: blur(10px);
+          font-family: 'IBM Plex Mono', monospace;
+          pointer-events: none;
+          display: none;
+        }
+        .sigma-eq-tt.win { border-left: 3px solid #3fb950; box-shadow: 0 18px 46px rgba(0,0,0,0.55), -4px 0 20px rgba(63,185,80,0.16); }
+        .sigma-eq-tt.loss { border-left: 3px solid #ff5d6c; box-shadow: 0 18px 46px rgba(0,0,0,0.55), -4px 0 20px rgba(255,93,108,0.16); }
+        .sigma-eq-tt .eq-tt-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+        .sigma-eq-tt .eq-tt-dir { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; }
+        .sigma-eq-tt .eq-tt-dir.long { color: #3fb950; }
+        .sigma-eq-tt .eq-tt-dir.short { color: #ffb454; }
+        .sigma-eq-tt .eq-tt-dir.manual { color: #8b97ad; }
+        .sigma-eq-tt .eq-tt-grade { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px; border: 1px solid; }
+        .sigma-eq-tt .eq-tt-sym { font-size: 15px; font-weight: 700; color: #eef1f7; margin-bottom: 2px; }
+        .sigma-eq-tt .eq-tt-sym small { font-size: 10px; font-weight: 600; color: #6b7688; margin-left: 4px; }
+        .sigma-eq-tt .eq-tt-pnl { font-size: 19px; font-weight: 800; margin: 2px 0 7px; }
+        .sigma-eq-tt .eq-tt-pnl.pos { color: #3fb950; }
+        .sigma-eq-tt .eq-tt-pnl.neg { color: #ff5d6c; }
+        .sigma-eq-tt .eq-tt-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; margin-bottom: 8px; }
+        .sigma-eq-tt .eq-tt-bar i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg,#39e2e6,#4f92ff); }
+        .sigma-eq-tt.loss .eq-tt-bar i { background: linear-gradient(90deg,#ff5d6c,#ffb454); }
+        .sigma-eq-tt .eq-tt-row { display: flex; justify-content: space-between; gap: 8px; font-size: 9.5px; color: #aab3c2; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sigma-eq-tt .eq-tt-reason { color: #6b7688; flex-shrink: 0; }
+        .sigma-eq-tt .eq-tt-foot { display: flex; justify-content: space-between; font-size: 9px; color: #55607a; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px; }
+        .sigma-eq-tt .eq-tt-caret {
+          position: absolute; bottom: -6px; width: 12px; height: 12px;
+          background: #0a0e18; transform: translateX(-50%) rotate(45deg);
+          border-right: 1px solid rgba(148,163,196,0.16); border-bottom: 1px solid rgba(148,163,196,0.16);
+        }
+        .sigma-eq-tt.flip .eq-tt-caret {
+          bottom: auto; top: -6px;
+          border-right: none; border-bottom: none;
+          border-left: 1px solid rgba(148,163,196,0.16); border-top: 1px solid rgba(148,163,196,0.16);
+        }
         #sigma-hud-root .eqh-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
           font-size: 9px; color: #6b7688; letter-spacing: 0.06em; white-space: nowrap; }
         #sigma-hud-root .eqh-legend i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
