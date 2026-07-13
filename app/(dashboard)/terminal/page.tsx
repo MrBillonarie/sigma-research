@@ -22,6 +22,8 @@ const SYMBOLS: SymCfg[] = [
   // Motor 2 — commodities (futuros vía Yahoo)
   { label: 'XAU',  src: 'yahoo' },
   { label: 'WTI',  src: 'yahoo' },
+  { label: 'XPD',  src: 'yahoo' },
+  { label: 'URNM', src: 'yahoo' },
   // Motor 3 — S&P 500 stocks (Yahoo)
   { label: 'AAPL', src: 'yahoo' },
   { label: 'NVDA', src: 'yahoo' },
@@ -42,7 +44,7 @@ const SYMBOLS: SymCfg[] = [
 // Agrupación visual por motor (mismos labels que el rail de precios del HUD)
 const SYMBOL_GROUPS = [
   { tag: 'M1 · CRYPTO', labels: ['BTC', 'ETH', 'SOL', 'BNB', 'LTC'] },
-  { tag: 'M2 · COMM',   labels: ['XAU', 'WTI'] },
+  { tag: 'M2 · COMM',   labels: ['XAU', 'WTI', 'XPD', 'URNM'] },
   { tag: 'M3 · STOCKS', labels: ['AAPL', 'NVDA', 'TSLA', 'JPM', 'XOM'] },
   { tag: 'M4 · ÍNDICES', labels: ['SPY', 'QQQ', 'IWM', 'XLE'] },
   { tag: 'M5 · INTL', labels: ['EWJ', 'EWT', 'EWY'] },

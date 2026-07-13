@@ -12,6 +12,8 @@ const YAHOO_SYM: Record<string, string> = {
   NG:  'NG=F',   // futuros gas natural NYMEX
   HG:  'HG=F',   // futuros cobre COMEX
   PL:  'PL=F',   // futuros platino NYMEX
+  XPD: 'PA=F',   // futuros paladio NYMEX
+  URNM: 'URNM',  // ETF uranio Sprott
   SPX: '^GSPC',  // S&P 500 index — referencia del M3 en el RightBar
   SPY: 'SPY', QQQ: 'QQQ', IWM: 'IWM', XLE: 'XLE', // ETFs del M4 — Índices
   EWJ: 'EWJ', EWT: 'EWT', EWY: 'EWY',             // ETFs del M5 — Internacional (Japón/Taiwán/Corea)

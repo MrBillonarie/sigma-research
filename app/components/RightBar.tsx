@@ -23,7 +23,7 @@ type Sym = typeof SYMBOLS[number]
 
 const SYM_LABEL: Record<Sym, string> = { BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', BNB: 'BNB', LTC: 'LTC' }
 
-const M2_ASSETS = ['XAU', 'XAG', 'WTI', 'HG', 'NG', 'PL'] as const
+const M2_ASSETS = ['XAU', 'XAG', 'WTI', 'HG', 'NG', 'PL', 'XPD', 'URNM'] as const   // + paladio y uranio (ampliación del motor)
 const M3_ASSETS = ['AAPL', 'NVDA', 'TSLA', 'JPM', 'XOM', 'SPX'] as const
 const M4_ASSETS = ['SPY', 'QQQ', 'IWM', 'XLE'] as const
 const M5_ASSETS = ['EWJ', 'EWT', 'EWY'] as const   // Internacional: Japón · Taiwán · Corea (EWZ excluido por tracking)

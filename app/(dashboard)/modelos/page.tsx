@@ -34,8 +34,8 @@ interface MotorDef {
 }
 const MOTORS: MotorDef[] = [
   { id:1, name:'M1', label:'CRYPTO',          color:'#39e2e6', syms:['BTC','ETH','SOL','BNB','LTC'],     status:'ACTIVO',       desc:'BTC · ETH · SOL · BNB · LTC — Futures perpetuos Binance' },
-  { id:2, name:'M2', label:'COMMODITIES',     color:'#1D9E75', syms:['XAU','XAG','WTI','HG','NG','PL'], status:'ACTIVO',       desc:'XAU · XAG · WTI · HG · NG · PL — CFDs futuros yfinance' },
-  { id:3, name:'M3', label:'STOCKS US',       color:'#378ADD', syms:['AAPL','NVDA','TSLA','JPM','XOM'], status:'ACTIVO',       desc:'AAPL · NVDA · TSLA · JPM · XOM — Acciones S&P 500 · 15m/1h/4h/1d' },
+  { id:2, name:'M2', label:'COMMODITIES',     color:'#1D9E75', syms:['XAU','XAG','WTI','HG','NG','PL','XPD','URNM'], status:'ACTIVO', desc:'XAU · XAG · WTI · HG · NG · PL · XPD · URNM — CFDs futuros yfinance' },
+  { id:3, name:'M3', label:'STOCKS US',       color:'#378ADD', syms:['AAPL','NVDA','TSLA','JPM','XOM','CVX'], status:'ACTIVO',   desc:'AAPL · NVDA · TSLA · JPM · XOM · CVX — Acciones S&P 500 · 15m/1h/4h/1d' },
   { id:4, name:'M4', label:'ÍNDICES',         color:'#5b8def', syms:['SPY','QQQ','IWM','XLE'],           status:'ACTIVO',       desc:'SPY · QQQ · IWM · XLE — ETFs de índices y sectores US · 15m/1h/4h/1d' },
   { id:5, name:'M5', label:'INTERNACIONAL',   color:'#a78bfa', syms:['EWJ','EWT','EWY'],                status:'ACTIVO',       desc:'EWJ (Japón) · EWT (Taiwán) · EWY (Corea) — ETFs país vía yfinance · EWZ excluido por tracking' },
   { id:6, name:'M6', label:'BONOS & MACRO',   color:'#7a7f9a', syms:['TLT','HYG','TBT','ZN','ZB'],       status:'PRÓXIMAMENTE', desc:'Treasury 20Y+ · High Yield · Notas/Bonos 10Y-30Y — duration y crédito · Broker: IBKR' },
