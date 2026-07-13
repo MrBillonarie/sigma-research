@@ -731,7 +731,7 @@ export default function DashboardHome() {
         .tool-card:hover .tc-sweep { left:125% }
 
         /* ── Encendido cinemático ── */
-        .hg-sweep { background:linear-gradient(110deg,${C.gold} 0%,${C.glow} 30%,#fff3cf 42%,${C.gold} 54%,${C.glow} 100%);
+        .hg-sweep { background:linear-gradient(110deg,${C.gold} 0%,${C.glow} 30%,#eafeff 42%,${C.gold} 54%,${C.glow} 100%);
           background-size:250% 100%; -webkit-background-clip:text; background-clip:text;
           animation: hgSweep 1.7s .25s cubic-bezier(0.4,0,0.2,1) both }
         @keyframes hgSweep { from { background-position:115% 0 } to { background-position:0% 0 } }
@@ -745,6 +745,17 @@ export default function DashboardHome() {
           animation: hgSpin 5.5s linear infinite }
         .hg-ring > div { position:relative }
         @keyframes hgSpin { to { transform:rotate(360deg) } }
+        /* Avatar como atajo a /perfil — realce al hover/foco */
+        a.hg-ring { display:block; cursor:pointer; transition:transform .18s ease }
+        a.hg-ring:hover { transform:scale(1.06) }
+        a.hg-ring:hover::before { animation-duration:2.4s }
+        a.hg-ring:hover > div { border-color:${C.glow} !important; box-shadow:0 0 20px -4px ${C.gold}aa }
+        a.hg-ring:focus-visible { outline:2px solid ${C.gold}; outline-offset:3px }
+        a.hg-ring .hg-tip { position:absolute; top:calc(100% + 8px); right:0; white-space:nowrap;
+          font-family:monospace; font-size:9px; letter-spacing:0.12em; color:${C.gold};
+          background:${C.surface}; border:1px solid ${C.gold}33; border-radius:4px; padding:3px 7px;
+          opacity:0; transform:translateY(-3px); transition:opacity .16s ease, transform .16s ease; pointer-events:none; z-index:5 }
+        a.hg-ring:hover .hg-tip { opacity:1; transform:translateY(0) }
 
         /* ══ HUD holográfico 3D ══════════════════════════════════════════ */
         /* Piso de rejilla en perspectiva — la mesa de operaciones. Fijo al
@@ -886,12 +897,13 @@ export default function DashboardHome() {
                 </span>
               </div>
             </div>
-            {/* Avatar — anillo dorado giratorio, mismo lenguaje que /perfil */}
-            <div className="hg-ring" style={{ flexShrink:0 }}>
-              <div style={{ width:44, height:44, borderRadius:'50%', background:`linear-gradient(135deg,${C.gold}44,${C.gold}1a), ${C.bg}`, border:`1.5px solid ${C.gold}66`, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:18, color:C.gold, letterSpacing:'0.05em', userSelect:'none' }}>
+            {/* Avatar — atajo al perfil; anillo giratorio, mismo lenguaje que /perfil */}
+            <Link href="/perfil" className="hg-ring" style={{ flexShrink:0 }} title="Ver mi perfil" aria-label="Ir a mi perfil">
+              <div style={{ width:44, height:44, borderRadius:'50%', background:`linear-gradient(135deg,${C.gold}44,${C.gold}1a), ${C.bg}`, border:`1.5px solid ${C.gold}66`, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:18, color:C.gold, letterSpacing:'0.05em', userSelect:'none', transition:'border-color .18s ease, box-shadow .18s ease' }}>
                 {initials}
               </div>
-            </div>
+              <span className="hg-tip">VER PERFIL</span>
+            </Link>
           </div>
 
           {/* ══ BARRA DE ESTADO — instrumentos de cabina ══ */}
