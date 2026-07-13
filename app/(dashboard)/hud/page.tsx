@@ -665,9 +665,16 @@ export default function HUDPage() {
 
       const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${X(i).toFixed(1)} ${Y(p.pct).toFixed(1)}`).join(' ')
       const areaD = `${lineD} L ${X(n - 1).toFixed(1)} ${Y(yMin).toFixed(1)} L ${L} ${Y(yMin).toFixed(1)} Z`
-      const dots = pts.map((p, i) =>
-        `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.pct).toFixed(1)}" r="2.6" fill="${p.win ? '#3fb950' : '#ff5d6c'}" stroke="#04070f" stroke-width="1" class="eqc-dot" data-i="${i}"/>`
-      ).join('')
+      // Cada punto en 3 capas: halo tenue (aura), cuerpo con brillo propio
+      // (drop-shadow currentColor) y un destello superior tipo "gema" — más
+      // presencia visual sin agrandar el hit-target real.
+      const dots = pts.map((p, i) => {
+        const cx = X(i).toFixed(1), cy = Y(p.pct).toFixed(1)
+        const col = p.win ? '#3fb950' : '#ff5d6c'
+        return `<circle cx="${cx}" cy="${cy}" r="6.5" fill="${col}" opacity="0.16" class="eqc-halo"/>` +
+          `<circle cx="${cx}" cy="${cy}" r="3.6" fill="${col}" stroke="#04070f" stroke-width="1" class="eqc-dot" data-i="${i}" style="color:${col}"/>` +
+          `<circle cx="${(X(i) - 1).toFixed(1)}" cy="${(Y(p.pct) - 1).toFixed(1)}" r="1" fill="#fff" opacity="0.55" class="eqc-shine"/>`
+      }).join('')
       // Hit-target invisible y más grande que el punto visible: hover preciso
       // sin depender de acertarle a 2.6px de radio.
       const hitDots = pts.map((p, i) =>
@@ -1127,8 +1134,9 @@ export default function HUDPage() {
           fill: none; stroke: rgba(255,180,84,0.4); stroke-width: 1; stroke-dasharray: 3 3;
         }
         #sigma-hud-root .sigma-eq-chart .eqc-dd { fill: rgba(255,93,108,0.08); }
-        #sigma-hud-root .sigma-eq-chart .eqc-dot { transition: r 0.12s ease; }
-        #sigma-hud-root .sigma-eq-chart .eqc-dot.eqc-active { r: 5.5px; filter: drop-shadow(0 0 6px rgba(255,255,255,0.6)); }
+        #sigma-hud-root .sigma-eq-chart .eqc-dot { transition: r 0.12s ease, filter 0.12s ease; filter: drop-shadow(0 0 3px currentColor); }
+        #sigma-hud-root .sigma-eq-chart .eqc-dot.eqc-active { r: 6.4px; filter: drop-shadow(0 0 9px currentColor); }
+        #sigma-hud-root .sigma-eq-chart .eqc-halo, #sigma-hud-root .sigma-eq-chart .eqc-shine { pointer-events: none; }
         #sigma-hud-root .sigma-eq-chart .eqc-hit { cursor: pointer; }
 
         /* ── Tarjeta de trade al hover: ancla al punto, no al cursor ── */
