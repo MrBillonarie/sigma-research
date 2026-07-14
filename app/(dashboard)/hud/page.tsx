@@ -1172,13 +1172,15 @@ export default function HUDPage() {
         }
         #sigma-hud-root .kpi-card.regime-card:hover .regime-bg.rb-vec { opacity: 0.32; }
         /* — foto duotono (BEAR) — */
+        /* encuadre: la CARA del oso como protagonista, dentro del borde (no
+           empujada afuera) — validado sobre las medidas reales de la tarjeta */
         #sigma-hud-root .regime-bg .regime-photo {
-          position: absolute; right: -6%; top: 50%; transform: translateY(-50%);
-          height: 150%; width: auto; opacity: 0.35; transition: opacity .3s ease;
-          -webkit-mask-image: linear-gradient(100deg, transparent 8%, #000 60%);
-                  mask-image: linear-gradient(100deg, transparent 8%, #000 60%);
+          position: absolute; right: 8%; top: 50%; transform: translateY(-50%);
+          height: 150%; width: auto; opacity: 0.38; transition: opacity .3s ease;
+          -webkit-mask-image: linear-gradient(100deg, transparent 8%, #000 58%);
+                  mask-image: linear-gradient(100deg, transparent 8%, #000 58%);
         }
-        #sigma-hud-root .kpi-card.regime-card:hover .regime-bg .regime-photo { opacity: 0.46; }
+        #sigma-hud-root .kpi-card.regime-card:hover .regime-bg .regime-photo { opacity: 0.48; }
         /* scrim: blinda el área del texto (izquierda) de la foto */
         #sigma-hud-root .regime-bg .regime-scrim {
           position: absolute; inset: 0;
