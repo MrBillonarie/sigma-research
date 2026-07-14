@@ -7,8 +7,8 @@ import type { Allocation, PortfolioMetrics } from '@/types/decision-engine'
 // sugerido del segmento o, en reposo, el retorno esperado y tu capital.
 
 const COLORS = {
-  fondos:     '#1D9E75',
-  etfs:       '#378ADD',
+  fondos:     '#2fd39a',
+  etfs:       '#4f92ff',
   renta_fija: '#39e2e6',
   crypto:     '#a78bfa',
 }
@@ -89,11 +89,11 @@ export default function AllocationDonut({ allocation, metrics, capital = 0, curr
   const hoveredAmount = hovered && capital > 0 ? capital * allocation[hovered] / 100 : 0
 
   return (
-    <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, padding: 20 }}>
+    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, padding: 20 }}>
       <h3 style={{ margin: '0 0 16px', fontSize: 12, color: '#7a7f9a', fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase' }}>
         ASIGNACIÓN ÓPTIMA
         {capital > 0 && (
-          <span style={{ marginLeft: 8, color: '#1D9E75' }}>
+          <span style={{ marginLeft: 8, color: '#2fd39a' }}>
             · {fmt(animCapital, currency)} total
           </span>
         )}
@@ -104,7 +104,7 @@ export default function AllocationDonut({ allocation, metrics, capital = 0, curr
         <div style={{ width: SIZE, height: SIZE, position: 'relative', flexShrink: 0 }}>
           <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
             {/* riel de fondo */}
-            <circle cx={SIZE/2} cy={SIZE/2} r={R} fill="none" stroke="#1a1d2e" strokeWidth={22} />
+            <circle cx={SIZE/2} cy={SIZE/2} r={R} fill="none" stroke="#1f2a45" strokeWidth={22} />
             {segments.map(seg => {
               const isHov = hovered === seg.key
               const isDim = hovered !== null && !isHov
@@ -147,7 +147,7 @@ export default function AllocationDonut({ allocation, metrics, capital = 0, curr
               </>
             ) : (
               <>
-                <div style={{ fontSize: 24, fontFamily: "'Bebas Neue', Impact, sans-serif", lineHeight: 1, color: metrics.expectedReturn > 0 ? '#1D9E75' : '#f87171' }}>
+                <div style={{ fontSize: 24, fontFamily: "'Bebas Neue', Impact, sans-serif", lineHeight: 1, color: metrics.expectedReturn > 0 ? '#2fd39a' : '#ff5d6c' }}>
                   {metrics.expectedReturn > 0 ? '+' : ''}{metrics.expectedReturn.toFixed(1)}%
                 </div>
                 <div style={{ fontSize: 9, color: '#7a7f9a', fontFamily: 'monospace', marginTop: 2 }}>RET. ESP.</div>
@@ -188,7 +188,7 @@ export default function AllocationDonut({ allocation, metrics, capital = 0, curr
               </div>
             )
           })}
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #1a1d2e', fontSize: 11, color: '#7a7f9a', fontFamily: 'monospace' }}>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #1f2a45', fontSize: 11, color: '#7a7f9a', fontFamily: 'monospace' }}>
             Sharpe: <span style={{ color: '#e8e9f0' }}>{metrics.sharpeRatio.toFixed(2)}</span>
             &nbsp;·&nbsp;
             Vol: <span style={{ color: '#e8e9f0' }}>{metrics.annualVolatility.toFixed(1)}%</span>

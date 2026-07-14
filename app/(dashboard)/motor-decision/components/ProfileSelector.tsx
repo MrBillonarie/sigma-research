@@ -7,17 +7,17 @@ const PROFILES_META: Record<ProfileType, {
   description: string
 }> = {
   retail: {
-    icon: '🛡️', color: '#1D9E75', glowColor: 'rgba(29,158,117,0.12)',
+    icon: '🛡️', color: '#2fd39a', glowColor: 'rgba(47,211,154,0.12)',
     maxCrypto: 5, minFixedIncome: 20, maxEquity: 70,
     description: 'Preservación del capital. Horizonte largo plazo (3-5 años).',
   },
   trader: {
-    icon: '⚡', color: '#f87171', glowColor: 'rgba(248,113,113,0.12)',
+    icon: '⚡', color: '#ff5d6c', glowColor: 'rgba(255,93,108,0.12)',
     maxCrypto: 30, minFixedIncome: 5, maxEquity: 90,
     description: 'Alta tolerancia al riesgo. Rotación activa (3-12 meses).',
   },
   institucional: {
-    icon: '🏛️', color: '#378ADD', glowColor: 'rgba(55,138,221,0.12)',
+    icon: '🏛️', color: '#4f92ff', glowColor: 'rgba(79,146,255,0.12)',
     maxCrypto: 10, minFixedIncome: 30, maxEquity: 60,
     description: 'Rentabilidad ajustada al riesgo. Medio plazo (1-3 años).',
   },
@@ -45,9 +45,9 @@ export default function ProfileSelector({ selected, onChange, loading }: Props) 
             disabled={loading}
             style={{
               flex: 1, minWidth: 200,
-              background: isActive ? meta.glowColor : '#0b0d14',
-              border: `1px solid ${isActive ? meta.color : '#1a1d2e'}`,
-              borderTop: `2px solid ${isActive ? meta.color : '#1a1d2e'}`,
+              background: isActive ? meta.glowColor : '#0a0e1a',
+              border: `1px solid ${isActive ? meta.color : '#1f2a45'}`,
+              borderTop: `2px solid ${isActive ? meta.color : '#1f2a45'}`,
               borderRadius: 10, padding: '16px 20px',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s', textAlign: 'left',

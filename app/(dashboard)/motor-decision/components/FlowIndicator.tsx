@@ -13,8 +13,8 @@ interface Props {
   flowScore: number
 }
 
-const BG = '#0b0d14', BORDER = '#1a1d2e', DIM = '#7a7f9a', MUTED = '#3a3f55'
-const TEXT = '#e8e9f0', GREEN = '#1D9E75', RED = '#f87171', GOLD = '#39e2e6'
+const BG = '#0a0e1a', BORDER = '#1f2a45', DIM = '#7a7f9a', MUTED = '#3a3f55'
+const TEXT = '#e8e9f0', GREEN = '#2fd39a', RED = '#ff5d6c', GOLD = '#39e2e6'
 
 function useCountUp(target: number, dur = 1200) {
   const [v, setV] = useState(0)
@@ -198,7 +198,7 @@ export default function FlowIndicator({ signals, flowScore }: Props) {
       {/* Score global — barre al cargar */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ height: 6, background: BORDER, borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${animScore}%`, background: `linear-gradient(90deg, #378ADD, ${scoreColor})`, borderRadius: 3 }} />
+          <div style={{ height: '100%', width: `${animScore}%`, background: `linear-gradient(90deg, #4f92ff, ${scoreColor})`, borderRadius: 3 }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: MUTED, fontFamily: 'monospace' }}>
           <span>BEAR</span><span>NEUTRO</span><span>BULL</span>

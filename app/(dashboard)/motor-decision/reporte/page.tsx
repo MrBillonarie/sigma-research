@@ -64,8 +64,8 @@ export default function ReportePage() {
       }}>
         <div style={{
           width: 40, height: 40, borderRadius: '50%',
-          border: '3px solid #1a1d2e',
-          borderTopColor: '#1D9E75',
+          border: '3px solid #1f2a45',
+          borderTopColor: '#2fd39a',
           animation: 'spin 0.8s linear infinite',
         }} />
         <p style={{ color: '#7a7f9a', fontFamily: MONO, fontSize: 12 }}>
@@ -84,12 +84,12 @@ export default function ReportePage() {
         alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24,
       }}>
         <div style={{ fontSize: 36 }}>⚠️</div>
-        <h2 style={{ margin: 0, color: '#f87171', fontFamily: BEBAS, letterSpacing: 1 }}>
+        <h2 style={{ margin: 0, color: '#ff5d6c', fontFamily: BEBAS, letterSpacing: 1 }}>
           Error generando reporte
         </h2>
         <p style={{ color: '#7a7f9a', fontFamily: MONO, fontSize: 12, textAlign: 'center' }}>{error}</p>
         <Link href="/motor-decision" style={{
-          background: '#1D9E75', color: '#000', textDecoration: 'none',
+          background: '#2fd39a', color: '#000', textDecoration: 'none',
           borderRadius: 7, padding: '8px 20px', fontSize: 12, fontWeight: 700, fontFamily: MONO,
         }}>
           ← Volver al Motor
@@ -108,7 +108,7 @@ export default function ReportePage() {
         display: 'flex', alignItems: 'center', gap: 8,
         marginBottom: 24, fontSize: 11, fontFamily: MONO, color: '#7a7f9a',
       }}>
-        <Link href="/motor-decision" style={{ color: '#378ADD', textDecoration: 'none' }}>
+        <Link href="/motor-decision" style={{ color: '#4f92ff', textDecoration: 'none' }}>
           ← Motor de Decisión
         </Link>
         <span>/</span>
@@ -125,7 +125,7 @@ export default function ReportePage() {
       {/* Programación domingo */}
       <div style={{
         marginTop: 20, padding: '14px 18px',
-        background: '#0b0d14', border: '1px solid #1a1d2e',
+        background: '#0a0e1a', border: '1px solid #1f2a45',
         borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <div style={{ fontSize: 20 }}>🕕</div>
@@ -135,7 +135,7 @@ export default function ReportePage() {
             Domingos 17:45 hora Chile — generación automática para X (Twitter) + LinkedIn
           </div>
         </div>
-        <div style={{ marginLeft: 'auto', fontSize: 11, color: '#1D9E75', fontFamily: MONO }}>
+        <div style={{ marginLeft: 'auto', fontSize: 11, color: '#2fd39a', fontFamily: MONO }}>
           Siguiente: domingo 18:00 —{'>'}
         </div>
       </div>

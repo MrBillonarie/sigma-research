@@ -112,12 +112,12 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
   ).slice(0, 4)
 
   return (
-    <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, overflow: 'hidden' }}>
+    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, overflow: 'hidden' }}>
 
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 20px', background: '#04050a', borderBottom: '1px solid #1a1d2e',
+        padding: '10px 20px', background: '#04050a', borderBottom: '1px solid #1f2a45',
       }}>
         <div>
           <span style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, textTransform: 'uppercase' }}>
@@ -129,7 +129,7 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
         </div>
         <div style={{ textAlign: 'right' }}>
           <span style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO }}>Prob. ganancia a 5 años: </span>
-          <span style={{ fontSize: 13, fontFamily: BEBAS, color: profitProb > 60 ? '#1D9E75' : profitProb > 40 ? '#39e2e6' : '#f87171', letterSpacing: 1 }}>
+          <span style={{ fontSize: 13, fontFamily: BEBAS, color: profitProb > 60 ? '#2fd39a' : profitProb > 40 ? '#39e2e6' : '#ff5d6c', letterSpacing: 1 }}>
             {profitProb}%
           </span>
         </div>
@@ -142,14 +142,14 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
           {/* Grid vertical (años) */}
           {[1, 2, 3, 4, 5].map(yr => (
             <line key={yr} x1={xS(yr)} y1={PAD.t} x2={xS(yr)} y2={PAD.t + cH}
-              stroke="#1a1d2e" strokeWidth={1} />
+              stroke="#1f2a45" strokeWidth={1} />
           ))}
 
           {/* Grid horizontal + Y labels */}
           {yTicks.map((v, i) => (
             <g key={i}>
               <line x1={PAD.l} y1={yS(v)} x2={PAD.l + cW} y2={yS(v)}
-                stroke={v === capital ? '#3a3f55' : '#1a1d2e'}
+                stroke={v === capital ? '#3a3f55' : '#1f2a45'}
                 strokeWidth={v === capital ? 1.5 : 1}
                 strokeDasharray={v === capital ? '5 4' : undefined} />
               <text x={PAD.l - 6} y={yS(v)} textAnchor="end" dominantBaseline="middle"
@@ -161,18 +161,18 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
           ))}
 
           {/* Bandas rellenas */}
-          <path d={band('p5',  'p95')} fill="#378ADD" opacity={0.06} />
-          <path d={band('p10', 'p90')} fill="#378ADD" opacity={0.10} />
-          <path d={band('p25', 'p75')} fill="#378ADD" opacity={0.18} />
+          <path d={band('p5',  'p95')} fill="#4f92ff" opacity={0.06} />
+          <path d={band('p10', 'p90')} fill="#4f92ff" opacity={0.10} />
+          <path d={band('p25', 'p75')} fill="#4f92ff" opacity={0.18} />
 
           {/* Líneas de percentiles — de afuera hacia adentro */}
-          <path d={linePath('p95')} fill="none" stroke="#1D9E75" strokeWidth={1}   strokeDasharray="3 4" opacity={0.35} />
-          <path d={linePath('p90')} fill="none" stroke="#1D9E75" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
-          <path d={linePath('p75')} fill="none" stroke="#1D9E75" strokeWidth={1.5} opacity={0.55} />
+          <path d={linePath('p95')} fill="none" stroke="#2fd39a" strokeWidth={1}   strokeDasharray="3 4" opacity={0.35} />
+          <path d={linePath('p90')} fill="none" stroke="#2fd39a" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
+          <path d={linePath('p75')} fill="none" stroke="#2fd39a" strokeWidth={1.5} opacity={0.55} />
           <path d={linePath('p50')} fill="none" stroke="#39e2e6" strokeWidth={2.5} />
-          <path d={linePath('p25')} fill="none" stroke="#f87171" strokeWidth={1.5} opacity={0.55} />
-          <path d={linePath('p10')} fill="none" stroke="#f87171" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
-          <path d={linePath('p5')}  fill="none" stroke="#f87171" strokeWidth={1}   strokeDasharray="3 4" opacity={0.35} />
+          <path d={linePath('p25')} fill="none" stroke="#ff5d6c" strokeWidth={1.5} opacity={0.55} />
+          <path d={linePath('p10')} fill="none" stroke="#ff5d6c" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
+          <path d={linePath('p5')}  fill="none" stroke="#ff5d6c" strokeWidth={1}   strokeDasharray="3 4" opacity={0.35} />
 
           {/* Punto inicial */}
           <circle cx={xS(0)} cy={yS(capital)} r={4} fill="#7a7f9a" />
@@ -189,18 +189,18 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
           <g transform={`translate(${PAD.l + 8}, ${PAD.t + 8})`}>
             <line x1={0} y1={6} x2={18} y2={6} stroke="#39e2e6" strokeWidth={2.5} />
             <text x={22} y={10} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P50 mediana</text>
-            <line x1={0} y1={20} x2={18} y2={20} stroke="#1D9E75" strokeWidth={1.5} />
+            <line x1={0} y1={20} x2={18} y2={20} stroke="#2fd39a" strokeWidth={1.5} />
             <text x={22} y={24} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P75 / P25</text>
-            <line x1={0} y1={34} x2={18} y2={34} stroke="#1D9E75" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
+            <line x1={0} y1={34} x2={18} y2={34} stroke="#2fd39a" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.65} />
             <text x={22} y={38} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P90 / P10</text>
-            <line x1={0} y1={48} x2={18} y2={48} stroke="#1D9E75" strokeWidth={1} strokeDasharray="3 4" opacity={0.35} />
+            <line x1={0} y1={48} x2={18} y2={48} stroke="#2fd39a" strokeWidth={1} strokeDasharray="3 4" opacity={0.35} />
             <text x={22} y={52} fill="#7a7f9a" style={{ fontSize: '8px', fontFamily: MONO }}>P95 / P5</text>
           </g>
         </svg>
       </div>
 
       {/* Tabla de percentiles: P10 / P50 / P90 en años 1, 3, 5 */}
-      <div style={{ borderTop: '1px solid #1a1d2e' }}>
+      <div style={{ borderTop: '1px solid #1f2a45' }}>
         {/* Header */}
         <div style={{
           display: 'grid', gridTemplateColumns: '100px 1fr 1fr 1fr',
@@ -215,9 +215,9 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
         </div>
 
         {[
-          { label: 'P90  ⬆', p: 'p90' as const, color: '#1D9E75' },
+          { label: 'P90  ⬆', p: 'p90' as const, color: '#2fd39a' },
           { label: 'P50  →', p: 'p50' as const, color: '#39e2e6' },
-          { label: 'P10  ⬇', p: 'p10' as const, color: '#f87171' },
+          { label: 'P10  ⬇', p: 'p10' as const, color: '#ff5d6c' },
         ].map((row) => (
           <div key={row.p} style={{
             display: 'grid', gridTemplateColumns: '100px 1fr 1fr 1fr',
@@ -233,7 +233,7 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
               const gain = val - capital
               return (
                 <div key={idx} style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 17, fontFamily: BEBAS, letterSpacing: 1, color: gain >= 0 ? row.color : '#f87171' }}>
+                  <div style={{ fontSize: 17, fontFamily: BEBAS, letterSpacing: 1, color: gain >= 0 ? row.color : '#ff5d6c' }}>
                     {fmtUSD(gain)} USD
                   </div>
                   <div style={{ fontSize: 9, color: '#3a3f55', fontFamily: MONO, marginTop: 1 }}>
@@ -276,7 +276,7 @@ function ScoreGauge({ score }: { score: number }) {
     { from: 20, to: 40,  fill: '#f97316' },
     { from: 40, to: 60,  fill: '#6b7280' },
     { from: 60, to: 80,  fill: '#22c55e' },
-    { from: 80, to: 100, fill: '#1D9E75' },
+    { from: 80, to: 100, fill: '#2fd39a' },
   ]
 
   const needleAngle = a(animated)
@@ -286,7 +286,7 @@ function ScoreGauge({ score }: { score: number }) {
 
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-      <path d={sector(0, 100)} fill="#1a1d2e" />
+      <path d={sector(0, 100)} fill="#1f2a45" />
       {ZONES.map(z => (
         <path key={z.from} d={sector(z.from + 0.8, z.to - 0.8)} fill={z.fill}
           opacity={animated >= z.from && animated < z.to ? 1 : 0.35} />
@@ -327,8 +327,8 @@ function Card({
 }: { label: string; value: string; sub?: string; color: string; icon: string; gauge?: React.ReactNode; subColor?: string }) {
   return (
     <div style={{
-      flex: 1, minWidth: 160, background: '#0b0d14',
-      border: '1px solid #1a1d2e', borderTop: `2px solid ${color}30`,
+      flex: 1, minWidth: 160, background: '#0a0e1a',
+      border: '1px solid #1f2a45', borderTop: `2px solid ${color}30`,
       borderRadius: 10, padding: '16px 20px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -359,10 +359,10 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
   const sharpe = metrics.sharpeRatio
   const yield_ = metrics.portfolioYield ?? 0
 
-  const retColor    = ret    > 8   ? '#1D9E75' : ret    > 4   ? '#39e2e6' : '#f87171'
-  const sharpeColor = sharpe > 1   ? '#1D9E75' : sharpe > 0.5 ? '#39e2e6' : '#f87171'
-  const flowColor   = flowScore > 60 ? '#1D9E75' : flowScore > 40 ? '#39e2e6' : '#f87171'
-  const yieldColor  = yield_ > 3 ? '#1D9E75' : yield_ > 1 ? '#39e2e6' : '#7a7f9a'
+  const retColor    = ret    > 8   ? '#2fd39a' : ret    > 4   ? '#39e2e6' : '#ff5d6c'
+  const sharpeColor = sharpe > 1   ? '#2fd39a' : sharpe > 0.5 ? '#39e2e6' : '#ff5d6c'
+  const flowColor   = flowScore > 60 ? '#2fd39a' : flowScore > 40 ? '#39e2e6' : '#ff5d6c'
+  const yieldColor  = yield_ > 3 ? '#2fd39a' : yield_ > 1 ? '#39e2e6' : '#7a7f9a'
 
   const animRet    = useCountUp(Math.abs(ret), 900)
   const animVol    = useCountUp(vol,           900)
@@ -395,7 +395,7 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
           sub={capital > 0
             ? `±${fmtUSD(volUSD).replace('+', '')} · DD: -${fmtUSD(ddUSD).replace(/[+-]/g, '')} USD`
             : `DD estimado: ${metrics.maxDrawdown.toFixed(1)}%`}
-          color="#378ADD"
+          color="#4f92ff"
         />
 
         <Card
@@ -407,7 +407,7 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
 
         {/* ── Ingreso Pasivo (dividendos) ──────────────────────────────── */}
         <div style={{
-          background: '#0b0d14', border: '1px solid #1a1d2e',
+          background: '#0a0e1a', border: '1px solid #1f2a45',
           borderTop: `2px solid ${yieldColor}30`,
           borderRadius: 10, padding: '16px 20px',
         }}>

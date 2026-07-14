@@ -7,7 +7,7 @@ const SIGNAL_ES: Record<SignalType, string> = {
   comprar: 'COMPRAR', mantener: 'MANTENER', reducir: 'REDUCIR', neutral: 'NEUTRAL',
 }
 const SIGNAL_COLOR: Record<SignalType, string> = {
-  comprar: '#1D9E75', mantener: '#39e2e6', reducir: '#f87171', neutral: '#7a7f9a',
+  comprar: '#2fd39a', mantener: '#39e2e6', reducir: '#ff5d6c', neutral: '#7a7f9a',
 }
 const CLASS_ICON: Record<string, string> = {
   fondos: '🏦', etfs: '📊', renta_fija: '🏛️', crypto: '🪙',
@@ -213,19 +213,19 @@ export default function ReportView({ report, onClose }: Props) {
 
   return (
     <div style={{
-      background: '#0b0d14', border: '1px solid #1a1d2e',
+      background: '#0a0e1a', border: '1px solid #1f2a45',
       borderRadius: 12, overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{
-        padding: '16px 20px', borderBottom: '1px solid #1a1d2e',
+        padding: '16px 20px', borderBottom: '1px solid #1f2a45',
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <div style={{ flex: 1 }}>
           <h2 style={{
             margin: 0, fontSize: 14,
             fontFamily: "'Bebas Neue', Impact, sans-serif", letterSpacing: 1,
-            color: '#1D9E75',
+            color: '#2fd39a',
           }}>
             REPORTE SEMANAL — MOTOR SIGMA
           </h2>
@@ -237,7 +237,7 @@ export default function ReportView({ report, onClose }: Props) {
           onClick={handlePDF}
           disabled={exporting}
           style={{
-            background: exporting ? '#1a1d2e' : '#1D9E75',
+            background: exporting ? '#1f2a45' : '#2fd39a',
             color: '#000', border: 'none', borderRadius: 7,
             padding: '8px 16px', fontSize: 12, fontWeight: 700,
             fontFamily: 'monospace', cursor: exporting ? 'not-allowed' : 'pointer',
@@ -248,7 +248,7 @@ export default function ReportView({ report, onClose }: Props) {
         </button>
         {onClose && (
           <button onClick={onClose} style={{
-            background: 'transparent', border: '1px solid #1a1d2e',
+            background: 'transparent', border: '1px solid #1f2a45',
             borderRadius: 7, padding: '8px 12px', color: '#7a7f9a',
             fontSize: 12, cursor: 'pointer',
           }}>✕</button>
@@ -258,11 +258,11 @@ export default function ReportView({ report, onClose }: Props) {
       <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Señal IA */}
         <div style={{
-          background: '#04050a', border: '1px solid #1a1d2e',
+          background: '#04050a', border: '1px solid #1f2a45',
           borderRadius: 8, padding: 16,
-          borderLeft: '3px solid #378ADD',
+          borderLeft: '3px solid #4f92ff',
         }}>
-          <div style={{ fontSize: 10, color: '#378ADD', fontFamily: 'monospace', marginBottom: 8, letterSpacing: 1 }}>
+          <div style={{ fontSize: 10, color: '#4f92ff', fontFamily: 'monospace', marginBottom: 8, letterSpacing: 1 }}>
             SIGMA TRADER IA
           </div>
           <p style={{ margin: 0, fontSize: 13, color: '#e8e9f0', lineHeight: 1.6 }}>
@@ -284,11 +284,11 @@ export default function ReportView({ report, onClose }: Props) {
         </div>
 
         {/* Score flujo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#04050a', borderRadius: 8, border: '1px solid #1a1d2e' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#04050a', borderRadius: 8, border: '1px solid #1f2a45' }}>
           <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: 'monospace', minWidth: 120 }}>SCORE FLUJO GLOBAL</div>
           <div style={{
             fontSize: 28, fontFamily: "'Bebas Neue', Impact, sans-serif",
-            color: report.flowScore > 60 ? '#1D9E75' : report.flowScore < 40 ? '#f87171' : '#39e2e6',
+            color: report.flowScore > 60 ? '#2fd39a' : report.flowScore < 40 ? '#ff5d6c' : '#39e2e6',
           }}>
             {report.flowScore}/100
           </div>
@@ -302,7 +302,7 @@ export default function ReportView({ report, onClose }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {report.topMoves.map((m, i) => (
               <div key={i} style={{
-                background: '#04050a', border: '1px solid #1a1d2e',
+                background: '#04050a', border: '1px solid #1f2a45',
                 borderLeft: `3px solid ${SIGNAL_COLOR[m.action]}`,
                 borderRadius: 8, padding: '12px 14px',
                 display: 'flex', gap: 12, alignItems: 'flex-start',

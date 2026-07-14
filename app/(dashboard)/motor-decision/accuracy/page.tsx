@@ -27,20 +27,20 @@ interface AccuracyData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function accColor(acc: number) {
-  return acc >= 60 ? '#1D9E75' : acc >= 45 ? '#39e2e6' : '#f87171'
+  return acc >= 60 ? '#2fd39a' : acc >= 45 ? '#39e2e6' : '#ff5d6c'
 }
-function retColor(r: number) { return r > 0 ? '#1D9E75' : r < 0 ? '#f87171' : '#7a7f9a' }
+function retColor(r: number) { return r > 0 ? '#2fd39a' : r < 0 ? '#ff5d6c' : '#7a7f9a' }
 
 function StatCard({ label, stat, icon }: { label: string; stat: StatBlock; icon: string }) {
   if (!stat || stat.total === 0) return (
-    <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, padding: '16px 20px' }}>
+    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, padding: '16px 20px' }}>
       <div style={{ fontSize: 10, color: '#3a3f55', fontFamily: MONO, letterSpacing: 1 }}>{icon} {label}</div>
       <div style={{ fontSize: 13, color: '#3a3f55', fontFamily: MONO, marginTop: 8 }}>Sin datos aún</div>
     </div>
   )
   const ac = accColor(stat.accuracy)
   return (
-    <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderTop: `2px solid ${ac}30`, borderRadius: 10, padding: '16px 20px' }}>
+    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderTop: `2px solid ${ac}30`, borderRadius: 10, padding: '16px 20px' }}>
       <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, marginBottom: 8 }}>{icon} {label}</div>
       <div style={{ fontFamily: BEBAS, fontSize: 32, letterSpacing: 1, color: ac }}>{stat.accuracy}%</div>
       <div style={{ fontSize: 11, color: '#7a7f9a', fontFamily: MONO, marginTop: 4 }}>
@@ -55,7 +55,7 @@ function AccBar({ accuracy, total }: { accuracy: number; total: number }) {
   const color = accColor(accuracy)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ width: 80, height: 6, background: '#1a1d2e', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{ width: 80, height: 6, background: '#1f2a45', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${accuracy}%`, background: color, borderRadius: 3 }} />
       </div>
       <span style={{ fontFamily: MONO, fontSize: 12, color, minWidth: 36 }}>{accuracy}%</span>
@@ -96,7 +96,7 @@ export default function AccuracyPage() {
 
   if (error) return (
     <div className="dash-content" style={{ minHeight: '100vh', background: '#04050a', padding: '100px 24px' }}>
-      <div style={{ color: '#f87171', fontFamily: MONO }}>{error}</div>
+      <div style={{ color: '#ff5d6c', fontFamily: MONO }}>{error}</div>
     </div>
   )
 
@@ -106,8 +106,8 @@ export default function AccuracyPage() {
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#378ADD', boxShadow: '0 0 8px #378ADD' }} />
-          <span style={{ fontSize: 10, color: '#378ADD', fontFamily: MONO, letterSpacing: 1 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4f92ff', boxShadow: '0 0 8px #4f92ff' }} />
+          <span style={{ fontSize: 10, color: '#4f92ff', fontFamily: MONO, letterSpacing: 1 }}>
             CICLO DE RETROALIMENTACIÓN
           </span>
         </div>
@@ -119,7 +119,7 @@ export default function AccuracyPage() {
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
           <Link href="/motor-decision" style={{
-            background: 'transparent', border: '1px solid #1a1d2e', borderRadius: 7,
+            background: 'transparent', border: '1px solid #1f2a45', borderRadius: 7,
             padding: '7px 14px', color: '#7a7f9a', fontSize: 11, fontFamily: MONO, textDecoration: 'none',
           }}>← Motor</Link>
           {data && (
@@ -132,7 +132,7 @@ export default function AccuracyPage() {
 
       {/* ── Sin datos aún ────────────────────────────────────────────────── */}
       {!data?.hasData && (
-        <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 12, padding: '40px 32px', textAlign: 'center' }}>
+        <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 12, padding: '40px 32px', textAlign: 'center' }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>⏳</div>
           <div style={{ fontFamily: BEBAS, fontSize: 22, color: '#e8e9f0', letterSpacing: 1, marginBottom: 8 }}>
             ACUMULANDO SEÑALES
@@ -141,7 +141,7 @@ export default function AccuracyPage() {
             {data?.message ?? 'El motor lleva guardando señales con precio y contexto. En 22+ días verás aquí la accuracy real de cada indicador.'}
           </div>
           {(data?.pendingCount ?? 0) > 0 && (
-            <div style={{ marginTop: 20, fontSize: 11, color: '#378ADD', fontFamily: MONO }}>
+            <div style={{ marginTop: 20, fontSize: 11, color: '#4f92ff', fontFamily: MONO }}>
               {data!.pendingCount} señales pendientes de que venzan sus 22 días
             </div>
           )}
@@ -157,7 +157,7 @@ export default function AccuracyPage() {
               <StatCard label="TOTAL"    stat={data.overall}          icon="📊" />
               <StatCard label="COMPRAR"  stat={data.bySignal.comprar} icon="▲" />
               <StatCard label="REDUCIR"  stat={data.bySignal.reducir} icon="▼" />
-              <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, padding: '16px 20px' }}>
+              <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, padding: '16px 20px' }}>
                 <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, marginBottom: 8 }}>📈 MEJOR RÉGIMEN</div>
                 {Object.entries(data.byRegime)
                   .filter(([, s]) => s.total > 0)
@@ -182,15 +182,15 @@ export default function AccuracyPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
               {/* Por clase */}
-              <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #1a1d2e', fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1 }}>
+              <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #1f2a45', fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1 }}>
                   POR CLASE DE ACTIVO
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#04050a' }}>
                       {['Clase', 'Accuracy', 'Ret. medio', 'N'].map(h => (
-                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, color: '#3a3f55', fontFamily: MONO, borderBottom: '1px solid #1a1d2e' }}>{h}</th>
+                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, color: '#3a3f55', fontFamily: MONO, borderBottom: '1px solid #1f2a45' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -216,15 +216,15 @@ export default function AccuracyPage() {
               </div>
 
               {/* Por score bucket — ¿scores altos = más accuracy? */}
-              <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #1a1d2e', fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1 }}>
+              <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #1f2a45', fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1 }}>
                   POR SCORE — ¿DISCRIMINA BIEN?
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#04050a' }}>
                       {['Score', 'Accuracy', 'Ret. medio', 'N'].map(h => (
-                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, color: '#3a3f55', fontFamily: MONO, borderBottom: '1px solid #1a1d2e' }}>{h}</th>
+                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, color: '#3a3f55', fontFamily: MONO, borderBottom: '1px solid #1f2a45' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -249,13 +249,13 @@ export default function AccuracyPage() {
           {data.byConditions.length > 0 && (
             <section style={{ marginBottom: 24 }}>
               <SectionLabel>CONDICIONES CUMPLIDAS vs ACCURACY</SectionLabel>
-              <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #1a1d2e', fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1 }}>
+              <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #1f2a45', fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1 }}>
                   ¿MÁS CONDICIONES CUMPLIDAS = MEJOR SEÑAL? — VALIDACIÓN EMPÍRICA
                 </div>
                 <div style={{ padding: '16px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   {data.byConditions.map(b => (
-                    <div key={b.label} style={{ background: '#04050a', border: '1px solid #1a1d2e', borderRadius: 8, padding: '12px 16px', minWidth: 100, textAlign: 'center' }}>
+                    <div key={b.label} style={{ background: '#04050a', border: '1px solid #1f2a45', borderRadius: 8, padding: '12px 16px', minWidth: 100, textAlign: 'center' }}>
                       <div style={{ fontFamily: BEBAS, fontSize: 22, color: accColor(b.accuracy), letterSpacing: 1 }}>{b.accuracy}%</div>
                       <div style={{ fontSize: 11, color: '#e8e9f0', fontFamily: MONO, marginBottom: 2 }}>{b.label} conds</div>
                       <div style={{ fontSize: 10, color: retColor(b.avgReturn), fontFamily: MONO }}>
@@ -276,13 +276,13 @@ export default function AccuracyPage() {
           {data.recent.length > 0 && (
             <section>
               <SectionLabel>SEÑALES RECIENTES CON OUTCOME</SectionLabel>
-              <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#04050a' }}>
                         {['Activo', 'Señal', 'Score', 'Conds', 'Régimen', 'Outcome', 'Dirección', 'Fecha señal'].map(h => (
-                          <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, color: '#3a3f55', fontFamily: MONO, borderBottom: '1px solid #1a1d2e', whiteSpace: 'nowrap' }}>{h}</th>
+                          <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, color: '#3a3f55', fontFamily: MONO, borderBottom: '1px solid #1f2a45', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -296,15 +296,15 @@ export default function AccuracyPage() {
                           <td style={{ padding: '8px 12px' }}>
                             <span style={{
                               fontSize: 10, fontWeight: 700, fontFamily: MONO,
-                              color: r.signal === 'comprar' ? '#1D9E75' : '#f87171',
-                              background: r.signal === 'comprar' ? 'rgba(29,158,117,0.12)' : 'rgba(248,113,113,0.12)',
-                              border: `1px solid ${r.signal === 'comprar' ? '#1D9E7530' : '#f8717130'}`,
+                              color: r.signal === 'comprar' ? '#2fd39a' : '#ff5d6c',
+                              background: r.signal === 'comprar' ? 'rgba(47,211,154,0.12)' : 'rgba(255,93,108,0.12)',
+                              border: `1px solid ${r.signal === 'comprar' ? '#2fd39a30' : '#ff5d6c30'}`,
                               borderRadius: 4, padding: '2px 7px',
                             }}>
                               {r.signal.toUpperCase()}
                             </span>
                           </td>
-                          <td style={{ padding: '8px 12px', fontFamily: MONO, fontSize: 12, color: r.score > 65 ? '#1D9E75' : r.score > 50 ? '#39e2e6' : '#f87171' }}>{r.score}</td>
+                          <td style={{ padding: '8px 12px', fontFamily: MONO, fontSize: 12, color: r.score > 65 ? '#2fd39a' : r.score > 50 ? '#39e2e6' : '#ff5d6c' }}>{r.score}</td>
                           <td style={{ padding: '8px 12px', fontFamily: MONO, fontSize: 11, color: '#7a7f9a' }}>
                             {r.conditionsMet != null ? `${r.conditionsMet}/${r.conditionsTotal}` : '—'}
                           </td>
@@ -335,9 +335,9 @@ export default function AccuracyPage() {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 10, fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1.5, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ height: 1, width: 20, background: '#1a1d2e' }} />
+      <div style={{ height: 1, width: 20, background: '#1f2a45' }} />
       {children}
-      <div style={{ height: 1, flex: 1, background: '#1a1d2e' }} />
+      <div style={{ height: 1, flex: 1, background: '#1f2a45' }} />
     </div>
   )
 }

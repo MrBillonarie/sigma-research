@@ -9,6 +9,7 @@ import ProfileSelector          from './components/ProfileSelector'
 import MetricCards              from './components/MetricCards'
 import FlowIndicator            from './components/FlowIndicator'
 import SignalTable              from './components/SignalTable'
+import RotationCompass          from './components/RotationCompass'
 import LiveRefreshIndicator     from '@/app/components/LiveRefreshIndicator'
 import PageErrorBoundary        from '@/app/components/PageErrorBoundary'
 
@@ -68,8 +69,8 @@ function Reveal({ children }: { children: React.ReactNode }) {
 
 // ─── Vista free — "solo dirección" (el sizing/allocation es PRO) ──────────────
 const SIG_META: Record<string, { lbl: string; c: string }> = {
-  comprar:  { lbl: 'COMPRAR',  c: '#1D9E75' },
-  reducir:  { lbl: 'REDUCIR',  c: '#f87171' },
+  comprar:  { lbl: 'COMPRAR',  c: '#2fd39a' },
+  reducir:  { lbl: 'REDUCIR',  c: '#ff5d6c' },
   mantener: { lbl: 'MANTENER', c: '#7a7f9a' },
   neutral:  { lbl: 'NEUTRAL',  c: '#7a7f9a' },
 }
@@ -77,7 +78,7 @@ const SIG_META: Record<string, { lbl: string; c: string }> = {
 function LockPanel({ title, sub }: { title: string; sub: string }) {
   return (
     <div style={{
-      background: 'linear-gradient(180deg, rgba(255,180,84,0.05), #0b0d14 60%)',
+      background: 'linear-gradient(180deg, rgba(255,180,84,0.05), #0a0e1a 60%)',
       border: '1px solid rgba(255,180,84,0.25)', borderRadius: 12,
       padding: '28px 24px', textAlign: 'center',
     }}>
@@ -98,22 +99,22 @@ function FreeDirectionTable({ data }: { data: SignalsResponse }) {
     return order(a.signal) - order(b.signal)
   })
   return (
-    <div style={{ background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 12, overflow: 'hidden', overflowX: 'auto' }}>
+    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 12, overflow: 'hidden', overflowX: 'auto' }}>
       <div style={{ height: 2, background: 'linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%)' }} />
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
         <thead>
-          <tr style={{ background: '#0e1019' }}>
+          <tr style={{ background: '#0d1322' }}>
             {['Activo', 'Señal', '30D', '90D', '1A'].map((h, i) => (
-              <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '11px 16px', fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: '#7a7f9a', fontWeight: 400, borderBottom: '1px solid #252840' }}>{h}</th>
+              <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '11px 16px', fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: '#7a7f9a', fontWeight: 400, borderBottom: '1px solid #27345a' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map(a => {
             const m = SIG_META[a.signal] ?? SIG_META.neutral
-            const ret = (v: number) => <span style={{ fontFamily: MONO, fontSize: 11, color: v > 0 ? '#1D9E75' : v < 0 ? '#f87171' : '#7a7f9a' }}>{v > 0 ? '+' : ''}{v.toFixed(1)}%</span>
+            const ret = (v: number) => <span style={{ fontFamily: MONO, fontSize: 11, color: v > 0 ? '#2fd39a' : v < 0 ? '#ff5d6c' : '#7a7f9a' }}>{v > 0 ? '+' : ''}{v.toFixed(1)}%</span>
             return (
-              <tr key={a.id} style={{ borderBottom: '1px solid #1a1d2e' }}>
+              <tr key={a.id} style={{ borderBottom: '1px solid #1f2a45' }}>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: '#e8e9f0' }}>{a.ticker ?? a.name}</div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: '#6b7688' }}>{a.category ?? a.assetClass}</div>
@@ -129,7 +130,7 @@ function FreeDirectionTable({ data }: { data: SignalsResponse }) {
           })}
         </tbody>
       </table>
-      <div style={{ padding: '12px 16px', borderTop: '1px solid #1a1d2e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid #1f2a45', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: MONO, fontSize: 10, color: '#7a7f9a' }}>🔒 Sizing, score, EV y montos sugeridos por activo — plan PRO</span>
         <a href="/planes" style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.16em', color: '#ffb454', textDecoration: 'none', whiteSpace: 'nowrap' }}>VER SEÑAL COMPLETA →</a>
       </div>
@@ -143,7 +144,7 @@ function LoadingSkeleton() {
       {[1,2,3].map(i => (
         <div key={i} className="animate-pulse" style={{
           height: i === 1 ? 80 : i === 2 ? 120 : 300,
-          background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10,
+          background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10,
         }} />
       ))}
     </div>
@@ -214,7 +215,7 @@ export default function MotorDecisionPage() {
   const BEBAS = "'Bebas Neue', Impact, sans-serif"
 
   // Color del régimen — tiñe el ambiente de toda la página
-  const regimeColor = data?.regime === 'risk-on' ? '#1D9E75' : data?.regime === 'risk-off' ? '#f87171' : '#7a7f9a'
+  const regimeColor = data?.regime === 'risk-on' ? '#2fd39a' : data?.regime === 'risk-off' ? '#ff5d6c' : '#7a7f9a'
   // Encendido: el capital cuenta desde 0 al cargar
   const animCapital = useCountUp(portfolioUSD, 1400)
 
@@ -250,9 +251,9 @@ export default function MotorDecisionPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
           <div style={{
             width: 8, height: 8, borderRadius: '50%',
-            background: '#1D9E75', boxShadow: '0 0 8px #1D9E75',
+            background: '#2fd39a', boxShadow: '0 0 8px #2fd39a',
           }} className="sigma-blink" />
-          <span style={{ fontSize: 10, color: '#1D9E75', fontFamily: MONO, letterSpacing: 1 }}>
+          <span style={{ fontSize: 10, color: '#2fd39a', fontFamily: MONO, letterSpacing: 1 }}>
             LIVE — MOTOR DE DECISIÓN
           </span>
           <span style={{ fontSize: 9, fontFamily: MONO, letterSpacing: '0.15em', color: '#39e2e6', background: 'rgba(57,226,230,0.10)', border: '1px solid rgba(57,226,230,0.25)', padding: '2px 8px', borderRadius: 3 }}>
@@ -286,7 +287,7 @@ export default function MotorDecisionPage() {
         {/* Buttons — row below title */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => fetchSignals(profile)} disabled={loading} style={{
-            background: 'transparent', border: '1px solid #1a1d2e', borderRadius: 7,
+            background: 'transparent', border: '1px solid #1f2a45', borderRadius: 7,
             padding: '8px 14px', color: '#7a7f9a', fontSize: 11, fontFamily: MONO,
             cursor: loading ? 'not-allowed' : 'pointer',
           }}>
@@ -295,9 +296,9 @@ export default function MotorDecisionPage() {
 
           {/* I: Auto-refresh toggle */}
           <button onClick={() => setAutoRefresh(v => !v)} style={{
-            background: autoRefresh ? 'rgba(29,158,117,0.12)' : 'transparent',
-            border: `1px solid ${autoRefresh ? '#1D9E75' : '#1a1d2e'}`, borderRadius: 7,
-            padding: '8px 14px', color: autoRefresh ? '#1D9E75' : '#7a7f9a',
+            background: autoRefresh ? 'rgba(47,211,154,0.12)' : 'transparent',
+            border: `1px solid ${autoRefresh ? '#2fd39a' : '#1f2a45'}`, borderRadius: 7,
+            padding: '8px 14px', color: autoRefresh ? '#2fd39a' : '#7a7f9a',
             fontSize: 11, fontFamily: MONO, cursor: 'pointer',
           }}>
             {autoRefresh ? '⏸ Auto-refresh' : '⏱ Auto-refresh'}
@@ -315,15 +316,16 @@ export default function MotorDecisionPage() {
 
           {data && (
             <Link href="/motor-decision/reporte" style={{
-              background: '#1D9E75', color: '#000', textDecoration: 'none',
+              background: 'linear-gradient(100deg, #39e2e6, #5eeaf0)', color: '#03181c', textDecoration: 'none',
               borderRadius: 7, padding: '8px 16px', fontSize: 11, fontWeight: 700, fontFamily: MONO,
+              boxShadow: '0 0 18px rgba(57,226,230,0.25)',
             }}>
               📄 Ver Reporte
             </Link>
           )}
           <Link href="/motor-decision/accuracy" style={{
-            background: 'transparent', border: '1px solid #378ADD40', textDecoration: 'none',
-            borderRadius: 7, padding: '8px 14px', fontSize: 11, fontFamily: MONO, color: '#378ADD',
+            background: 'transparent', border: '1px solid #4f92ff40', textDecoration: 'none',
+            borderRadius: 7, padding: '8px 14px', fontSize: 11, fontFamily: MONO, color: '#4f92ff',
           }}>
             📈 Accuracy
           </Link>
@@ -354,14 +356,14 @@ export default function MotorDecisionPage() {
       <section style={{ marginBottom: 24 }}>
         <SectionLabel>CAPITAL DISPONIBLE</SectionLabel>
         <div style={{
-          background: '#0b0d14', border: '1px solid #1a1d2e', borderRadius: 10,
+          background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10,
           padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
         }}>
           <div>
             <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, marginBottom: 4 }}>
               PORTAFOLIO TOTAL
             </div>
-            <div style={{ fontSize: 28, fontFamily: BEBAS, letterSpacing: 1, color: portfolioUSD > 0 ? '#1D9E75' : '#3a3f55' }}>
+            <div style={{ fontSize: 28, fontFamily: BEBAS, letterSpacing: 1, color: portfolioUSD > 0 ? '#2fd39a' : '#3a3f55' }}>
               {portfolioUSD > 0
                 ? `$${Math.round(animCapital).toLocaleString('en-US')} USD`
                 : '— Sin datos de portafolio'}
@@ -369,18 +371,18 @@ export default function MotorDecisionPage() {
           </div>
           {portfolioUSD > 0 && (
             <>
-              <div style={{ width: 1, height: 40, background: '#1a1d2e', flexShrink: 0 }} />
+              <div style={{ width: 1, height: 40, background: '#1f2a45', flexShrink: 0 }} />
               <div style={{ fontSize: 11, color: '#7a7f9a', fontFamily: MONO }}>
                 El motor distribuye este capital según la asignación óptima<br />
                 y muestra cuánto poner en cada activo con señal{' '}
-                <span style={{ color: '#1D9E75', fontWeight: 700 }}>COMPRAR</span>.
+                <span style={{ color: '#2fd39a', fontWeight: 700 }}>COMPRAR</span>.
               </div>
             </>
           )}
           {portfolioUSD <= 0 && (
             <div style={{ fontSize: 11, color: '#7a7f9a', fontFamily: MONO }}>
               Ingresa tu capital en la página{' '}
-              <a href="/portafolio" style={{ color: '#378ADD', textDecoration: 'none' }}>Portafolio</a>
+              <a href="/portafolio" style={{ color: '#4f92ff', textDecoration: 'none' }}>Portafolio</a>
               {' '}para ver los montos sugeridos.
             </div>
           )}
@@ -390,10 +392,10 @@ export default function MotorDecisionPage() {
 
       {error && (
         <div style={{
-          background: 'rgba(248,113,113,0.1)',
-          border: '1px solid #f87171', borderRadius: 8,
+          background: 'rgba(255,93,108,0.1)',
+          border: '1px solid #ff5d6c', borderRadius: 8,
           padding: '12px 16px', marginBottom: 20,
-          color: '#f87171', fontSize: 12, fontFamily: MONO,
+          color: '#ff5d6c', fontSize: 12, fontFamily: MONO,
         }}>
           ⚠ Error cargando señales: {error}. Verifica la conexión a la base de datos.
         </div>
@@ -403,6 +405,19 @@ export default function MotorDecisionPage() {
         <LoadingSkeleton />
       ) : data ? (
         <>
+          {/* ── Brújula de rotación — pieza central de la página ─────────── */}
+          <Reveal>
+          <section style={{ marginBottom: 24 }}>
+            <SectionLabel>BRÚJULA DE ROTACIÓN</SectionLabel>
+            <RotationCompass
+              signals={data.signals}
+              flowScore={data.flowScore}
+              regime={data.regime}
+              regimeLabel={data.regimeLabel}
+            />
+          </section>
+          </Reveal>
+
           {/* ── KPIs ─────────────────────────────────────────────────────── */}
           <Reveal>
           <section style={{ marginBottom: 24 }}>
@@ -452,9 +467,9 @@ export default function MotorDecisionPage() {
           <Reveal>
           <div style={{
             background: data.gated
-              ? 'linear-gradient(135deg, rgba(255,180,84,0.06), rgba(55,138,221,0.06))'
-              : 'linear-gradient(135deg, rgba(29,158,117,0.08), rgba(55,138,221,0.08))',
-            border: '1px solid #1a1d2e', borderRadius: 12,
+              ? 'linear-gradient(135deg, rgba(255,180,84,0.06), rgba(79,146,255,0.06))'
+              : 'linear-gradient(135deg, rgba(47,211,154,0.08), rgba(79,146,255,0.08))',
+            border: '1px solid #1f2a45', borderRadius: 12,
             padding: '24px', textAlign: 'center',
           }}>
             <h3 style={{
@@ -479,9 +494,10 @@ export default function MotorDecisionPage() {
               </Link>
             ) : (
               <Link href="/motor-decision/reporte" style={{
-                display: 'inline-block', background: '#1D9E75', color: '#000',
+                display: 'inline-block', background: 'linear-gradient(100deg, #39e2e6, #5eeaf0)', color: '#03181c',
                 textDecoration: 'none', borderRadius: 8, padding: '10px 28px',
                 fontSize: 13, fontWeight: 700, fontFamily: MONO,
+                boxShadow: '0 0 22px rgba(57,226,230,0.28)',
               }}>
                 📄 Generar y Descargar Reporte PDF
               </Link>
@@ -499,14 +515,14 @@ export default function MotorDecisionPage() {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      marginBottom: 10, fontSize: 10, color: '#7a7f9a',
-      fontFamily: 'monospace', letterSpacing: 1.5,
+      marginBottom: 10, fontSize: 10, color: '#39e2e6',
+      fontFamily: 'monospace', letterSpacing: '0.22em',
       textTransform: 'uppercase',
-      display: 'flex', alignItems: 'center', gap: 8,
+      display: 'flex', alignItems: 'center', gap: 10,
     }}>
-      <div style={{ height: 1, width: 20, background: '#1a1d2e' }} />
+      <div style={{ height: 1, width: 22, background: 'linear-gradient(90deg, rgba(57,226,230,0.7), rgba(57,226,230,0.15))' }} />
       {children}
-      <div style={{ height: 1, flex: 1, background: '#1a1d2e' }} />
+      <div style={{ height: 1, flex: 1, background: 'linear-gradient(90deg, rgba(57,226,230,0.25), rgba(255,255,255,0.04) 55%)' }} />
     </div>
   )
 }
