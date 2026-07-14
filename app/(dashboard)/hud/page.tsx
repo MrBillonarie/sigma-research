@@ -586,10 +586,22 @@ export default function HUDPage() {
           bg.className = 'regime-bg'
           card.insertBefore(bg, card.firstChild)
         }
-        bg.style.color = color
-        bg.innerHTML =
-          `<svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="2.4" ` +
-          `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ART[word]}</svg>`
+        if (word === 'BEAR') {
+          // Foto duotono (recorte + tinte al #ff5d6c horneados en el asset) con
+          // scrim de degradado del lado del texto → números 100% legibles.
+          bg.className = 'regime-bg rb-photo'
+          bg.style.color = ''
+          bg.innerHTML =
+            '<img class="regime-photo" src="/regime/bear.webp" alt="" aria-hidden="true" draggable="false"/>' +
+            '<span class="regime-scrim"></span>'
+        } else {
+          // BULL / RANGE: grabado vectorial (fallback hasta tener sus fotos)
+          bg.className = 'regime-bg rb-vec'
+          bg.style.color = color
+          bg.innerHTML =
+            `<svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="2.4" ` +
+            `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ART[word]}</svg>`
+        }
       }
     }
 
@@ -1141,20 +1153,37 @@ export default function HUDPage() {
         #sigma-hud-root #kpi-regime { display: inline-flex; align-items: baseline; gap: 8px; }
         #sigma-hud-root .regime-caret { font-size: 0.62em; opacity: 0.9; filter: drop-shadow(0 0 6px currentColor); }
         #sigma-hud-root .regime-txt { font-weight: 700; letter-spacing: 0.04em; }
-        /* watermark: cabeza grabada del animal, teñida al color del régimen,
-           sangra por el borde derecho y queda DETRÁS del texto */
+        /* watermark del régimen: DETRÁS del texto, sangra por el borde derecho.
+           Dos variantes — .rb-photo (foto duotono, BEAR) y .rb-vec (grabado
+           vectorial, BULL/RANGE de fallback). */
         #sigma-hud-root #kpi-strip .kpi-card.regime-card { overflow: hidden; }
         #sigma-hud-root .regime-bg {
           position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+        }
+        /* — grabado vectorial (BULL/RANGE) — */
+        #sigma-hud-root .regime-bg.rb-vec {
           opacity: 0.22; transition: opacity .3s ease;
           -webkit-mask-image: linear-gradient(100deg, transparent 8%, #000 62%);
                   mask-image: linear-gradient(100deg, transparent 8%, #000 62%);
         }
-        #sigma-hud-root .regime-bg svg {
+        #sigma-hud-root .regime-bg.rb-vec svg {
           position: absolute; right: -16px; top: 50%; transform: translateY(-50%);
           height: 138%; width: auto; filter: drop-shadow(0 0 10px currentColor);
         }
-        #sigma-hud-root .kpi-card.regime-card:hover .regime-bg { opacity: 0.32; }
+        #sigma-hud-root .kpi-card.regime-card:hover .regime-bg.rb-vec { opacity: 0.32; }
+        /* — foto duotono (BEAR) — */
+        #sigma-hud-root .regime-bg .regime-photo {
+          position: absolute; right: -6%; top: 50%; transform: translateY(-50%);
+          height: 150%; width: auto; opacity: 0.35; transition: opacity .3s ease;
+          -webkit-mask-image: linear-gradient(100deg, transparent 8%, #000 60%);
+                  mask-image: linear-gradient(100deg, transparent 8%, #000 60%);
+        }
+        #sigma-hud-root .kpi-card.regime-card:hover .regime-bg .regime-photo { opacity: 0.46; }
+        /* scrim: blinda el área del texto (izquierda) de la foto */
+        #sigma-hud-root .regime-bg .regime-scrim {
+          position: absolute; inset: 0;
+          background: linear-gradient(90deg, rgba(4,6,12,0.82) 0%, rgba(4,6,12,0.34) 34%, transparent 60%);
+        }
         /* el texto del régimen por encima del grabado */
         #sigma-hud-root .kpi-card.regime-card .kpi-label,
         #sigma-hud-root .kpi-card.regime-card .kpi-value,
