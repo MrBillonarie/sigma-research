@@ -141,6 +141,44 @@ export default function ProfileConsole({ selected, onChange, loading, capital, h
                 letterSpacing="0.04em" style={{ transition: 'fill 0.4s' }}>{m.risk}</text>
           <text x={CX} y={CY + 13} textAnchor="middle" fill="#6b7688" fontFamily={MONO} fontSize="7" letterSpacing="0.24em">RIESGO</text>
         </svg>
+
+        {/* selector de modo — switch segmentado con pastilla deslizante */}
+        <div style={{ marginTop: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.2em', color: '#55607a', textAlign: 'center', marginBottom: 8 }}>
+            SELECCIONAR MODO
+          </div>
+          <div style={{
+            position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0,
+            background: 'rgba(0,0,0,0.35)', borderRadius: 11, padding: 3,
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.04)',
+          }}>
+            {/* pastilla activa */}
+            <div aria-hidden style={{
+              position: 'absolute', top: 3, bottom: 3, left: 3, width: 'calc((100% - 6px) / 3)',
+              transform: `translateX(calc(${ORDER.indexOf(selected)} * 100%))`,
+              background: `linear-gradient(180deg, ${m.color}30, ${m.color}18)`,
+              border: `1px solid ${m.color}`, borderRadius: 8,
+              boxShadow: `0 0 14px ${m.color}55, inset 0 1px 0 rgba(255,255,255,0.15)`,
+              transition: 'transform 0.42s cubic-bezier(0.22,1,0.36,1), background 0.4s, border-color 0.4s, box-shadow 0.4s',
+            }} />
+            {ORDER.map(pt => {
+              const meta = META[pt], on = pt === selected
+              const short = pt === 'retail' ? 'RETAIL' : pt === 'institucional' ? 'INSTIT.' : 'TRADER'
+              return (
+                <button key={pt} onClick={() => !loading && onChange(pt)} disabled={loading}
+                  aria-pressed={on} title={meta.name}
+                  style={{
+                    position: 'relative', zIndex: 1, background: 'transparent', border: 'none',
+                    padding: '9px 4px', cursor: loading ? 'not-allowed' : 'pointer',
+                    fontFamily: MONO, fontSize: 10, fontWeight: on ? 700 : 400, letterSpacing: '0.04em',
+                    color: on ? m.color : '#7a8296', transition: 'color 0.35s, font-weight 0.35s',
+                  }}>
+                  {short}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {/* ── pantalla digital: mandato + capital ── */}
