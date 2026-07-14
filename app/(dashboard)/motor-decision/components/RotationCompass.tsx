@@ -55,7 +55,7 @@ export default function RotationCompass({ signals, flowScore, regime, regimeLabe
   const dots = useMemo(() => {
     const byClass: Record<string, Asset[]> = {}
     for (const a of signals) (byClass[a.assetClass] ||= []).push(a)
-    const out: { x: number; y: number; color: string; title: string; strong: boolean }[] = []
+    const out: { x: number; y: number; color: string; ring: string; title: string; strong: boolean }[] = []
     for (const [cls, meta] of Object.entries(CLASS_META)) {
       const list = (byClass[cls] ?? []).slice(0, 14)
       list.forEach((a, i) => {
@@ -66,14 +66,25 @@ export default function RotationCompass({ signals, flowScore, regime, regimeLabe
         const sig = a.signal ?? 'neutral'
         out.push({
           x, y,
-          color: SIG_COLOR[sig] ?? SIG_COLOR.neutral,
+          color: SIG_COLOR[sig] ?? SIG_COLOR.neutral,  // relleno = señal
+          ring: meta.color,                            // anillo = clase
           strong: sig === 'comprar' || sig === 'reducir',
-          title: `${a.ticker ?? a.name} · ${sig.toUpperCase()} · 30d ${a.return30d >= 0 ? '+' : ''}${(a.return30d ?? 0).toFixed(1)}%`,
+          title: `${a.ticker ?? a.name} · ${meta.label} · ${sig.toUpperCase()} · 30d ${a.return30d >= 0 ? '+' : ''}${(a.return30d ?? 0).toFixed(1)}%`,
         })
       })
     }
     return out
   }, [signals, cx, cy, R])
+
+  // cuñas de cada clase — hacen visibles las "zonas" del dial para que cada
+  // pelota se lea claramente dentro de su sección
+  const wedges = useMemo(() =>
+    Object.values(CLASS_META).map(m => {
+      const a1 = toXY(cx, cy, m.start, R)
+      const a2 = toXY(cx, cy, m.start + m.span, R)
+      const large = m.span > 180 ? 1 : 0
+      return { color: m.color, d: `M ${cx} ${cy} L ${a1.x.toFixed(1)} ${a1.y.toFixed(1)} A ${R} ${R} 0 ${large} 0 ${a2.x.toFixed(1)} ${a2.y.toFixed(1)} Z` }
+    }), [cx, cy, R])
 
   const ticks = useMemo(() => {
     const t: string[] = []
@@ -150,6 +161,16 @@ export default function RotationCompass({ signals, flowScore, regime, regimeLabe
           </filter>
         </defs>
 
+        {/* zonas de clase: cuña tenue del color de cada clase (fondo) */}
+        {wedges.map((w, i) => (
+          <path key={i} d={w.d} fill={w.color} opacity="0.06" />
+        ))}
+        {/* divisores entre sectores */}
+        {Object.values(CLASS_META).flatMap(m => [m.start, m.start + m.span]).map((a, i) => {
+          const p = toXY(cx, cy, a, R)
+          return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(148,163,196,0.10)" strokeWidth="1" />
+        })}
+
         {/* anillos + cruz */}
         {[R, R - 44, R - 88].map((r, i) => (
           <circle key={r} cx={cx} cy={cy} r={r} fill="none"
@@ -209,13 +230,16 @@ export default function RotationCompass({ signals, flowScore, regime, regimeLabe
           ))}
         </g>
 
-        {/* activos */}
+        {/* activos: relleno = señal, anillo = clase a la que pertenece */}
         {dots.map((d, i) => (
-          <circle key={i} cx={d.x} cy={d.y} r={d.strong ? 4.4 : 3.2}
-                  fill={d.color} stroke="#04070f" strokeWidth="1"
-                  style={{ color: d.color }} filter={d.strong ? 'url(#rcDot)' : undefined}>
-            <title>{d.title}</title>
-          </circle>
+          <g key={i} style={{ color: d.color }}>
+            <circle cx={d.x} cy={d.y} r={d.strong ? 5 : 3.8}
+                    fill="none" stroke={d.ring} strokeWidth="1.6" opacity="0.9" />
+            <circle cx={d.x} cy={d.y} r={d.strong ? 3 : 2.2}
+                    fill={d.color} filter={d.strong ? 'url(#rcDot)' : undefined}>
+              <title>{d.title}</title>
+            </circle>
+          </g>
         ))}
 
         {/* aguja */}
@@ -252,6 +276,10 @@ export default function RotationCompass({ signals, flowScore, regime, regimeLabe
             {s}
           </span>
         ))}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#8b97ad' }}>
+          <i style={{ width: 9, height: 9, borderRadius: '50%', background: '#8b97ad', border: '1.6px solid #a78bfa', display: 'inline-block' }} />
+          relleno = señal · anillo = clase
+        </span>
         {flows.length > 0 && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#8b97ad' }}>
             <svg width="26" height="10" aria-hidden="true">
