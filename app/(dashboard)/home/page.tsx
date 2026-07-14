@@ -1132,28 +1132,35 @@ export default function DashboardHome() {
             </Link>
           </div>
 
-          {/* ══ GANANCIA EQUIVALENTE SIGMA ══ */}
+          {/* ══ RESULTADO EQUIVALENTE SIGMA ══ */}
           {/* Proyección: % real del motor aplicado al capital del usuario. No es
-              P&L ejecutado — se etiqueta explícito para no confundir con dinero real. */}
+              P&L ejecutado — se etiqueta explícito para no confundir con dinero real.
+              Etiqueta NEUTRA ("resultado"): en meses en rojo, "ganancia" se
+              contradecía con un valor negativo. Un chip ganancia/pérdida + el
+              color comunican el signo sin ambigüedad. */}
           {!loading && motorReturn && D.totalUSD > 0 && (() => {
             const equivalentGain = D.totalUSD * (motorReturn.monthlyReturnPct / 100)
+            const positive = equivalentGain >= 0
             return (
               <div style={{ ...heroCardStyle, padding:'18px 22px', marginBottom:20, display:'flex', alignItems:'center', gap:20, flexWrap:'wrap' }}>
                 <div style={{ flex:1, minWidth:220 }}>
                   <div style={{ fontFamily:'monospace', fontSize:9, letterSpacing:'0.22em', textTransform:'uppercase', color:C.dimText, marginBottom:6 }}>
-                    GANANCIA EQUIVALENTE · SIGUIENDO LA ESTRATEGIA SIGMA
+                    RESULTADO EQUIVALENTE · SIGUIENDO LA ESTRATEGIA SIGMA
                   </div>
                   <div style={{ display:'flex', alignItems:'baseline', gap:12, flexWrap:'wrap' }}>
-                    <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:30, lineHeight:1, color: equivalentGain >= 0 ? C.green : C.red, textShadow:numberEmboss }}>
+                    <div style={{ fontFamily:"'Bebas Neue',Impact,sans-serif", fontSize:30, lineHeight:1, color: positive ? C.green : C.red, textShadow:numberEmboss }}>
                       {fmtDiff(equivalentGain)}
                     </div>
+                    <span style={{ fontFamily:'monospace', fontSize:9, fontWeight:700, letterSpacing:'0.08em', color: positive ? C.green : C.red, background: `${positive ? C.green : C.red}18`, border:`1px solid ${positive ? C.green : C.red}44`, borderRadius:5, padding:'2px 8px' }}>
+                      {positive ? '▲ GANANCIA' : '▼ PÉRDIDA'}
+                    </span>
                     <div style={{ fontFamily:'monospace', fontSize:11, color:C.dimText }}>
                       ({motorReturn.monthlyReturnPct >= 0 ? '+' : ''}{motorReturn.monthlyReturnPct.toFixed(2)}% este mes · motor)
                     </div>
                   </div>
                 </div>
                 <div style={{ fontFamily:'monospace', fontSize:10, color:C.muted, maxWidth:320, lineHeight:1.6, borderLeft:`1px solid ${C.border}`, paddingLeft:16 }}>
-                  ⓘ Proyección educativa: lo que tu capital actual ({fmtUSD(D.totalUSD)}) habría ganado este mes si hubiera seguido el desempeño real del motor SIGMA. No es tu P&L ejecutado ni una orden real.
+                  ⓘ Proyección educativa: lo que tu capital actual ({fmtUSD(D.totalUSD)}) habría rendido este mes si hubiera seguido el desempeño real del motor SIGMA. No es tu P&L ejecutado ni una orden real.
                 </div>
               </div>
             )
