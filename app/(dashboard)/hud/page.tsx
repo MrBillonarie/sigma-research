@@ -1175,12 +1175,15 @@ export default function HUDPage() {
         }
         #sigma-hud-root .kpi-card.regime-card:hover .regime-bg.rb-vec { opacity: 0.32; }
         /* — foto duotono (BEAR) — */
-        /* spotlight: halo rojo radial DETRÁS del oso — lo separa del negro para
-           que se lea claro como oso (el fondo de la propia .regime-bg queda bajo
-           el <img>, así el halo no toca los números) */
+        /* campo rojo: la mitad derecha bañada en el color del régimen + halo
+           sobre la cara — el oso resalta al máximo y la tarjeta entera comunica
+           el estado del mercado con el color (elegido sobre comparador B).
+           Vive DEBAJO del <img>, así nunca toca los números.
+           (Cuando lleguen las fotos de BULL/RANGE, este lavado pasa a cian/ámbar.) */
         #sigma-hud-root .regime-bg.rb-photo {
-          background: radial-gradient(58% 74% at 80% 46%,
-            rgba(255,93,108,0.15) 0%, rgba(255,93,108,0.05) 36%, transparent 66%);
+          background:
+            radial-gradient(58% 74% at 82% 46%, rgba(255,93,108,0.13) 0%, transparent 66%),
+            linear-gradient(90deg, transparent 36%, rgba(120,16,30,0.28) 66%, rgba(139,18,34,0.55) 100%);
         }
         /* encuadre: la CABEZA completa (oreja+ojo+hocico) dentro de la tarjeta
            — validado sobre las medidas reales; el fade hacia el texto es corto
