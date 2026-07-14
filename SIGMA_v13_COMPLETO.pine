@@ -1695,8 +1695,7 @@ if barstate.islast
     table.cell(hud,1,3,_dc,text_color=_dcc,bgcolor=color.new(_dcc,80),text_size=size.normal,text_font_family=font.family_monospace)
     _mod_gc  = _m_grade=="A+"?col_elite:_m_grade=="A"?col_long:_m_grade=="B"?color.yellow:col_warn
     _wft_ico = _m_wft=="OK"?"WFT:OK":_m_wft=="FAIL"?"WFT:FAIL":"WFT:--"
-    hud.f_row(4,"MODELO",   strat_name+" · "+_reg_txt+" · "+_m_grade+" · "+_m_wr_txt+" · "+_wft_ico+(m_has_signal?" ● SEÑAL":""), m_has_signal?(smart_long?col_long:col_short):_m_wft_col)
-    hud.f_row(5,"AUDITORIA",honest_warn+"  "+_m_grade+" "+_m_wr_txt+" WFT:"+_m_wft, (honest_active or _m_wft=="FAIL")?col_warn:_mod_gc)
+    // MODELO y AUDITORIA se muestran dentro del MODULO B, junto a ESTRATEGIA (filas 56-57)
 
     hud.f_hdr(6,"── MODULO A · CONTEXTO ──",color.rgb(0,210,255))
     hud.f_row(7, "REGIMEN",    regime_txt+"  "+dual_mode_txt,           regime_color)
@@ -1748,8 +1747,11 @@ if barstate.islast
     hud.f_row_big(52,"RR",     "1:"+str.tostring(rr_display,"#.##")+"  "+rr_quality_txt+(sl_is_hyp?" ~":""), rr_display>=2.0?col_long:color.silver)
     hud.f_row_big(53,"SL",     str.tostring(sl_display,format.mintick)+" (-"+str.tostring(sl_dist_display,"#.##")+"%)"+(sl_is_hyp?" ~":""), sl_is_hyp?color.new(col_short,40):col_short)
     hud.f_row_big(54,"TP1",    (tp_is_hyp?"~":"")+str.tostring(tp1_display,format.mintick)+" (+"+str.tostring(tp1_dist_display,"#.##")+"%)"+(poc_blocks_tp?" POC":""), tp_is_hyp?color.new(col_long,40):tp1_poc_color)
-    hud.f_row(56,"SIGMA",      "▲ "+str.tostring(math.round(sigma_score_long))+"  ▼ "+str.tostring(math.round(sigma_score_short))+"  "+f_bar(sigma_score,100), conf_is_long?col_long:col_short)
-    hud.f_row(57,"SHARPE",     str.tostring(sharpe,"#.##")+"  t="+str.tostring(tstat,"#.##"), sharpe>=1.0?col_elite:sharpe>=0.5?col_long:sharpe>0?color.yellow:col_short)
+    hud.f_row_big(55,"ESTRATEGIA", strat_name+_dir_arrow+(m_has_signal?" ● SEÑAL":sl_is_hyp?" (posible)":""), m_has_signal?(smart_long?col_long:col_short):sl_is_hyp?color.new(smart_long?col_long:col_short,25):(smart_long?col_long:col_short))
+    hud.f_row(56,"MODELO",     strat_name+" · "+_reg_txt+" · "+_m_grade+" · "+_m_wr_txt+" · "+_wft_ico+(m_has_signal?" ● SEÑAL":""), m_has_signal?(smart_long?col_long:col_short):_m_wft_col)
+    hud.f_row(57,"AUDITORIA",  honest_warn+"  "+_m_grade+" "+_m_wr_txt+" WFT:"+_m_wft, (honest_active or _m_wft=="FAIL")?col_warn:_mod_gc)
+    hud.f_row(58,"SIGMA",      "▲ "+str.tostring(math.round(sigma_score_long))+"  ▼ "+str.tostring(math.round(sigma_score_short))+"  "+f_bar(sigma_score,100), conf_is_long?col_long:col_short)
+    hud.f_row(59,"SHARPE",     str.tostring(sharpe,"#.##")+"  t="+str.tostring(tstat,"#.##"), sharpe>=1.0?col_elite:sharpe>=0.5?col_long:sharpe>0?color.yellow:col_short)
     hud.f_row(60,"KELLY",      kelly_active?"f*="+str.tostring(kelly_f*100,"#.##")+"% p="+str.tostring(kelly_p*100,"#")+"%":"FIJO "+str.tostring(risk_pct,"#.#")+"%", kelly_active and kelly_f>0.02?col_long:color.silver)
     hud.f_row(61,"DD",         dd_txt, dd_color)
     hud.f_row(63,"SIZE",       "$"+str.tostring(math.round(pos_size_usd))+" ("+str.tostring(pos_size_units,"#.####")+")", col_elite)
