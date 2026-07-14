@@ -589,10 +589,13 @@ export default function HUDPage() {
         if (word === 'BEAR') {
           // Foto duotono (recorte + tinte al #ff5d6c horneados en el asset) con
           // scrim de degradado del lado del texto → números 100% legibles.
+          // Asset = SOLO LA CABEZA: el cuerpo entero a escala de tarjeta era un
+          // fragmento de pelaje irreconocible; la cabeza (oreja+ojo+hocico) es
+          // lo que se lee como "oso" (bear.webp cuerpo completo queda de reserva).
           bg.className = 'regime-bg rb-photo'
           bg.style.color = ''
           bg.innerHTML =
-            '<img class="regime-photo" src="/regime/bear.webp" alt="" aria-hidden="true" draggable="false"/>' +
+            '<img class="regime-photo" src="/regime/bear-head.webp" alt="" aria-hidden="true" draggable="false"/>' +
             '<span class="regime-scrim"></span>'
         } else {
           // BULL / RANGE: grabado vectorial (fallback hasta tener sus fotos)
@@ -1179,15 +1182,16 @@ export default function HUDPage() {
           background: radial-gradient(58% 74% at 80% 46%,
             rgba(255,93,108,0.15) 0%, rgba(255,93,108,0.05) 36%, transparent 66%);
         }
-        /* encuadre: la CARA del oso como protagonista, dentro del borde (no
-           empujada afuera) — validado sobre las medidas reales de la tarjeta */
+        /* encuadre: la CABEZA completa (oreja+ojo+hocico) dentro de la tarjeta
+           — validado sobre las medidas reales; el fade hacia el texto es corto
+           porque el asset ya es solo la cabeza */
         #sigma-hud-root .regime-bg .regime-photo {
-          position: absolute; right: 8%; top: 50%; transform: translateY(-50%);
-          height: 150%; width: auto; opacity: 0.48; transition: opacity .3s ease;
-          -webkit-mask-image: linear-gradient(100deg, transparent 8%, #000 58%);
-                  mask-image: linear-gradient(100deg, transparent 8%, #000 58%);
+          position: absolute; right: 3%; top: -6%;
+          height: 115%; width: auto; opacity: 0.55; transition: opacity .3s ease;
+          -webkit-mask-image: linear-gradient(100deg, transparent 0%, #000 42%);
+                  mask-image: linear-gradient(100deg, transparent 0%, #000 42%);
         }
-        #sigma-hud-root .kpi-card.regime-card:hover .regime-bg .regime-photo { opacity: 0.58; }
+        #sigma-hud-root .kpi-card.regime-card:hover .regime-bg .regime-photo { opacity: 0.66; }
         /* scrim: blinda el área del texto (izquierda) de la foto */
         #sigma-hud-root .regime-bg .regime-scrim {
           position: absolute; inset: 0;
