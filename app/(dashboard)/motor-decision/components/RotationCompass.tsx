@@ -16,12 +16,14 @@ const BEBAS = "var(--font-bebas, 'Bebas Neue', Impact, sans-serif)"
 const SIG_COLOR: Record<string, string> = {
   comprar: '#2fd39a', reducir: '#ff5d6c', mantener: '#8b97ad', neutral: '#8b97ad',
 }
-const CLASS_META: Record<string, { label: string; start: number; span: number }> = {
+// color por clase — distinto de los colores de señal para no confundir:
+// las pelotas de FLUJO llevan el color de la clase ORIGEN del dinero
+const CLASS_META: Record<string, { label: string; color: string; start: number; span: number }> = {
   // sectores del dial (grados, 0° = derecha, sentido antihorario como en mate)
-  etfs:       { label: 'ETFs',       start: 20,  span: 70 },
-  fondos:     { label: 'FONDOS',     start: 110, span: 60 },
-  renta_fija: { label: 'RENTA FIJA', start: 190, span: 70 },
-  crypto:     { label: 'CRYPTO',     start: 280, span: 60 },
+  etfs:       { label: 'ETFs',       color: '#39e2e6', start: 20,  span: 70 },
+  fondos:     { label: 'FONDOS',     color: '#4f92ff', start: 110, span: 60 },
+  renta_fija: { label: 'RENTA FIJA', color: '#ffb454', start: 190, span: 70 },
+  crypto:     { label: 'CRYPTO',     color: '#a78bfa', start: 280, span: 60 },
 }
 
 const toXY = (cx: number, cy: number, angleDeg: number, r: number) => {
@@ -83,6 +85,43 @@ export default function RotationCompass({ signals, flowScore, regime, regimeLabe
     return t.join(' ')
   }, [cx, cy, R])
 
+  // Migración de capital entre clases: las clases donde domina REDUCIR
+  // exportan dinero hacia las clases donde domina COMPRAR. Cada flujo se
+  // dibuja como pelotas del color de la clase ORIGEN viajando en órbita
+  // hasta el sector destino (ej.: vendés crypto para ETFs → pelota violeta
+  // entrando al sector ETFs). Peso = cuántas señales netas hay en cada lado.
+  const flows = useMemo(() => {
+    const net: Record<string, number> = {}
+    for (const a of signals) {
+      if (a.signal === 'comprar') net[a.assetClass] = (net[a.assetClass] ?? 0) + 1
+      else if (a.signal === 'reducir') net[a.assetClass] = (net[a.assetClass] ?? 0) - 1
+    }
+    const exporters = Object.entries(net).filter(([, v]) => v < 0)
+    const importers = Object.entries(net).filter(([, v]) => v > 0)
+    const totalIn = importers.reduce((s, [, v]) => s + v, 0)
+    if (!exporters.length || !importers.length || totalIn === 0) return []
+    const out: { d: string; color: string; balls: number; dur: number; title: string }[] = []
+    for (const [from, fv] of exporters) {
+      for (const [to, tv] of importers) {
+        const amount = Math.abs(fv) * (tv / totalIn)
+        if (amount < 0.5) continue
+        const mFrom = CLASS_META[from], mTo = CLASS_META[to]
+        if (!mFrom || !mTo) continue
+        const p1 = toXY(cx, cy, mFrom.start + mFrom.span / 2, R - 30)
+        const p2 = toXY(cx, cy, mTo.start + mTo.span / 2, R - 30)
+        // curva que pasa cerca del hub: se lee como "el dinero cruza el motor"
+        const d = `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} Q ${cx} ${cy} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+        out.push({
+          d, color: mFrom.color,
+          balls: Math.min(3, Math.max(1, Math.round(amount))),
+          dur: 4.6 + out.length * 0.7,
+          title: `${mFrom.label} → ${mTo.label}`,
+        })
+      }
+    }
+    return out
+  }, [signals, cx, cy, R])
+
   return (
     <div style={{
       position: 'relative', overflow: 'hidden', borderRadius: 14,
@@ -134,15 +173,41 @@ export default function RotationCompass({ signals, flowScore, regime, regimeLabe
         <text x={cx + R + 8} y={cy + 4} textAnchor="start" fill="#2fd39a" opacity="0.85"
               fontFamily={MONO} fontSize="10" letterSpacing="0.12em">RISK-ON</text>
 
-        {/* etiquetas de sector */}
+        {/* etiquetas de sector + arco del color de cada clase */}
         {Object.values(CLASS_META).map(m => {
           const mid = m.start + m.span / 2
           const p = toXY(cx, cy, mid, R + 16)
+          const a1 = toXY(cx, cy, m.start + 6, R + 4)
+          const a2 = toXY(cx, cy, m.start + m.span - 6, R + 4)
           return (
-            <text key={m.label} x={p.x} y={p.y + 3} textAnchor="middle"
-                  fill="#55607a" fontFamily={MONO} fontSize="9" letterSpacing="0.16em">{m.label}</text>
+            <g key={m.label}>
+              <path d={`M ${a1.x.toFixed(1)} ${a1.y.toFixed(1)} A ${R + 4} ${R + 4} 0 0 0 ${a2.x.toFixed(1)} ${a2.y.toFixed(1)}`}
+                    fill="none" stroke={m.color} strokeWidth="2" opacity="0.45" strokeLinecap="round" />
+              <text x={p.x} y={p.y + 3} textAnchor="middle"
+                    fill={m.color} opacity="0.8" fontFamily={MONO} fontSize="9" letterSpacing="0.16em">{m.label}</text>
+            </g>
           )
         })}
+
+        {/* migración de capital: pelotas del color de la clase ORIGEN
+            viajando hacia el sector destino */}
+        <g className="rc-flows">
+          {flows.map((f, i) => (
+            <g key={i}>
+              <path d={f.d} fill="none" stroke={f.color} strokeWidth="1"
+                    strokeDasharray="2 6" opacity="0.3">
+                <title>{f.title}</title>
+              </path>
+              {Array.from({ length: f.balls }).map((_, b) => (
+                <circle key={b} r="4" fill={f.color} stroke="#04070f" strokeWidth="1"
+                        style={{ filter: `drop-shadow(0 0 4px ${f.color})` }}>
+                  <animateMotion dur={`${f.dur}s`} repeatCount="indefinite"
+                                 begin={`${(b * f.dur) / f.balls + i * 0.9}s`} path={f.d} />
+                </circle>
+              ))}
+            </g>
+          ))}
+        </g>
 
         {/* activos */}
         {dots.map((d, i) => (
@@ -187,13 +252,27 @@ export default function RotationCompass({ signals, flowScore, regime, regimeLabe
             {s}
           </span>
         ))}
+        {flows.length > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#8b97ad' }}>
+            <svg width="26" height="10" aria-hidden="true">
+              <line x1="1" y1="5" x2="20" y2="5" stroke="#a78bfa" strokeWidth="1" strokeDasharray="2 3" opacity="0.6" />
+              <circle cx="21" cy="5" r="3.4" fill="#a78bfa" />
+            </svg>
+            pelota = capital saliendo de esa clase
+          </span>
+        )}
         <span style={{ color: '#55607a' }}>distancia al borde = magnitud 30d</span>
       </div>
 
       <style>{`
         .rc-sweep { animation: rcSweep 9s linear infinite; }
         @keyframes rcSweep { to { transform: rotate(-360deg); } }
-        @media (prefers-reduced-motion: reduce) { .rc-sweep { animation: none; opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) {
+          .rc-sweep { animation: none; opacity: 0; }
+          /* sin animación: se ocultan las pelotas y queda la ruta punteada */
+          .rc-flows circle { display: none; }
+          .rc-flows path { opacity: 0.55; }
+        }
       `}</style>
     </div>
   )
