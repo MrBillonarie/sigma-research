@@ -5,7 +5,7 @@ import type { ProfileType, SignalsResponse } from '@/types/decision-engine'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { supabase } from '@/app/lib/supabase'
 import dynamic                  from 'next/dynamic'
-import ProfileSpectrum          from './components/ProfileSpectrum'
+import ProfileConsole           from './components/ProfileConsole'
 import MetricCards              from './components/MetricCards'
 import FlowIndicator            from './components/FlowIndicator'
 import SignalTable              from './components/SignalTable'
@@ -342,7 +342,7 @@ export default function MotorDecisionPage() {
       <Reveal>
       <section style={{ marginBottom: 24 }}>
         <SectionLabel>PERFIL Y MANDATO</SectionLabel>
-        <ProfileSpectrum
+        <ProfileConsole
           selected={profile}
           onChange={handleProfileChange}
           loading={loading}
