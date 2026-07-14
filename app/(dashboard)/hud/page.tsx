@@ -586,19 +586,24 @@ export default function HUDPage() {
           bg.className = 'regime-bg'
           card.insertBefore(bg, card.firstChild)
         }
-        if (word === 'BEAR') {
-          // Foto duotono (recorte + tinte al #ff5d6c horneados en el asset) con
-          // scrim de degradado del lado del texto → números 100% legibles.
+        if (word === 'BEAR' || word === 'BULL') {
+          // Foto duotono (recorte + tinte horneados en el asset) con scrim de
+          // degradado del lado del texto → números 100% legibles.
           // Asset = SOLO LA CABEZA: el cuerpo entero a escala de tarjeta era un
-          // fragmento de pelaje irreconocible; la cabeza (oreja+ojo+hocico) es
-          // lo que se lee como "oso" (bear.webp cuerpo completo queda de reserva).
-          bg.className = 'regime-bg rb-photo'
+          // fragmento de pelaje irreconocible; la cabeza (cuernos/orejas/hocico)
+          // es lo que se lee como el animal. bear.webp cuerpo entero = reserva.
+          // Crédito bull-head: foto "Toro De Lidia En Colombia" de Santiago
+          // Molina N., Wikimedia Commons, CC BY-SA 3.0 (derivado: recorte +
+          // duotono cian) — atribución también en /recursos.
+          const cls = word === 'BEAR' ? 'rb-bear' : 'rb-bull'
+          const src = word === 'BEAR' ? '/regime/bear-head.webp' : '/regime/bull-head.webp'
+          bg.className = `regime-bg rb-photo ${cls}`
           bg.style.color = ''
           bg.innerHTML =
-            '<img class="regime-photo" src="/regime/bear-head.webp" alt="" aria-hidden="true" draggable="false"/>' +
+            `<img class="regime-photo" src="${src}" alt="" aria-hidden="true" draggable="false"/>` +
             '<span class="regime-scrim"></span>'
         } else {
-          // BULL / RANGE: grabado vectorial (fallback hasta tener sus fotos)
+          // RANGE: glifo vectorial de rango lateral (neutro, funciona bien)
           bg.className = 'regime-bg rb-vec'
           bg.style.color = color
           bg.innerHTML =
@@ -1175,15 +1180,19 @@ export default function HUDPage() {
         }
         #sigma-hud-root .kpi-card.regime-card:hover .regime-bg.rb-vec { opacity: 0.32; }
         /* — foto duotono (BEAR) — */
-        /* campo rojo: la mitad derecha bañada en el color del régimen + halo
-           sobre la cara — el oso resalta al máximo y la tarjeta entera comunica
-           el estado del mercado con el color (elegido sobre comparador B).
-           Vive DEBAJO del <img>, así nunca toca los números.
-           (Cuando lleguen las fotos de BULL/RANGE, este lavado pasa a cian/ámbar.) */
-        #sigma-hud-root .regime-bg.rb-photo {
+        /* campo de color: la mitad derecha bañada en el color del régimen +
+           halo sobre la cara — el animal resalta al máximo y la tarjeta entera
+           comunica el estado del mercado con el color (elegido sobre comparador).
+           Vive DEBAJO del <img>, así nunca toca los números. */
+        #sigma-hud-root .regime-bg.rb-bear {
           background:
             radial-gradient(58% 74% at 82% 46%, rgba(255,93,108,0.13) 0%, transparent 66%),
             linear-gradient(90deg, transparent 36%, rgba(120,16,30,0.28) 66%, rgba(139,18,34,0.55) 100%);
+        }
+        #sigma-hud-root .regime-bg.rb-bull {
+          background:
+            radial-gradient(58% 74% at 82% 46%, rgba(94,234,240,0.13) 0%, transparent 66%),
+            linear-gradient(90deg, transparent 36%, rgba(10,70,78,0.30) 66%, rgba(12,86,94,0.55) 100%);
         }
         /* encuadre: la CABEZA completa (oreja+ojo+hocico) dentro de la tarjeta
            — validado sobre las medidas reales; el fade hacia el texto es corto

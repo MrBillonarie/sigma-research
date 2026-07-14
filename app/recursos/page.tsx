@@ -111,6 +111,17 @@ export default function RecursosPage() {
         </div>
       </section>
 
+      {/* Atribuciones de imágenes (CC BY-SA exige crédito público) */}
+      <section className="py-6 px-6 border-t border-border">
+        <p className="terminal-text text-text-dim text-center" style={{ fontSize: 10, opacity: 0.7 }}>
+          Imagen del toro (indicador de régimen): &quot;Toro De Lidia En Colombia&quot; — Santiago Molina N.,{' '}
+          <a href="https://commons.wikimedia.org/wiki/File:Toro_De_Lidia_En_Colombia.JPG" target="_blank" rel="noopener noreferrer" className="underline">
+            Wikimedia Commons
+          </a>
+          , CC BY-SA 3.0 (recorte y tratamiento de color).
+        </p>
+      </section>
+
     </main>
   )
 }
