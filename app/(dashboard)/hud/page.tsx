@@ -512,38 +512,55 @@ export default function HUDPage() {
     return () => { obs.disconnect(); clearInterval(poll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
-  // Icono de régimen — el motor inyecta "🐂 BULL" / "🐻 BEAR" / "🦘 RANGE"
-  // en #kpi-regime via textContent en cada refresh (pisa cualquier cosa que
-  // le pongamos encima), así que en vez de un flag "ya lo apliqué" el guard
-  // es "¿el texto trae la MISMA palabra Y el ícono sigue ahí?" — si el motor
-  // lo acaba de pisar, el ícono ya no está y se reconstruye.
-  // Sin cálculo propio: el color sale de currentColor (kpi-pos/neg/warn que
-  // el motor ya decide), solo se redibuja el mismo dato con más carácter.
-  // (Primer intento: constelación de puntos — ilegible a 20px, descartada.
-  // Silueta de línea limpia, estilo Feather/Lucide: reconocible aun chica.)
+  // Régimen BTC — el motor inyecta "🐂 BULL" / "🐻 BEAR" / "🦘 RANGE" en
+  // #kpi-regime via textContent en cada refresh (pisa cualquier cosa que le
+  // pongamos encima), así que el guard es "¿el texto trae la MISMA palabra Y
+  // el caret sigue ahí?" — si el motor lo pisó, el caret ya no está y se
+  // reconstruye. Dos capas: (1) caret direccional + palabra en la línea del
+  // valor; (2) un GRABADO vectorial detallado de la cabeza del animal como
+  // watermark de toda la tarjeta (.regime-bg, hermano del valor dentro del
+  // .kpi-card — el motor nunca toca el card, solo el value div, así que el
+  // watermark sobrevive). Color = el mismo que el motor asigna al valor
+  // (BEAR rojo / BULL cian / RANGE ámbar) para que texto y arte concuerden.
+  // (Historial: emoji → constelación de puntos → silueta line-icon; esta es
+  //  la evolución pedida: arte grande de fondo, no un ícono chico en línea.)
   useEffect(() => {
     const root = containerRef.current
     if (!root) return
     let lastWord = ''
     type Regime = 'BULL' | 'BEAR' | 'RANGE'
-    const ICONS: Record<Regime, string> = {
-      BEAR:
-        '<circle cx="7" cy="6.5" r="2.1"/><circle cx="17" cy="6.5" r="2.1"/>' +
-        '<path d="M5.3 12 Q5 20 12 20 Q19 20 18.7 12 Q18.4 7.6 12 7.6 Q5.6 7.6 5.3 12 Z"/>' +
-        '<circle cx="12" cy="15.3" r="1.3" fill="currentColor" stroke="none"/>',
-      BULL:
-        '<path d="M4.2 4 Q6.3 8.2 8.7 9.7"/><path d="M19.8 4 Q17.7 8.2 15.3 9.7"/>' +
-        '<path d="M6 13.2 Q6 20 12 20 Q18 20 18 13.2 Q18 8.6 12 8.6 Q6 8.6 6 13.2 Z"/>' +
-        '<circle cx="9.6" cy="14" r="0.9" fill="currentColor" stroke="none"/>' +
-        '<circle cx="14.4" cy="14" r="0.9" fill="currentColor" stroke="none"/>',
-      RANGE:
-        '<path d="M3.2 12h2.3M18.5 12h2.3"/><path d="M4.3 8.3 L3 12 L4.3 15.7"/><path d="M19.7 8.3 L21 12 L19.7 15.7"/>' +
-        '<path d="M7 12 Q9 7.5 12 12 Q15 16.5 17 12"/>',
-    }
+    const COLORS: Record<Regime, string> = { BEAR: '#ff5d6c', BULL: '#39e2e6', RANGE: '#f59e0b' }
+    const CARET: Record<Regime, string> = { BEAR: '▼', BULL: '▲', RANGE: '◆' }
 
-    function buildIcon(word: Regime): string {
-      return `<svg class="regime-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
-        `stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[word]}</svg>`
+    // Grabado de trazo fino (viewBox 120×120). fill="none" global; los acentos
+    // rellenos (nariz/ojos) llevan fill inline. Estilo "esquemático de precisión".
+    const ART: Record<Regime, string> = {
+      BEAR:
+        '<circle cx="36" cy="33" r="16"/><circle cx="36" cy="33" r="7"/>' +
+        '<circle cx="84" cy="33" r="16"/><circle cx="84" cy="33" r="7"/>' +
+        '<path d="M60 25 C86 25 98 45 98 63 C98 87 80 103 60 103 C40 103 22 87 22 63 C22 45 34 25 60 25 Z"/>' +
+        '<path d="M40 49 Q46 45 52 49"/><path d="M68 49 Q74 45 80 49"/>' +
+        '<circle cx="46" cy="59" r="3.6" fill="currentColor"/><circle cx="74" cy="59" r="3.6" fill="currentColor"/>' +
+        '<ellipse cx="60" cy="79" rx="22" ry="16"/>' +
+        '<path d="M51 70 Q60 66 69 70 Q67 79 60 81 Q53 79 51 70 Z" fill="currentColor"/>' +
+        '<path d="M60 81 L60 89 Q54 93 50 90 M60 89 Q66 93 70 90"/>',
+      BULL:
+        '<path d="M44 48 C32 42 20 44 12 30 C22 34 34 38 47 45"/>' +
+        '<path d="M76 48 C88 42 100 44 108 30 C98 34 86 38 73 45"/>' +
+        '<circle cx="12" cy="30" r="2.6" fill="currentColor"/><circle cx="108" cy="30" r="2.6" fill="currentColor"/>' +
+        '<path d="M34 60 C22 54 14 58 12 64 C20 64 28 64 36 68 Z"/>' +
+        '<path d="M86 60 C98 54 106 58 108 64 C100 64 92 64 84 68 Z"/>' +
+        '<path d="M60 47 C80 47 90 61 88 79 C86 95 74 105 60 105 C46 105 34 95 32 79 C30 61 40 47 60 47 Z"/>' +
+        '<path d="M50 52 Q60 44 70 52"/><path d="M56 55 L58 63 M64 55 L62 63"/>' +
+        '<circle cx="48" cy="69" r="3.8" fill="currentColor"/><circle cx="72" cy="69" r="3.8" fill="currentColor"/>' +
+        '<ellipse cx="60" cy="90" rx="17" ry="12"/>' +
+        '<ellipse cx="53" cy="90" rx="2.3" ry="3.2" fill="currentColor"/><ellipse cx="67" cy="90" rx="2.3" ry="3.2" fill="currentColor"/>',
+      RANGE:
+        '<path d="M18 40 H102" stroke-dasharray="5 6" opacity="0.7"/>' +
+        '<path d="M18 80 H102" stroke-dasharray="5 6" opacity="0.7"/>' +
+        '<path d="M22 60 H98"/>' +
+        '<path d="M36 46 L22 60 L36 74"/><path d="M84 46 L98 60 L84 74"/>' +
+        '<path d="M52 60 Q60 50 68 60" opacity="0.8"/>',
     }
 
     function apply() {
@@ -552,9 +569,28 @@ export default function HUDPage() {
       const m = (el.textContent || '').match(/BULL|BEAR|RANGE/)
       if (!m) return
       const word = m[0] as Regime
-      if (word === lastWord && el.querySelector('.regime-ico')) return
+      const card = el.closest('.kpi-card') as HTMLElement | null
+      const hasCaret = !!el.querySelector('.regime-caret')
+      const hasBg = !!card?.querySelector(':scope > .regime-bg')
+      if (word === lastWord && hasCaret && hasBg) return
       lastWord = word
-      el.innerHTML = buildIcon(word) + `<span class="regime-txt">${word}</span>`
+      const color = COLORS[word]
+
+      el.innerHTML = `<span class="regime-caret">${CARET[word]}</span><span class="regime-txt">${word}</span>`
+
+      if (card) {
+        card.classList.add('regime-card')
+        let bg = card.querySelector(':scope > .regime-bg') as HTMLElement | null
+        if (!bg) {
+          bg = document.createElement('div')
+          bg.className = 'regime-bg'
+          card.insertBefore(bg, card.firstChild)
+        }
+        bg.style.color = color
+        bg.innerHTML =
+          `<svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="2.4" ` +
+          `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ART[word]}</svg>`
+      }
     }
 
     apply()
@@ -1100,10 +1136,29 @@ export default function HUDPage() {
         #sigma-hud-root #kpi-strip .kpi-card:nth-child(5):hover { border-color: rgba(79,146,255,0.55) !important; }
         #sigma-hud-root #kpi-strip .kpi-card:nth-child(7):hover { border-color: rgba(167,139,250,0.55) !important; }
 
-        /* Constelación de régimen — reemplaza 🐂/🐻/🦘 (ver useEffect dedicado) */
-        #sigma-hud-root #kpi-regime { display: inline-flex; align-items: center; gap: 6px; }
-        #sigma-hud-root .regime-ico { filter: drop-shadow(0 0 5px currentColor); flex-shrink: 0; }
+        /* Régimen BTC — caret direccional + grabado del animal de fondo
+           (ver useEffect dedicado; reemplaza emoji/constelación/line-icon) */
+        #sigma-hud-root #kpi-regime { display: inline-flex; align-items: baseline; gap: 8px; }
+        #sigma-hud-root .regime-caret { font-size: 0.62em; opacity: 0.9; filter: drop-shadow(0 0 6px currentColor); }
         #sigma-hud-root .regime-txt { font-weight: 700; letter-spacing: 0.04em; }
+        /* watermark: cabeza grabada del animal, teñida al color del régimen,
+           sangra por el borde derecho y queda DETRÁS del texto */
+        #sigma-hud-root #kpi-strip .kpi-card.regime-card { overflow: hidden; }
+        #sigma-hud-root .regime-bg {
+          position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+          opacity: 0.22; transition: opacity .3s ease;
+          -webkit-mask-image: linear-gradient(100deg, transparent 8%, #000 62%);
+                  mask-image: linear-gradient(100deg, transparent 8%, #000 62%);
+        }
+        #sigma-hud-root .regime-bg svg {
+          position: absolute; right: -16px; top: 50%; transform: translateY(-50%);
+          height: 138%; width: auto; filter: drop-shadow(0 0 10px currentColor);
+        }
+        #sigma-hud-root .kpi-card.regime-card:hover .regime-bg { opacity: 0.32; }
+        /* el texto del régimen por encima del grabado */
+        #sigma-hud-root .kpi-card.regime-card .kpi-label,
+        #sigma-hud-root .kpi-card.regime-card .kpi-value,
+        #sigma-hud-root .kpi-card.regime-card .kpi-sub { position: relative; z-index: 1; }
 
         /* Unificar paneles azules del motor (inline) a superficie oscura */
         #sigma-hud-root [style*="#141b38"], #sigma-hud-root [style*="#1a2240"],
