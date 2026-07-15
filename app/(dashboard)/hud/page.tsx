@@ -802,6 +802,226 @@ export default function HUDPage() {
     }
   }, [])
 
+  // ══ COLAPSO DE ONDA — Risk Metrics cuánticas ═══════════════════════════════
+  // Las 7 métricas de riesgo como "mediciones cuánticas": cada una vive como
+  // una nube de partículas 3D (mismo ADN que el monolito) que, en una CASCADA
+  // izquierda→derecha, colapsa en espiral sobre su valor (flash + onda de
+  // choque) y vuelve a dispersarse. Números SIEMPRE nítidos: placa sobria con
+  // glow solo durante la medición; partículas frontales atenuadas al cruzar
+  // la placa. Patrón blindado: .risk-panel del motor queda oculto pero VIVO
+  // como fuente (el motor escribe textContent/clases; acá solo se lee). Si el
+  // panel no aparece o el canvas falla, no se monta nada y el original queda.
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let raf = 0
+    type Metric = { label: string; value: string; ctx: string; color: string; q: number }
+    let metrics: Metric[] = []
+    let lastSnap = ''
+
+    const COLOR_OF: Record<string, [string, number]> = {
+      'kpi-pos': ['#2fd39a', 0.88], 'kpi-warn': ['#ffb454', 0.52],
+      'kpi-neg': ['#ff5d6c', 0.28], 'kpi-neutral': ['#8b97ad', 0.4],
+    }
+    function readMetrics(): Metric[] {
+      const cells = Array.from(root!.querySelectorAll('.risk-panel .risk-cell'))
+      return cells.slice(0, 8).map(c => {
+        const val = c.querySelector('.risk-cell-val') as HTMLElement | null
+        const cls = Array.from(val?.classList ?? []).find(k => COLOR_OF[k])
+        const [color, q] = COLOR_OF[cls ?? 'kpi-neutral'] ?? COLOR_OF['kpi-neutral']
+        return {
+          label: (c.querySelector('.risk-cell-label')?.textContent ?? '').trim().toUpperCase(),
+          value: (val?.textContent ?? '—').trim(),
+          ctx: (c.querySelector('.risk-cell-ctx')?.textContent ?? '').trim().toUpperCase(),
+          color, q,
+        }
+      }).filter(m => m.label)
+    }
+
+    // nubes: órbitas 3D fijas por índice (no dependen del valor → sin re-seed)
+    const RING_TILT = 0.42
+    const clouds: { a: number; r: number; sp: number; ph: number; inc: number }[][] = []
+    function cloudFor(i: number) {
+      if (!clouds[i]) {
+        clouds[i] = Array.from({ length: 44 }, () => ({
+          a: Math.random() * 6.28, r: 0.35 + Math.random() * 0.65,
+          sp: 0.5 + Math.random() * 0.9, ph: Math.random() * 6.28,
+          inc: (Math.random() * 2 - 1) * 0.9,
+        }))
+      }
+      return clouds[i]
+    }
+
+    const rgbOf = (c: string) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]
+    const ease = (p: number) => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2
+    function rr(x: CanvasRenderingContext2D, a: number, b: number, w: number, h: number, r: number) {
+      x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r)
+      x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath()
+    }
+    const PERIOD = 560, STAGGER = 42
+    let t = 0
+    function stateOf(p: number) {
+      if (p < 0.52) return { mix: 0, flash: 0, shock: -1 }
+      if (p < 0.66) return { mix: ease((p - 0.52) / 0.14), flash: 0, shock: -1 }
+      if (p < 0.74) { const s = (p - 0.66) / 0.08; return { mix: 1, flash: 1 - s * 0.6, shock: s } }
+      if (p < 0.86) { const s = (p - 0.74) / 0.12; return { mix: 1 - ease(s), flash: Math.max(0, 0.4 - s * 0.4), shock: -1 } }
+      return { mix: 0, flash: 0, shock: -1 }
+    }
+
+    function draw(cv: HTMLCanvasElement) {
+      const qx = cv.getContext('2d')
+      if (!qx || metrics.length === 0) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const w = cv.clientWidth, H = 250
+      if (!w) return
+      if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = H * dpr }
+      qx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      qx.clearRect(0, 0, w, H)
+      // textura de puntos + retículas de esquina
+      qx.fillStyle = 'rgba(148,163,196,0.045)'
+      for (let dx = 16; dx < w; dx += 24) for (let dy = 16; dy < H - 14; dy += 24) qx.fillRect(dx, dy, 1, 1)
+      qx.strokeStyle = 'rgba(94,234,240,0.4)'; qx.lineWidth = 1.4
+      ;[[10, 10, 1, 1], [w - 10, 10, -1, 1], [10, H - 10, 1, -1], [w - 10, H - 10, -1, -1]].forEach(c => {
+        qx.beginPath(); qx.moveTo(c[0] + 9 * c[2], c[1]); qx.lineTo(c[0], c[1]); qx.lineTo(c[0], c[1] + 9 * c[3]); qx.stroke()
+      })
+      const n = metrics.length, slot = w / n
+      for (let i = 1; i < n; i++) {
+        const sg = qx.createLinearGradient(0, 24, 0, H - 44)
+        sg.addColorStop(0, 'transparent'); sg.addColorStop(0.5, 'rgba(255,255,255,0.05)'); sg.addColorStop(1, 'transparent')
+        qx.fillStyle = sg; qx.fillRect(slot * i, 24, 1, H - 68)
+      }
+      for (let i = 0; i < n; i++) {
+        const m = metrics[i]
+        const cx = slot * (i + 0.5), cy = 90
+        const col = rgbOf(m.color)
+        const phase = (((t - i * STAGGER) % PERIOD) + PERIOD) % PERIOD / PERIOD
+        const st = reduced ? { mix: 0.2, flash: 0, shock: -1 } : stateOf(phase)
+        const mix = st.mix
+        const lit = st.flash + mix * 0.35
+
+        // sombra de asiento
+        const padG = qx.createRadialGradient(cx, 160, 2, cx, 160, 46)
+        padG.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${(0.05 + lit * 0.05).toFixed(3)})`)
+        padG.addColorStop(1, 'transparent')
+        qx.fillStyle = padG
+        qx.beginPath(); qx.ellipse(cx, 160, 46, 9, 0, 0, 2 * Math.PI); qx.fill()
+
+        // nube 3D
+        const cloud = cloudFor(i)
+        const Rd = 50 * (0.7 + m.q * 0.45), Rc = 30
+        type PP = { x: number; y: number; al: number; r: number; ang: number; rad: number; inc: number }
+        const backs: PP[] = [], fronts: PP[] = []
+        for (const p of cloud) {
+          const ang = p.a + t * 0.006 * p.sp + mix * 2.6
+          const rad = (Rd * p.r) * (1 - mix) + Rc * 0.72 * mix
+          const incNow = p.inc * (1 - mix) + RING_TILT * mix
+          const ex = Math.cos(ang) * rad * 1.35
+          const ey = Math.sin(ang) * rad * Math.abs(Math.sin(incNow)) * 0.9
+          const ez = Math.sin(ang) * Math.cos(incNow)
+          const depth = (ez + 1) / 2
+          const shim = 0.5 + 0.5 * Math.sin(t * 0.04 + p.ph)
+          ;(ez > 0 ? fronts : backs).push({
+            x: cx + ex, y: cy + ey,
+            al: (0.10 + mix * 0.30) * (0.35 + 0.65 * shim) * (0.45 + depth * 0.75),
+            r: (0.9 + mix * 0.7) * (0.55 + depth * 0.9),
+            ang, rad, inc: incNow,
+          })
+        }
+        qx.font = '700 22px Impact, sans-serif'
+        const tw = qx.measureText(m.value).width, pw = Math.max(tw + 24, 72), ph2 = 31, py2 = cy - 15
+        const overPlate = (x2: number, y2: number) => x2 > cx - pw / 2 - 2 && x2 < cx + pw / 2 + 2 && y2 > py2 - 2 && y2 < py2 + ph2 + 2
+        const paint = (list: PP[], trail: boolean) => {
+          for (const pp of list) {
+            const dim = overPlate(pp.x, pp.y) ? 0.22 : 1
+            if (trail && mix > 0.15 && mix < 1) {
+              const tx = cx + Math.cos(pp.ang - 0.14) * (pp.rad + 3) * 1.35
+              const ty = cy + Math.sin(pp.ang - 0.14) * (pp.rad + 3) * Math.abs(Math.sin(pp.inc)) * 0.9
+              qx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${(pp.al * 0.35 * dim).toFixed(2)})`
+              qx.beginPath(); qx.arc(tx, ty, pp.r * 0.6, 0, 7); qx.fill()
+            }
+            qx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${(pp.al * dim).toFixed(2)})`
+            qx.beginPath(); qx.arc(pp.x, pp.y, pp.r, 0, 7); qx.fill()
+          }
+        }
+        paint(backs, true)
+
+        if (st.shock >= 0) {
+          const sr = 26 + st.shock * 46
+          qx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${((1 - st.shock) * 0.38).toFixed(2)})`
+          qx.lineWidth = 1.3 * (1 - st.shock) + 0.3
+          qx.beginPath(); qx.ellipse(cx, cy, sr * 1.35, sr * 0.5, 0, 0, 2 * Math.PI); qx.stroke()
+        }
+
+        // placa sobria: relieve físico; borde/número solo brillan al medir
+        qx.shadowColor = 'rgba(0,0,0,0.6)'; qx.shadowBlur = 10; qx.shadowOffsetY = 3
+        const pg = qx.createLinearGradient(0, py2, 0, py2 + ph2)
+        pg.addColorStop(0, 'rgba(23,32,47,0.96)'); pg.addColorStop(1, 'rgba(8,12,20,0.96)')
+        qx.fillStyle = pg; rr(qx, cx - pw / 2, py2, pw, ph2, 7); qx.fill()
+        qx.shadowBlur = 0; qx.shadowOffsetY = 0
+        qx.strokeStyle = 'rgba(255,255,255,0.10)'; qx.lineWidth = 1
+        qx.beginPath(); qx.moveTo(cx - pw / 2 + 7, py2 + 1); qx.lineTo(cx + pw / 2 - 7, py2 + 1); qx.stroke()
+        qx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${(0.30 + lit * 0.55).toFixed(2)})`
+        qx.lineWidth = 1.1 + lit * 0.9
+        if (lit > 0.25) { qx.shadowColor = m.color; qx.shadowBlur = lit * 12 }
+        rr(qx, cx - pw / 2, py2, pw, ph2, 7); qx.stroke(); qx.shadowBlur = 0
+        qx.textAlign = 'center'
+        qx.fillStyle = m.color
+        qx.shadowColor = 'rgba(0,0,0,0.85)'; qx.shadowOffsetY = 1.5
+        qx.fillText(m.value, cx, py2 + 22)
+        qx.shadowOffsetY = 0
+        if (lit > 0.3) { qx.shadowColor = m.color; qx.shadowBlur = lit * 10; qx.fillText(m.value, cx, py2 + 22); qx.shadowBlur = 0 }
+
+        paint(fronts, true)
+
+        // etiqueta + píldora de contexto, sobrias
+        qx.font = '600 10.5px ui-monospace, monospace'; qx.fillStyle = '#aab3c6'
+        qx.fillText(m.label, cx, 192)
+        qx.font = '7.5px ui-monospace, monospace'
+        const pw2 = qx.measureText(m.ctx).width + 18
+        qx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},0.07)`
+        qx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},0.32)`
+        rr(qx, cx - pw2 / 2, 202, pw2, 15, 7); qx.fill(); qx.stroke()
+        qx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},0.85)`
+        qx.fillText(m.ctx, cx, 212)
+      }
+    }
+
+    function loop() {
+      const cv = root!.querySelector('.sigma-qwave-cv') as HTMLCanvasElement | null
+      if (cv && cv.isConnected) { draw(cv); if (!reduced) t++ }
+      raf = requestAnimationFrame(loop)
+    }
+
+    function apply() {
+      const panel = root!.querySelector('.risk-panel') as HTMLElement | null
+      if (!panel || !panel.parentElement) return
+      let holder = root!.querySelector('.sigma-qwave') as HTMLElement | null
+      if (!holder) {
+        holder = document.createElement('div')
+        holder.className = 'sigma-qwave'
+        holder.innerHTML = '<canvas class="sigma-qwave-cv" aria-hidden="true"></canvas>'
+        panel.parentElement.insertBefore(holder, panel)
+        panel.classList.add('sigma-risk-hidden')
+      }
+      const next = readMetrics()
+      const snap = next.map(m => m.label + m.value + m.color).join('|')
+      if (snap !== lastSnap) { lastSnap = snap; metrics = next }
+    }
+
+    apply()
+    const obs = new MutationObserver(() => apply())
+    obs.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] })
+    const poll = setInterval(() => { apply(); if (root.querySelector('.sigma-qwave')) clearInterval(poll) }, 500)
+    setTimeout(() => clearInterval(poll), 20000)
+    raf = requestAnimationFrame(loop)
+    return () => {
+      obs.disconnect(); clearInterval(poll); cancelAnimationFrame(raf)
+      root.querySelector('.sigma-qwave')?.remove()
+      root.querySelector('.risk-panel')?.classList.remove('sigma-risk-hidden')
+    }
+  }, [])
+
   // Monitor de equity NATIVO — la curva se dibuja en la web (SVG) con los
   // mismos datos del motor (/api/vps/trades). El canvas del motor se oculta:
   // era imposible dar contraste a sus rótulos (texto dentro de canvas, CSS no
@@ -1258,6 +1478,18 @@ export default function HUDPage() {
            sigue actualizando por textContent; el hero la espeja). Si el hero
            no se monta, la tira nunca recibe esta clase y todo queda como antes. */
         #sigma-hud-root .sigma-strip-hidden { display: none !important; }
+
+        /* ══ Colapso de onda — Risk Metrics cuánticas ══
+           .risk-panel del motor oculto pero VIVO como fuente de datos;
+           el canvas lo espeja (ver useEffect dedicado). */
+        #sigma-hud-root .sigma-risk-hidden { display: none !important; }
+        #sigma-hud-root .sigma-qwave {
+          position: relative; overflow: hidden; border-radius: 16px; margin-bottom: 22px;
+          background: linear-gradient(180deg, rgba(14,20,31,0.6), rgba(6,9,16,0.55));
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 24px 56px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        #sigma-hud-root .sigma-qwave-cv { display: block; width: 100%; height: 250px; }
         #sigma-hud-root .sigma-monolith {
           position: relative; overflow: hidden; height: 480px;
           border-radius: 18px; margin-bottom: 22px;
