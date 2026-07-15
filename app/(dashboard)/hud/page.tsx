@@ -621,6 +621,187 @@ export default function HUDPage() {
     return () => { obs.disconnect(); clearInterval(poll) }
   }, [])
 
+  // ══ MONOLITO Σ — hero del HUD ══════════════════════════════════════════════
+  // La marca hecha objeto: escultura de partículas del glifo Σ (péndulo suave,
+  // pulso de luz teñido por el régimen) que reemplaza VISUALMENTE la tira de
+  // KPIs. El motor NO se toca: #kpi-strip queda oculto pero vivo en el DOM y
+  // sigue siendo la fuente de datos — el motor le escribe por textContent y
+  // nosotros espejamos esos valores en las lecturas del hero (mismo patrón que
+  // la barra de equity). Si algo falla (sin canvas, sin strip), no se hace
+  // nada y la tira original queda visible: fallback gratis.
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let raf = 0
+    let regime: 'BULL' | 'BEAR' | 'RANGE' = 'RANGE'
+
+    // ── partículas del glifo (se muestrea una sola vez) ──
+    const off = document.createElement('canvas')
+    off.width = 340; off.height = 400
+    const octx = off.getContext('2d')
+    if (!octx) return
+    octx.fillStyle = '#fff'
+    octx.font = '900 360px Impact, "Arial Black", sans-serif'
+    octx.textAlign = 'center'; octx.textBaseline = 'middle'
+    octx.fillText('Σ', 170, 210)
+    const img = octx.getImageData(0, 0, 340, 400).data
+    const filled = (x: number, y: number) =>
+      x >= 0 && y >= 0 && x < 340 && y < 400 && img[((y | 0) * 340 + (x | 0)) * 4 + 3] > 128
+    type Pt = { x: number; y: number; z: number; e: number; ph: number }
+    const P: Pt[] = []
+    for (let gy = 0; gy < 400; gy += 2) for (let gx = 0; gx < 340; gx += 2) {
+      if (!filled(gx, gy)) continue
+      const e = !(filled(gx - 3, gy) && filled(gx + 3, gy) && filled(gx, gy - 3) && filled(gx, gy + 3)) ? 1 : 0
+      if (e || Math.random() < 0.075) {
+        P.push({ x: (gx - 170) / 170, y: (gy - 205) / 170, z: (Math.random() * 2 - 1) * 0.12 * (e ? 1 : 0.7), e, ph: Math.random() * 6.28 })
+      }
+    }
+    if (P.length < 200) return // glifo no renderizó: no montar el hero
+
+    let t = 0
+    function draw(cv: HTMLCanvasElement) {
+      const ctx = cv.getContext('2d')
+      if (!ctx) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const w = cv.clientWidth, h = cv.clientHeight
+      if (!w || !h) return
+      if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, w, h)
+      const cx = w * 0.5, cy = h * 0.46, S = Math.min(w, h) * 0.42
+      const ang = reduced ? 0.28 : 0.44 * Math.sin(t * 0.004)
+      const cosA = Math.cos(ang), sinA = Math.sin(ang)
+      const pulseY = ((t * 0.006) % 2.6) - 1.3
+      const REG = regime === 'BEAR' ? [255, 93, 108] : regime === 'BULL' ? [57, 226, 230] : [255, 180, 84]
+
+      const floorY = cy + S * 1.06
+      const fl = ctx.createLinearGradient(w * 0.2, 0, w * 0.8, 0)
+      fl.addColorStop(0, 'transparent'); fl.addColorStop(0.5, 'rgba(94,234,240,0.22)'); fl.addColorStop(1, 'transparent')
+      ctx.fillStyle = fl; ctx.fillRect(w * 0.2, floorY, w * 0.6, 1)
+
+      // glifo fantasma en vidrio: garantiza que la Σ siempre se lea
+      const gw = 340 * (S / 170) * 0.98, gh = 400 * (S / 170) * 0.98
+      ctx.save()
+      ctx.translate(cx, cy + S * 0.03); ctx.scale(cosA, 1)
+      ctx.globalAlpha = 0.10; ctx.shadowColor = 'rgba(94,234,240,0.9)'; ctx.shadowBlur = 26
+      ctx.drawImage(off, -gw / 2, -gh / 2, gw, gh)
+      ctx.globalAlpha = 0.055; ctx.shadowBlur = 0
+      ctx.drawImage(off, -gw / 2, -gh / 2, gw, gh)
+      ctx.restore()
+
+      const pts = P.map(p => {
+        const x1 = p.x * cosA + p.z * sinA
+        const z1 = -p.x * sinA + p.z * cosA
+        const persp = 1 / (1 + z1 * 0.55)
+        return { sx: cx + x1 * S * persp, sy: cy + p.y * S * persp, z: z1, e: p.e, y: p.y, ph: p.ph, persp }
+      }).sort((a, b) => b.z - a.z)
+
+      for (const q of pts) {
+        const front = Math.max(0, Math.min(1, (0.16 - q.z) / 0.32))
+        const pulse = Math.exp(-Math.pow((q.y - pulseY) * 3.2, 2)) * 0.55
+        const shim = reduced ? 0 : 0.10 * Math.sin(t * 0.03 + q.ph)
+        const L = Math.max(0.08, Math.min(1, 0.24 + front * 0.52 + pulse + shim + (q.e ? 0.16 : 0)))
+        const mr = pulse * 1.4 // el pulso arrastra el tinte del régimen
+        const r = Math.round(34 + L * 86 + (REG[0] - 120) * mr * 0.5)
+        const g = Math.round(86 + L * 162 + (REG[1] - 160) * mr * 0.35)
+        const b = Math.round(104 + L * 152 + (REG[2] - 150) * mr * 0.3)
+        const rad = (q.e ? 1.7 : 1.2) * q.persp * (1 + pulse * 0.8)
+        ctx.fillStyle = `rgba(${r},${g},${b},${(0.42 + L * 0.58).toFixed(2)})`
+        ctx.beginPath(); ctx.arc(q.sx, q.sy, rad, 0, 7); ctx.fill()
+        if (q.e) { // reflejo en piso, solo contorno
+          const ry = floorY + (floorY - q.sy) * 0.28
+          if (ry > floorY && ry < floorY + 92) {
+            ctx.fillStyle = `rgba(${r},${g},${b},${(0.05 + L * 0.07).toFixed(3)})`
+            ctx.beginPath(); ctx.arc(q.sx, ry, rad * 0.9, 0, 7); ctx.fill()
+          }
+        }
+      }
+      const halo = ctx.createRadialGradient(cx, cy, S * 0.2, cx, cy, S * 1.5)
+      halo.addColorStop(0, `rgba(${REG[0]},${REG[1]},${REG[2]},0.03)`)
+      halo.addColorStop(0.4, 'rgba(57,226,230,0.035)'); halo.addColorStop(1, 'transparent')
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.fillStyle = halo; ctx.fillRect(0, 0, w, h)
+      ctx.globalCompositeOperation = 'source-over'
+    }
+
+    function loop() {
+      const cv = root!.querySelector('.sigma-mono-cv') as HTMLCanvasElement | null
+      if (cv && cv.isConnected) { draw(cv); if (!reduced) t++ }
+      raf = requestAnimationFrame(loop)
+    }
+
+    // ── espejo de los KPIs del motor hacia las lecturas del hero ──
+    const txt = (id: string) => (root!.querySelector('#' + id)?.textContent ?? '').trim()
+    function syncReadouts(hero: HTMLElement) {
+      const m = txt('kpi-regime').match(/BULL|BEAR|RANGE/)
+      if (m) regime = m[0] as typeof regime
+      const set = (sel: string, v: string) => {
+        const el = hero.querySelector(sel) as HTMLElement | null
+        if (el && el.textContent !== v) el.textContent = v
+      }
+      set('.smh-eq', txt('kpi-equity') || '—')
+      const realized = txt('kpi-realized'), realizedSub = txt('kpi-realized-sub')
+      set('.smh-eqsub', realized ? `${realized} realizado · ${realizedSub}` : txt('kpi-equity-sub'))
+      const flo = txt('kpi-floating')
+      set('.smh-flo', flo || '—')
+      const floEl = hero.querySelector('.smh-flo') as HTMLElement | null
+      if (floEl) floEl.style.color = flo.startsWith('-') ? '#ff5d6c' : '#2fd39a'
+      set('.smh-wr', txt('kpi-winrate') || '—')
+      set('.smh-wrsub', txt('kpi-winrate-sub'))
+      set('.smh-sig', txt('kpi-signals') || '—')
+      set('.smh-sigsub', txt('kpi-signals-sub'))
+      set('.smh-lev', txt('kpi-leverage') || '—')
+      const regEl = hero.querySelector('.smh-reg') as HTMLElement | null
+      if (regEl) {
+        const color = regime === 'BEAR' ? '#ff5d6c' : regime === 'BULL' ? '#39e2e6' : '#ffb454'
+        const caret = regime === 'BEAR' ? '▼' : regime === 'BULL' ? '▲' : '◆'
+        const want = `${caret} ${regime}`
+        if (regEl.textContent !== want) regEl.textContent = want
+        regEl.style.color = color
+        const it = regEl.closest('.smh-it') as HTMLElement | null
+        if (it) it.style.borderRightColor = `${color}66`
+      }
+    }
+
+    function apply() {
+      const strip = root!.querySelector('#kpi-strip') as HTMLElement | null
+      if (!strip || !strip.parentElement) return
+      let hero = root!.querySelector('.sigma-monolith') as HTMLElement | null
+      if (!hero) {
+        hero = document.createElement('div')
+        hero.className = 'sigma-monolith'
+        hero.innerHTML =
+          '<canvas class="sigma-mono-cv" aria-hidden="true"></canvas>' +
+          '<div class="smh-tl"><div class="smh-k">EQUITY · CUENTA MOTOR</div>' +
+            '<div class="smh-eq">—</div><div class="smh-eqsub"></div></div>' +
+          '<div class="smh-r">' +
+            '<div class="smh-it"><div class="smh-k">P&L FLOTANTE</div><div class="smh-v smh-flo">—</div></div>' +
+            '<div class="smh-it"><div class="smh-k">WIN RATE</div><div class="smh-v smh-wr" style="color:#ffb454">—</div><div class="smh-s smh-wrsub"></div></div>' +
+            '<div class="smh-it"><div class="smh-k">SEÑALES ACTIVAS</div><div class="smh-v smh-sig" style="color:#5eeaf0">—</div><div class="smh-s smh-sigsub"></div></div>' +
+            '<div class="smh-it"><div class="smh-k">APALANCAMIENTO</div><div class="smh-v smh-lev" style="color:#4f92ff">—</div></div>' +
+            '<div class="smh-it"><div class="smh-k">RÉGIMEN BTC</div><div class="smh-v smh-reg">—</div></div>' +
+          '</div>' +
+          '<div class="smh-b"><span><b>Σ</b> PARTÍCULAS = MODELOS DEL MOTOR</span><span>PULSO = LATIDO DE EVALUACIÓN</span><span>TINTE = RÉGIMEN</span></div>'
+        strip.parentElement.insertBefore(hero, strip)
+        strip.classList.add('sigma-strip-hidden')
+      }
+      syncReadouts(hero)
+    }
+
+    apply()
+    const obs = new MutationObserver(() => apply())
+    obs.observe(root, { childList: true, subtree: true, characterData: true })
+    const poll = setInterval(() => { apply(); if (root.querySelector('.sigma-monolith')) clearInterval(poll) }, 500)
+    setTimeout(() => clearInterval(poll), 20000)
+    raf = requestAnimationFrame(loop)
+    return () => {
+      obs.disconnect(); clearInterval(poll); cancelAnimationFrame(raf)
+      root.querySelector('.sigma-monolith')?.remove()
+      root.querySelector('#kpi-strip')?.classList.remove('sigma-strip-hidden')
+    }
+  }, [])
+
   // Monitor de equity NATIVO — la curva se dibuja en la web (SVG) con los
   // mismos datos del motor (/api/vps/trades). El canvas del motor se oculta:
   // era imposible dar contraste a sus rótulos (texto dentro de canvas, CSS no
@@ -1070,6 +1251,46 @@ export default function HUDPage() {
           color: #39e2e6 !important;
           letter-spacing: 0.2em !important;
           text-transform: uppercase;
+        }
+
+        /* ══ Monolito Σ — hero del HUD ══
+           La tira de KPIs queda oculta pero VIVA (fuente de datos que el motor
+           sigue actualizando por textContent; el hero la espeja). Si el hero
+           no se monta, la tira nunca recibe esta clase y todo queda como antes. */
+        #sigma-hud-root .sigma-strip-hidden { display: none !important; }
+        #sigma-hud-root .sigma-monolith {
+          position: relative; overflow: hidden; height: 480px;
+          border-radius: 18px; margin-bottom: 22px;
+          background: radial-gradient(90% 70% at 50% 38%, #071019 0%, #04070d 55%, #02040a 100%);
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 40px 90px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        #sigma-hud-root .sigma-mono-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #sigma-hud-root .smh-tl { position: absolute; left: 26px; top: 24px; pointer-events: none; }
+        #sigma-hud-root .smh-k { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.24em; color: #8b97ad; margin-bottom: 5px; }
+        #sigma-hud-root .smh-eq { font-family: var(--font-bebas,'Bebas Neue',Impact,sans-serif); font-size: 44px; line-height: 1; color: #eef3fa; }
+        #sigma-hud-root .smh-eqsub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5eeaf0; margin-top: 6px; }
+        #sigma-hud-root .smh-r {
+          position: absolute; right: 26px; top: 50%; transform: translateY(-50%);
+          display: flex; flex-direction: column; gap: 18px; text-align: right; pointer-events: none;
+        }
+        #sigma-hud-root .smh-it { border-right: 2px solid rgba(94,234,240,0.25); padding-right: 14px; }
+        #sigma-hud-root .smh-v { font-family: var(--font-bebas,'Bebas Neue',Impact,sans-serif); font-size: 21px; line-height: 1.1; }
+        #sigma-hud-root .smh-s { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #55607a; margin-top: 2px; }
+        #sigma-hud-root .smh-b {
+          position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 38px;
+          padding: 13px 18px; flex-wrap: wrap;
+          background: linear-gradient(180deg, transparent, rgba(2,4,9,0.85) 50%);
+          font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 0.18em; color: #55607a;
+          pointer-events: none;
+        }
+        #sigma-hud-root .smh-b b { color: #8b97ad; font-weight: 400; }
+        @media (max-width: 760px) {
+          #sigma-hud-root .sigma-monolith { height: 560px; }
+          #sigma-hud-root .smh-r { top: auto; bottom: 44px; transform: none; right: 18px; left: 18px;
+            flex-direction: row; flex-wrap: wrap; gap: 12px 16px; justify-content: space-between; text-align: left; }
+          #sigma-hud-root .smh-it { border-right: none; border-left: 2px solid rgba(94,234,240,0.25); padding: 0 0 0 10px; }
+          #sigma-hud-root .smh-b { display: none; }
         }
 
         /* KPIs / risk cells / asset boxes → vidrio con hover */
