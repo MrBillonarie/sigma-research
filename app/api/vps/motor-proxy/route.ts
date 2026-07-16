@@ -15,7 +15,18 @@ function makeClient() {
   )
 }
 
-async function getAuthCookie(): Promise<string> {
+// PERF-7: la cookie de sesión del motor y el HTML del dashboard se cachean a
+// nivel de módulo. Antes se hacía login (POST /login) + GET del dashboard en
+// CADA carga de /hud = 2 round-trips al VPS por request. El dashboard es el
+// mismo para todos (el gating por plan ocurre en los data-endpoints motor-api),
+// así que un microcache de segundos es seguro.
+let _session: { cookie: string; ts: number } | null = null
+const SESSION_TTL = 5 * 60_000
+let _htmlCache: { body: string; ts: number } | null = null
+const HTML_TTL = 5_000
+
+async function getAuthCookie(force = false): Promise<string> {
+  if (!force && _session && Date.now() - _session.ts < SESSION_TTL) return _session.cookie
   const res = await fetch(`${VPS}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -27,7 +38,9 @@ async function getAuthCookie(): Promise<string> {
   const cookie = res.headers.get('set-cookie') ?? ''
   // Extract just the session value (e.g. "session=xxx; Path=/")
   const match = cookie.match(/([^;]+)/)
-  return match ? match[1] : ''
+  const val = match ? match[1] : ''
+  if (val) _session = { cookie: val, ts: Date.now() }
+  return val
 }
 
 export async function GET() {
@@ -52,18 +65,28 @@ export async function GET() {
   }
 
   try {
-    // 1. Authenticate with motor to get session cookie
-    const sessionCookie = await getAuthCookie()
+    // 0. Microcache: el dashboard reescrito es el mismo para todos → si está
+    //    fresco, se sirve sin tocar el VPS.
+    if (_htmlCache && Date.now() - _htmlCache.ts < HTML_TTL) {
+      return new NextResponse(_htmlCache.body, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+      })
+    }
 
-    // 2. Fetch authenticated dashboard HTML
-    const res = await fetch(VPS, {
-      headers: sessionCookie ? { Cookie: sessionCookie } : {},
-      signal: AbortSignal.timeout(10000),
-      cache: 'no-store',
-    })
-    if (!res.ok) throw new Error(`VPS ${res.status}`)
-
-    let html = await res.text()
+    // 1-2. Sesión del motor (cacheada) + GET del dashboard. Si vuelve no-ok, se
+    //      reintenta UNA vez con login fresco (la sesión pudo expirar en el motor).
+    let html = ''
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const sessionCookie = await getAuthCookie(attempt === 1)
+      const res = await fetch(VPS, {
+        headers: sessionCookie ? { Cookie: sessionCookie } : {},
+        signal: AbortSignal.timeout(10000),
+        cache: 'no-store',
+      })
+      if (res.ok) { html = await res.text(); break }
+      _session = null
+      if (attempt === 1) throw new Error(`VPS ${res.status}`)
+    }
 
     // 3. Patch all motor JS API calls → squantdesk.com proxy (hides VPS IP)
     html = html.replace(/fetch\('\/api\//g, "fetch('/api/vps/motor-api/")
@@ -98,6 +121,7 @@ export async function GET() {
     // bridged there via /api/cron/motor-senales), so suppress it here
     // instead of touching dashboard.py (still used standalone off-proxy).
     html = html.replace('</head>', '<style>#bell-btn,#bell-panel,#toast-container{display:none!important}</style></head>')
+    _htmlCache = { body: html, ts: Date.now() }
     return new NextResponse(html, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
