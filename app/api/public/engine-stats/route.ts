@@ -22,7 +22,15 @@ const FALLBACK = {
   computed_at:    '',
 }
 
+// Microcache en memoria (PERF-8): evita pegarle al VPS en cada visita al landing.
+let _cache: { data: Record<string, unknown>; ts: number } | null = null
+const TTL_MS = 20_000
+const CACHE_HEADER = { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' }
+
 export async function GET() {
+  if (_cache && Date.now() - _cache.ts < TTL_MS) {
+    return NextResponse.json(_cache.data, { headers: CACHE_HEADER })
+  }
   if (!VPS) return NextResponse.json({ ...FALLBACK, live: false })
   try {
     const [statsRes, perfRes, signalsRes] = await Promise.all([
@@ -39,27 +47,27 @@ export async function GET() {
     const tfs  = Object.keys(byTf).length
     const p    = perf?.portfolio ?? {}
 
-    return NextResponse.json(
-      {
-        total:          stats?.total                                       ?? FALLBACK.total,
-        rate_hr:        ((stats?.rate_hr ?? 0) + (stats?.optuna_rate_hr ?? 0)) || FALLBACK.rate_hr,
-        timeframes:     tfs > 0 ? tfs : 7,
-        by_tf:          byTf,
-        assets:         5,
-        live:           !!(stats || perf || signals),
-        regime:         signals?.regime        ?? FALLBACK.regime,
-        equity:         p.equity               ?? FALLBACK.equity,
-        equity_initial: p.initial              ?? FALLBACK.equity_initial,
-        return_pct:     p.return_pct           ?? FALLBACK.return_pct,
-        profit_factor:  p.profit_factor        ?? FALLBACK.profit_factor,
-        max_dd_pct:     p.max_dd_pct           ?? FALLBACK.max_dd_pct,
-        win_rate:       p.portfolio_wr         ?? FALLBACK.win_rate,
-        total_trades:   p.total_trades         ?? FALLBACK.total_trades,
-        computed_at:    perf?.computed_at      ?? FALLBACK.computed_at,
-      },
-      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } },
-    )
+    const result = {
+      total:          stats?.total                                       ?? FALLBACK.total,
+      rate_hr:        ((stats?.rate_hr ?? 0) + (stats?.optuna_rate_hr ?? 0)) || FALLBACK.rate_hr,
+      timeframes:     tfs > 0 ? tfs : 7,
+      by_tf:          byTf,
+      assets:         5,
+      live:           !!(stats || perf || signals),
+      regime:         signals?.regime        ?? FALLBACK.regime,
+      equity:         p.equity               ?? FALLBACK.equity,
+      equity_initial: p.initial              ?? FALLBACK.equity_initial,
+      return_pct:     p.return_pct           ?? FALLBACK.return_pct,
+      profit_factor:  p.profit_factor        ?? FALLBACK.profit_factor,
+      max_dd_pct:     p.max_dd_pct           ?? FALLBACK.max_dd_pct,
+      win_rate:       p.portfolio_wr         ?? FALLBACK.win_rate,
+      total_trades:   p.total_trades         ?? FALLBACK.total_trades,
+      computed_at:    perf?.computed_at      ?? FALLBACK.computed_at,
+    }
+    _cache = { data: result, ts: Date.now() }
+    return NextResponse.json(result, { headers: CACHE_HEADER })
   } catch {
+    if (_cache) return NextResponse.json(_cache.data, { headers: CACHE_HEADER })
     return NextResponse.json(FALLBACK)
   }
 }
