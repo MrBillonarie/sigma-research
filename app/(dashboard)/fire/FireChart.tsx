@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import { C } from '@/app/lib/constants'
 
 // Montaña de capital 3D — reemplaza la línea Chart.js por un canvas propio:
 // el área bajo la curva de capital se extruye en oblicuo (mismo lenguaje 3D
@@ -7,11 +8,6 @@ import { useEffect, useRef } from 'react'
 // la meta es la línea de cumbre y el Año FIRE una compuerta verde con bandera.
 // El tooltip por año se conserva (hover → capital exacto y % de la meta).
 
-const C = {
-  bg: '#04050a', border: '#1a1d2e', surface: '#0b0d14',
-  gold: '#39e2e6', glow: '#5eeaf0', dimText: '#7a7f9a', text: '#e8e9f0',
-  green: '#34d399', muted: '#3a3f55',
-}
 
 const fmtV = (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
 

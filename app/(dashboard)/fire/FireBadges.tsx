@@ -1,10 +1,7 @@
 'use client'
 import { BADGES } from './challenges'
+import { C } from '@/app/lib/constants'
 
-const C = {
-  bg: '#04050a', surface: '#0b0d14', border: '#1a1d2e',
-  dimText: '#7a7f9a', text: '#e8e9f0', gold: '#39e2e6', green: '#34d399',
-}
 
 interface Props {
   earnedBadges: string[]

@@ -1,5 +1,6 @@
 'use client'
 import { memo, useMemo } from 'react'
+import { C } from '@/app/lib/constants'
 import {
   Chart as ChartJS, LineElement, PointElement, LinearScale,
   CategoryScale, Filler, Tooltip, Legend,
@@ -9,16 +10,6 @@ import { Line } from 'react-chartjs-2'
 // Registro global — solo corre una vez por módulo, no en cada render
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend)
 
-const C = {
-  bg:      '#04050a',
-  border:  '#1a1d2e',
-  gold:    '#39e2e6',
-  surface: '#0b0d14',
-  dimText: '#7a7f9a',
-  text:    '#e8e9f0',
-  green:   '#34d399',
-  red:     '#f87171',
-}
 
 interface Props {
   labels:    string[]

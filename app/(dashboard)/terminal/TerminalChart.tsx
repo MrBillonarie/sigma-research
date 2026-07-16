@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import { C } from '@/app/lib/constants'
 import { createChart, ColorType, CrosshairMode, AreaSeries, LineSeries } from 'lightweight-charts'
 
-const C = { bg: '#04050a', border: '#1a1d2e', gold: '#39e2e6', glow: '#5eeaf0', surface: '#0b0d14', dimText: '#7a7f9a', text: '#e8e9f0' }
 
 const fmt = (v: number) =>
   v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`

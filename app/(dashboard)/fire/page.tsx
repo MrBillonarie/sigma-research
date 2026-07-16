@@ -7,7 +7,7 @@ import FireOnboarding from './FireOnboarding'
 import FirePushOptIn from './FirePushOptIn'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { useFireProfile } from '@/app/lib/useFireProfile'
-import { cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
+import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 import { supabase } from '@/app/lib/supabase'
 import { createNotification } from '@/app/lib/notify'
 import { getLevelFromPoints } from './challenges'
@@ -16,12 +16,6 @@ const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
   loading: () => <div style={{ height: 320, background: '#04050a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'monospace', fontSize: 12, color: '#7a7f9a' }}>Cargando proyección…</span></div>,
 })
-
-const C = {
-  bg: '#04050a', surface: '#0b0d14', border: '#1a1d2e',
-  muted: '#3a3f55', dimText: '#7a7f9a', text: '#e8e9f0',
-  gold: '#39e2e6', glow: '#5eeaf0', green: '#34d399', red: '#f87171', yellow: '#fbbf24',
-}
 
 // ─── FIRE modes ───────────────────────────────────────────────────────────────
 // peak = altura del sparkline (0–1): la altitud de libertad que persigue cada
