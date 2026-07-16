@@ -201,10 +201,10 @@ export default function Navbar() {
 
         {/* ── Logo ─────────────────────────────────────────────────────────── */}
         <Link href="/" className="flex items-center gap-3 shrink-0">
-          <div className={`w-7 h-7 flex items-center justify-center border ${L ? 'border-[#39e2e6]' : 'border-[#b8912a]'}`}>
-            <span className={`display-heading text-sm leading-none ${L ? 'text-[#39e2e6]' : 'text-[#b8912a]'}`}>Σ</span>
+          <div className={`w-7 h-7 flex items-center justify-center border ${L ? 'border-[#39e2e6]' : 'border-[#2ab8bd]'}`}>
+            <span className={`display-heading text-sm leading-none ${L ? 'text-[#39e2e6]' : 'text-[#2ab8bd]'}`}>Σ</span>
           </div>
-          <span className={`display-heading text-xl tracking-widest ${L ? 'text-[#39e2e6]' : 'text-[#b8912a]'}`}>SQUANT DESK</span>
+          <span className={`display-heading text-xl tracking-widest ${L ? 'text-[#39e2e6]' : 'text-[#2ab8bd]'}`}>SQUANT DESK</span>
         </Link>
 
         {/* ── Desktop nav ──────────────────────────────────────────────────── */}

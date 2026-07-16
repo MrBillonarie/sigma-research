@@ -7,9 +7,9 @@ import EntityProfile from '@/app/components/landing/EntityProfile'
 import FadeIn from '@/app/components/landing/FadeIn'
 
 export const metadata: Metadata = {
-  title: 'Quiénes Somos — Sigma Research',
+  title: 'Quiénes Somos — SQuant Desk',
   description:
-    'Conoce el equipo y la misión de Sigma Research: democratizar las herramientas cuantitativas institucionales para inversores independientes.',
+    'Conoce el equipo y la misión de SQuant Desk: democratizar las herramientas cuantitativas institucionales para inversores independientes.',
 }
 
 const valores = [
@@ -266,7 +266,7 @@ export default function QuienesSomosPage() {
             <p className="terminal-text text-sm text-text-dim leading-relaxed max-w-2xl border-l border-gold/15 pl-8">
               Las herramientas cuantitativas de grado institucional — modelos de régimen, forecasting
               de volatilidad, análisis de factor investing — han estado reservadas a hedge funds con
-              presupuestos de ocho cifras. Sigma Research construye ese mismo stack y lo pone al alcance
+              presupuestos de ocho cifras. SQuant Desk construye ese mismo stack y lo pone al alcance
               de inversores independientes que no tienen un equipo de cuarenta quants detrás.
             </p>
           </FadeIn>

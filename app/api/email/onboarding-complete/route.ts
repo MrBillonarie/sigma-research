@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const html   = await render(React.createElement(OnboardingCompleteEmail, {
       firstName: nombre || 'Trader',
       perfil:    perfil || 'trader',
-      dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.io'}/home`,
+      dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://squantdesk.com'}/home`,
     }))
 
     const { error } = await resend.emails.send({

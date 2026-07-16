@@ -1980,7 +1980,7 @@ export default function AdminDashboard() {
                     type="text"
                     value={mktForm.subject}
                     onChange={e => setMktForm(f => ({ ...f, subject: e.target.value }))}
-                    placeholder="Sigma Research · Nuevo análisis disponible"
+                    placeholder="SQuant Desk · Nuevo análisis disponible"
                     className="bg-admin-bg border border-admin-border focus:border-admin-violet/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)] outline-none px-4 py-2.5 terminal-text text-text text-sm placeholder:text-muted transition-colors"
                   />
                 </div>

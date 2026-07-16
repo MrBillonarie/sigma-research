@@ -5,7 +5,7 @@ import Link from 'next/link'
 import HeroAnimation from '../components/HeroAnimation'
 
 export const metadata: Metadata = {
-  title: 'Sigma Research — Quantitative Infrastructure LATAM',
+  title: 'SQuant Desk — Quantitative Infrastructure LATAM',
   description:
     'Institutional-grade quantitative platform for independent operators. Validated models, real data, no conflicts of interest.',
 }
@@ -299,7 +299,7 @@ export default async function EnPage() {
           </div>
           <div style={{ borderTop:`1px solid ${B}`, paddingTop:28, textAlign:'left' }}>
             <p style={{ fontFamily:'monospace', fontSize:9, color:DIM, letterSpacing:'0.08em', lineHeight:1.8 }}>
-              LEGAL NOTICE: Sigma Research is an analytical tools platform and does not constitute financial, investment, tax or legal advice. Models, signals and analyses are for informational purposes only. Past results do not guarantee future returns. All trading involves risk of partial or total loss of invested capital. Only trade with capital you can afford to lose.
+              LEGAL NOTICE: SQuant Desk is an analytical tools platform and does not constitute financial, investment, tax or legal advice. Models, signals and analyses are for informational purposes only. Past results do not guarantee future returns. All trading involves risk of partial or total loss of invested capital. Only trade with capital you can afford to lose.
             </p>
           </div>
         </div>

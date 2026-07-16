@@ -26,7 +26,7 @@ const FALLBACK: LiveData = {
 }
 
 const STATIC_ROW1 = [
-  { label: 'ENTIDAD',     value: 'Sigma Research / SQuantDesk' },
+  { label: 'ENTIDAD',     value: 'SQuant Desk' },
   { label: 'CATEGORÍA',   value: 'Quantitative Research Platform' },
   { label: 'FUNDADO',     value: '2023' },
 ]

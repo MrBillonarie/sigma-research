@@ -612,7 +612,7 @@ export default function CalendarioPage() {
                       <line x1="4" y1="2" x2="4" y2="4.5" stroke="#f59e0b" strokeWidth="1.2" strokeLinecap="round"/>
                       <circle cx="4" cy="6" r="0.6" fill="#f59e0b"/>
                     </svg>
-                    EVENTOS DE REFERENCIA — los datos reales se cargan vía SIGMA Research
+                    EVENTOS DE REFERENCIA — los datos reales se cargan vía SQuant Desk
                   </span>
                 )}
                 {error && !usingMock && (

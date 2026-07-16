@@ -23,7 +23,7 @@ export default function OfflinePage() {
 
         <div className="w-full glass-card p-4 text-left">
           <div className="terminal-text text-xs text-text-dim space-y-1">
-            <p><span className="text-gold">$</span> ping sigma-research.io</p>
+            <p><span className="text-gold">$</span> ping squantdesk.com</p>
             <p><span className="text-red-400">→</span> Request timeout</p>
             <p><span className="text-gold">$</span> <span className="animate-blink">_</span></p>
           </div>
