@@ -1022,6 +1022,240 @@ export default function HUDPage() {
     }
   }, [])
 
+  // ══ PERFORMANCE SNAPSHOT — 3 columnas nativas ══════════════════════════════
+  // Calendario de P&L (30 días) · resultado acumulado del mes · exposición en
+  // "plasma". Se calcula TODO desde /api/vps/trades con la misma lógica del
+  // motor (heatmap = suma de pnl_pct por día). El panel .card-purple del motor
+  // (Performance Snapshot) queda oculto pero vivo como fuente/fallback; no se
+  // toca el motor. Si no aparece el panel o falla el fetch, no se monta nada.
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let raf = 0
+    type Day = { v: number | null }
+    let days: Day[] = []
+    let cum: number[] = [0]
+    let monthPct = 0, monthUsd = 0, peak = 0, valley = 0, nOper = 0, maxMag = 1
+    let st = { sharpe: 0, streak: 0, wins: 0, losses: 0, best: 0, worst: 0 }
+    let expo: { sym: string; n: number; color: string }[] = []
+    let totalPos = 0
+    let lastText = ''
+
+    const SYM_COL: Record<string, string> = {
+      BTC: '#f7931a', ETH: '#627eea', SOL: '#9945ff', BNB: '#f3ba2f', LTC: '#345d9d',
+      XAU: '#ffd166', XAG: '#c0c8d0', WTI: '#39e2e6', NG: '#4f92ff', HG: '#c87b3a', PL: '#8bd3e6',
+      AAPL: '#ff5d6c', NVDA: '#76b900', TSLA: '#e82127', CVX: '#4f92ff', JPM: '#5b8cff',
+      SPY: '#5b8cff', QQQ: '#5b8cff', IWM: '#a78bfa', XLE: '#3fb950', EWJ: '#a78bfa', EWT: '#5eeaf0', EWY: '#ff9db0',
+    }
+    const PAL = ['#39e2e6', '#4f92ff', '#2fd39a', '#ffb454', '#ff5d6c', '#3fb950', '#5b8cff', '#a78bfa', '#5eeaf0', '#f5c842']
+    const rgbOf = (c: string) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]
+    const rrect = (x: CanvasRenderingContext2D, a: number, b: number, w: number, h: number, r: number) => {
+      x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r)
+      x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath()
+    }
+    const tint = (v: number | null): [number, number, number, number] => {
+      if (v == null) return [90, 100, 120, 0.16]
+      const f = Math.min(1, Math.abs(v) / maxMag)
+      return v > 0 ? [47, 211, 154, 0.22 + f * 0.66] : v < 0 ? [255, 93, 108, 0.22 + f * 0.66] : [90, 100, 120, 0.2]
+    }
+
+    function compute(j: { history?: { closed_at?: string; pnl_pct?: number; pnl_dollar?: number }[]; open?: { sym?: string; tf?: string; direction?: string; strategy?: string; status?: string }[] }) {
+      const hist = Array.isArray(j.history) ? j.history : []
+      const now = new Date()
+      const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const startMs = now.getTime() - 29 * 864e5
+      const map: Record<string, number> = {}
+      monthUsd = 0
+      for (const t of hist) {
+        const cd = (t.closed_at ?? '').slice(0, 10)
+        if (!cd) continue
+        const dt = new Date(cd + 'T00:00:00')
+        if (dt.getTime() < startMs - 864e5) continue
+        map[cd] = (map[cd] ?? 0) + (t.pnl_pct ?? 0)
+        monthUsd += t.pnl_dollar ?? 0
+      }
+      days = []
+      for (let i = 0; i < 30; i++) {
+        const d = new Date(now.getTime() - (29 - i) * 864e5)
+        const k = key(d)
+        days.push({ v: k in map ? map[k] : null })
+      }
+      const vals = days.filter(d => d.v != null).map(d => d.v as number)
+      maxMag = Math.max(0.5, ...vals.map(v => Math.abs(v)))
+      // acumulado
+      cum = [0]; let run = 0
+      for (const d of days) { run += d.v ?? 0; cum.push(run) }
+      monthPct = run; peak = Math.max(...cum); valley = Math.min(...cum); nOper = vals.length
+      // rolling
+      const n = vals.length, avg = n ? vals.reduce((s, v) => s + v, 0) / n : 0
+      const sd = n > 1 ? Math.sqrt(vals.reduce((s, v) => s + (v - avg) ** 2, 0) / n) : 0
+      let streak = 0, curS = 0
+      for (const v of vals) { if (v > 0) { curS++; streak = Math.max(streak, curS) } else curS = 0 }
+      st = {
+        sharpe: sd > 0 ? (avg / sd) * Math.sqrt(365) : 0, streak,
+        wins: vals.filter(v => v > 0).length, losses: vals.filter(v => v < 0).length,
+        best: vals.length ? Math.max(...vals) : 0, worst: vals.length ? Math.min(...vals) : 0,
+      }
+      // exposición: dedup igual que la tabla de posiciones, agrupada por símbolo
+      const open = Array.isArray(j.open) ? j.open : []
+      const seen = new Set<string>(); const byS: Record<string, number> = {}
+      for (const p of open) {
+        const k = `${p.sym}|${p.tf}|${p.direction}|${p.strategy}`
+        if (seen.has(k)) continue; seen.add(k)
+        const s = (p.sym ?? '?').toUpperCase(); byS[s] = (byS[s] ?? 0) + 1
+      }
+      const syms = Object.keys(byS).sort((a, b) => byS[b] - byS[a])
+      expo = syms.map((s, i) => ({ sym: s, n: byS[s], color: SYM_COL[s] ?? PAL[i % PAL.length] }))
+      totalPos = syms.reduce((s, k) => s + byS[k], 0)
+    }
+
+    function drawCal(cv: HTMLCanvasElement) {
+      const x = cv.getContext('2d'); if (!x) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = 196
+      if (!w) return; if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr }
+      x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h)
+      const cols = 6, gap = 6, cw = Math.min(28, (w - gap * (cols - 1)) / cols), y0 = 20
+      const dow = ['L', 'M', 'X', 'J', 'V', 'S']
+      x.textAlign = 'center'; x.font = '7px ui-monospace, monospace'; x.fillStyle = '#55607a'
+      for (let c = 0; c < cols; c++) x.fillText(dow[c], c * (cw + gap) + cw / 2, y0 - 6)
+      const bestV = st.best, worstV = st.worst
+      for (let i = 0; i < days.length; i++) {
+        const c = i % cols, r = Math.floor(i / cols), bx = c * (cw + gap), by = y0 + r * (cw + gap)
+        const v = days[i].v, t = tint(v)
+        x.fillStyle = `rgba(${t[0]},${t[1]},${t[2]},${t[3]})`; rrect(x, bx, by, cw, cw, 5); x.fill()
+        x.strokeStyle = 'rgba(255,255,255,0.10)'; x.lineWidth = 1; x.beginPath(); x.moveTo(bx + 4, by + 1.5); x.lineTo(bx + cw - 4, by + 1.5); x.stroke()
+        x.strokeStyle = 'rgba(0,0,0,0.4)'; x.beginPath(); x.moveTo(bx + 4, by + cw - 1.5); x.lineTo(bx + cw - 4, by + cw - 1.5); x.stroke()
+        if (v != null && (v === bestV || v === worstV) && v !== 0) { x.strokeStyle = v > 0 ? '#2fd39a' : '#ff5d6c'; x.lineWidth = 1.4; rrect(x, bx - 2, by - 2, cw + 4, cw + 4, 6); x.stroke() }
+      }
+    }
+    function drawCum(cv: HTMLCanvasElement) {
+      const x = cv.getContext('2d'); if (!x) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = 92
+      if (!w) return; if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr }
+      x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h)
+      let lo = Math.min(...cum), hi = Math.max(...cum); const pad = (hi - lo) * 0.15 + 0.5; lo -= pad; hi += pad
+      const X = (i: number) => 2 + i / (cum.length - 1) * (w - 4), Y = (v: number) => h - 6 - (v - lo) / (hi - lo) * (h - 14)
+      const up = monthPct >= 0, col = up ? '#2fd39a' : '#ff5d6c', cc = rgbOf(col)
+      x.setLineDash([3, 5]); x.strokeStyle = 'rgba(148,163,196,0.2)'; x.lineWidth = 1; x.beginPath(); x.moveTo(0, Y(0)); x.lineTo(w, Y(0)); x.stroke(); x.setLineDash([])
+      x.beginPath(); x.moveTo(X(0), Y(cum[0])); for (let i = 1; i < cum.length; i++) x.lineTo(X(i), Y(cum[i])); x.lineTo(X(cum.length - 1), h); x.lineTo(X(0), h); x.closePath()
+      const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, `rgba(${cc[0]},${cc[1]},${cc[2]},0.22)`); g.addColorStop(1, `rgba(${cc[0]},${cc[1]},${cc[2]},0.01)`); x.fillStyle = g; x.fill()
+      x.strokeStyle = col; x.lineWidth = 1.8; x.shadowColor = col; x.shadowBlur = 5; x.beginPath()
+      for (let i = 0; i < cum.length; i++) { const px = X(i), py = Y(cum[i]); if (i) x.lineTo(px, py); else x.moveTo(px, py) } x.stroke(); x.shadowBlur = 0
+      const ex = X(cum.length - 1), ey = Y(monthPct); x.fillStyle = '#5eeaf0'; x.shadowColor = '#5eeaf0'; x.shadowBlur = 8; x.beginPath(); x.arc(ex, ey, 3, 0, 7); x.fill(); x.shadowBlur = 0
+    }
+    let tp = 0
+    function drawPlasma(cv: HTMLCanvasElement) {
+      const x = cv.getContext('2d'); if (!x) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = 220
+      if (!w) return; if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr }
+      x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h)
+      const ox = w / 2, oy = 98, R = Math.min(64, w * 0.24)
+      if (expo.length === 0 || totalPos === 0) {
+        x.fillStyle = '#55607a'; x.font = '11px ui-monospace, monospace'; x.textAlign = 'center'
+        x.fillText('Sin exposición activa', ox, oy)
+        return
+      }
+      let off = 0
+      for (const e of expo) {
+        const c = rgbOf(e.color), a0 = off - Math.PI / 2, a1 = off + e.n / totalPos * 2 * Math.PI - Math.PI / 2; off += e.n / totalPos * 2 * Math.PI
+        const nP = 8 + e.n * 7
+        for (let p = 0; p < nP; p++) {
+          const fp = p / nP, ang = a0 + (a1 - a0) * fp, wob = reduced ? 0 : Math.sin(p * 2.3 + tp * 0.05) * 3, rr2 = R + wob
+          const px = ox + Math.cos(ang) * rr2, py = oy + Math.sin(ang) * rr2 * 0.62
+          const al = 0.35 + 0.5 * Math.abs(Math.sin(p * 1.7 + tp * 0.06))
+          x.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${al.toFixed(2)})`
+          x.beginPath(); x.arc(px, py, 1.5 + (reduced ? 0 : Math.sin(p + tp * 0.04) * 0.6), 0, 7); x.fill()
+        }
+        const mid = (a0 + a1) / 2, lx = ox + Math.cos(mid) * (R + 18), ly = oy + Math.sin(mid) * (R + 18) * 0.62
+        x.font = '8.5px ui-monospace, monospace'; x.textAlign = 'center'; x.fillStyle = e.color; x.fillText(`${e.sym} ${e.n}`, lx, ly + 3)
+      }
+      const g = x.createRadialGradient(ox - 8, oy - 8, 2, ox, oy, 24); g.addColorStop(0, '#1a2433'); g.addColorStop(1, '#070c14')
+      x.fillStyle = g; x.beginPath(); x.arc(ox, oy, 24, 0, 7); x.fill()
+      x.strokeStyle = 'rgba(94,234,240,0.5)'; x.lineWidth = 1.3; x.beginPath(); x.arc(ox, oy, 24, 0, 7); x.stroke()
+      x.font = '700 20px "Bebas Neue", Impact, sans-serif'; x.textAlign = 'center'; x.fillStyle = '#eef3fa'; x.fillText(String(totalPos), ox, oy + 4)
+      x.font = '6px ui-monospace, monospace'; x.fillStyle = '#8b97ad'; x.fillText('POSICIONES', ox, oy + 15)
+    }
+
+    function loop() {
+      const holder = root!.querySelector('.sigma-snapshot')
+      if (holder) {
+        const cal = holder.querySelector('.ssn-cal') as HTMLCanvasElement | null
+        const cu = holder.querySelector('.ssn-cum') as HTMLCanvasElement | null
+        const pl = holder.querySelector('.ssn-plasma') as HTMLCanvasElement | null
+        if (cal) drawCal(cal); if (cu) drawCum(cu); if (pl) drawPlasma(pl)
+        if (!reduced) tp++
+      }
+      raf = requestAnimationFrame(loop)
+    }
+
+    function apply() {
+      const wrap = root!.querySelector('.heatmap-wrap') as HTMLElement | null
+      const panel = wrap?.closest('.card-purple') as HTMLElement | null
+      if (!panel || !panel.parentElement) return
+      let holder = root!.querySelector('.sigma-snapshot') as HTMLElement | null
+      if (!holder) {
+        holder = document.createElement('div')
+        holder.className = 'sigma-snapshot'
+        holder.innerHTML =
+          '<div class="ssn-head"><span><i></i>PERFORMANCE SNAPSHOT</span><span class="ssn-r">ÚLTIMOS 30 DÍAS</span></div>' +
+          '<div class="ssn-grid">' +
+            '<div class="ssn-col"><div class="ssn-lbl">P&L DIARIO · CALENDARIO</div><canvas class="ssn-cal"></canvas></div>' +
+            '<div class="ssn-col ssn-mid"><div class="ssn-lbl">RESULTADO DEL MES · ACUMULADO</div>' +
+              '<div class="ssn-num">—</div><div class="ssn-sub"></div>' +
+              '<canvas class="ssn-cum"></canvas>' +
+              '<div class="ssn-micro"><div>PICO DEL MES<b class="ssn-peak"></b></div><div>VALLE<b class="ssn-valley"></b></div><div>DÍAS OPERADOS<b class="ssn-nop"></b></div></div>' +
+            '</div>' +
+            '<div class="ssn-col"><div class="ssn-lbl ssn-c">EXPOSICIÓN ABIERTA</div><canvas class="ssn-plasma"></canvas></div>' +
+          '</div>' +
+          '<div class="ssn-stats"></div>'
+        panel.parentElement.insertBefore(holder, panel)
+        panel.classList.add('sigma-snap-hidden')
+      }
+      // texto (solo cuando cambia)
+      const fmtP = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+      const text = [monthPct, monthUsd, peak, valley, nOper, st.sharpe, st.streak, st.wins, st.losses, st.best, st.worst, expo.map(e => e.sym + e.n).join()].join('|')
+      if (text === lastText) return
+      lastText = text
+      const set = (sel: string, v: string, color?: string) => { const el = holder!.querySelector(sel) as HTMLElement | null; if (el) { el.innerHTML = v; if (color) el.style.color = color } }
+      set('.ssn-num', `${fmtP(monthPct)}<small>este mes</small>`, monthPct >= 0 ? '#2fd39a' : '#ff5d6c')
+      set('.ssn-sub', `${monthUsd >= 0 ? '+' : ''}$${Math.round(monthUsd).toLocaleString('en-US')} · cuenta del motor`)
+      set('.ssn-peak', fmtP(peak), '#2fd39a'); set('.ssn-valley', fmtP(valley), valley < 0 ? '#ff5d6c' : '#8b97ad'); set('.ssn-nop', String(nOper))
+      const wr = st.wins + st.losses
+      const chips = [
+        `SHARPE 30D <b style="color:${st.sharpe >= 0 ? '#2fd39a' : '#ff5d6c'}">${st.sharpe.toFixed(2)}</b>`,
+        `STREAK <b>${st.streak}d</b>`,
+        `DÍAS GANADORES <b style="color:#2fd39a">${st.wins}</b>/<b style="color:#ff5d6c">${wr}</b>`,
+        `MEJOR DÍA <b style="color:#2fd39a">${fmtP(st.best)}</b>`,
+        `PEOR DÍA <b style="color:#ff5d6c">${fmtP(st.worst)}</b>`,
+      ]
+      const statsEl = holder.querySelector('.ssn-stats') as HTMLElement | null
+      if (statsEl) statsEl.innerHTML = chips.map(c => `<span class="ssn-chip">${c}</span>`).join('')
+    }
+
+    async function load() {
+      try {
+        const r = await fetch('/api/vps/trades', { cache: 'no-store' })
+        if (!r.ok) return
+        compute(await r.json())
+        apply()
+      } catch {}
+    }
+
+    const obs = new MutationObserver(() => apply())
+    obs.observe(root, { childList: true, subtree: true })
+    const poll = setInterval(() => { apply(); if (root.querySelector('.sigma-snapshot')) clearInterval(poll) }, 500)
+    setTimeout(() => clearInterval(poll), 20000)
+    load()
+    const id = setInterval(load, 60_000)
+    raf = requestAnimationFrame(loop)
+    return () => {
+      obs.disconnect(); clearInterval(poll); clearInterval(id); cancelAnimationFrame(raf)
+      root.querySelector('.sigma-snapshot')?.remove()
+      root.querySelector('.card-purple.sigma-snap-hidden')?.classList.remove('sigma-snap-hidden')
+    }
+  }, [])
+
   // Monitor de equity NATIVO — la curva se dibuja en la web (SVG) con los
   // mismos datos del motor (/api/vps/trades). El canvas del motor se oculta:
   // era imposible dar contraste a sus rótulos (texto dentro de canvas, CSS no
@@ -1490,6 +1724,44 @@ export default function HUDPage() {
           box-shadow: 0 24px 56px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
         }
         #sigma-hud-root .sigma-qwave-cv { display: block; width: 100%; height: 250px; }
+
+        /* ══ Performance Snapshot — 3 columnas nativas ══
+           .card-purple del motor oculto pero VIVO como fuente (ver useEffect). */
+        #sigma-hud-root .sigma-snap-hidden { display: none !important; }
+        #sigma-hud-root .sigma-snapshot {
+          border-radius: 16px; padding: 18px 20px; margin-bottom: 22px;
+          background: linear-gradient(180deg, rgba(20,26,38,0.5), rgba(11,15,23,0.45));
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 20px 52px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05);
+          font-family: 'IBM Plex Mono', monospace;
+        }
+        #sigma-hud-root .ssn-head { display: flex; align-items: center; justify-content: space-between;
+          font-size: 10px; letter-spacing: 0.22em; color: #39e2e6; margin-bottom: 16px; }
+        #sigma-hud-root .ssn-head span:first-child { display: inline-flex; align-items: center; gap: 10px; }
+        #sigma-hud-root .ssn-head i { width: 3px; height: 12px; background: currentColor; border-radius: 1px; display: inline-block; }
+        #sigma-hud-root .ssn-r { color: #55607a; letter-spacing: 0.12em; }
+        #sigma-hud-root .ssn-grid { display: grid; grid-template-columns: 200px 1fr 300px; gap: 0; align-items: stretch; }
+        #sigma-hud-root .ssn-col { padding: 0 22px; }
+        #sigma-hud-root .ssn-col:first-child { padding-left: 0; }
+        #sigma-hud-root .ssn-col:last-child { padding-right: 0; }
+        #sigma-hud-root .ssn-col + .ssn-col { border-left: 1px solid rgba(255,255,255,0.06); }
+        #sigma-hud-root .ssn-lbl { font-size: 9px; letter-spacing: 0.2em; color: #8b97ad; margin-bottom: 12px; }
+        #sigma-hud-root .ssn-lbl.ssn-c { text-align: center; }
+        #sigma-hud-root .ssn-cal, #sigma-hud-root .ssn-plasma, #sigma-hud-root .ssn-cum { display: block; width: 100%; }
+        #sigma-hud-root .ssn-cal { height: 196px; } #sigma-hud-root .ssn-plasma { height: 220px; } #sigma-hud-root .ssn-cum { height: 92px; margin-top: 6px; }
+        #sigma-hud-root .ssn-mid { display: flex; flex-direction: column; }
+        #sigma-hud-root .ssn-num { font-family: var(--font-bebas,'Bebas Neue',Impact,sans-serif); font-size: 50px; line-height: 0.95; color: #2fd39a; letter-spacing: 0.01em; }
+        #sigma-hud-root .ssn-num small { font-size: 15px; color: #8b97ad; margin-left: 8px; }
+        #sigma-hud-root .ssn-sub { font-size: 11px; color: #8b97ad; margin: 6px 0 2px; }
+        #sigma-hud-root .ssn-micro { display: flex; gap: 22px; margin-top: auto; padding-top: 10px; }
+        #sigma-hud-root .ssn-micro div { font-size: 9px; color: #55607a; letter-spacing: 0.08em; }
+        #sigma-hud-root .ssn-micro b { display: block; font-family: var(--font-bebas,'Bebas Neue',Impact,sans-serif); font-size: 16px; letter-spacing: 0.02em; margin-top: 2px; color: #dde3f5; }
+        #sigma-hud-root .ssn-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); }
+        #sigma-hud-root .ssn-chip { font-size: 10px; color: #8b97ad; padding: 7px 12px; border-radius: 9px;
+          background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.008)); border: 1px solid rgba(255,255,255,0.07); }
+        #sigma-hud-root .ssn-chip b { font-weight: 700; }
+        @media (max-width: 900px) { #sigma-hud-root .ssn-grid { grid-template-columns: 1fr; }
+          #sigma-hud-root .ssn-col { padding: 18px 0 0; } #sigma-hud-root .ssn-col + .ssn-col { border-left: none; border-top: 1px solid rgba(255,255,255,0.06); } }
         #sigma-hud-root .sigma-monolith {
           position: relative; overflow: hidden; height: 480px;
           border-radius: 18px; margin-bottom: 22px;
