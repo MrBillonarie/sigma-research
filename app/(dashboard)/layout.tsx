@@ -4,7 +4,7 @@ import MobileBottomNav from '../components/MobileBottomNav'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#04050a' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: '#080a0f' }}>
       {/* Sidebar — oculto en móvil, visible en md+ */}
       <div className="hidden md:block">
         <Sidebar />

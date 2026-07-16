@@ -47,10 +47,10 @@ export default function MobileBottomNav() {
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center', gap: 3,
-                color: active ? '#d4af37' : '#7a7f9a',
+                color: active ? '#39e2e6' : '#7a7f9a',
                 textDecoration: 'none', fontSize: 9,
                 letterSpacing: '0.1em', fontFamily: 'monospace',
-                borderBottom: active ? '2px solid #d4af37' : '2px solid transparent',
+                borderBottom: active ? '2px solid #39e2e6' : '2px solid transparent',
                 transition: 'color 0.15s',
               }}
             >

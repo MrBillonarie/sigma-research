@@ -34,7 +34,7 @@ export default function LiveRefreshIndicator({ loading, nextRefreshMs, intervalM
           left: 0,
           height: '100%',
           width: `${pct}%`,
-          background: loading ? '#d4af37' : '#1D9E75',
+          background: loading ? '#39e2e6' : '#2fd39a',
           borderRadius: 2,
           transition: 'width 1s linear',
         }} />
@@ -42,7 +42,7 @@ export default function LiveRefreshIndicator({ loading, nextRefreshMs, intervalM
 
       {/* Estado */}
       {loading ? (
-        <span style={{ fontFamily: MONO, fontSize: 10, color: '#d4af37', letterSpacing: '0.05em' }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: '#39e2e6', letterSpacing: '0.05em' }}>
           Actualizando...
         </span>
       ) : nextRefreshMs > 0 ? (

@@ -2,15 +2,15 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Sigma Research',
-    short_name: 'Sigma',
+    name: 'SQuant Desk',
+    short_name: 'SQuant',
     description: 'Infraestructura cuantitativa institucional para inversores independientes en LATAM',
     start_url: '/home',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#04050a',
-    theme_color: '#d4af37',
+    background_color: '#080a0f',
+    theme_color: '#39e2e6',
     lang: 'es',
     categories: ['finance', 'productivity'],
     icons: [

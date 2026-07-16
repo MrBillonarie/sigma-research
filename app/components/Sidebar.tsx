@@ -355,11 +355,11 @@ export default function Sidebar() {
     window.location.href = '/'
   }
 
-  const activeGradient = 'linear-gradient(90deg, rgba(212,175,55,0.16) 0%, rgba(212,175,55,0.04) 60%, transparent 100%)'
-  const iconGlow       = 'drop-shadow(0 0 5px rgba(212,175,55,0.55))'
+  const activeGradient = 'linear-gradient(90deg, rgba(57,226,230,0.16) 0%, rgba(57,226,230,0.04) 60%, transparent 100%)'
+  const iconGlow       = 'drop-shadow(0 0 5px rgba(57,226,230,0.55))'
   const dividerStyle: React.CSSProperties = {
     height: 1, flexShrink: 0,
-    background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.28) 50%, transparent)',
+    background: 'linear-gradient(90deg, transparent, rgba(57,226,230,0.28) 50%, transparent)',
   }
 
   const navLinkBase: React.CSSProperties = {
@@ -444,7 +444,7 @@ export default function Sidebar() {
             top: indicator.top, height: indicator.height,
             background: `linear-gradient(180deg, transparent, ${GOLD} 25%, ${GOLD} 75%, transparent)`,
             borderRadius: 2,
-            boxShadow: '0 0 8px rgba(212,175,55,0.65), 0 0 2px rgba(212,175,55,0.9)',
+            boxShadow: '0 0 8px rgba(57,226,230,0.65), 0 0 2px rgba(57,226,230,0.9)',
             transition: 'top 0.28s cubic-bezier(0.4,0,0.2,1), height 0.28s cubic-bezier(0.4,0,0.2,1)',
             pointerEvents: 'none',
           }} />
@@ -466,7 +466,7 @@ export default function Sidebar() {
               onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = MUTED; (e.currentTarget as HTMLElement).style.background = 'transparent' } }}
             >
               <Icon size={16} style={{ flexShrink: 0, color: active ? GOLD : 'inherit', filter: active ? iconGlow : 'none', transition: 'filter 0.2s' }} />
-              {!collapsed && <span style={active ? { textShadow: '0 0 14px rgba(212,175,55,0.35)' } : undefined}>{label}</span>}
+              {!collapsed && <span style={active ? { textShadow: '0 0 14px rgba(57,226,230,0.35)' } : undefined}>{label}</span>}
               {!collapsed && live && (
                 <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px rgba(74,222,128,0.8)', animation: 'sb-pulse 1.6s ease-in-out infinite' }} />

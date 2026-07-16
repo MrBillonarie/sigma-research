@@ -3,12 +3,12 @@
 // Alineado con globals.css variables y tailwind.config.ts
 
 export const C = {
-  // Core
-  bg:       '#04050a',
-  surface:  '#0b0d14',
-  surface2: '#0e1019',
-  border:   '#1a1d2e',
-  border2:  '#252840',
+  // Core — alineado con globals.css (Cyan Deck)
+  bg:       '#080a0f',
+  surface:  '#0e1119',
+  surface2: '#12161f',
+  border:   '#202634',
+  border2:  '#2b3346',
 
   // Acento — Cyan Deck (antes dorado). Se mantienen los nombres gold/glow
   // por compatibilidad con todo el dashboard; ahora son cian/azul.
@@ -23,12 +23,12 @@ export const C = {
   muted:    '#3a3f55',
 
   // Semánticos
-  green:    '#1D9E75',   // era #34d399 — unificado con motor
-  greenDim: '#155f47',
-  red:      '#f87171',
+  green:    '#2fd39a',   // alineado con globals.css --green
+  greenDim: '#17a578',
+  red:      '#ff5d6c',
   redDim:   '#7f1d1d',
-  amber:    '#f59e0b',
-  blue:     '#378ADD',   // era #60a5fa
+  amber:    '#ffb454',
+  blue:     '#4f92ff',   // alineado con globals.css --blue
   purple:   '#a78bfa',
   violet:   '#a78bfa',
 

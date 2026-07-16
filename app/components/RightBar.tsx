@@ -6,7 +6,7 @@ const T = {
   bg:      '#04050a',
   surface: '#0b0d14',
   border:  '#1a1d2e',
-  gold:    '#d4af37',
+  gold:    '#39e2e6',
   green:   '#34d399',
   red:     '#f87171',
   text:    '#e8e9f0',
@@ -387,7 +387,7 @@ export default function RightBar() {
       <style>{`
         .sigma-rb::-webkit-scrollbar { display: none; }
         @keyframes rb-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        @keyframes rb-gold  { 0%,100%{background:rgba(212,175,55,0.10)} 50%{background:rgba(212,175,55,0.25)} }
+        @keyframes rb-gold  { 0%,100%{background:rgba(57,226,230,0.10)} 50%{background:rgba(57,226,230,0.25)} }
         @keyframes rb-sess  { 0%,100%{opacity:1} 50%{opacity:0.55} }
         .rb-setup { transition: transform 0.15s ease, background 0.15s ease; }
         .rb-setup:hover { transform: translateY(-1px); }
@@ -474,7 +474,7 @@ export default function RightBar() {
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
               padding: '4px 7px', borderRadius: 3,
-              background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.3)',
+              background: 'rgba(57,226,230,0.08)', border: '1px solid rgba(57,226,230,0.3)',
             }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: T.gold, boxShadow: `0 0 6px ${T.gold}`, animation: 'rb-pulse 1.6s infinite' }} />
               <span style={{ fontFamily: 'monospace', fontSize: 8, color: T.gold, letterSpacing: '0.12em' }}>
