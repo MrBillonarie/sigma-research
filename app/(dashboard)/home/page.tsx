@@ -348,7 +348,7 @@ export default function DashboardHome() {
     fetch('/api/trm')
       .then(r => r.json())
       .then(j => { if (j.clpPerUsd > 0) { setTrm(j.clpPerUsd); setTrmLive(true) } })
-      .catch(() => {})
+      .catch(e => console.error('[home] TRM no disponible:', e))
   }, [])
 
   // Retorno % del motor — solo el agregado, sin datos operacionales
@@ -356,7 +356,7 @@ export default function DashboardHome() {
     fetch('/api/motor/portfolio-return')
       .then(r => r.ok ? r.json() : null)
       .then(j => { if (j && typeof j.monthlyReturnPct === 'number') setMotorReturn(j) })
-      .catch(() => {})
+      .catch(e => console.error('[home] retorno del motor no disponible:', e))
   }, [])
 
   // localStorage hydration
@@ -397,7 +397,7 @@ export default function DashboardHome() {
           setTrades(rows as Trade[])
           try { localStorage.setItem('sigma_trades', JSON.stringify(rows)) } catch {}
         }
-      } catch {}
+      } catch (e) { console.error('[home] sync de trades desde Supabase falló:', e) }
 
       // Portfolio
       try {
@@ -410,7 +410,7 @@ export default function DashboardHome() {
           setPortfolio(vals)
           try { localStorage.setItem('sigma_portfolio', JSON.stringify(vals)) } catch {}
         }
-      } catch {}
+      } catch (e) { console.error('[home] sync de portfolio desde Supabase falló:', e) }
 
       // Meta FIRE — misma fórmula que /fire
       try {
@@ -421,7 +421,7 @@ export default function DashboardHome() {
           setFireTarget(target)
           try { localStorage.setItem('sigma_fire_target', String(target)) } catch {}
         }
-      } catch {}
+      } catch (e) { console.error('[home] meta FIRE desde Supabase falló:', e) }
 
       // Monte Carlo — última simulación guardada
       try {
@@ -432,7 +432,7 @@ export default function DashboardHome() {
           setFireProbability(run.prob_objetivo)
           try { localStorage.setItem('sigma_montecarlo', JSON.stringify({ fireProbability: run.prob_objetivo })) } catch {}
         }
-      } catch {}
+      } catch (e) { console.error('[home] Monte Carlo desde Supabase falló:', e) }
     })
   }, [])
 

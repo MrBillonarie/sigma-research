@@ -93,11 +93,10 @@ const DECISION_ASSET_FIELDS = new Set([
   'macdBullish', 'emaBullish', 'bbPosition', 'priceAtSignal', 'netFlow',
 ])
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function gateDecisionResponse(body: any): any {
+export function gateDecisionResponse<T extends { signals?: unknown[] }>(body: T) {
   return {
     ...body,
-    signals: stripFields(body.signals ?? [], DECISION_ASSET_FIELDS),
+    signals: stripFields(Array.isArray(body.signals) ? body.signals : [], DECISION_ASSET_FIELDS),
     // La asignación óptima y las métricas del portafolio son el producto PRO
     allocation: { fondos: 0, etfs: 0, renta_fija: 0, crypto: 0 },
     metrics: null,
