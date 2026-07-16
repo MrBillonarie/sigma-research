@@ -111,6 +111,22 @@ function fmtPrice(n: number): string {
 
 function pad2(n: number) { return String(n).padStart(2, '0') }
 
+// Reloj UTC aislado (PERF-6): el tick de 1s re-renderiza SOLO este span, no todo
+// el RightBar (que vive en cada página del dashboard con ~13 estados). El resto
+// del RightBar usa un utcNow más lento (30s) para sesiones/hora-local/NYSE.
+function UtcClock({ color }: { color: string }) {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <span style={{ fontFamily: 'monospace', fontSize: 14, color, letterSpacing: '0.04em' }}>
+      {pad2(now.getUTCHours())}:{pad2(now.getUTCMinutes())}:{pad2(now.getUTCSeconds())}
+    </span>
+  )
+}
+
 function playBeep(ctx: React.MutableRefObject<AudioContext | null>) {
   try {
     if (!ctx.current) ctx.current = new (window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)()
@@ -181,9 +197,10 @@ export default function RightBar() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // UTC clock
+  // UTC clock — lento (30s): solo alimenta sesiones activas / hora local / NYSE.
+  // El reloj con segundos vive aislado en <UtcClock/> (PERF-6).
   useEffect(() => {
-    const id = setInterval(() => setUtcNow(new Date()), 1000)
+    const id = setInterval(() => setUtcNow(new Date()), 30_000)
     return () => clearInterval(id)
   }, [])
 
@@ -419,9 +436,7 @@ export default function RightBar() {
           {/* UTC clock */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 8, color: T.muted, letterSpacing: '0.2em' }}>UTC</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 14, color: T.text, letterSpacing: '0.04em' }}>
-              {pad2(utcNow.getUTCHours())}:{pad2(utcNow.getUTCMinutes())}:{pad2(utcNow.getUTCSeconds())}
-            </span>
+            <UtcClock color={T.text} />
           </div>
 
           {SESSIONS.map(s => {
