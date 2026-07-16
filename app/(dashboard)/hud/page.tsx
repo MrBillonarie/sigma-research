@@ -1205,10 +1205,10 @@ export default function HUDPage() {
     function loop() {
       const holder = root!.querySelector('.sigma-snapshot')
       if (holder) {
-        const cal = holder.querySelector('.ssn-cal') as HTMLCanvasElement | null
-        const cu = holder.querySelector('.ssn-cum') as HTMLCanvasElement | null
+        // Solo el plasma anima; calendario y curva son estáticos entre fetches
+        // (se dibujan en apply(), no aquí) — evita repintar 2 canvas a 60fps.
         const pl = holder.querySelector('.ssn-plasma') as HTMLCanvasElement | null
-        if (cal) drawCal(cal); if (cu) drawCum(cu); if (pl) drawPlasma(pl)
+        if (pl) drawPlasma(pl)
         if (!reduced) tp++
       }
       raf = requestAnimationFrame(loop)
@@ -1257,7 +1257,19 @@ export default function HUDPage() {
       ]
       const statsEl = holder.querySelector('.ssn-stats') as HTMLElement | null
       if (statsEl) statsEl.innerHTML = chips.map(c => `<span class="ssn-chip">${c}</span>`).join('')
+      // canvas estáticos: se dibujan aquí (al cambiar los datos), no en el rAF
+      const calEl = holder.querySelector('.ssn-cal') as HTMLCanvasElement | null
+      const cumEl = holder.querySelector('.ssn-cum') as HTMLCanvasElement | null
+      if (calEl) drawCal(calEl); if (cumEl) drawCum(cumEl)
     }
+    // redibuja los estáticos al cambiar el tamaño (el rAF ya no lo cubre)
+    function redrawStatic() {
+      const h = root!.querySelector('.sigma-snapshot'); if (!h) return
+      const c = h.querySelector('.ssn-cal') as HTMLCanvasElement | null
+      const u = h.querySelector('.ssn-cum') as HTMLCanvasElement | null
+      if (c) drawCal(c); if (u) drawCum(u)
+    }
+    window.addEventListener('resize', redrawStatic)
 
     async function load() {
       try {
@@ -1277,6 +1289,7 @@ export default function HUDPage() {
     raf = requestAnimationFrame(loop)
     return () => {
       obs.disconnect(); clearInterval(poll); clearInterval(id); cancelAnimationFrame(raf)
+      window.removeEventListener('resize', redrawStatic)
       root.querySelector('.sigma-snapshot')?.remove()
       root.querySelector('.card-purple.sigma-snap-hidden')?.classList.remove('sigma-snap-hidden')
     }

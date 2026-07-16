@@ -143,7 +143,7 @@ export default function Footer({ dark = false }: { dark?: boolean }) {
               {[
                 { label: 'Crear cuenta gratis', href: '/registro' },
                 { label: 'Iniciar sesión',       href: '/login'    },
-                { label: `Plan PRO — ${PRO_PRICE}`, href: '/reportes' },
+                { label: `Plan PRO — ${PRO_PRICE}`, href: '/planes' },
                 { label: 'Contactar equipo',     href: '/contacto' },
               ].map(l => (
                 <li key={l.href}>

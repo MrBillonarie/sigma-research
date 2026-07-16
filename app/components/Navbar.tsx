@@ -204,7 +204,7 @@ export default function Navbar() {
           <div className={`w-7 h-7 flex items-center justify-center border ${L ? 'border-[#39e2e6]' : 'border-[#b8912a]'}`}>
             <span className={`display-heading text-sm leading-none ${L ? 'text-[#39e2e6]' : 'text-[#b8912a]'}`}>Σ</span>
           </div>
-          <span className={`display-heading text-xl tracking-widest ${L ? 'text-[#39e2e6]' : 'text-[#b8912a]'}`}>SIGMA RESEARCH</span>
+          <span className={`display-heading text-xl tracking-widest ${L ? 'text-[#39e2e6]' : 'text-[#b8912a]'}`}>SQUANT DESK</span>
         </Link>
 
         {/* ── Desktop nav ──────────────────────────────────────────────────── */}
