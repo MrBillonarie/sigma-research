@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'SIGMA Research'
+export const alt = 'SQuant Desk'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -12,7 +12,7 @@ export default function Image() {
         style={{
           width: '1200px',
           height: '630px',
-          background: '#04050a',
+          background: '#080a0f',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -26,7 +26,7 @@ export default function Image() {
           style={{
             position: 'absolute',
             inset: '0',
-            border: '3px solid #d4af37',
+            border: '3px solid #39e2e6',
             opacity: 0.4,
             display: 'flex',
           }}
@@ -39,8 +39,8 @@ export default function Image() {
             left: '24px',
             width: '48px',
             height: '48px',
-            borderTop: '3px solid #d4af37',
-            borderLeft: '3px solid #d4af37',
+            borderTop: '3px solid #39e2e6',
+            borderLeft: '3px solid #39e2e6',
             display: 'flex',
           }}
         />
@@ -51,8 +51,8 @@ export default function Image() {
             right: '24px',
             width: '48px',
             height: '48px',
-            borderTop: '3px solid #d4af37',
-            borderRight: '3px solid #d4af37',
+            borderTop: '3px solid #39e2e6',
+            borderRight: '3px solid #39e2e6',
             display: 'flex',
           }}
         />
@@ -63,8 +63,8 @@ export default function Image() {
             left: '24px',
             width: '48px',
             height: '48px',
-            borderBottom: '3px solid #d4af37',
-            borderLeft: '3px solid #d4af37',
+            borderBottom: '3px solid #39e2e6',
+            borderLeft: '3px solid #39e2e6',
             display: 'flex',
           }}
         />
@@ -75,8 +75,8 @@ export default function Image() {
             right: '24px',
             width: '48px',
             height: '48px',
-            borderBottom: '3px solid #d4af37',
-            borderRight: '3px solid #d4af37',
+            borderBottom: '3px solid #39e2e6',
+            borderRight: '3px solid #39e2e6',
             display: 'flex',
           }}
         />
@@ -85,11 +85,11 @@ export default function Image() {
         <div
           style={{
             fontSize: '160px',
-            color: '#d4af37',
+            color: '#39e2e6',
             lineHeight: 1,
             marginBottom: '16px',
             display: 'flex',
-            textShadow: '0 0 40px rgba(212,175,55,0.5)',
+            textShadow: '0 0 40px rgba(57,226,230,0.5)',
           }}
         >
           Σ
@@ -107,7 +107,7 @@ export default function Image() {
             marginBottom: '16px',
           }}
         >
-          SIGMA Research
+          SQuant Desk
         </div>
 
         {/* Divider */}
@@ -115,7 +115,7 @@ export default function Image() {
           style={{
             width: '320px',
             height: '2px',
-            background: '#d4af37',
+            background: '#39e2e6',
             marginBottom: '20px',
             display: 'flex',
             opacity: 0.7,
@@ -141,7 +141,7 @@ export default function Image() {
             position: 'absolute',
             bottom: '40px',
             fontSize: '18px',
-            color: '#d4af37',
+            color: '#39e2e6',
             opacity: 0.6,
             letterSpacing: '0.1em',
             display: 'flex',

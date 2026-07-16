@@ -8,7 +8,7 @@ export async function GET() {
       <div
         style={{
           width: 192, height: 192,
-          background: '#04050a',
+          background: '#080a0f',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -17,13 +17,13 @@ export async function GET() {
         <div
           style={{
             width: 130, height: 130,
-            border: '5px solid #d4af37',
+            border: '5px solid #39e2e6',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <span style={{ color: '#d4af37', fontSize: 90, fontWeight: 700, lineHeight: 1 }}>
+          <span style={{ color: '#39e2e6', fontSize: 90, fontWeight: 700, lineHeight: 1 }}>
             Σ
           </span>
         </div>

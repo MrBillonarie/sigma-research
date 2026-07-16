@@ -2,7 +2,7 @@
 import { useState } from 'react'
 
 const S   = '#0b0d14'
-const B   = '#1a1d2e'
+const B   = '#202634'
 const T   = '#e8e9f0'
 const D   = '#7a7f9a'
 
@@ -10,7 +10,7 @@ const CAPS = [
   { id:'01', name:'SIGNAL HUD',        col:'#34d399', desc:'Señales del Motor de Decisión en tiempo real. Régimen HMM, bias de mercado, confianza por clase de activo.' },
   { id:'02', name:'TRADE JOURNAL',     col:'#f59e0b', desc:'CSV Binance Futures + entrada manual. Sharpe, Max DD, Profit Factor. Export PDF y CSV.' },
   { id:'03', name:'PORTFOLIO',         col:'#3b82f6', desc:'IBKR, Binance Spot/Futures, Fintual, Santander, Cash. Consolidado USD/CLP en tiempo real.' },
-  { id:'04', name:'FIRE + MONTECARLO', col:'#d4af37', desc:'Regla del 4%. 2.000 trayectorias GBM. Percentiles P10/P50/P90. Proyección a 20 años.' },
+  { id:'04', name:'FIRE + MONTECARLO', col:'#39e2e6', desc:'Regla del 4%. 2.000 trayectorias GBM. Percentiles P10/P50/P90. Proyección a 20 años.' },
   { id:'05', name:'MOTOR CUANTITATIVO',col:'#a78bfa', desc:'4 modelos ML: HMM-01, XGB-03, STAT-05, GARCH-02. Score 0–100, EV neto, Kelly fraction.' },
   { id:'06', name:'COMPARADORES',      col:'#f87171', desc:'ETFs globales, Fondos Mutuos CMF, Renta Fija DAP, LP DeFi PancakeSwap v3.' },
 ]

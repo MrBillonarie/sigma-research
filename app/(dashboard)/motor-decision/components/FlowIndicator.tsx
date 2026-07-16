@@ -13,7 +13,7 @@ interface Props {
   flowScore: number
 }
 
-const BG = '#0a0e1a', BORDER = '#1f2a45', DIM = '#7a7f9a', MUTED = '#3a3f55'
+const BG = '#080a0f', BORDER = '#202634', DIM = '#7a7f9a', MUTED = '#3a3f55'
 const TEXT = '#e8e9f0', GREEN = '#2fd39a', RED = '#ff5d6c', GOLD = '#39e2e6'
 
 function useCountUp(target: number, dur = 1200) {

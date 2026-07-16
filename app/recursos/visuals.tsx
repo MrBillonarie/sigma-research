@@ -11,7 +11,7 @@ export interface Tool {
   cta: string
 }
 
-const GOLD = '#d4af37'
+const GOLD = '#39e2e6'
 
 // Tilt 3D via CSS vars escritas directo al DOM — cero re-renders por mousemove.
 function useTilt() {
@@ -161,23 +161,23 @@ const RC_CSS = `
   .rc-hero.rc-on .rc-title { transition: transform .12s ease-out }
   .rc-t1 { color:#e8e9f0;
     text-shadow: 1px 1px 0 #2a2d3a, 2px 2px 0 #262939, 3px 3px 0 #222536, 4px 4px 0 #1e2132,
-      5px 5px 0 #1a1d2e, 6px 6px 0 #15182a, 7px 7px 0 #111426, 11px 13px 26px rgba(0,0,0,.55) }
+      5px 5px 0 #202634, 6px 6px 0 #15182a, 7px 7px 0 #111426, 11px 13px 26px rgba(0,0,0,.55) }
   .rc-t2 { color:${GOLD};
     text-shadow: 1px 1px 0 #a3862c, 2px 2px 0 #8f7526, 3px 3px 0 #7b6420, 4px 4px 0 #67531a,
-      5px 5px 0 #534214, 6px 6px 0 #3f320f, 7px 7px 0 #2b2109, 11px 13px 28px rgba(0,0,0,.6), 0 0 48px rgba(212,175,55,.16) }
+      5px 5px 0 #534214, 6px 6px 0 #3f320f, 7px 7px 0 #2b2109, 11px 13px 28px rgba(0,0,0,.6), 0 0 48px rgba(57,226,230,.16) }
 
   /* Suelo con fuga + horizonte */
   .rc-floor { position:absolute; left:-12%; right:-12%; bottom:-60px; height:300px; pointer-events:none;
     transform: perspective(620px) rotateX(63deg); transform-origin:50% 100%;
-    background-image: linear-gradient(rgba(212,175,55,.12) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(212,175,55,.12) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(57,226,230,.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(57,226,230,.12) 1px, transparent 1px);
     background-size: 46px 46px; animation: rcFloor 12s linear infinite;
     -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.9) 15%, transparent 82%);
     mask-image: linear-gradient(to top, rgba(0,0,0,.9) 15%, transparent 82%) }
   @keyframes rcFloor { to { background-position: 0 46px } }
   .rc-horizon { position:absolute; left:10%; right:10%; bottom:216px; height:1px; pointer-events:none;
-    background: linear-gradient(90deg, transparent, rgba(212,175,55,.35), transparent);
-    box-shadow: 0 0 24px 3px rgba(212,175,55,.14) }
+    background: linear-gradient(90deg, transparent, rgba(57,226,230,.35), transparent);
+    box-shadow: 0 0 24px 3px rgba(57,226,230,.14) }
 
   /* Brasas */
   .rc-ember { position:absolute; width:3px; height:3px; border-radius:50%; background:#f0d78c;
@@ -194,18 +194,18 @@ const RC_CSS = `
     transform: rotateX(calc(var(--py) * -5deg)) rotateY(calc(var(--px) * 7deg));
     transition: transform .5s ease, border-color .25s, box-shadow .25s; will-change: transform }
   .rc-card.rc-on { transition: transform .1s ease-out, border-color .25s, box-shadow .25s;
-    border-color: rgba(212,175,55,.45); box-shadow: 0 18px 44px rgba(0,0,0,.5) }
+    border-color: rgba(57,226,230,.45); box-shadow: 0 18px 44px rgba(0,0,0,.5) }
   .rc-shine { position:absolute; inset:0; opacity:0; transition:opacity .35s; pointer-events:none;
-    background: radial-gradient(320px circle at var(--mx) var(--my), rgba(212,175,55,.10), transparent 65%) }
+    background: radial-gradient(320px circle at var(--mx) var(--my), rgba(57,226,230,.10), transparent 65%) }
   .rc-card.rc-on .rc-shine { opacity:1 }
   .rc-wm { position:absolute; right:-10px; bottom:-34px; font-family:'Bebas Neue',Impact,sans-serif;
-    font-size:140px; line-height:1; color:rgba(212,175,55,.055); pointer-events:none; user-select:none;
+    font-size:140px; line-height:1; color:rgba(57,226,230,.055); pointer-events:none; user-select:none;
     transform: translate(calc(var(--px) * -9px), calc(var(--py) * -7px)); transition: transform .25s ease }
   .rc-front { transform: translate(calc(var(--px) * 5px), calc(var(--py) * 4px)); transition: transform .25s ease }
   .rc-viz { width:46px; height:46px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
     border:1px solid rgba(139,143,168,.25); color:#8b8fa8; transition: color .2s, border-color .2s, box-shadow .2s }
-  .rc-card:hover .rc-viz, .rc-card:focus-within .rc-viz { color:${GOLD}; border-color:rgba(212,175,55,.5);
-    box-shadow:0 0 16px rgba(212,175,55,.15) }
+  .rc-card:hover .rc-viz, .rc-card:focus-within .rc-viz { color:${GOLD}; border-color:rgba(57,226,230,.5);
+    box-shadow:0 0 16px rgba(57,226,230,.15) }
 
   /* Detalle expandible: cerrado en desktop, se abre al hover/focus */
   .rc-detail { display:grid; grid-template-rows:0fr; transition: grid-template-rows .45s ease; position:relative }

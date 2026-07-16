@@ -137,9 +137,9 @@ export default function MotorEnVivoPage() {
   return (
     <>
       {!authed && (
-        <main style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#04050a', padding: 24 }}>
+        <main style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080a0f', padding: 24 }}>
           <form onSubmit={handleSubmit} style={{ background: '#0b0d14', border: '1px solid #2a2d3e', padding: 32, width: 320 }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', color: '#d4af37', marginBottom: 20 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.2em', color: '#39e2e6', marginBottom: 20 }}>
               {'// SIGMA ENGINE · ACCESO MONITOREO'}
             </div>
             <input
@@ -148,7 +148,7 @@ export default function MotorEnVivoPage() {
               onChange={e => setPassword(e.target.value)}
               placeholder="Contraseña"
               autoFocus
-              style={{ width: '100%', background: '#04050a', border: '1px solid #2a2d3e', color: '#e8e9f0', padding: '10px 12px', fontFamily: 'monospace', fontSize: 13, marginBottom: 12, boxSizing: 'border-box' }}
+              style={{ width: '100%', background: '#080a0f', border: '1px solid #2a2d3e', color: '#e8e9f0', padding: '10px 12px', fontFamily: 'monospace', fontSize: 13, marginBottom: 12, boxSizing: 'border-box' }}
             />
             {error && (
               <div style={{ color: '#f87171', fontFamily: 'monospace', fontSize: 11, marginBottom: 12 }}>{error}</div>
@@ -156,7 +156,7 @@ export default function MotorEnVivoPage() {
             <button
               type="submit"
               disabled={loading}
-              style={{ width: '100%', background: '#d4af37', border: 'none', color: '#04050a', padding: '11px', fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.15em', cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}
+              style={{ width: '100%', background: '#39e2e6', border: 'none', color: '#080a0f', padding: '11px', fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.15em', cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}
             >
               {loading ? 'VERIFICANDO…' : 'ENTRAR'}
             </button>
@@ -171,7 +171,7 @@ export default function MotorEnVivoPage() {
         <div style={{
           position: 'fixed', inset: 0, background: '#020510',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'IBM Plex Mono',monospace", color: '#c9a227', zIndex: 9999,
+          fontFamily: "'IBM Plex Mono',monospace", color: '#2ab8bd', zIndex: 9999,
         }}>
           Cargando SIGMA ENGINE…
         </div>

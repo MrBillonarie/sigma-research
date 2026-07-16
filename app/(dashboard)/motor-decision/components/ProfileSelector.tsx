@@ -45,9 +45,9 @@ export default function ProfileSelector({ selected, onChange, loading }: Props) 
             disabled={loading}
             style={{
               flex: 1, minWidth: 200,
-              background: isActive ? meta.glowColor : '#0a0e1a',
-              border: `1px solid ${isActive ? meta.color : '#1f2a45'}`,
-              borderTop: `2px solid ${isActive ? meta.color : '#1f2a45'}`,
+              background: isActive ? meta.glowColor : '#080a0f',
+              border: `1px solid ${isActive ? meta.color : '#202634'}`,
+              borderTop: `2px solid ${isActive ? meta.color : '#202634'}`,
               borderRadius: 10, padding: '16px 20px',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s', textAlign: 'left',

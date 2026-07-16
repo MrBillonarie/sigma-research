@@ -89,7 +89,7 @@ export default function AllocationDonut({ allocation, metrics, capital = 0, curr
   const hoveredAmount = hovered && capital > 0 ? capital * allocation[hovered] / 100 : 0
 
   return (
-    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, padding: 20 }}>
+    <div style={{ background: '#080a0f', border: '1px solid #202634', borderRadius: 10, padding: 20 }}>
       <h3 style={{ margin: '0 0 16px', fontSize: 12, color: '#7a7f9a', fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase' }}>
         ASIGNACIÓN ÓPTIMA
         {capital > 0 && (
@@ -104,7 +104,7 @@ export default function AllocationDonut({ allocation, metrics, capital = 0, curr
         <div style={{ width: SIZE, height: SIZE, position: 'relative', flexShrink: 0 }}>
           <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
             {/* riel de fondo */}
-            <circle cx={SIZE/2} cy={SIZE/2} r={R} fill="none" stroke="#1f2a45" strokeWidth={22} />
+            <circle cx={SIZE/2} cy={SIZE/2} r={R} fill="none" stroke="#202634" strokeWidth={22} />
             {segments.map(seg => {
               const isHov = hovered === seg.key
               const isDim = hovered !== null && !isHov
@@ -188,7 +188,7 @@ export default function AllocationDonut({ allocation, metrics, capital = 0, curr
               </div>
             )
           })}
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #1f2a45', fontSize: 11, color: '#7a7f9a', fontFamily: 'monospace' }}>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #202634', fontSize: 11, color: '#7a7f9a', fontFamily: 'monospace' }}>
             Sharpe: <span style={{ color: '#e8e9f0' }}>{metrics.sharpeRatio.toFixed(2)}</span>
             &nbsp;·&nbsp;
             Vol: <span style={{ color: '#e8e9f0' }}>{metrics.annualVolatility.toFixed(1)}%</span>

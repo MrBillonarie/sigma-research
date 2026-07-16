@@ -14,8 +14,8 @@ const ANIM_CSS = `
   100% { background-position: 200%  center; }
 }
 @keyframes sigma-pulse-glow {
-  0%, 100% { box-shadow: 0 0 0px rgba(212,175,55,0); }
-  50%       { box-shadow: 0 0 12px rgba(212,175,55,0.25); }
+  0%, 100% { box-shadow: 0 0 0px rgba(57,226,230,0); }
+  50%       { box-shadow: 0 0 12px rgba(57,226,230,0.25); }
 }
 `
 
@@ -33,7 +33,7 @@ function RollingDigit({ char }: { char: string }) {
   // Separator — muted, no animation
   if (!/\d/.test(char)) {
     return (
-      <span style={{ color: 'rgba(212,175,55,0.3)', display: 'inline-block' }}>
+      <span style={{ color: 'rgba(57,226,230,0.3)', display: 'inline-block' }}>
         {char}
       </span>
     )
@@ -99,13 +99,13 @@ export default function LiveHeroCounter() {
 
       {/* Corner brackets */}
       <div className="absolute top-0 left-0 w-5 h-5 pointer-events-none"
-        style={{ borderTop: '2px solid rgba(212,175,55,0.5)', borderLeft: '2px solid rgba(212,175,55,0.5)' }} />
+        style={{ borderTop: '2px solid rgba(57,226,230,0.5)', borderLeft: '2px solid rgba(57,226,230,0.5)' }} />
       <div className="absolute top-0 right-0 w-5 h-5 pointer-events-none"
-        style={{ borderTop: '2px solid rgba(212,175,55,0.5)', borderRight: '2px solid rgba(212,175,55,0.5)' }} />
+        style={{ borderTop: '2px solid rgba(57,226,230,0.5)', borderRight: '2px solid rgba(57,226,230,0.5)' }} />
       <div className="absolute bottom-0 left-0 w-5 h-5 pointer-events-none"
-        style={{ borderBottom: '2px solid rgba(212,175,55,0.5)', borderLeft: '2px solid rgba(212,175,55,0.5)' }} />
+        style={{ borderBottom: '2px solid rgba(57,226,230,0.5)', borderLeft: '2px solid rgba(57,226,230,0.5)' }} />
       <div className="absolute bottom-0 right-0 w-5 h-5 pointer-events-none"
-        style={{ borderBottom: '2px solid rgba(212,175,55,0.5)', borderRight: '2px solid rgba(212,175,55,0.5)' }} />
+        style={{ borderBottom: '2px solid rgba(57,226,230,0.5)', borderRight: '2px solid rgba(57,226,230,0.5)' }} />
 
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-gold/10">
@@ -173,7 +173,7 @@ export default function LiveHeroCounter() {
             className="h-full rounded-full"
             style={{
               width: `${velocityPct}%`,
-              background: 'linear-gradient(90deg, rgba(212,175,55,0.3) 0%, rgba(212,175,55,0.8) 40%, rgba(255,245,180,1) 50%, rgba(212,175,55,0.8) 60%, rgba(212,175,55,0.3) 100%)',
+              background: 'linear-gradient(90deg, rgba(57,226,230,0.3) 0%, rgba(57,226,230,0.8) 40%, rgba(255,245,180,1) 50%, rgba(57,226,230,0.8) 60%, rgba(57,226,230,0.3) 100%)',
               backgroundSize: '200% 100%',
               animation: 'sigma-shimmer 2.5s linear infinite',
               transition: 'width 1.5s ease',

@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence, animate, useMotionValue } from 'framer-motion'
 
 /* ─── Paleta ─────────────────────────────────────────────────────────────────── */
-const BG      = '#04050a'
-const GOLD    = '#d4af37'
+const BG      = '#080a0f'
+const GOLD    = '#39e2e6'
 const GOLD2   = '#f0cc5a'
-const GREEN   = '#1D9E75'
+const GREEN   = '#2fd39a'
 const RED     = '#f87171'
-const BORDER  = '#1a1d2e'
+const BORDER  = '#202634'
 const SURFACE = '#0b0d14'
 const DIM     = '#7a7f9a'
 const TEXT    = '#e8e9f0'
@@ -136,7 +136,7 @@ export default function DemoPage() {
               borderRadius: 10,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 26, color: GOLD, fontFamily: BEBAS,
-              background: `rgba(212,175,55,0.08)`,
+              background: `rgba(57,226,230,0.08)`,
               flexShrink: 0,
             }}
           >
@@ -187,7 +187,7 @@ export default function DemoPage() {
             animate={phase >= 2 ? { opacity: 1 } : {}}
             style={{
               padding: '6px 14px',
-              background: `rgba(212,175,55,0.08)`,
+              background: `rgba(57,226,230,0.08)`,
               border: `1px solid ${GOLD}40`,
               borderRadius: 6,
               fontSize: 10, color: DIM, fontFamily: MONO,

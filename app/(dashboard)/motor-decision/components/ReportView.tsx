@@ -213,12 +213,12 @@ export default function ReportView({ report, onClose }: Props) {
 
   return (
     <div style={{
-      background: '#0a0e1a', border: '1px solid #1f2a45',
+      background: '#080a0f', border: '1px solid #202634',
       borderRadius: 12, overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{
-        padding: '16px 20px', borderBottom: '1px solid #1f2a45',
+        padding: '16px 20px', borderBottom: '1px solid #202634',
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <div style={{ flex: 1 }}>
@@ -237,7 +237,7 @@ export default function ReportView({ report, onClose }: Props) {
           onClick={handlePDF}
           disabled={exporting}
           style={{
-            background: exporting ? '#1f2a45' : '#2fd39a',
+            background: exporting ? '#202634' : '#2fd39a',
             color: '#000', border: 'none', borderRadius: 7,
             padding: '8px 16px', fontSize: 12, fontWeight: 700,
             fontFamily: 'monospace', cursor: exporting ? 'not-allowed' : 'pointer',
@@ -248,7 +248,7 @@ export default function ReportView({ report, onClose }: Props) {
         </button>
         {onClose && (
           <button onClick={onClose} style={{
-            background: 'transparent', border: '1px solid #1f2a45',
+            background: 'transparent', border: '1px solid #202634',
             borderRadius: 7, padding: '8px 12px', color: '#7a7f9a',
             fontSize: 12, cursor: 'pointer',
           }}>✕</button>
@@ -258,7 +258,7 @@ export default function ReportView({ report, onClose }: Props) {
       <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Señal IA */}
         <div style={{
-          background: '#04050a', border: '1px solid #1f2a45',
+          background: '#080a0f', border: '1px solid #202634',
           borderRadius: 8, padding: 16,
           borderLeft: '3px solid #4f92ff',
         }}>
@@ -284,7 +284,7 @@ export default function ReportView({ report, onClose }: Props) {
         </div>
 
         {/* Score flujo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#04050a', borderRadius: 8, border: '1px solid #1f2a45' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#080a0f', borderRadius: 8, border: '1px solid #202634' }}>
           <div style={{ fontSize: 10, color: '#7a7f9a', fontFamily: 'monospace', minWidth: 120 }}>SCORE FLUJO GLOBAL</div>
           <div style={{
             fontSize: 28, fontFamily: "'Bebas Neue', Impact, sans-serif",
@@ -302,7 +302,7 @@ export default function ReportView({ report, onClose }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {report.topMoves.map((m, i) => (
               <div key={i} style={{
-                background: '#04050a', border: '1px solid #1f2a45',
+                background: '#080a0f', border: '1px solid #202634',
                 borderLeft: `3px solid ${SIGNAL_COLOR[m.action]}`,
                 borderRadius: 8, padding: '12px 14px',
                 display: 'flex', gap: 12, alignItems: 'flex-start',
@@ -343,7 +343,7 @@ export default function ReportView({ report, onClose }: Props) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {report.flowSignals.map(fs => (
               <div key={fs.market} style={{
-                background: '#04050a', border: `1px solid ${fs.color}33`,
+                background: '#080a0f', border: `1px solid ${fs.color}33`,
                 borderRadius: 8, padding: '10px 14px', flex: '1 1 160px',
               }}>
                 <div style={{ fontSize: 11, color: fs.color, fontFamily: 'monospace', marginBottom: 4 }}>{fs.market}</div>

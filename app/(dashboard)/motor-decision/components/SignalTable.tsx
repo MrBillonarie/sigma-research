@@ -51,7 +51,7 @@ function ScoreBar({ score }: { score: number }) {
   const color = score > 65 ? '#2fd39a' : score > 45 ? '#39e2e6' : '#ff5d6c'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{ width: 56, height: 4, background: '#1f2a45', borderRadius: 2, overflow: 'hidden' }}>
+      <div style={{ width: 56, height: 4, background: '#202634', borderRadius: 2, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 2 }} />
       </div>
       <span style={{ fontSize: 11, color, fontFamily: 'monospace', minWidth: 22 }}>{score}</span>
@@ -211,7 +211,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
       color: k && sortKey === k ? '#e8e9f0' : '#7a7f9a',
       fontFamily: 'monospace', letterSpacing: '0.1em', textTransform: 'uppercase',
       cursor: k ? 'pointer' : 'default', whiteSpace: 'nowrap', userSelect: 'none',
-      borderBottom: '1px solid #1f2a45',
+      borderBottom: '1px solid #202634',
     }}>
       {label}{k && sortKey === k ? (sortDesc ? ' ↓' : ' ↑') : ''}
     </th>
@@ -221,9 +221,9 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
     const monto = suggestedAmount(a)
     return (
       <tr
-        style={{ borderBottom: '1px solid #0d0f1a', background: i % 2 === 0 ? 'transparent' : '#04050a22', transition: 'background 0.15s' }}
-        onMouseEnter={e => (e.currentTarget.style.background = '#1f2a4544')}
-        onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : '#04050a22')}
+        style={{ borderBottom: '1px solid #0d0f1a', background: i % 2 === 0 ? 'transparent' : '#080a0f22', transition: 'background 0.15s' }}
+        onMouseEnter={e => (e.currentTarget.style.background = '#20263444')}
+        onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : '#080a0f22')}
       >
         <td style={{ padding: '8px 12px', maxWidth: 240 }}>
           <div style={{ fontSize: 12, color: '#e8e9f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
@@ -319,7 +319,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
 
                 {/* ── Separador si hay ambos valores ───────────────────────── */}
                 {monto > 0 && hasKelly && (
-                  <div style={{ width: 64, height: 1, background: '#1f2a45', margin: '3px 0' }} />
+                  <div style={{ width: 64, height: 1, background: '#202634', margin: '3px 0' }} />
                 )}
 
                 {/* ── Sizing Kelly (todos los COMPRAR con edge) ─────────────── */}
@@ -358,10 +358,10 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
   }
 
   return (
-    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, overflow: 'hidden' }}>
+    <div style={{ background: '#080a0f', border: '1px solid #202634', borderRadius: 10, overflow: 'hidden' }}>
 
       {/* ── Filtros ────────────────────────────────────────────────────────── */}
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid #1f2a45', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid #202634', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
 
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginRight: 4 }}>
           <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7a7f9a', letterSpacing: '0.1em' }}>SEÑALES</span>
@@ -372,7 +372,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
           ].map(({ sig, count, color }) => (
             <button key={sig} onClick={() => { setSignalFilter(signalFilter === sig ? 'all' : sig); setPage(1) }} style={{
               background: signalFilter === sig ? color + '20' : 'transparent',
-              border: `1px solid ${signalFilter === sig ? color : '#1f2a45'}`,
+              border: `1px solid ${signalFilter === sig ? color : '#202634'}`,
               borderRadius: 4, padding: '2px 8px', cursor: 'pointer',
               fontFamily: 'monospace', fontSize: 10, color,
             }}>
@@ -382,16 +382,16 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
         </div>
 
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Buscar activo…"
-          style={{ background: '#04050a', border: '1px solid #1f2a45', borderRadius: 6, padding: '5px 10px', color: '#e8e9f0', fontSize: 12, fontFamily: 'monospace', width: 150, outline: 'none' }} />
+          style={{ background: '#080a0f', border: '1px solid #202634', borderRadius: 6, padding: '5px 10px', color: '#e8e9f0', fontSize: 12, fontFamily: 'monospace', width: 150, outline: 'none' }} />
 
         <select value={classFilter} onChange={e => { setClassFilter(e.target.value as AssetClass | 'all'); setPage(1) }}
-          style={{ background: '#04050a', border: '1px solid #1f2a45', borderRadius: 6, padding: '5px 10px', color: classFilter !== 'all' ? CLASS_COLOR[classFilter as AssetClass] : '#e8e9f0', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', outline: 'none' }}>
+          style={{ background: '#080a0f', border: '1px solid #202634', borderRadius: 6, padding: '5px 10px', color: classFilter !== 'all' ? CLASS_COLOR[classFilter as AssetClass] : '#e8e9f0', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer', outline: 'none' }}>
           <option value="all">Todos los activos</option>
           {CLASS_ORDER.map(c => <option key={c} value={c}>{CLASS_LABEL[c]}</option>)}
         </select>
 
         <button onClick={() => setGrouped(g => !g)} style={{
-          background: grouped ? '#1f2a45' : 'transparent', border: '1px solid #1f2a45',
+          background: grouped ? '#202634' : 'transparent', border: '1px solid #202634',
           borderRadius: 6, padding: '5px 10px', color: grouped ? '#e8e9f0' : '#7a7f9a',
           fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
         }}>
@@ -409,7 +409,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
 
         <button onClick={() => { setShowAll(v => !v); setPage(1) }} style={{
           background: showAll ? 'transparent' : 'rgba(47,211,154,0.1)',
-          border: `1px solid ${showAll ? '#1f2a45' : '#2fd39a'}`,
+          border: `1px solid ${showAll ? '#202634' : '#2fd39a'}`,
           borderRadius: 6, padding: '5px 10px',
           color: showAll ? '#7a7f9a' : '#2fd39a',
           fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
@@ -426,7 +426,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#04050a' }}>
+            <tr style={{ background: '#080a0f' }}>
               <TH label="Activo"    k="name"      />
               <TH label="Clase"                   />
               <TH label="Señal"                   />
@@ -445,9 +445,9 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
                 <>
                   <tr key={`hdr-${cls}`}>
                     <td colSpan={numCols} style={{
-                      padding: '8px 12px 6px', background: '#04050a',
+                      padding: '8px 12px 6px', background: '#080a0f',
                       borderBottom: `1px solid ${CLASS_COLOR[cls]}40`,
-                      borderTop: '1px solid #1f2a45',
+                      borderTop: '1px solid #202634',
                     }}>
                       <span style={{ fontFamily: 'monospace', fontSize: 10, color: CLASS_COLOR[cls], letterSpacing: '0.15em', textTransform: 'uppercase' }}>
                         {CLASS_ICON[cls]}  {CLASS_LABEL[cls].toUpperCase()} · {items.length} activos
@@ -473,7 +473,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
 
       {/* ── Paginación ────────────────────────────────────────────────────── */}
       {!grouped && pages > 1 && (
-        <div style={{ padding: '10px 16px', borderTop: '1px solid #1f2a45', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ padding: '10px 16px', borderTop: '1px solid #202634', display: 'flex', alignItems: 'center', gap: 6 }}>
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={btnStyle(page !== 1)}>‹ Ant</button>
           <span style={{ fontSize: 11, color: '#7a7f9a', fontFamily: 'monospace', flex: 1, textAlign: 'center' }}>
             {page} / {pages}
@@ -487,7 +487,7 @@ export default function SignalTable({ assets, capital = 0, currency = 'CLP', all
 
 function btnStyle(enabled: boolean): React.CSSProperties {
   return {
-    background: 'transparent', border: `1px solid ${enabled ? '#1f2a45' : '#0d0f1a'}`, borderRadius: 6,
+    background: 'transparent', border: `1px solid ${enabled ? '#202634' : '#0d0f1a'}`, borderRadius: 6,
     padding: '4px 12px', color: enabled ? '#e8e9f0' : '#3a3f55',
     fontSize: 11, fontFamily: 'monospace', cursor: enabled ? 'pointer' : 'not-allowed',
   }

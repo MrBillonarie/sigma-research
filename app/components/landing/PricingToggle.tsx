@@ -2,10 +2,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-const G   = '#d4af37'
-const BG  = '#04050a'
+const G   = '#39e2e6'
+const BG  = '#080a0f'
 const S   = '#0b0d14'
-const B   = '#1a1d2e'
+const B   = '#202634'
 const D   = '#7a7f9a'
 const DIM = '#5a6080'
 const M   = '#4a5068'
@@ -108,10 +108,10 @@ export default function PricingToggle() {
               <Link href={p.href} style={{
                 display: 'block', textAlign: 'center', padding: '14px',
                 fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textDecoration: 'none',
-                background: p.fill ? `linear-gradient(135deg,${p.accent},#c9a227)` : 'transparent',
+                background: p.fill ? `linear-gradient(135deg,${p.accent},#2ab8bd)` : 'transparent',
                 color: p.fill ? BG : p.textAccent,
                 border: `1px solid ${p.accent}`,
-                boxShadow: p.fill ? `0 0 24px rgba(212,175,55,0.2)` : 'none',
+                boxShadow: p.fill ? `0 0 24px rgba(57,226,230,0.2)` : 'none',
               }}>
                 {p.cta}
               </Link>

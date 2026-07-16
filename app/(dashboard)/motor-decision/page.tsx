@@ -78,7 +78,7 @@ const SIG_META: Record<string, { lbl: string; c: string }> = {
 function LockPanel({ title, sub }: { title: string; sub: string }) {
   return (
     <div style={{
-      background: 'linear-gradient(180deg, rgba(255,180,84,0.05), #0a0e1a 60%)',
+      background: 'linear-gradient(180deg, rgba(255,180,84,0.05), #080a0f 60%)',
       border: '1px solid rgba(255,180,84,0.25)', borderRadius: 12,
       padding: '28px 24px', textAlign: 'center',
     }}>
@@ -99,7 +99,7 @@ function FreeDirectionTable({ data }: { data: SignalsResponse }) {
     return order(a.signal) - order(b.signal)
   })
   return (
-    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 12, overflow: 'hidden', overflowX: 'auto' }}>
+    <div style={{ background: '#080a0f', border: '1px solid #202634', borderRadius: 12, overflow: 'hidden', overflowX: 'auto' }}>
       <div style={{ height: 2, background: 'linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%)' }} />
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
         <thead>
@@ -114,7 +114,7 @@ function FreeDirectionTable({ data }: { data: SignalsResponse }) {
             const m = SIG_META[a.signal] ?? SIG_META.neutral
             const ret = (v: number) => <span style={{ fontFamily: MONO, fontSize: 11, color: v > 0 ? '#2fd39a' : v < 0 ? '#ff5d6c' : '#7a7f9a' }}>{v > 0 ? '+' : ''}{v.toFixed(1)}%</span>
             return (
-              <tr key={a.id} style={{ borderBottom: '1px solid #1f2a45' }}>
+              <tr key={a.id} style={{ borderBottom: '1px solid #202634' }}>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: '#e8e9f0' }}>{a.ticker ?? a.name}</div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: '#6b7688' }}>{a.category ?? a.assetClass}</div>
@@ -130,7 +130,7 @@ function FreeDirectionTable({ data }: { data: SignalsResponse }) {
           })}
         </tbody>
       </table>
-      <div style={{ padding: '12px 16px', borderTop: '1px solid #1f2a45', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid #202634', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: MONO, fontSize: 10, color: '#7a7f9a' }}>🔒 Sizing, score, EV y montos sugeridos por activo — plan PRO</span>
         <a href="/planes" style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.16em', color: '#ffb454', textDecoration: 'none', whiteSpace: 'nowrap' }}>VER SEÑAL COMPLETA →</a>
       </div>
@@ -144,7 +144,7 @@ function LoadingSkeleton() {
       {[1,2,3].map(i => (
         <div key={i} className="animate-pulse" style={{
           height: i === 1 ? 80 : i === 2 ? 120 : 300,
-          background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10,
+          background: '#080a0f', border: '1px solid #202634', borderRadius: 10,
         }} />
       ))}
     </div>
@@ -222,7 +222,7 @@ export default function MotorDecisionPage() {
   return (
     <PageErrorBoundary section="Motor de Decisión">
     <div className="dash-content" style={{
-      minHeight: '100vh', background: '#04050a',
+      minHeight: '100vh', background: '#080a0f',
       paddingBottom: '64px', maxWidth: 1280, margin: '0 auto', width: '100%',
       position: 'relative',
     }}>
@@ -287,7 +287,7 @@ export default function MotorDecisionPage() {
         {/* Buttons — row below title */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => fetchSignals(profile)} disabled={loading} style={{
-            background: 'transparent', border: '1px solid #1f2a45', borderRadius: 7,
+            background: 'transparent', border: '1px solid #202634', borderRadius: 7,
             padding: '8px 14px', color: '#7a7f9a', fontSize: 11, fontFamily: MONO,
             cursor: loading ? 'not-allowed' : 'pointer',
           }}>
@@ -297,7 +297,7 @@ export default function MotorDecisionPage() {
           {/* I: Auto-refresh toggle */}
           <button onClick={() => setAutoRefresh(v => !v)} style={{
             background: autoRefresh ? 'rgba(47,211,154,0.12)' : 'transparent',
-            border: `1px solid ${autoRefresh ? '#2fd39a' : '#1f2a45'}`, borderRadius: 7,
+            border: `1px solid ${autoRefresh ? '#2fd39a' : '#202634'}`, borderRadius: 7,
             padding: '8px 14px', color: autoRefresh ? '#2fd39a' : '#7a7f9a',
             fontSize: 11, fontFamily: MONO, cursor: 'pointer',
           }}>
@@ -431,7 +431,7 @@ export default function MotorDecisionPage() {
             background: data.gated
               ? 'linear-gradient(135deg, rgba(255,180,84,0.06), rgba(79,146,255,0.06))'
               : 'linear-gradient(135deg, rgba(47,211,154,0.08), rgba(79,146,255,0.08))',
-            border: '1px solid #1f2a45', borderRadius: 12,
+            border: '1px solid #202634', borderRadius: 12,
             padding: '24px', textAlign: 'center',
           }}>
             <h3 style={{

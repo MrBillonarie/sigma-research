@@ -109,7 +109,7 @@ export default function ProfileConsole({ selected, onChange, loading, capital, h
             return (
               <g key={pt} style={{ cursor: loading ? 'not-allowed' : 'pointer' }}
                  onClick={() => !loading && onChange(pt)}>
-                <circle cx={p.x} cy={p.y} r={on ? 5 : 3.5} fill={on ? meta.color : '#0a0e1a'}
+                <circle cx={p.x} cy={p.y} r={on ? 5 : 3.5} fill={on ? meta.color : '#080a0f'}
                         stroke={meta.color} strokeWidth="1.6"
                         style={{ filter: on ? `drop-shadow(0 0 5px ${meta.color})` : undefined }} />
                 <text x={lbl.x} y={lbl.y + (meta.angle === 90 ? -2 : 4)} textAnchor="middle"

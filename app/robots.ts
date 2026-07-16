@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next'
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sigma-research.vercel.app'
+const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://squantdesk.com'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -12,7 +12,11 @@ export default function robots(): MetadataRoute.Robots {
           '/registro',
           '/login',
           '/recuperar',
+          '/planes',
           '/quienes-somos',
+          '/roadmap',
+          '/white-paper',
+          '/api-docs',
           '/faq',
           '/contacto',
           '/terminos',
@@ -36,6 +40,12 @@ export default function robots(): MetadataRoute.Robots {
           '/notificaciones',
           '/lp-defi',
           '/modelos',
+          '/terminal',
+          '/soporte',
+          '/comparador',
+          '/tax',
+          '/lp-signal',
+          '/motor-en-vivo',
           '/admin',
           '/api',
           '/onboarding',

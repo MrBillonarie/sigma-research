@@ -94,10 +94,10 @@ export default function EntityProfile() {
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
 
       {/* Corner brackets */}
-      <div className="absolute top-0    left-0  w-5 h-5 pointer-events-none" style={{ borderTop: '2px solid rgba(212,175,55,0.5)', borderLeft: '2px solid rgba(212,175,55,0.5)' }} />
-      <div className="absolute top-0    right-0 w-5 h-5 pointer-events-none" style={{ borderTop: '2px solid rgba(212,175,55,0.5)', borderRight: '2px solid rgba(212,175,55,0.5)' }} />
-      <div className="absolute bottom-0 left-0  w-5 h-5 pointer-events-none" style={{ borderBottom: '2px solid rgba(212,175,55,0.5)', borderLeft: '2px solid rgba(212,175,55,0.5)' }} />
-      <div className="absolute bottom-0 right-0 w-5 h-5 pointer-events-none" style={{ borderBottom: '2px solid rgba(212,175,55,0.5)', borderRight: '2px solid rgba(212,175,55,0.5)' }} />
+      <div className="absolute top-0    left-0  w-5 h-5 pointer-events-none" style={{ borderTop: '2px solid rgba(57,226,230,0.5)', borderLeft: '2px solid rgba(57,226,230,0.5)' }} />
+      <div className="absolute top-0    right-0 w-5 h-5 pointer-events-none" style={{ borderTop: '2px solid rgba(57,226,230,0.5)', borderRight: '2px solid rgba(57,226,230,0.5)' }} />
+      <div className="absolute bottom-0 left-0  w-5 h-5 pointer-events-none" style={{ borderBottom: '2px solid rgba(57,226,230,0.5)', borderLeft: '2px solid rgba(57,226,230,0.5)' }} />
+      <div className="absolute bottom-0 right-0 w-5 h-5 pointer-events-none" style={{ borderBottom: '2px solid rgba(57,226,230,0.5)', borderRight: '2px solid rgba(57,226,230,0.5)' }} />
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-gold/10">
@@ -174,8 +174,8 @@ export default function EntityProfile() {
                   style={{
                     width: `${(pct / maxPct) * 100}%`,
                     background: isTop
-                      ? 'linear-gradient(90deg,rgba(212,175,55,0.5) 0%,rgba(255,245,180,1) 50%,rgba(212,175,55,0.5) 100%)'
-                      : `rgba(212,175,55,${0.25 + (pct / maxPct) * 0.45})`,
+                      ? 'linear-gradient(90deg,rgba(57,226,230,0.5) 0%,rgba(255,245,180,1) 50%,rgba(57,226,230,0.5) 100%)'
+                      : `rgba(57,226,230,${0.25 + (pct / maxPct) * 0.45})`,
                     backgroundSize: isTop ? '200% 100%' : undefined,
                     animation: isTop ? 'ent-shimmer 2.5s linear infinite' : undefined,
                   }}

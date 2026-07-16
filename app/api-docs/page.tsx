@@ -6,15 +6,15 @@ export const metadata: Metadata = {
   description: 'Documentación REST API de SQuant Desk para clientes institucionales.',
 }
 
-const G = '#d4af37'
-const BG = '#04050a'
+const G = '#39e2e6'
+const BG = '#080a0f'
 const SURFACE = '#0b0d14'
-const BORDER = '#1a1d2e'
+const BORDER = '#202634'
 const TEXT = '#e8e9f0'
 const DIM = '#7a7f9a'
 const MUTED = '#3a3f55'
-const GREEN = '#1D9E75'
-const BLUE = '#378ADD'
+const GREEN = '#2fd39a'
+const BLUE = '#4f92ff'
 const MONO = "'DM Mono','Courier New',monospace"
 const DISPLAY = "'Bebas Neue',Impact,sans-serif"
 

@@ -46,7 +46,7 @@ function relTime(iso: string | null): string {
 }
 
 const REGIME_COLOR: Record<string, string> = {
-  BEAR: '#f87171', BULL: '#34d399', NEUTRAL: '#d4af37', UNKNOWN: '#7a7f9a',
+  BEAR: '#f87171', BULL: '#34d399', NEUTRAL: '#39e2e6', UNKNOWN: '#7a7f9a',
 }
 
 export default function EngineHeroPanel() {

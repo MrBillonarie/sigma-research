@@ -58,13 +58,13 @@ export default function ReportePage() {
   if (loading) {
     return (
       <div style={{
-        minHeight: '100vh', background: '#04050a',
+        minHeight: '100vh', background: '#080a0f',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 16,
       }}>
         <div style={{
           width: 40, height: 40, borderRadius: '50%',
-          border: '3px solid #1f2a45',
+          border: '3px solid #202634',
           borderTopColor: '#2fd39a',
           animation: 'spin 0.8s linear infinite',
         }} />
@@ -79,7 +79,7 @@ export default function ReportePage() {
   if (error) {
     return (
       <div style={{
-        minHeight: '100vh', background: '#04050a',
+        minHeight: '100vh', background: '#080a0f',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24,
       }}>
@@ -100,7 +100,7 @@ export default function ReportePage() {
 
   return (
     <div className="dash-content" style={{
-      minHeight: '100vh', background: '#04050a',
+      minHeight: '100vh', background: '#080a0f',
       paddingBottom: '64px', maxWidth: 900, margin: '0 auto', width: '100%',
     }}>
       {/* Breadcrumb */}
@@ -125,7 +125,7 @@ export default function ReportePage() {
       {/* Programación domingo */}
       <div style={{
         marginTop: 20, padding: '14px 18px',
-        background: '#0a0e1a', border: '1px solid #1f2a45',
+        background: '#080a0f', border: '1px solid #202634',
         borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <div style={{ fontSize: 20 }}>🕕</div>

@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 
-const G   = '#d4af37'
-const BG  = '#04050a'
-const B   = '#1a1d2e'
+const G   = '#39e2e6'
+const BG  = '#080a0f'
+const B   = '#202634'
 const DIM = '#5a6080'
 
 const STATS = [

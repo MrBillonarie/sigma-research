@@ -112,12 +112,12 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
   ).slice(0, 4)
 
   return (
-    <div style={{ background: '#0a0e1a', border: '1px solid #1f2a45', borderRadius: 10, overflow: 'hidden' }}>
+    <div style={{ background: '#080a0f', border: '1px solid #202634', borderRadius: 10, overflow: 'hidden' }}>
 
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 20px', background: '#04050a', borderBottom: '1px solid #1f2a45',
+        padding: '10px 20px', background: '#080a0f', borderBottom: '1px solid #202634',
       }}>
         <div>
           <span style={{ fontSize: 10, color: '#7a7f9a', fontFamily: MONO, letterSpacing: 1, textTransform: 'uppercase' }}>
@@ -142,14 +142,14 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
           {/* Grid vertical (años) */}
           {[1, 2, 3, 4, 5].map(yr => (
             <line key={yr} x1={xS(yr)} y1={PAD.t} x2={xS(yr)} y2={PAD.t + cH}
-              stroke="#1f2a45" strokeWidth={1} />
+              stroke="#202634" strokeWidth={1} />
           ))}
 
           {/* Grid horizontal + Y labels */}
           {yTicks.map((v, i) => (
             <g key={i}>
               <line x1={PAD.l} y1={yS(v)} x2={PAD.l + cW} y2={yS(v)}
-                stroke={v === capital ? '#3a3f55' : '#1f2a45'}
+                stroke={v === capital ? '#3a3f55' : '#202634'}
                 strokeWidth={v === capital ? 1.5 : 1}
                 strokeDasharray={v === capital ? '5 4' : undefined} />
               <text x={PAD.l - 6} y={yS(v)} textAnchor="end" dominantBaseline="middle"
@@ -200,11 +200,11 @@ function MonteCarloSection({ ret, vol, capital }: { ret: number; vol: number; ca
       </div>
 
       {/* Tabla de percentiles: P10 / P50 / P90 en años 1, 3, 5 */}
-      <div style={{ borderTop: '1px solid #1f2a45' }}>
+      <div style={{ borderTop: '1px solid #202634' }}>
         {/* Header */}
         <div style={{
           display: 'grid', gridTemplateColumns: '100px 1fr 1fr 1fr',
-          padding: '6px 20px', background: '#04050a',
+          padding: '6px 20px', background: '#080a0f',
         }}>
           <div style={{ fontSize: 9, color: '#3a3f55', fontFamily: MONO, textTransform: 'uppercase' }}>Percentil</div>
           {[1, 3, 5].map(yr => (
@@ -286,20 +286,20 @@ function ScoreGauge({ score }: { score: number }) {
 
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-      <path d={sector(0, 100)} fill="#1f2a45" />
+      <path d={sector(0, 100)} fill="#202634" />
       {ZONES.map(z => (
         <path key={z.from} d={sector(z.from + 0.8, z.to - 0.8)} fill={z.fill}
           opacity={animated >= z.from && animated < z.to ? 1 : 0.35} />
       ))}
       {[20, 40, 60, 80].map(t => (
         <line key={t} x1={px(a(t), Ri-1)} y1={py(a(t), Ri-1)}
-          x2={px(a(t), Ro+1)} y2={py(a(t), Ro+1)} stroke="#04050a" strokeWidth={2} />
+          x2={px(a(t), Ro+1)} y2={py(a(t), Ro+1)} stroke="#080a0f" strokeWidth={2} />
       ))}
       {[0, 25, 50, 75, 100].map(t => {
         const ang = a(t)
         return (
           <g key={t}>
-            <circle cx={px(ang, (Ro+Ri)/2)} cy={py(ang, (Ro+Ri)/2)} r={2.5} fill="#04050a" />
+            <circle cx={px(ang, (Ro+Ri)/2)} cy={py(ang, (Ro+Ri)/2)} r={2.5} fill="#080a0f" />
             <text x={px(ang, Ri-14)} y={py(ang, Ri-14)} textAnchor="middle" dominantBaseline="middle"
               fill="#3a3f55" style={{ fontSize: '9px', fontFamily: 'monospace' }}>{t}</text>
           </g>
@@ -308,7 +308,7 @@ function ScoreGauge({ score }: { score: number }) {
       <line x1={cx} y1={cy} x2={px(needleAngle, Ro-10)} y2={py(needleAngle, Ro-10)}
         stroke="#e8e9f0" strokeWidth={2.5} strokeLinecap="round" />
       <circle cx={cx} cy={cy} r={6} fill="#e8e9f0" />
-      <circle cx={cx} cy={cy} r={3} fill="#04050a" />
+      <circle cx={cx} cy={cy} r={3} fill="#080a0f" />
       <text x={cx} y={cy+22} textAnchor="middle" fill={scoreColor}
         style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: '28px', letterSpacing: '1px' }}>
         {Math.round(animated)}
@@ -327,8 +327,8 @@ function Card({
 }: { label: string; value: string; sub?: string; color: string; icon: string; gauge?: React.ReactNode; subColor?: string }) {
   return (
     <div style={{
-      flex: 1, minWidth: 160, background: '#0a0e1a',
-      border: '1px solid #1f2a45', borderTop: `2px solid ${color}30`,
+      flex: 1, minWidth: 160, background: '#080a0f',
+      border: '1px solid #202634', borderTop: `2px solid ${color}30`,
       borderRadius: 10, padding: '16px 20px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -407,7 +407,7 @@ export default function MetricCards({ metrics, flowScore, buyCount, sellCount, h
 
         {/* ── Ingreso Pasivo (dividendos) ──────────────────────────────── */}
         <div style={{
-          background: '#0a0e1a', border: '1px solid #1f2a45',
+          background: '#080a0f', border: '1px solid #202634',
           borderTop: `2px solid ${yieldColor}30`,
           borderRadius: 10, padding: '16px 20px',
         }}>
