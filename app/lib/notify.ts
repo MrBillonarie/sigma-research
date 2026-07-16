@@ -11,7 +11,7 @@ export interface NotifyInput {
 }
 
 export async function createNotification(n: NotifyInput) {
-  await supabase.from('notifications').insert({
+  const { error } = await supabase.from('notifications').insert({
     user_id:      n.userId,
     title:        n.title,
     body:         n.body,
@@ -21,4 +21,6 @@ export async function createNotification(n: NotifyInput) {
     accion_label: n.accionLabel ?? null,
     accion_href:  n.accionHref ?? null,
   })
+  // no romper el flujo del caller (fire-and-forget), pero no tragar el fallo
+  if (error) console.error('[createNotification] no se pudo crear la notificación:', error.message)
 }

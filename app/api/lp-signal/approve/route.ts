@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
       type:    'lp_signal',
       read:    false,
     }))
-    await supabase.from('notifications').insert(rows)
+    const { error: notifErr } = await supabase.from('notifications').insert(rows)
+    if (notifErr) console.error('[lp-signal/approve] no se pudo notificar a los suscriptores:', notifErr.message)
   }
 
   return NextResponse.json({ data })

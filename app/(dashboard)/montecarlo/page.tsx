@@ -382,7 +382,7 @@ export default function MonteCarloPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setSavedMsg('Inicia sesión para guardar.'); setSaving(false); return }
-      await supabase.from('montecarlo_runs').insert({
+      const { error: saveErr } = await supabase.from('montecarlo_runs').insert({
         user_id:       user.id,
         modo:          mode,
         capital:       simulatedParams.capital,
@@ -395,6 +395,7 @@ export default function MonteCarloPage() {
         p50_final:     stats.p50,
         prob_objetivo: liveProb,
       })
+      if (saveErr) throw saveErr
       setSavedMsg('Simulación guardada.')
     } catch {
       setSavedMsg('Error al guardar. Intenta nuevamente.')

@@ -883,7 +883,7 @@ export default function JournalPage() {
       const dates = csvParsed.map(t => new Date(t.timestamp).getTime()).filter(d => !isNaN(d))
       const dateFrom = dates.length ? new Date(Math.min(...dates)).toISOString() : new Date().toISOString()
       const dateTo   = dates.length ? new Date(Math.max(...dates)).toISOString() : new Date().toISOString()
-      await supabase.from('csv_imports').insert({
+      const { error: importErr } = await supabase.from('csv_imports').insert({
         user_id: user.id,
         filename: csvFile.name,
         total_trades: newTrades.length,
@@ -891,6 +891,8 @@ export default function JournalPage() {
         date_to: dateTo,
         imported_at: new Date().toISOString(),
       })
+      // los trades ya se guardaron arriba; el registro de import es secundario
+      if (importErr) console.error('[journal] no se guardó el registro de import:', importErr.message)
 
       const { data: fresh } = await supabase.from('csv_trades').select('*').eq('user_id', user.id).order('timestamp', { ascending: true })
       if (fresh) setCsvTrades(fresh as CsvTrade[])
