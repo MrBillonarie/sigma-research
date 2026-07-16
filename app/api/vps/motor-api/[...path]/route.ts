@@ -20,11 +20,16 @@ function isMutatingPath(path: string): boolean {
   return MUTATING_PATHS.some(m => p === m || p.startsWith(m))
 }
 
-// Endpoints del motor cuya respuesta lleva señales accionables (entrada/SL/TP
-// + sizing) dentro de arrays de modelos. Para no-PRO se filtran esos campos —
-// el HUD del motor degrada solo (guards `m.sl || '—'` y filtros por m.price).
-// trades/stats/regime NO están aquí: el paper trading es la vitrina free.
-const SIGNAL_PATHS = new Set(['signals', 'public'])
+// Vitrina free: endpoints del motor SIN datos operables que el plan free puede
+// ver crudos — exactamente los que consumen el dashboard embebido y el RightBar.
+// Todo lo que NO esté aquí ni sea `signals*`/`public` se RECHAZA para no-PRO
+// (allowlist fail-closed): champions/matrix/models/portfolio/v2/* llevan
+// entrada/SL/TP + sizing y para eso están las rutas dedicadas (/api/vps/*) que
+// sí saben filtrar su shape. Cierra el bypass de pedir el crudo por este proxy.
+const VITRINA = new Set([
+  'trades', 'stats', 'regime', 'm2_prices', 'trainer_status',
+  'notifications', 'hud_info', 'lsr', 'health',
+])
 
 function stripSignalPayload(payload: unknown): unknown {
   if (payload === null || typeof payload !== 'object') return payload
@@ -64,6 +69,35 @@ async function proxy(req: NextRequest, path: string) {
     )
   }
 
+  // ── Barrera de lectura por plan (allowlist, fail-closed) ──────────────────
+  // Un no-PRO solo lee la vitrina (crudo) y las señales (filtradas). Cualquier
+  // otro endpoint del motor se rechaza aquí. Admin/monitoreo/PRO pasan todo.
+  const cleanPath = path.replace(/^\/+/, '').replace(/\/+$/, '').toLowerCase()
+  const isSignals = cleanPath === 'signals' || cleanPath.startsWith('signals/') || cleanPath === 'public'
+  const isVitrina = VITRINA.has(cleanPath) || cleanPath.startsWith('trades/')
+  let stripForFree = false
+
+  if (req.method === 'GET' && !isVitrina) {
+    const engineOk = verifyEngineMonitorSession(cookies().get('sigma_engine_session')?.value)
+    const adminOk  = checkAdminAuth(req)
+    const privileged = engineOk || adminOk || (await getPlanInfo()).isPro
+    if (!privileged) {
+      if (!isSignals) {
+        return NextResponse.json(
+          { error: 'Contenido PRO. Accedé desde las vistas de tu plan.' }, { status: 403 }
+        )
+      }
+      // El stream SSE no se puede filtrar campo a campo → para no-PRO va vacío
+      // (el dashboard del motor degrada sin live feed, no rompe).
+      if (cleanPath === 'signals/stream') {
+        return new NextResponse(': gated\n\n', {
+          status: 200, headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' },
+        })
+      }
+      stripForFree = true
+    }
+  }
+
   // Forward query string
   const search = req.nextUrl.search ?? ''
   const url = `${VPS}/api/${path}${search}`
@@ -76,33 +110,24 @@ async function proxy(req: NextRequest, path: string) {
 
   // Forward body for POST/PUT/PATCH
   if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-    const ct = req.headers.get('content-type') ?? ''
-    init.headers = { 'Content-Type': ct }
+    const ct0 = req.headers.get('content-type') ?? ''
+    init.headers = { 'Content-Type': ct0 }
     init.body = await req.arrayBuffer()
   }
 
   const res = await fetch(url, init)
   const ct = res.headers.get('content-type') ?? 'application/json'
 
-  // Gating por plan: en los endpoints de señales, no-PRO recibe los modelos
-  // sin entrada/SL/TP ni sizing. Admin y sesión de monitoreo ven todo.
-  const cleanPath = path.replace(/^\/+/, '').toLowerCase()
-  if (req.method === 'GET' && SIGNAL_PATHS.has(cleanPath) && ct.includes('json')) {
-    const engineOk = verifyEngineMonitorSession(cookies().get('sigma_engine_session')?.value)
-    const adminOk  = checkAdminAuth(req)
-    if (!engineOk && !adminOk) {
-      const { isPro } = await getPlanInfo()
-      if (!isPro) {
-        try {
-          const data = await res.json()
-          return NextResponse.json(stripSignalPayload(data), {
-            status: res.status,
-            headers: { 'Cache-Control': 'no-store' },
-          })
-        } catch {
-          return NextResponse.json({ error: 'Respuesta del motor inválida.' }, { status: 502 })
-        }
-      }
+  // Señales para no-PRO: modelos sin entrada/SL/TP ni sizing.
+  if (stripForFree && ct.includes('json')) {
+    try {
+      const data = await res.json()
+      return NextResponse.json(stripSignalPayload(data), {
+        status: res.status,
+        headers: { 'Cache-Control': 'no-store' },
+      })
+    } catch {
+      return NextResponse.json({ error: 'Respuesta del motor inválida.' }, { status: 502 })
     }
   }
 
