@@ -1116,7 +1116,7 @@ export default function HUDPage() {
       return v > 0 ? [47, 211, 154, 0.22 + f * 0.66] : v < 0 ? [255, 93, 108, 0.22 + f * 0.66] : [90, 100, 120, 0.2]
     }
 
-    function compute(j: { history?: { closed_at?: string; pnl_pct?: number; pnl_dollar?: number; mode?: string }[]; open?: { sym?: string; tf?: string; direction?: string; strategy?: string; status?: string; mode?: string }[] }) {
+    function compute(j: { history?: { closed_at?: string; pnl_pct?: number; pnl_dollar?: number; mode?: string }[]; open?: { sym?: string; tf?: string; direction?: string; strategy?: string; status?: string; mode?: string }[]; portfolio?: { equity?: number; initial_capital?: number; equity_history?: { eq?: number; date?: string }[] } }) {
       // cuenta del motor = plata real (LIVE + MANUAL, ambos ejecutan en Binance
       // y los copytraders los replican). PAPER es simulacion/testing de slots
       // aun no promovidos a campeon y nunca debe contarse aca (misma regla que
@@ -1129,6 +1129,15 @@ export default function HUDPage() {
       const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       const MES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
       monthLabel = `${MES[M]} ${Y}`
+      // % real = $ del dia / capital al cierre del mes anterior (NO suma naive
+      // de pnl_pct por trade, que puede tener signo distinto al $ real cuando
+      // los trades tienen tamaños de posicion muy distintos entre si). Esto
+      // hace que el signo de "% este mes" siempre calce con "$ este mes".
+      const monthCut = `${Y}-${String(M + 1).padStart(2, '0')}-01`
+      const eqHist = Array.isArray(j.portfolio?.equity_history) ? j.portfolio!.equity_history! : []
+      const before = eqHist.filter(e => (e.date ?? '') < monthCut && typeof e.eq === 'number')
+      const basisEquity = before.length ? (before[before.length - 1].eq as number)
+        : (j.portfolio?.initial_capital ?? j.portfolio?.equity ?? 10000)
       // solo operaciones cerradas dentro del mes calendario en curso
       const map: Record<string, number> = {}
       monthUsd = 0
@@ -1137,7 +1146,7 @@ export default function HUDPage() {
         if (!cd) continue
         const dt = new Date(cd + 'T00:00:00')
         if (dt.getFullYear() !== Y || dt.getMonth() !== M) continue
-        map[cd] = (map[cd] ?? 0) + (t.pnl_pct ?? 0)
+        map[cd] = (map[cd] ?? 0) + (t.pnl_dollar ?? 0)
         monthUsd += t.pnl_dollar ?? 0
       }
       // rejilla de calendario real: huecos de alineación (lunes=0) + días 1..fin
@@ -1150,7 +1159,9 @@ export default function HUDPage() {
         const k = key(new Date(Y, M, d))
         const future = d > today
         if (d === today) todayIdx = days.length
-        days.push({ day: d, v: k in map ? map[k] : null, future, blank: false })
+        const dayUsd = k in map ? map[k] : null
+        const v = dayUsd == null ? null : (dayUsd / basisEquity) * 100
+        days.push({ day: d, v, future, blank: false })
       }
       const active = days.filter(d => !d.blank && !d.future)
       const vals = active.filter(d => d.v != null).map(d => d.v as number)
