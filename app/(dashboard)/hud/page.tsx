@@ -1033,8 +1033,10 @@ export default function HUDPage() {
     if (!root) return
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let raf = 0
-    type Day = { v: number | null }
+    type Day = { day: number; v: number | null; future: boolean; blank: boolean }
     let days: Day[] = []
+    let monthLabel = ''
+    let todayIdx = -1
     let cum: number[] = [0]
     let monthPct = 0, monthUsd = 0, peak = 0, valley = 0, nOper = 0, maxMag = 1
     let st = { sharpe: 0, streak: 0, wins: 0, losses: 0, best: 0, worst: 0 }
@@ -1063,29 +1065,40 @@ export default function HUDPage() {
     function compute(j: { history?: { closed_at?: string; pnl_pct?: number; pnl_dollar?: number }[]; open?: { sym?: string; tf?: string; direction?: string; strategy?: string; status?: string }[] }) {
       const hist = Array.isArray(j.history) ? j.history : []
       const now = new Date()
+      const Y = now.getFullYear(), M = now.getMonth(), today = now.getDate()
+      const daysInMonth = new Date(Y, M + 1, 0).getDate()
       const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      const startMs = now.getTime() - 29 * 864e5
+      const MES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
+      monthLabel = `${MES[M]} ${Y}`
+      // solo operaciones cerradas dentro del mes calendario en curso
       const map: Record<string, number> = {}
       monthUsd = 0
       for (const t of hist) {
         const cd = (t.closed_at ?? '').slice(0, 10)
         if (!cd) continue
         const dt = new Date(cd + 'T00:00:00')
-        if (dt.getTime() < startMs - 864e5) continue
+        if (dt.getFullYear() !== Y || dt.getMonth() !== M) continue
         map[cd] = (map[cd] ?? 0) + (t.pnl_pct ?? 0)
         monthUsd += t.pnl_dollar ?? 0
       }
+      // rejilla de calendario real: huecos de alineación (lunes=0) + días 1..fin
+      // de mes; los días que aún no llegan quedan como placeholder vacío
       days = []
-      for (let i = 0; i < 30; i++) {
-        const d = new Date(now.getTime() - (29 - i) * 864e5)
-        const k = key(d)
-        days.push({ v: k in map ? map[k] : null })
+      const firstDow = (new Date(Y, M, 1).getDay() + 6) % 7
+      for (let b = 0; b < firstDow; b++) days.push({ day: 0, v: null, future: false, blank: true })
+      todayIdx = -1
+      for (let d = 1; d <= daysInMonth; d++) {
+        const k = key(new Date(Y, M, d))
+        const future = d > today
+        if (d === today) todayIdx = days.length
+        days.push({ day: d, v: k in map ? map[k] : null, future, blank: false })
       }
-      const vals = days.filter(d => d.v != null).map(d => d.v as number)
+      const active = days.filter(d => !d.blank && !d.future)
+      const vals = active.filter(d => d.v != null).map(d => d.v as number)
       maxMag = Math.max(0.5, ...vals.map(v => Math.abs(v)))
-      // acumulado
+      // acumulado solo sobre los días ya transcurridos del mes
       cum = [0]; let run = 0
-      for (const d of days) { run += d.v ?? 0; cum.push(run) }
+      for (const d of active) { run += d.v ?? 0; cum.push(run) }
       monthPct = run; peak = Math.max(...cum); valley = Math.min(...cum); nOper = vals.length
       // rolling
       const n = vals.length, avg = n ? vals.reduce((s, v) => s + v, 0) / n : 0
@@ -1115,18 +1128,30 @@ export default function HUDPage() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = 196
       if (!w) return; if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr }
       x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h)
-      const cols = 6, gap = 6, cw = Math.min(28, (w - gap * (cols - 1)) / cols), y0 = 20
-      const dow = ['L', 'M', 'X', 'J', 'V', 'S']
-      x.textAlign = 'center'; x.font = '7px ui-monospace, monospace'; x.fillStyle = '#55607a'
-      for (let c = 0; c < cols; c++) x.fillText(dow[c], c * (cw + gap) + cw / 2, y0 - 6)
+      const cols = 7, gap = 6, cw = Math.min(26, (w - gap * (cols - 1)) / cols), y0 = 22
+      const dow = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+      x.textAlign = 'center'; x.font = '7px ui-monospace, monospace'
+      for (let c = 0; c < cols; c++) { x.fillStyle = c >= 5 ? '#454f66' : '#55607a'; x.fillText(dow[c], c * (cw + gap) + cw / 2, y0 - 7) }
       const bestV = st.best, worstV = st.worst
       for (let i = 0; i < days.length; i++) {
+        const d = days[i]; if (d.blank) continue
         const c = i % cols, r = Math.floor(i / cols), bx = c * (cw + gap), by = y0 + r * (cw + gap)
-        const v = days[i].v, t = tint(v)
+        if (d.future) {
+          // día que aún no llega: contorno punteado tenue + número apagado
+          x.strokeStyle = 'rgba(120,132,160,0.12)'; x.lineWidth = 1; x.setLineDash([2, 3]); rrect(x, bx, by, cw, cw, 5); x.stroke(); x.setLineDash([])
+          x.fillStyle = 'rgba(90,100,124,0.5)'; x.font = '7px ui-monospace, monospace'; x.textAlign = 'left'; x.fillText(String(d.day), bx + 3, by + 9)
+          continue
+        }
+        const v = d.v, t = tint(v)
         x.fillStyle = `rgba(${t[0]},${t[1]},${t[2]},${t[3]})`; rrect(x, bx, by, cw, cw, 5); x.fill()
         x.strokeStyle = 'rgba(255,255,255,0.10)'; x.lineWidth = 1; x.beginPath(); x.moveTo(bx + 4, by + 1.5); x.lineTo(bx + cw - 4, by + 1.5); x.stroke()
         x.strokeStyle = 'rgba(0,0,0,0.4)'; x.beginPath(); x.moveTo(bx + 4, by + cw - 1.5); x.lineTo(bx + cw - 4, by + cw - 1.5); x.stroke()
-        if (v != null && (v === bestV || v === worstV) && v !== 0) { x.strokeStyle = v > 0 ? '#2fd39a' : '#ff5d6c'; x.lineWidth = 1.4; rrect(x, bx - 2, by - 2, cw + 4, cw + 4, 6); x.stroke() }
+        // número del día (nítido si operó, apagado si no hubo operación)
+        x.fillStyle = v != null ? 'rgba(255,255,255,0.8)' : '#5a647c'; x.font = '7px ui-monospace, monospace'; x.textAlign = 'left'; x.fillText(String(d.day), bx + 3, by + 9)
+        // marco del día de hoy
+        if (i === todayIdx) { x.strokeStyle = 'rgba(94,234,240,0.85)'; x.lineWidth = 1.4; rrect(x, bx - 1.5, by - 1.5, cw + 3, cw + 3, 6); x.stroke() }
+        // aro de récord (mejor / peor día del mes)
+        if (v != null && (v === bestV || v === worstV) && v !== 0) { x.strokeStyle = v > 0 ? '#2fd39a' : '#ff5d6c'; x.lineWidth = 1.4; rrect(x, bx - 2.5, by - 2.5, cw + 5, cw + 5, 7); x.stroke() }
       }
     }
     function drawCum(cv: HTMLCanvasElement) {
@@ -1198,7 +1223,7 @@ export default function HUDPage() {
         holder = document.createElement('div')
         holder.className = 'sigma-snapshot'
         holder.innerHTML =
-          '<div class="ssn-head"><span><i></i>PERFORMANCE SNAPSHOT</span><span class="ssn-r">ÚLTIMOS 30 DÍAS</span></div>' +
+          '<div class="ssn-head"><span><i></i>PERFORMANCE SNAPSHOT</span><span class="ssn-r"></span></div>' +
           '<div class="ssn-grid">' +
             '<div class="ssn-col"><div class="ssn-lbl">P&L DIARIO · CALENDARIO</div><canvas class="ssn-cal"></canvas></div>' +
             '<div class="ssn-col ssn-mid"><div class="ssn-lbl">RESULTADO DEL MES · ACUMULADO</div>' +
@@ -1214,16 +1239,17 @@ export default function HUDPage() {
       }
       // texto (solo cuando cambia)
       const fmtP = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
-      const text = [monthPct, monthUsd, peak, valley, nOper, st.sharpe, st.streak, st.wins, st.losses, st.best, st.worst, expo.map(e => e.sym + e.n).join()].join('|')
+      const text = [monthLabel, monthPct, monthUsd, peak, valley, nOper, st.sharpe, st.streak, st.wins, st.losses, st.best, st.worst, expo.map(e => e.sym + e.n).join()].join('|')
       if (text === lastText) return
       lastText = text
       const set = (sel: string, v: string, color?: string) => { const el = holder!.querySelector(sel) as HTMLElement | null; if (el) { el.innerHTML = v; if (color) el.style.color = color } }
+      set('.ssn-r', monthLabel)
       set('.ssn-num', `${fmtP(monthPct)}<small>este mes</small>`, monthPct >= 0 ? '#2fd39a' : '#ff5d6c')
       set('.ssn-sub', `${monthUsd >= 0 ? '+' : ''}$${Math.round(monthUsd).toLocaleString('en-US')} · cuenta del motor`)
       set('.ssn-peak', fmtP(peak), '#2fd39a'); set('.ssn-valley', fmtP(valley), valley < 0 ? '#ff5d6c' : '#8b97ad'); set('.ssn-nop', String(nOper))
       const wr = st.wins + st.losses
       const chips = [
-        `SHARPE 30D <b style="color:${st.sharpe >= 0 ? '#2fd39a' : '#ff5d6c'}">${st.sharpe.toFixed(2)}</b>`,
+        `SHARPE MES <b style="color:${st.sharpe >= 0 ? '#2fd39a' : '#ff5d6c'}">${st.sharpe.toFixed(2)}</b>`,
         `STREAK <b>${st.streak}d</b>`,
         `DÍAS GANADORES <b style="color:#2fd39a">${st.wins}</b>/<b style="color:#ff5d6c">${wr}</b>`,
         `MEJOR DÍA <b style="color:#2fd39a">${fmtP(st.best)}</b>`,
