@@ -1116,8 +1116,13 @@ export default function HUDPage() {
       return v > 0 ? [47, 211, 154, 0.22 + f * 0.66] : v < 0 ? [255, 93, 108, 0.22 + f * 0.66] : [90, 100, 120, 0.2]
     }
 
-    function compute(j: { history?: { closed_at?: string; pnl_pct?: number; pnl_dollar?: number }[]; open?: { sym?: string; tf?: string; direction?: string; strategy?: string; status?: string }[] }) {
-      const hist = Array.isArray(j.history) ? j.history : []
+    function compute(j: { history?: { closed_at?: string; pnl_pct?: number; pnl_dollar?: number; mode?: string }[]; open?: { sym?: string; tf?: string; direction?: string; strategy?: string; status?: string; mode?: string }[] }) {
+      // cuenta del motor = plata real (LIVE + MANUAL, ambos ejecutan en Binance
+      // y los copytraders los replican). PAPER es simulacion/testing de slots
+      // aun no promovidos a campeon y nunca debe contarse aca (misma regla que
+      // el bloque MOTOR de home/page.tsx).
+      const isReal = (m?: string) => m === 'LIVE' || m === 'MANUAL'
+      const hist = (Array.isArray(j.history) ? j.history : []).filter(t => isReal(t.mode))
       const now = new Date()
       const Y = now.getFullYear(), M = now.getMonth(), today = now.getDate()
       const daysInMonth = new Date(Y, M + 1, 0).getDate()
@@ -1165,7 +1170,8 @@ export default function HUDPage() {
         best: vals.length ? Math.max(...vals) : 0, worst: vals.length ? Math.min(...vals) : 0,
       }
       // exposición: dedup igual que la tabla de posiciones, agrupada por símbolo
-      const open = Array.isArray(j.open) ? j.open : []
+      // (solo posiciones reales — PAPER/shadow no cuentan como exposición real)
+      const open = (Array.isArray(j.open) ? j.open : []).filter(p => isReal(p.mode))
       const seen = new Set<string>(); const byS: Record<string, number> = {}
       for (const p of open) {
         const k = `${p.sym}|${p.tf}|${p.direction}|${p.strategy}`
