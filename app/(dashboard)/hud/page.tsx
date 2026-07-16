@@ -21,6 +21,51 @@ function gatePineAnchors(root: HTMLElement | null, isPro: boolean | null) {
   })
 }
 
+// ── Store compartido de /api/vps/trades (PERF-3) ─────────────────────────────
+// El HUD tenía 3 efectos (snapshot, equity, exposición) pidiendo /api/vps/trades
+// por su cuenta: 3 requests al montar + 3 polls en paralelo para siempre. Este
+// store lo colapsa en UNA descarga compartida (dedup del request en vuelo) y un
+// único poll; cada efecto se suscribe y recibe el mismo JSON. Se apaga solo
+// cuando no quedan suscriptores.
+type TradesJson = Record<string, unknown>
+let _trCache: { data: TradesJson; ts: number } | null = null
+let _trInflight: Promise<TradesJson | null> | null = null
+let _trTimer: ReturnType<typeof setInterval> | null = null
+const _trSubs = new Set<(j: TradesJson) => void>()
+const TRADES_POLL_MS = 30_000
+const TRADES_FRESH_MS = 20_000
+
+async function _trFetch(): Promise<TradesJson | null> {
+  if (_trInflight) return _trInflight
+  _trInflight = (async () => {
+    try {
+      const r = await fetch('/api/vps/trades', { cache: 'no-store' })
+      if (!r.ok) return null
+      const j = (await r.json()) as TradesJson
+      _trCache = { data: j, ts: Date.now() }
+      return j
+    } catch { return null } finally { _trInflight = null }
+  })()
+  return _trInflight
+}
+
+function subscribeTrades(cb: (j: TradesJson) => void): () => void {
+  _trSubs.add(cb)
+  // entrega inmediata desde cache fresca; si no, dispara un fetch (deduplicado)
+  if (_trCache && Date.now() - _trCache.ts < TRADES_FRESH_MS) cb(_trCache.data)
+  else _trFetch().then(j => { if (j && _trSubs.has(cb)) cb(j) })
+  if (!_trTimer) {
+    _trTimer = setInterval(() => {
+      if (_trSubs.size === 0) return
+      _trFetch().then(j => { if (j) _trSubs.forEach(fn => fn(j)) })
+    }, TRADES_POLL_MS)
+  }
+  return () => {
+    _trSubs.delete(cb)
+    if (_trSubs.size === 0 && _trTimer) { clearInterval(_trTimer); _trTimer = null }
+  }
+}
+
 // ── Decision de arquitectura (2026-07-03) ───────────────────────────────────
 // Esta pagina scrapea el HTML del motor (DOMParser + innerHTML) en vez de
 // pedirle datos JSON y dibujar componentes React propios. Es fragil en
@@ -1282,24 +1327,15 @@ export default function HUDPage() {
     }
     window.addEventListener('resize', redrawStatic)
 
-    async function load() {
-      try {
-        const r = await fetch('/api/vps/trades', { cache: 'no-store' })
-        if (!r.ok) return
-        compute(await r.json())
-        apply()
-      } catch {}
-    }
-
     const obs = new MutationObserver(() => apply())
     obs.observe(root, { childList: true, subtree: true })
     const poll = setInterval(() => { apply(); if (root.querySelector('.sigma-snapshot')) clearInterval(poll) }, 500)
     setTimeout(() => clearInterval(poll), 20000)
-    load()
-    const id = setInterval(load, 60_000)
+    // datos vía store compartido (PERF-3): una sola descarga + poll para los 3 efectos
+    const unsub = subscribeTrades(j => { compute(j as Parameters<typeof compute>[0]); apply() })
     raf = requestAnimationFrame(loop)
     return () => {
-      obs.disconnect(); clearInterval(poll); clearInterval(id); cancelAnimationFrame(raf)
+      obs.disconnect(); clearInterval(poll); unsub(); cancelAnimationFrame(raf)
       window.removeEventListener('resize', redrawStatic)
       root.querySelector('.sigma-snapshot')?.remove()
       root.querySelector('.card-purple.sigma-snap-hidden')?.classList.remove('sigma-snap-hidden')
@@ -1560,28 +1596,28 @@ export default function HUDPage() {
       buildChart(wrap, initial, floatPct)
     }
 
-    async function loadStats() {
-      try {
-        const r = await fetch('/api/vps/trades', { cache: 'no-store' })
-        if (!r.ok) return
-        const j = await r.json()
-        stats = {
-          total:         j?.stats?.total,
-          win_rate:      j?.stats?.win_rate,
-          profit_factor: j?.stats?.profit_factor,
-          open:          Array.isArray(j?.open) ? j.open.length : undefined,
-        }
-        const rows: { closed_at?: string; pnl_dollar?: number; sym?: string; direction?: string; tf?: string; strategy?: string; grade?: string; reason?: string; status?: string }[] = Array.isArray(j?.history) ? j.history : []
-        hist = rows
-          .slice()
-          .sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
-          .map(t => ({
-            pnl: t.pnl_dollar ?? 0, sym: (t.sym ?? '').toUpperCase(), date: t.closed_at ?? '',
-            dir: t.direction ?? '', tf: t.tf && t.tf !== '?' ? t.tf : '', strategy: t.strategy ?? '',
-            grade: t.grade ?? '', reason: t.reason ?? t.status ?? '',
-          }))
-        apply()
-      } catch {}
+    function processStats(j: TradesJson) {
+      const d = j as {
+        stats?: { total?: number; win_rate?: number; profit_factor?: number }
+        open?: unknown[]
+        history?: { closed_at?: string; pnl_dollar?: number; sym?: string; direction?: string; tf?: string; strategy?: string; grade?: string; reason?: string; status?: string }[]
+      }
+      stats = {
+        total:         d.stats?.total,
+        win_rate:      d.stats?.win_rate,
+        profit_factor: d.stats?.profit_factor,
+        open:          Array.isArray(d.open) ? d.open.length : undefined,
+      }
+      const rows = Array.isArray(d.history) ? d.history : []
+      hist = rows
+        .slice()
+        .sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
+        .map(t => ({
+          pnl: t.pnl_dollar ?? 0, sym: (t.sym ?? '').toUpperCase(), date: t.closed_at ?? '',
+          dir: t.direction ?? '', tf: t.tf && t.tf !== '?' ? t.tf : '', strategy: t.strategy ?? '',
+          grade: t.grade ?? '', reason: t.reason ?? t.status ?? '',
+        }))
+      apply()
     }
 
     const obs = new MutationObserver(() => {
@@ -1598,12 +1634,11 @@ export default function HUDPage() {
     root.addEventListener('pointerover', onOver)
     root.addEventListener('pointerout', onOut)
 
-    loadStats()
-    const id = setInterval(loadStats, 60_000)
+    const unsub = subscribeTrades(processStats)
     const poll = setInterval(() => { apply(); if (root.querySelector('.sigma-eq-hud')) clearInterval(poll) }, 500)
     setTimeout(() => clearInterval(poll), 20000)
     return () => {
-      obs.disconnect(); window.removeEventListener('resize', onResize); clearInterval(id); clearInterval(poll)
+      obs.disconnect(); window.removeEventListener('resize', onResize); unsub(); clearInterval(poll)
       if (raf) cancelAnimationFrame(raf)
       root.removeEventListener('pointerover', onOver); root.removeEventListener('pointerout', onOut)
       tt?.remove()
@@ -1654,23 +1689,18 @@ export default function HUDPage() {
       holder.setAttribute('data-sigma-expo', String(positions.length))
     }
 
-    async function fetchOpen() {
-      try {
-        const res = await fetch('/api/vps/trades', { cache: 'no-store' })
-        if (!res.ok) return
-        const j = await res.json()
-        const arr = (Array.isArray(j.open) ? j.open : []) as Pos[]
-        const seen = new Set<string>()
-        positions = arr.filter(p => { const k = keyOf(p); if (seen.has(k)) return false; seen.add(k); return true })
-        apply()
-      } catch { /* si falla, se deja el donut del motor */ }
+    function processOpen(j: TradesJson) {
+      const openArr = (j as { open?: unknown }).open
+      const arr = (Array.isArray(openArr) ? openArr : []) as Pos[]
+      const seen = new Set<string>()
+      positions = arr.filter(p => { const k = keyOf(p); if (seen.has(k)) return false; seen.add(k); return true })
+      apply()
     }
 
-    fetchOpen()
-    const dataInt = setInterval(fetchOpen, 30_000)
+    const unsub = subscribeTrades(processOpen)
     const obs = new MutationObserver(() => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; apply() }) })
     obs.observe(root, { childList: true, subtree: true })
-    return () => { clearInterval(dataInt); obs.disconnect(); if (raf) cancelAnimationFrame(raf) }
+    return () => { unsub(); obs.disconnect(); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
   return (
