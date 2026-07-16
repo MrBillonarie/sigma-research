@@ -310,7 +310,7 @@ export default function FireChart({ acum, target, fireYear, capital }: Props) {
 
   return (
     <div style={{ height: 340, padding: '10px 8px 4px', background: C.bg }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }} />
+      <canvas ref={canvasRef} role="img" aria-label="Proyección de patrimonio hacia la independencia financiera (FIRE)" style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }} />
     </div>
   )
 }

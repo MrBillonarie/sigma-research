@@ -1179,7 +1179,7 @@ export default function PortfolioPage() {
                   {/* Donut chart + legend */}
                   <div>
                     <div style={{ position: 'relative', width: '100%', height: 200, marginBottom: 16 }}>
-                      <canvas ref={donutRef} />
+                      <canvas ref={donutRef} role="img" aria-label="Distribución del portafolio por activo" />
                       {/* Centro del donut — perfil activo */}
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', gap: 2 }}>
                         <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.3em', color: C.muted }}>PERFIL</span>

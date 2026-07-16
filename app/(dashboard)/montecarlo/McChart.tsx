@@ -264,7 +264,7 @@ export default function McChart({ result, capital, target, years, nSims }: Props
 
   return (
     <div style={{ height: 440, padding: '14px 14px 4px', background: BG }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: 'calc(100% - 22px)', display: 'block', cursor: 'crosshair' }} />
+      <canvas ref={canvasRef} role="img" aria-label="Proyección Monte Carlo: percentiles del patrimonio simulado en el tiempo" style={{ width: '100%', height: 'calc(100% - 22px)', display: 'block', cursor: 'crosshair' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 4 }}>
         <span style={{ fontFamily: 'monospace', fontSize: 10, color: MUTED }}>
           <span style={{ color: 'rgba(52,211,153,0.8)' }}>—</span> alcanza la meta&nbsp;&nbsp;

@@ -24,7 +24,7 @@
   /* ── Text ──────────────────────────────────────────────────────── */
   --text:        #eef1f7;
   --text-dim:    #9aa4b6;
-  --text-muted:  #5f6a7d;
+  --text-muted:  #7b8698;  /* UX-10: era #5f6a7d (bajo AA para texto pequeño) */
 
   /* ── Semantic (ajustado a fondo oscuro) ────────────────────────── */
   --green:       #2fd39a;

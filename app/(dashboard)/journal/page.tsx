@@ -685,7 +685,7 @@ function EquityCanvas({ curve, ddIdx, ddPct }: {
 
   return (
     <div style={{ height: 280 }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }} />
+      <canvas ref={canvasRef} role="img" aria-label="Curva de equity acumulada de los trades del journal" style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }} />
     </div>
   )
 }

@@ -207,7 +207,7 @@ export default function FlowIndicator({ signals, flowScore }: Props) {
 
       {/* Mapa de flujo — el capital rotando entre mercados, en vivo */}
       <div style={{ flex: 1, minHeight: Math.max(190, signals.length * 52) }}>
-        <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+        <canvas ref={canvasRef} role="img" aria-label="Indicador de flujo de capital entre clases de activos del motor" style={{ width: '100%', height: '100%', display: 'block' }} />
       </div>
 
       <p style={{ margin: '10px 0 0', fontSize: 10, color: MUTED, fontFamily: 'monospace', lineHeight: 1.5 }}>

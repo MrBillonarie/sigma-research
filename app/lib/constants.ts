@@ -20,7 +20,7 @@ export const C = {
   text:     '#e8e9f0',
   textDim:  '#7a7f9a',   // era dimText — renombrado para consistencia
   dimText:  '#7a7f9a',   // alias legacy
-  muted:    '#3a3f55',
+  muted:    '#7b8698',   // UX-10: era #3a3f55 (fallaba AA en texto de 9-10px)
 
   // Semánticos
   green:    '#2fd39a',   // alineado con globals.css --green
