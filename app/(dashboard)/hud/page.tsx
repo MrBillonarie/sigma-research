@@ -727,7 +727,12 @@ export default function HUDPage() {
 
     function loop() {
       const cv = root!.querySelector('.sigma-mono-cv') as HTMLCanvasElement | null
-      if (cv && cv.isConnected) { draw(cv); if (!reduced) t++ }
+      // solo anima si la pestaña está visible y el canvas en viewport (el
+      // navegador NO pausa el rAF por scroll → evita quemar CPU fuera de vista)
+      if (cv && cv.isConnected && !document.hidden) {
+        const r = cv.getBoundingClientRect()
+        if (r.bottom > 0 && r.top < window.innerHeight) { draw(cv); if (!reduced) t++ }
+      }
       raf = requestAnimationFrame(loop)
     }
 
@@ -989,7 +994,11 @@ export default function HUDPage() {
 
     function loop() {
       const cv = root!.querySelector('.sigma-qwave-cv') as HTMLCanvasElement | null
-      if (cv && cv.isConnected) { draw(cv); if (!reduced) t++ }
+      // pausa fuera de viewport / pestaña oculta (ver nota en el monolito)
+      if (cv && cv.isConnected && !document.hidden) {
+        const r = cv.getBoundingClientRect()
+        if (r.bottom > 0 && r.top < window.innerHeight) { draw(cv); if (!reduced) t++ }
+      }
       raf = requestAnimationFrame(loop)
     }
 
@@ -1204,12 +1213,14 @@ export default function HUDPage() {
 
     function loop() {
       const holder = root!.querySelector('.sigma-snapshot')
-      if (holder) {
+      if (holder && !document.hidden) {
         // Solo el plasma anima; calendario y curva son estáticos entre fetches
         // (se dibujan en apply(), no aquí) — evita repintar 2 canvas a 60fps.
         const pl = holder.querySelector('.ssn-plasma') as HTMLCanvasElement | null
-        if (pl) drawPlasma(pl)
-        if (!reduced) tp++
+        if (pl) {
+          const r = pl.getBoundingClientRect()
+          if (r.bottom > 0 && r.top < window.innerHeight) { drawPlasma(pl); if (!reduced) tp++ }
+        }
       }
       raf = requestAnimationFrame(loop)
     }
