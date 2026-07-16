@@ -1311,7 +1311,10 @@ export default function HUDPage() {
         panel.classList.add('sigma-snap-hidden')
       }
       // texto (solo cuando cambia)
-      const fmtP = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+      // 2 decimales: al calcular % real ($ / equity base, ver compute()) los
+      // movimientos de un mes con pocos trades LIVE/MANUAL quedan bajo 0.1%
+      // y con 1 decimal siempre redondeaban a "+0.0%" (parecia bug, no lo era)
+      const fmtP = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
       const text = [monthLabel, monthPct, monthUsd, peak, valley, nOper, st.sharpe, st.streak, st.wins, st.losses, st.best, st.worst, expo.map(e => e.sym + e.n).join()].join('|')
       if (text === lastText) return
       lastText = text
