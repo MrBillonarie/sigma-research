@@ -132,9 +132,14 @@ function Label({ text }: { text: string }) {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
+  // Barra de acento cian a la izquierda — unifica todos los títulos con el
+  // lenguaje "terminal" (mismo filo que las cards del board/HUD).
   return (
-    <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 26, color: C.text, letterSpacing: '0.05em', marginBottom: 14 }}>
-      {children}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <span aria-hidden style={{ width: 3, height: 22, borderRadius: 2, flexShrink: 0, background: `linear-gradient(180deg, ${C.glow}, ${C.blue})`, boxShadow: `0 0 10px ${C.gold}66` }} />
+      <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 26, color: C.text, letterSpacing: '0.05em' }}>
+        {children}
+      </span>
     </div>
   )
 }
@@ -882,9 +887,15 @@ export default function PortfolioPage() {
                 { label: 'Ingreso Pasivo / mes', value: <CountText target={D.passiveMonthly} format={fmtUSD} />, color: C.green },
                 { label: 'Yield Efectivo',       value: <CountText target={D.yieldRatio} format={pct} />,        color: C.green },
               ].map(({ label, value, color }) => (
-                <div key={label} style={{ ...cardStyle, background: C.surface, padding: '20px 22px' }}>
-                  <Label text={label} />
-                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color, lineHeight: 1, textShadow: numberEmboss }}>{value}</div>
+                <div key={label} style={{ ...cardStyle, background: C.surface, overflow: 'hidden', position: 'relative' }}>
+                  <div style={FILO} />
+                  <div style={{ padding: '18px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: color, boxShadow: `0 0 8px ${color}66`, flexShrink: 0 }} />
+                      <Label text={label} />
+                    </div>
+                    <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, color, lineHeight: 1, textShadow: numberEmboss, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1055,12 +1066,15 @@ export default function PortfolioPage() {
                   { label: 'Liquidez inmediata', v: D.cashPct, sub: `Cash: ${fmtUSD(D.cashUSD)}`,
                     level: D.cashPct < 5 ? { l: 'CRÍTICA', c: C.red } : D.cashPct < 10 ? { l: 'BAJA', c: C.yellow } : { l: 'OK', c: C.green } },
                 ].map(({ label, v, sub, level }) => (
-                  <div key={label} style={{ ...cardStyle, background: C.surface, padding: '20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <RiskGauge value={v} color={level.c} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <Label text={label} />
-                      <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', color: level.c, background: level.c + '18', padding: '2px 8px', display: 'inline-block', marginBottom: 6 }}>{level.l}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{sub}</div>
+                  <div key={label} style={{ ...cardStyle, background: C.surface, overflow: 'hidden', position: 'relative' }}>
+                    <div style={FILO} />
+                    <div style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                      <RiskGauge value={v} color={level.c} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Label text={label} />
+                        <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', color: level.c, background: level.c + '18', padding: '2px 8px', display: 'inline-block', marginBottom: 6 }}>{level.l}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>{sub}</div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1074,9 +1088,11 @@ export default function PortfolioPage() {
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>PROGRESO FIRE</SectionTitle>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div style={{ ...cardStyle, background: C.surface, padding: '24px 22px' }}>
+                <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden', position: 'relative' }}>
+                  <div style={FILO} />
+                  <div style={{ padding: '24px 22px' }}>
                   <Label text={`Meta FIRE — $${D.FIRE_GOAL_MONTHLY.toLocaleString('es-CL')}/mes · Regla 4%`} />
-                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.firePct >= 100 ? C.green : C.gold, lineHeight: 1, marginBottom: 8 }}>
+                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.firePct >= 100 ? C.green : C.gold, lineHeight: 1, marginBottom: 8, fontVariantNumeric: 'tabular-nums' }}>
                     {pct(fireAnim)}
                   </div>
                   <div style={{ height: 6, background: C.border, borderRadius: 3, marginBottom: 14 }}>
@@ -1090,10 +1106,13 @@ export default function PortfolioPage() {
                     <span>Actual: <span style={{ color: C.text }}>{fmtUSD(D.totalUSD)}</span></span>
                     <span>Meta: <span style={{ color: C.gold }}>{fmtUSD(D.fireTarget)}</span></span>
                   </div>
+                  </div>
                 </div>
-                <div style={{ ...cardStyle, background: C.bg, padding: '24px 22px' }}>
+                <div style={{ ...cardStyle, background: C.bg, overflow: 'hidden', position: 'relative' }}>
+                  <div style={FILO} />
+                  <div style={{ padding: '24px 22px' }}>
                   <Label text="Años estimados para FIRE (8% retorno anual)" />
-                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.fireYears === 0 ? C.green : C.text, lineHeight: 1, marginBottom: 12 }}>
+                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.fireYears === 0 ? C.green : C.text, lineHeight: 1, marginBottom: 12, fontVariantNumeric: 'tabular-nums' }}>
                     {D.fireYears === 0 ? '¡YA!' : D.fireYears !== null ? `${D.fireYears} años` : '50+ años'}
                   </div>
                   <div style={{ marginBottom: 10 }}>
@@ -1106,6 +1125,7 @@ export default function PortfolioPage() {
                   </div>
                   <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.7 }}>
                     Falta: <span style={{ color: C.gold }}>{fmtUSD(Math.max(0, D.fireTarget - D.totalUSD))}</span> para alcanzar la meta
+                  </div>
                   </div>
                 </div>
               </div>
@@ -1122,7 +1142,8 @@ export default function PortfolioPage() {
 
             {quizResult === null ? (
               /* ── Quiz form ── */
-              <div style={{ ...cardStyle, background: C.surface, padding: '28px 24px' }}>
+              <div style={{ ...cardStyle, background: C.surface, padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ ...FILO, position: 'absolute', top: 0, left: 0, right: 0 }} />
                 <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, marginBottom: 28, lineHeight: 1.8 }}>
                   Responde 3 preguntas para recibir una recomendación de allocation personalizada según tu perfil de riesgo.
                 </div>
