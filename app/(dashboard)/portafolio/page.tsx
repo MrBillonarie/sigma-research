@@ -193,71 +193,6 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   )
 }
 
-// ─── Sombras de color para los lingotes 3D ────────────────────────────────────
-function shade(hex: string, f: number): string {
-  const r = Math.min(255, Math.round(parseInt(hex.slice(1, 3), 16) * f))
-  const g = Math.min(255, Math.round(parseInt(hex.slice(3, 5), 16) * f))
-  const b = Math.min(255, Math.round(parseInt(hex.slice(5, 7), 16) * f))
-  return `rgb(${r},${g},${b})`
-}
-
-// ─── Bóveda 3D — cada plataforma es un lingote cuyo ancho es su % ─────────────
-function VaultShelf({ segments }: { segments: { name: string; color: string; usd: number; pct: number; monthlyIncome: number }[] }) {
-  const ref = useRef<HTMLDivElement>(null)
-  function onMove(e: React.MouseEvent) {
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const el = ref.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    el.style.setProperty('--px', ((e.clientX - r.left) / r.width - 0.5).toFixed(3))
-    el.style.setProperty('--py', ((e.clientY - r.top) / r.height - 0.5).toFixed(3))
-  }
-  function onLeave() {
-    const el = ref.current
-    if (!el) return
-    el.style.setProperty('--px', '0')
-    el.style.setProperty('--py', '0')
-  }
-  const visible = segments.filter(s => s.usd > 0 && s.pct > 0)
-  return (
-    <div className="pf-vault-wrap" style={{ perspective: 900, marginBottom: 26 }}>
-      <div ref={ref} className="pf-vault" onMouseMove={onMove} onMouseLeave={onLeave}>
-        <div className="pf-shelf">
-          {visible.map((seg, i) => {
-            const h = Math.round(54 + Math.min(seg.pct, 60) * 0.95)
-            return (
-              <div
-                key={seg.name}
-                className="pf-ingot3d"
-                title={`${seg.name}: ${fmtUSD(seg.usd)} · ${pct(seg.pct)}${seg.monthlyIncome > 0 ? ` · ${fmtUSD(seg.monthlyIncome)}/mes` : ''}`}
-                style={{
-                  flexGrow: seg.pct, flexBasis: 0, minWidth: 46, height: h,
-                  animationDelay: `${120 + i * 100}ms`,
-                  filter: `drop-shadow(0 16px 22px ${seg.color}38)`,
-                }}
-              >
-                {/* Cara superior — recibe la luz */}
-                <span className="pf-i-top" aria-hidden style={{ background: `linear-gradient(90deg, ${shade(seg.color, 1.5)}, ${shade(seg.color, 1.12)})` }} />
-                {/* Cara lateral — en sombra */}
-                <span className="pf-i-side" aria-hidden style={{ background: `linear-gradient(180deg, ${shade(seg.color, 0.55)}, ${shade(seg.color, 0.34)})` }} />
-                {/* Cara frontal — metal cepillado */}
-                <span className="pf-i-front" style={{ background: `linear-gradient(180deg, ${shade(seg.color, 1.28)} 0%, ${seg.color} 45%, ${shade(seg.color, 0.6)} 100%)` }}>
-                  <span className="pf-ingot-shine" aria-hidden />
-                  {seg.pct >= 7 && <span className="pf-i-pct">{pct(seg.pct)}</span>}
-                  {seg.pct >= 16 && <span className="pf-i-name">{seg.name}</span>}
-                  {seg.pct >= 26 && <span className="pf-i-val">{fmtUSD(seg.usd)}</span>}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-        <div className="pf-shelf-line" aria-hidden />
-        <div className="pf-shelf-glow" aria-hidden />
-      </div>
-    </div>
-  )
-}
-
 // ─── Gauge circular de riesgo — la aguja barre desde 0 al entrar ──────────────
 function RiskGauge({ value, color, size = 84 }: { value: number; color: string; size?: number }) {
   const av = useCountUp(value, 1300)
@@ -279,20 +214,6 @@ function RiskGauge({ value, color, size = 84 }: { value: number; color: string; 
         <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: size * 0.24, color, lineHeight: 1, textShadow: numberEmboss }}>
           {Math.round(clamped)}%
         </span>
-      </div>
-    </div>
-  )
-}
-
-// ─── Tarjeta con profundidad apilada — mismo truco del hero de /home, acá
-// aplicado a cada plataforma para que se sientan objetos reales que posees. ──
-function StackCard({ accent, children }: { accent: string; children: React.ReactNode }) {
-  return (
-    <div style={{ position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, transform: 'translate(5px,6px)', background: `${accent}06`, border: `1px solid ${accent}12`, borderRadius: C.radiusMd, zIndex: -2 }} />
-      <div style={{ position: 'absolute', inset: 0, transform: 'translate(2.5px,3px)', background: `${accent}09`, border: `1px solid ${accent}1a`, borderRadius: C.radiusMd, zIndex: -1 }} />
-      <div style={{ ...cardStyle, background: C.surface, borderLeft: `3px solid ${accent}`, position: 'relative' }}>
-        {children}
       </div>
     </div>
   )
@@ -810,49 +731,6 @@ export default function PortfolioPage() {
           .port-core-side { grid-template-columns: 1fr; }
         }
 
-        /* ── Bóveda 3D — lingotes isométricos sobre repisa de vidrio ── */
-        .pf-vault-wrap { position: relative; }
-        .pf-vault-wrap::before { content: ''; position: absolute; inset: -36px -16px -12px; pointer-events: none;
-          background: radial-gradient(60% 85% at 50% 18%, rgba(57,226,230,0.07), transparent 70%); }
-        .pf-vault { --px:0; --py:0; padding: 38px 22px 0 8px;
-          transform: rotateX(calc(4deg + var(--py) * -6deg)) rotateY(calc(var(--px) * 8deg));
-          transition: transform .45s ease; will-change: transform; }
-        .pf-shelf { display: flex; align-items: flex-end; gap: 11px;
-          -webkit-box-reflect: below 7px linear-gradient(rgba(0,0,0,0.22), transparent 44%); }
-        .pf-ingot3d { --d: 13px; position: relative; cursor: default;
-          transform-origin: bottom;
-          animation: pfRise .7s cubic-bezier(.22,1.1,.36,1) backwards;
-          transition: transform .25s ease; }
-        .pf-ingot3d:hover { transform: translateY(-9px); z-index: 2; }
-        @keyframes pfRise { from { transform: scaleY(0); opacity: 0; } }
-        .pf-i-front { position: absolute; inset: 0; border-radius: 2px; overflow: hidden;
-          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-        .pf-i-front::after { content: ''; position: absolute; inset: 0; pointer-events: none;
-          background: repeating-linear-gradient(115deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 5px); }
-        .pf-i-top { position: absolute; left: 0; top: calc(var(--d) * -1); width: 100%; height: var(--d);
-          transform: translateX(var(--d)) skewX(-45deg); transform-origin: top left; }
-        .pf-i-side { position: absolute; top: 0; right: calc(var(--d) * -1); width: var(--d); height: 100%;
-          transform: skewY(-45deg); transform-origin: top left; }
-        .pf-i-pct { font-family: monospace; font-size: 11px; font-weight: 700; color: #04050a;
-          letter-spacing: .04em; position: relative; z-index: 1; text-shadow: 0 1px 0 rgba(255,255,255,0.22); }
-        .pf-i-name { font-family: monospace; font-size: 8px; color: rgba(4,5,10,0.78); letter-spacing: .08em;
-          text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-          max-width: 90%; position: relative; z-index: 1; }
-        .pf-i-val { font-family: monospace; font-size: 9px; font-weight: 700; color: rgba(4,5,10,0.9);
-          letter-spacing: .04em; position: relative; z-index: 1; }
-        .pf-ingot-shine { position: absolute; inset: 0; pointer-events: none; z-index: 1;
-          background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.25) 46%, transparent 62%);
-          background-size: 250% 100%; background-position: 120% 0; }
-        .pf-ingot3d:hover .pf-ingot-shine { animation: pfShine .7s ease forwards; }
-        @keyframes pfShine { to { background-position: -30% 0; } }
-        .pf-shelf-line { height: 3px; margin-top: 2px; border-radius: 3px;
-          background: linear-gradient(90deg, transparent, ${C.gold}55 10%, ${C.gold}99 50%, ${C.gold}55 90%, transparent);
-          box-shadow: 0 0 16px rgba(57,226,230,0.3); }
-        .pf-shelf-glow { height: 24px;
-          background: linear-gradient(180deg, ${C.gold}14, transparent);
-          -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
-          mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); }
-
         /* ── Botones — lenguaje Cyan Deck ── */
         .pf-cta {
           font-family: monospace; letter-spacing: .2em; cursor: pointer;
@@ -891,9 +769,6 @@ export default function PortfolioPage() {
 
         @media (prefers-reduced-motion: reduce) {
           .pf-rv { opacity: 1; transform: none; transition: none; }
-          .pf-vault { transform: none !important; }
-          .pf-ingot3d, .pf-ingot3d:hover { transform: none; transition: none; animation: none; }
-          .pf-ingot-shine { display: none; }
         }
       `}</style>
       <div className="dash-content" style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
@@ -989,32 +864,6 @@ export default function PortfolioPage() {
                 ))}
               </div>
             </div>
-
-            {/* ── 2. COMPOSICIÓN — bóveda 3D: cada plataforma es un lingote ── */}
-            <Reveal>
-            <div style={{ marginBottom: 40 }}>
-              <SectionTitle>COMPOSICIÓN DEL PATRIMONIO</SectionTitle>
-              <VaultShelf segments={D.allSegments} />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 16 }}>
-                {D.allSegments.map(seg => seg.usd > 0 && (
-                  <StackCard key={seg.name} accent={seg.color}>
-                    <div style={{ padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <div style={{ width: 10, height: 10, background: seg.color, borderRadius: 1, flexShrink: 0 }} />
-                        <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{seg.name}</span>
-                      </div>
-                      <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, color: C.text, lineHeight: 1, textShadow: numberEmboss }}>{fmtUSD(seg.usd)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: seg.color, marginTop: 3 }}>{pct(seg.pct)}</div>
-                      {seg.monthlyIncome > 0 && (
-                        <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.green, marginTop: 2 }}>{fmtUSD(seg.monthlyIncome)}/mes</div>
-                      )}
-                    </div>
-                  </StackCard>
-                ))}
-              </div>
-            </div>
-
-            </Reveal>
 
             {/* ── 3. CAPITAL EVOLUTION CHART ── */}
             <Reveal>
