@@ -1,11 +1,10 @@
 'use client'
 import { useEffect, useRef } from 'react'
 import { C } from '@/app/lib/constants'
+import { fmtAbbrev as fmt } from '@/app/lib/format'
 import { createChart, ColorType, CrosshairMode, AreaSeries, LineSeries } from 'lightweight-charts'
 
 
-const fmt = (v: number) =>
-  v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
 
 interface Props {
   labels: string[]

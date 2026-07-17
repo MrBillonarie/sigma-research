@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef } from 'react'
 import type { SimResult } from './types'
+import { fmtAbbrev as fmt } from '@/app/lib/format'
 
 // Lluvia de trayectorias viva — canvas propio en lugar de Chart.js:
 // las ~60 trayectorias se dibujan en ráfaga escalonada al llegar una nueva
@@ -13,7 +14,6 @@ import type { SimResult } from './types'
 const GOLD = '#39e2e6', GLOW = '#5eeaf0', GREEN = '#34d399', RED = '#f87171'
 const BG = '#04050a', BORDER = '#1a1d2e', DIM = '#7a7f9a', MUTED = '#3a3f55'
 
-const fmt = (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
 
 interface Props { result: SimResult; capital: number; target: number; years: number; nSims: number }
 

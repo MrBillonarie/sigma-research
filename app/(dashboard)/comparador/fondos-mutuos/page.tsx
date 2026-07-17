@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { C } from '@/app/lib/constants'
+import { fmtCLP, fmtDateCL as fmtDate } from '@/app/lib/format'
 
 const MONO  = 'var(--font-dm-mono)'
 const BEBAS = "'Bebas Neue', Impact, sans-serif"
@@ -38,8 +39,6 @@ const RISK_LABEL: Record<number, string> = { 1: 'Bajo', 2: 'Bajo-Med', 3: 'Medio
 const CAT_COLOR: Record<string, string>  = { 'renta fija': C.green, conservador: '#3b82f6', moderado: C.gold, agresivo: C.red }
 const CAT_ICON:  Record<string, string>  = { 'renta fija': '🏦', conservador: '🛡️', moderado: '⚖️', agresivo: '🚀' }
 
-const fmtCLP  = (n: number)         => '$' + Math.round(n).toLocaleString('es-CL')
-const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : null
 
 function PctCell({ v }: { v: number | null }) {
   if (v === null) return <span style={{ color: C.muted }}>—</span>

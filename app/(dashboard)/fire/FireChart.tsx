@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef } from 'react'
 import { C } from '@/app/lib/constants'
+import { fmtAbbrev as fmtV } from '@/app/lib/format'
 
 // Montaña de capital 3D — reemplaza la línea Chart.js por un canvas propio:
 // el área bajo la curva de capital se extruye en oblicuo (mismo lenguaje 3D
@@ -9,7 +10,6 @@ import { C } from '@/app/lib/constants'
 // El tooltip por año se conserva (hover → capital exacto y % de la meta).
 
 
-const fmtV = (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(0)}K`
 
 interface Props { labels: string[]; acum: number[]; target: number; fireYear: number | null; capital: number }
 
