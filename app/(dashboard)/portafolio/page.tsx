@@ -4,11 +4,11 @@ import dynamic from 'next/dynamic'
 import { supabase } from '@/app/lib/supabase'
 import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 
-const TerminalChart = dynamic(() => import('../terminal/TerminalChart'), {
+const ReturnBoard = dynamic(() => import('./ReturnBoard'), {
   ssr: false,
   loading: () => (
-    <div style={{ height: 320, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Cargando gráfico…</span>
+    <div style={{ height: 300, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Cargando terminal…</span>
     </div>
   ),
 })
@@ -20,12 +20,12 @@ const MONTHS = [
 ]
 
 const PLATFORM_META = [
-  { id: 'ibkr',            name: 'Interactive Brokers', color: '#3b82f6', currency: 'USD', type: 'Equities / Options', isCLP: false },
-  { id: 'binance_spot',    name: 'Binance Spot',        color: '#f59e0b', currency: 'USD', type: 'Crypto Spot',        isCLP: false },
-  { id: 'binance_futures', name: 'Binance Futures',     color: '#ef4444', currency: 'USD', type: 'Crypto Perps',       isCLP: false },
-  { id: 'fintual',         name: 'Fintual',             color: '#8b5cf6', currency: 'CLP', type: 'Fondos Mutuos',      isCLP: true  },
-  { id: 'santander',       name: 'Santander',           color: '#ec4899', currency: 'CLP', type: 'Ahorro / DAP',       isCLP: true  },
-  { id: 'cash',            name: 'Cash / Banco',        color: '#6b7280', currency: 'USD', type: 'Liquidez',           isCLP: false },
+  { id: 'ibkr',            name: 'Interactive Brokers', short: 'IBKR',      color: '#3b82f6', currency: 'USD', type: 'Equities / Options', isCLP: false },
+  { id: 'binance_spot',    name: 'Binance Spot',        short: 'SPOT',      color: '#f59e0b', currency: 'USD', type: 'Crypto Spot',        isCLP: false },
+  { id: 'binance_futures', name: 'Binance Futures',     short: 'FUTUROS',   color: '#ef4444', currency: 'USD', type: 'Crypto Perps',       isCLP: false },
+  { id: 'fintual',         name: 'Fintual',             short: 'FINTUAL',   color: '#8b5cf6', currency: 'CLP', type: 'Fondos Mutuos',      isCLP: true  },
+  { id: 'santander',       name: 'Santander',           short: 'SANTANDER', color: '#ec4899', currency: 'CLP', type: 'Ahorro / DAP',       isCLP: true  },
+  { id: 'cash',            name: 'Cash / Banco',        short: 'CASH',      color: '#6b7280', currency: 'USD', type: 'Liquidez',           isCLP: false },
 ]
 
 const CRYPTO_IDS = new Set(['binance_spot', 'binance_futures'])
@@ -578,7 +578,7 @@ export default function PortfolioPage() {
     const totalCurrent = platforms.reduce((s, p) => s + p.current, 0)
     const totalPrev    = platforms.reduce((s, p) => s + p.prev,    0)
     const ytdReturn    = totalPrev > 0 ? ((totalCurrent - totalPrev) / totalPrev) * 100 : 0
-    const platformHistories = platforms.map(p => ({ name: p.name, color: p.color, data: p.history }))
+    const platformHistories = platforms.map(p => ({ name: p.name, short: p.short, color: p.color, data: p.history }))
     const totalHistory = MONTHS.slice(0, 24).map((_, i) =>
       platformHistories.reduce((sum, p) => sum + (p.data[i] ?? 0), 0)
     )
@@ -865,15 +865,11 @@ export default function PortfolioPage() {
               </div>
             </div>
 
-            {/* ── 3. CAPITAL EVOLUTION CHART ── */}
+            {/* ── 3. TERMINAL BOARD · RETORNO — curva del total + tablero de tenencias vivo ── */}
             <Reveal>
-            <div style={{ ...cardStyle, background: C.surface, marginBottom: 24, overflow: 'hidden' }}>
+            <div style={{ ...cardStyle, background: C.surface, marginBottom: 24, overflow: 'hidden', position: 'relative' }}>
               <div style={FILO} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: CARD_HEAD_BG }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>EVOLUCIÓN DE CAPITAL · 24 MESES</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>base: USD equiv. · curva estimada hasta sync</span>
-              </div>
-              <TerminalChart labels={MONTHS.slice(0, 24)} total={totalHistory} platforms={platformHistories} />
+              <ReturnBoard labels={MONTHS.slice(0, 24)} total={totalHistory} sources={platformHistories} />
             </div>
             </Reveal>
 
