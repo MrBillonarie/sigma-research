@@ -705,6 +705,9 @@ export default function HUDPage() {
     if (P.length < 200) return // glifo no renderizó: no montar el hero
 
     let t = 0
+    // PERF-5: gradientes estáticos cacheados (solo cambian al redimensionar / de régimen)
+    let _gFloor: { w: number; g: CanvasGradient } | null = null
+    let _gHalo: { k: string; g: CanvasGradient } | null = null
     function draw(cv: HTMLCanvasElement) {
       const ctx = cv.getContext('2d')
       if (!ctx) return
@@ -721,9 +724,12 @@ export default function HUDPage() {
       const REG = regime === 'BEAR' ? [255, 93, 108] : regime === 'BULL' ? [57, 226, 230] : [255, 180, 84]
 
       const floorY = cy + S * 1.06
-      const fl = ctx.createLinearGradient(w * 0.2, 0, w * 0.8, 0)
-      fl.addColorStop(0, 'transparent'); fl.addColorStop(0.5, 'rgba(94,234,240,0.22)'); fl.addColorStop(1, 'transparent')
-      ctx.fillStyle = fl; ctx.fillRect(w * 0.2, floorY, w * 0.6, 1)
+      if (!_gFloor || _gFloor.w !== w) {
+        const fl = ctx.createLinearGradient(w * 0.2, 0, w * 0.8, 0)
+        fl.addColorStop(0, 'transparent'); fl.addColorStop(0.5, 'rgba(94,234,240,0.22)'); fl.addColorStop(1, 'transparent')
+        _gFloor = { w, g: fl }
+      }
+      ctx.fillStyle = _gFloor.g; ctx.fillRect(w * 0.2, floorY, w * 0.6, 1)
 
       // glifo fantasma en vidrio: garantiza que la Σ siempre se lea
       const gw = 340 * (S / 170) * 0.98, gh = 400 * (S / 170) * 0.98
@@ -762,11 +768,15 @@ export default function HUDPage() {
           }
         }
       }
-      const halo = ctx.createRadialGradient(cx, cy, S * 0.2, cx, cy, S * 1.5)
-      halo.addColorStop(0, `rgba(${REG[0]},${REG[1]},${REG[2]},0.03)`)
-      halo.addColorStop(0.4, 'rgba(57,226,230,0.035)'); halo.addColorStop(1, 'transparent')
+      const haloKey = `${w}x${h}x${regime}`
+      if (!_gHalo || _gHalo.k !== haloKey) {
+        const halo = ctx.createRadialGradient(cx, cy, S * 0.2, cx, cy, S * 1.5)
+        halo.addColorStop(0, `rgba(${REG[0]},${REG[1]},${REG[2]},0.03)`)
+        halo.addColorStop(0.4, 'rgba(57,226,230,0.035)'); halo.addColorStop(1, 'transparent')
+        _gHalo = { k: haloKey, g: halo }
+      }
       ctx.globalCompositeOperation = 'lighter'
-      ctx.fillStyle = halo; ctx.fillRect(0, 0, w, h)
+      ctx.fillStyle = _gHalo.g; ctx.fillRect(0, 0, w, h)
       ctx.globalCompositeOperation = 'source-over'
     }
 
@@ -1241,6 +1251,8 @@ export default function HUDPage() {
       const ex = X(cum.length - 1), ey = Y(monthPct); x.fillStyle = '#5eeaf0'; x.shadowColor = '#5eeaf0'; x.shadowBlur = 8; x.beginPath(); x.arc(ex, ey, 3, 0, 7); x.fill(); x.shadowBlur = 0
     }
     let tp = 0
+    // PERF-5: gradiente estático del centro cacheado (solo cambia al redimensionar)
+    let _gPlasma: { w: number; g: CanvasGradient } | null = null
     function drawPlasma(cv: HTMLCanvasElement) {
       const x = cv.getContext('2d'); if (!x) return
       const dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = 220
@@ -1266,8 +1278,11 @@ export default function HUDPage() {
         const mid = (a0 + a1) / 2, lx = ox + Math.cos(mid) * (R + 18), ly = oy + Math.sin(mid) * (R + 18) * 0.62
         x.font = '8.5px ui-monospace, monospace'; x.textAlign = 'center'; x.fillStyle = e.color; x.fillText(`${e.sym} ${e.n}`, lx, ly + 3)
       }
-      const g = x.createRadialGradient(ox - 8, oy - 8, 2, ox, oy, 24); g.addColorStop(0, '#1a2433'); g.addColorStop(1, '#070c14')
-      x.fillStyle = g; x.beginPath(); x.arc(ox, oy, 24, 0, 7); x.fill()
+      if (!_gPlasma || _gPlasma.w !== w) {
+        const g = x.createRadialGradient(ox - 8, oy - 8, 2, ox, oy, 24); g.addColorStop(0, '#1a2433'); g.addColorStop(1, '#070c14')
+        _gPlasma = { w, g }
+      }
+      x.fillStyle = _gPlasma.g; x.beginPath(); x.arc(ox, oy, 24, 0, 7); x.fill()
       x.strokeStyle = 'rgba(94,234,240,0.5)'; x.lineWidth = 1.3; x.beginPath(); x.arc(ox, oy, 24, 0, 7); x.stroke()
       x.font = '700 20px "Bebas Neue", Impact, sans-serif'; x.textAlign = 'center'; x.fillStyle = '#eef3fa'; x.fillText(String(totalPos), ox, oy + 4)
       x.font = '6px ui-monospace, monospace'; x.fillStyle = '#8b97ad'; x.fillText('POSICIONES', ox, oy + 15)
