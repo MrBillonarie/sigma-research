@@ -298,6 +298,190 @@ function StackCard({ accent, children }: { accent: string; children: React.React
   )
 }
 
+// ─── Núcleo de Patrimonio — hero 3D: el total late en el centro y cada fuente
+// orbita con radio y tamaño según su peso real. Canvas 2D, se pausa fuera de
+// viewport y respeta prefers-reduced-motion. Reemplaza el bloque de KPIs. ─────
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+type CoreSeg = { name: string; color: string; usd: number; pct: number; monthlyIncome: number }
+
+function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const wrapRef   = useRef<HTMLDivElement>(null)
+  const segRef    = useRef<CoreSeg[]>(segments)
+  const mouseRef  = useRef({ x: 0, y: 0, px: -999, py: -999, inside: false })
+  segRef.current  = segments
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const wrap   = wrapRef.current
+    if (!canvas || !wrap) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const DPR = Math.min(window.devicePixelRatio || 1, 2)
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
+    let W = 0, H = 0
+    const resize = () => {
+      const r = wrap.getBoundingClientRect()
+      W = r.width; H = r.height
+      canvas.width = W * DPR; canvas.height = H * DPR
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
+    }
+    resize()
+    const ro = new ResizeObserver(resize); ro.observe(wrap)
+
+    let visible = true
+    const io = new IntersectionObserver(es => { visible = es[0].isIntersecting }, { threshold: 0.05 })
+    io.observe(canvas)
+
+    let tilt = 0.46, twist = 0
+    const t0 = performance.now()
+    let raf = 0
+
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame)
+      if (!visible) return
+      const t = (now - t0) / 1000
+      const segs = segRef.current.filter(s => s.usd > 0)
+      const cx = W / 2, cy = H / 2 + 4
+      ctx.clearRect(0, 0, W, H)
+
+      const m = mouseRef.current
+      const mx = m.inside ? m.x - 0.5 : 0
+      const my = m.inside ? m.y - 0.5 : 0
+      tilt  = lerp(tilt,  0.46 + my * 0.16, 0.06)
+      twist = lerp(twist, mx * 0.5,         0.06)
+      const ky = Math.cos(tilt)
+
+      const n = segs.length || 1
+      const coreR = Math.max(30, Math.min(W, H) * 0.12)
+      const maxR  = Math.min(W * 0.44, H * 0.46)
+      const minR  = coreR * 1.8
+      const bodies = segs.map((s, i) => ({
+        s, i,
+        orbit: n > 1 ? minR + (maxR - minR) * (i / (n - 1)) : (minR + maxR) / 2,
+        size:  6 + Math.min(s.pct, 55) * 0.5,
+        spd:   0.24 - i * 0.02,
+        base:  (i / n) * Math.PI * 2,
+      }))
+
+      // halo de fondo
+      const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.5)
+      bg.addColorStop(0, 'rgba(57,226,230,0.05)'); bg.addColorStop(1, 'transparent')
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
+
+      // órbitas (elipses)
+      bodies.forEach(b => {
+        ctx.beginPath()
+        for (let k = 0; k <= 56; k++) {
+          const a = (k / 56) * Math.PI * 2 + twist
+          const x = cx + Math.cos(a) * b.orbit, y = cy + Math.sin(a) * b.orbit * ky
+          if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y)
+        }
+        ctx.closePath(); ctx.strokeStyle = 'rgba(120,150,175,0.10)'; ctx.lineWidth = 1; ctx.stroke()
+      })
+
+      // posiciones + orden por profundidad
+      const T = reduce ? 0 : t
+      const drawn = bodies.map(b => {
+        const a = b.base + T * b.spd + twist
+        const x = cx + Math.cos(a) * b.orbit, y = cy + Math.sin(a) * b.orbit * ky
+        const depth = (Math.sin(a) * ky + 1) / 2
+        return { ...b, x, y, depth, scale: 0.62 + depth * 0.55 }
+      }).sort((p, q) => p.depth - q.depth)
+
+      // pick de hover
+      let hoverI = -1
+      if (m.inside) {
+        let best = 24
+        drawn.forEach(d => { const dd = Math.hypot(d.x - m.px, d.y - m.py); if (dd < best + d.size) { best = dd; hoverI = d.i } })
+      }
+
+      // núcleo central (total) — pulso
+      const pulse = 1 + (reduce ? 0 : Math.sin(t * 1.8) * 0.035)
+      const cr = coreR * pulse
+      const cg = ctx.createRadialGradient(cx, cy - cr * 0.3, 3, cx, cy, cr * 1.7)
+      cg.addColorStop(0, '#eafcff'); cg.addColorStop(0.35, '#5eeaf0')
+      cg.addColorStop(0.7, 'rgba(79,146,255,0.5)'); cg.addColorStop(1, 'transparent')
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, cy, cr * 1.7, 0, 7); ctx.fill()
+
+      // planetas
+      drawn.forEach(d => {
+        const isH = d.i === hoverI
+        const rr = d.size * d.scale * (isH ? 1.35 : 1)
+        ctx.strokeStyle = isH ? 'rgba(94,234,240,0.5)' : 'rgba(120,150,175,0.05)'
+        ctx.lineWidth = isH ? 1.4 : 1
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(d.x, d.y); ctx.stroke()
+        const g = ctx.createRadialGradient(d.x - rr * 0.3, d.y - rr * 0.3, 1, d.x, d.y, rr * 1.5)
+        g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, d.s.color); g.addColorStop(1, d.s.color + '00')
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, rr * 1.4, 0, 7); ctx.fill()
+        ctx.globalAlpha = 0.4 + d.scale * 0.4
+        ctx.fillStyle = d.s.color; ctx.beginPath(); ctx.arc(d.x, d.y, rr, 0, 7); ctx.fill()
+        ctx.globalAlpha = 1
+        if (isH) { ctx.strokeStyle = '#5eeaf0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, rr + 4, 0, 7); ctx.stroke() }
+      })
+
+      // tarjeta hover
+      if (hoverI >= 0 && segs[hoverI]) {
+        const b = segs[hoverI]
+        const l1 = b.name
+        const l2 = `${fmtUSD(b.usd)}  ·  ${b.pct.toFixed(1)}%`
+        ctx.font = "11px 'DM Mono', monospace"
+        const tw = Math.max(ctx.measureText(l1).width, ctx.measureText(l2).width) + 22
+        const bx = Math.min(m.px + 14, W - tw - 8)
+        const by = Math.min(Math.max(m.py - 6, 6), H - 46)
+        ctx.fillStyle = 'rgba(8,10,15,0.95)'; ctx.strokeStyle = b.color; ctx.lineWidth = 1
+        roundRectPath(ctx, bx, by, tw, 40, 7); ctx.fill(); ctx.stroke()
+        ctx.textAlign = 'left'; ctx.fillStyle = '#e8e9f0'; ctx.fillText(l1, bx + 11, by + 16)
+        ctx.fillStyle = b.color; ctx.fillText(l2, bx + 11, by + 31)
+      }
+    }
+    raf = requestAnimationFrame(frame)
+
+    const onMove = (e: MouseEvent) => {
+      const r = canvas.getBoundingClientRect()
+      const m = mouseRef.current
+      m.x = (e.clientX - r.left) / r.width; m.y = (e.clientY - r.top) / r.height
+      m.px = e.clientX - r.left; m.py = e.clientY - r.top; m.inside = true
+    }
+    const onLeave = () => { const m = mouseRef.current; m.inside = false; m.px = -999; m.py = -999 }
+    canvas.addEventListener('mousemove', onMove)
+    canvas.addEventListener('mouseleave', onLeave)
+
+    return () => {
+      cancelAnimationFrame(raf); ro.disconnect(); io.disconnect()
+      canvas.removeEventListener('mousemove', onMove)
+      canvas.removeEventListener('mouseleave', onLeave)
+    }
+  }, [])
+
+  const animTotal = useCountUp(total, 1400)
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: '100%', minHeight: 300 }}>
+      <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
+      {/* Total al centro — tipografía nítida en HTML sobre el canvas */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', gap: 3 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.3em', color: C.muted }}>PATRIMONIO TOTAL</span>
+        <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(30px,4.4vw,48px)', lineHeight: 1, letterSpacing: '0.02em', textShadow: numberEmboss, background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          {fmtUSD(animTotal)}
+        </span>
+        <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>USD equiv.</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Types ───────────────────────────────���────────────────────────────��───────
 interface PassivePosition {
   id: string
@@ -615,6 +799,17 @@ export default function PortfolioPage() {
         .pf-rv { opacity: 0; transform: translateY(14px); transition: opacity .55s ease, transform .55s ease; }
         .pf-rv-in { opacity: 1; transform: none; }
 
+        /* ── Núcleo de patrimonio — hero 3D + KPIs laterales ── */
+        .port-core-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(0,1fr); gap: 12px; }
+        .port-core-side { display: grid; grid-template-rows: repeat(3,1fr); gap: 12px; }
+        @media (max-width: 900px) {
+          .port-core-grid { grid-template-columns: 1fr; }
+          .port-core-side { grid-template-rows: none; grid-template-columns: repeat(3,1fr); }
+        }
+        @media (max-width: 560px) {
+          .port-core-side { grid-template-columns: 1fr; }
+        }
+
         /* ── Bóveda 3D — lingotes isométricos sobre repisa de vidrio ── */
         .pf-vault-wrap { position: relative; }
         .pf-vault-wrap::before { content: ''; position: absolute; inset: -36px -16px -12px; pointer-events: none;
@@ -770,28 +965,29 @@ export default function PortfolioPage() {
           </div>
         ) : (
           <>
-            {/* ── 1. KPI CARDS ── */}
-            <div className="port-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-              {[
-                // Encendido: los 4 KPIs cuentan desde 0 al cargar (CountText).
-                { label: 'Total Patrimonio', value: <CountText target={D.totalUSD} format={fmtUSD} />,  sub: 'USD equiv.',       color: C.gold, hero: true },
-                // No hay historial real de patrimonio guardado (solo el snapshot
-                // actual) — estos 3 se derivan de una curva simulada que ancla en
-                // tu total real de hoy. Antes se mostraban con la misma seriedad
-                // visual que el resto, sin ningún aviso de que no son datos reales.
-                { label: 'Rentabilidad YTD', value: <CountText target={ytdReturn} format={v => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`} />, sub: 'estimado · vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red, hero: false },
-                { label: 'Sharpe Ratio',     value: <CountText target={sharpe} format={v => v.toFixed(2)} />,    sub: 'estimado · 12M rolling',      color: sharpe >= 1.5 ? C.green : sharpe >= 0.8 ? C.text : C.red, hero: false },
-                { label: 'Max Drawdown',     value: <CountText target={maxDD * 100} format={v => `${v.toFixed(2)}%`} />, sub: 'estimado · 24M window', color: C.red, hero: false },
-              ].map(({ label, value, sub, color, hero }) => (
-                <div key={label} style={{ ...(hero ? heroCardStyle : cardStyle), background: hero ? undefined : C.surface, padding: '20px 22px' }}>
-                  <Label text={label} />
-                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: hero ? 40 : 38, color, lineHeight: 1, textShadow: numberEmboss,
-                    ...(hero ? { background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}) }}>
-                    {value}
+            {/* ── 1. NÚCLEO DE PATRIMONIO — hero 3D + KPIs secundarios ── */}
+            <div className="port-core-grid" style={{ marginBottom: 24 }}>
+              {/* El total late en el centro; cada fuente orbita según su peso real. */}
+              <div style={{ ...heroCardStyle, position: 'relative', overflow: 'hidden', padding: 0, minHeight: 340 }}>
+                <div style={{ ...FILO, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2 }} />
+                <WealthCore segments={D.allSegments} total={D.totalUSD} />
+              </div>
+              {/* Métricas derivadas — curva simulada anclada al total real de hoy.
+                  No hay historial real guardado (solo el snapshot actual): por eso
+                  el sub-label dice "estimado" en las tres. */}
+              <div className="port-core-side">
+                {[
+                  { label: 'Rentabilidad YTD', value: <CountText target={ytdReturn} format={v => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`} />, sub: 'estimado · vs. inicio de año', color: ytdReturn >= 0 ? C.green : C.red },
+                  { label: 'Sharpe Ratio',     value: <CountText target={sharpe} format={v => v.toFixed(2)} />,                              sub: 'estimado · 12M rolling',      color: sharpe >= 1.5 ? C.green : sharpe >= 0.8 ? C.text : C.red },
+                  { label: 'Max Drawdown',     value: <CountText target={maxDD * 100} format={v => `${v.toFixed(2)}%`} />,                   sub: 'estimado · 24M window',       color: C.red },
+                ].map(({ label, value, sub, color }) => (
+                  <div key={label} style={{ ...cardStyle, background: C.surface, padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <Label text={label} />
+                    <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 34, color, lineHeight: 1, textShadow: numberEmboss }}>{value}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 4 }}>{sub}</div>
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, marginTop: 4 }}>{sub}</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             {/* ── 2. COMPOSICIÓN — bóveda 3D: cada plataforma es un lingote ── */}
