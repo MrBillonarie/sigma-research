@@ -13,6 +13,15 @@ const ReturnBoard = dynamic(() => import('./ReturnBoard'), {
   ),
 })
 
+const FireReactor = dynamic(() => import('./FireReactor'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 320, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Cargando reactor…</span>
+    </div>
+  ),
+})
+
 // ─── Constants ──────────────────────────���─────────────────────────────────────
 const MONTHS = [
   'Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic',
@@ -755,9 +764,6 @@ export default function PortfolioPage() {
   const hasSavedData   = totalCurrent > 0 || D.totalUSD > 0
   const activeProfile  = quizResult ? PROFILE_DATA[quizResult] : null
 
-  // Encendido: el % FIRE cuenta y la barra se llena con el mismo valor animado
-  const fireAnim = useCountUp(D.firePct, 1500)
-
   // ─── Render ──────────────────────────────────────────────────────���────────
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
@@ -1128,47 +1134,17 @@ export default function PortfolioPage() {
             <Reveal>
             <div style={{ marginBottom: 40 }}>
               <SectionTitle>PROGRESO FIRE</SectionTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden', position: 'relative' }}>
-                  <div style={FILO} />
-                  <div style={{ padding: '24px 22px' }}>
-                  <Label text={`Meta FIRE — $${D.FIRE_GOAL_MONTHLY.toLocaleString('es-CL')}/mes · Regla 4%`} />
-                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.firePct >= 100 ? C.green : C.gold, lineHeight: 1, marginBottom: 8, fontVariantNumeric: 'tabular-nums' }}>
-                    {pct(fireAnim)}
-                  </div>
-                  <div style={{ height: 6, background: C.border, borderRadius: 3, marginBottom: 14 }}>
-                    <div style={{
-                      width: `${fireAnim}%`, height: '100%', borderRadius: 3,
-                      background: D.firePct >= 100 ? C.green : `linear-gradient(90deg,${C.goldDim},${C.gold},${C.glow})`,
-                      boxShadow: `0 0 12px ${D.firePct >= 100 ? C.green : C.gold}66`,
-                    }} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>
-                    <span>Actual: <span style={{ color: C.text }}>{fmtUSD(D.totalUSD)}</span></span>
-                    <span>Meta: <span style={{ color: C.gold }}>{fmtUSD(D.fireTarget)}</span></span>
-                  </div>
-                  </div>
-                </div>
-                <div style={{ ...cardStyle, background: C.bg, overflow: 'hidden', position: 'relative' }}>
-                  <div style={FILO} />
-                  <div style={{ padding: '24px 22px' }}>
-                  <Label text="Años estimados para FIRE (8% retorno anual)" />
-                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 42, color: D.fireYears === 0 ? C.green : C.text, lineHeight: 1, marginBottom: 12, fontVariantNumeric: 'tabular-nums' }}>
-                    {D.fireYears === 0 ? '¡YA!' : D.fireYears !== null ? `${D.fireYears} años` : '50+ años'}
-                  </div>
-                  <div style={{ marginBottom: 10 }}>
-                    <Label text="Ahorro mensual asumido (USD)" />
-                    <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${C.border}`, background: C.surface, marginTop: 4 }}>
-                      <span style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>$</span>
-                      <input type="number" value={monthlySav} onChange={e => setMonthlySav(e.target.value)} min={0}
-                        style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: C.text, fontFamily: 'monospace', fontSize: 12, padding: '7px 10px 7px 0' }} />
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.7 }}>
-                    Falta: <span style={{ color: C.gold }}>{fmtUSD(Math.max(0, D.fireTarget - D.totalUSD))}</span> para alcanzar la meta
-                  </div>
-                  </div>
-                </div>
+              <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden', position: 'relative' }}>
+                <div style={FILO} />
+                <FireReactor
+                  current={D.totalUSD}
+                  goal={D.fireTarget}
+                  firePct={D.firePct}
+                  years={D.fireYears}
+                  monthlyGoal={D.FIRE_GOAL_MONTHLY}
+                  savings={monthlySav}
+                  onSavings={setMonthlySav}
+                />
               </div>
             </div>
             </Reveal>
