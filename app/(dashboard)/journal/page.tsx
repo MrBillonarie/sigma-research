@@ -5,6 +5,7 @@ import { supabase } from '@/app/lib/supabase'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { C, cardStyle, numberEmboss } from '@/app/lib/constants'
 import LiveTicket from './LiveTicket'
+import KpiBento from './KpiBento'
 
 // chart.js + react-chartjs-2 pesan ~70kB y solo hacen falta cuando el usuario
 // realmente ve un gráfico — se cargan en un chunk aparte en vez de ir en el
@@ -424,39 +425,6 @@ function resultAccent(magnitude: number, color: string): { border: string; bg: s
   const t = Math.min(Math.max(magnitude, 0), 1)
   const alpha = Math.round(8 + t * 22).toString(16).padStart(2, '0') // 08..1e
   return { border: color, bg: `${color}${alpha}` }
-}
-
-// ── CountUp — anima de valor previo → target con ease-out cúbico ─────────────
-function useCountUp(target: number, dur = 1100) {
-  const [v, setV] = useState(0)
-  const vRef    = useRef(0)
-  const fromRef = useRef(0)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      vRef.current = target; fromRef.current = target; setV(target)
-      return
-    }
-    const from = fromRef.current
-    let raf = 0
-    let t0: number | null = null
-    const tick = (t: number) => {
-      if (t0 === null) t0 = t
-      const p = Math.min(1, (t - t0) / dur)
-      const val = from + (target - from) * (1 - Math.pow(1 - p, 3))
-      vRef.current = val
-      setV(val)
-      if (p < 1) raf = requestAnimationFrame(tick)
-      else fromRef.current = target
-    }
-    raf = requestAnimationFrame(tick)
-    return () => { cancelAnimationFrame(raf); fromRef.current = vRef.current }
-  }, [target, dur])
-  return v
-}
-
-function CountText({ target, format }: { target: number; format: (v: number) => string }) {
-  const v = useCountUp(target)
-  return <>{format(v)}</>
 }
 
 // ── Equity curve cinematográfica — canvas con trazo progresivo, valle del
@@ -1373,17 +1341,20 @@ export default function JournalPage() {
                       </span>
                     </div>
                   )}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 10 }}>
-                    <MetricCard label="Capital base" value={`$${fmtN(motorCapital)}`} sub={portfolioCapital > 0 ? 'tu portafolio' : 'referencia'} />
-                    <MetricCard label="Total Trades" value={<CountText target={motorAnalytics.totalTrades} format={v => Math.round(v).toString()} />} />
-                    <MetricCard label="Win Rate" value={<CountText target={motorAnalytics.winRate} format={v => `${v.toFixed(1)}%`} />} color={motorAnalytics.winRate >= 50 ? C.green : C.red} />
-                    <MetricCard label="Profit Factor" value={motorAnalytics.profitFactor >= 999 ? '∞' : <CountText target={motorAnalytics.profitFactor} format={v => v.toFixed(2)} />} color={motorAnalytics.profitFactor >= 1.5 ? C.green : motorAnalytics.profitFactor >= 1 ? C.yellow : C.red} />
-                    <MetricCard label="PnL Neto" value={<CountText target={motorAnalytics.pnlNeto} format={fmtUsd} />} color={motorAnalytics.pnlNeto >= 0 ? C.green : C.red} />
-                    <MetricCard label="Max Drawdown" value={<CountText target={motorAnalytics.maxDrawdownPct} format={v => `${v.toFixed(1)}%`} />} color={C.red} />
-                    <MetricCard label="Expectancy" value={fmtUsd(motorAnalytics.expectancy)} sub="por trade" color={motorAnalytics.expectancy >= 0 ? C.green : C.red} />
-                    <MetricCard label="Sharpe Ratio" value={motorAnalytics.sharpe.toFixed(2)} sub="anualizado rf=0" color={motorAnalytics.sharpe >= 1 ? C.green : motorAnalytics.sharpe >= 0 ? C.yellow : C.red} />
-                    <MetricCard label="Equity actual" value={<CountText target={motorEquityFinal} format={v => `$${fmtN(v)}`} />} color={C.gold} />
-                  </div>
+                  <KpiBento
+                    capital={motorCapital}
+                    capitalSub={portfolioCapital > 0 ? 'tu portafolio' : 'referencia'}
+                    equityFinal={motorEquityFinal}
+                    pnlNeto={motorAnalytics.pnlNeto}
+                    totalTrades={motorAnalytics.totalTrades}
+                    wins={motorAnalytics.wins}
+                    winRate={motorAnalytics.winRate}
+                    profitFactor={motorAnalytics.profitFactor}
+                    maxDD={motorAnalytics.maxDrawdownPct}
+                    expectancy={motorAnalytics.expectancy}
+                    sharpe={motorAnalytics.sharpe}
+                    equityCurve={motorAnalytics.equityCurve.map(pt => pt.equity)}
+                  />
                 </AnalysisSection>
 
                 {/* Equity curve */}
