@@ -22,6 +22,15 @@ const FireReactor = dynamic(() => import('./FireReactor'), {
   ),
 })
 
+const RiskDial = dynamic(() => import('./RiskDial'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 260, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Cargando dial…</span>
+    </div>
+  ),
+})
+
 // ─── Constants ──────────────────────────���─────────────────────────────────────
 const MONTHS = [
   'Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic',
@@ -515,9 +524,6 @@ export default function PortfolioPage() {
   // Quiz
   const [quizAnswers, setQuizAnswers] = useState({ horizonte: '', reaccion: '', objetivo: '' })
   const [quizResult,  setQuizResult]  = useState<'conservador' | 'moderado' | 'agresivo' | null>(null)
-  const donutRef      = useRef<HTMLCanvasElement>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const donutChartRef = useRef<any>(null)
 
   // Un TRM <= 0 invertiría el signo de todo el capital CLP→USD (Fintual/
   // Santander) sin ningún aviso — se descarta y se usa el valor por defecto.
@@ -734,32 +740,6 @@ export default function PortfolioPage() {
     }
   }, [D.totalUSD])
 
-  // Draw / redraw donut chart when quiz result changes
-  useEffect(() => {
-    if (!quizResult || !donutRef.current) return
-    const profile = PROFILE_DATA[quizResult]
-    let alive = true
-    ;(async () => {
-      const { default: Chart } = await import('chart.js/auto')
-      if (!alive || !donutRef.current) return
-      if (donutChartRef.current) { donutChartRef.current.destroy(); donutChartRef.current = null }
-      donutChartRef.current = new Chart(donutRef.current, {
-        type: 'doughnut',
-        data: {
-          labels: profile.allocation.map(a => a.name),
-          datasets: [{ data: profile.allocation.map(a => a.rec), backgroundColor: profile.allocation.map(a => a.color), borderWidth: 0, hoverOffset: 6 }],
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false, cutout: '68%',
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw}%` } },
-          },
-        },
-      })
-    })()
-    return () => { alive = false; if (donutChartRef.current) { donutChartRef.current.destroy(); donutChartRef.current = null } }
-  }, [quizResult])
 
   const hasSavedData   = totalCurrent > 0 || D.totalUSD > 0
   const activeProfile  = quizResult ? PROFILE_DATA[quizResult] : null
@@ -1252,34 +1232,14 @@ export default function PortfolioPage() {
                   {activeProfile.desc}
                 </div>
 
-                {/* Donut + comparison table */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 260px) 1fr', gap: 32, alignItems: 'start' }}>
+                {/* Dial de riesgo + donut de anillos (resultado visual) */}
+                <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden', position: 'relative', marginBottom: 20 }}>
+                  <div style={FILO} />
+                  <RiskDial profile={quizResult ?? 'moderado'} label={activeProfile.label} allocation={[...activeProfile.allocation]} />
+                </div>
 
-                  {/* Donut chart + legend */}
-                  <div>
-                    <div style={{ position: 'relative', width: '100%', height: 200, marginBottom: 16 }}>
-                      <canvas ref={donutRef} role="img" aria-label="Distribución del portafolio por activo" />
-                      {/* Centro del donut — perfil activo */}
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', gap: 2 }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.3em', color: C.muted }}>PERFIL</span>
-                        <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, letterSpacing: '0.08em', color: activeProfile.badgeColor, textShadow: numberEmboss }}>
-                          {activeProfile.label.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {activeProfile.allocation.map(a => (
-                        <div key={a.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 10, height: 10, background: a.color, borderRadius: 1, flexShrink: 0 }} />
-                          <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, flex: 1, letterSpacing: '0.08em' }}>{a.name}</span>
-                          <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 18, color: C.text }}>{a.rec}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Comparison table */}
-                  <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden' }}>
+                {/* Comparison table */}
+                <div style={{ ...cardStyle, background: C.surface, overflow: 'hidden' }}>
                     <div style={FILO} />
                     <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: CARD_HEAD_BG }}>
                       <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>RECOMENDADO vs. TU CARTERA ACTUAL</span>
@@ -1328,7 +1288,6 @@ export default function PortfolioPage() {
                       </div>
                     )}
                   </div>
-                </div>
               </div>
             )}
           </div>
