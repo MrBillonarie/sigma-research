@@ -285,20 +285,27 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
       const m = mouseRef.current
       const mx = m.inside ? m.x - 0.5 : 0
       const my = m.inside ? m.y - 0.5 : 0
-      tilt  = lerp(tilt,  0.46 + my * 0.16, 0.06)
-      twist = lerp(twist, mx * 0.5,         0.06)
-      const ky = Math.cos(tilt)
+      tilt  = lerp(tilt,  my, 0.06)   // parallax vertical suavizado
+      twist = lerp(twist, mx, 0.06)   // parallax horizontal suavizado
 
       const n = segs.length || 1
       const coreR = Math.max(34, Math.min(W, H) * 0.14)
-      const maxR  = Math.min(W * 0.44, H * 0.46)
-      const minR  = coreR * 1.8
+      const maxR  = Math.min(W * 0.46, H * 0.48)
+      const minR  = coreR * 1.95
+      const eKy   = 0.30 + tilt * 0.14        // excentricidad de las órbitas (átomo)
+      const gRot  = twist * 0.6               // giro global del átomo
+      // punto sobre una elipse excéntrica ROTADA — así las órbitas se cruzan
+      const epoint = (orbit: number, rot: number, a: number) => {
+        const ex = Math.cos(a) * orbit, ey = Math.sin(a) * orbit * eKy
+        return { x: cx + ex * Math.cos(rot) - ey * Math.sin(rot), y: cy + ex * Math.sin(rot) + ey * Math.cos(rot) }
+      }
       const bodies = segs.map((s, i) => ({
         s, i,
         orbit: n > 1 ? minR + (maxR - minR) * (i / (n - 1)) : (minR + maxR) / 2,
         size:  6 + Math.min(s.pct, 55) * 0.5,
-        spd:   0.24 - i * 0.02,
+        spd:   (0.55 + i * 0.1) * (i % 2 ? -1 : 1), // velocidades y sentidos distintos
         base:  (i / n) * Math.PI * 2,
+        rot:   (i * Math.PI / n) + gRot,            // cada órbita en su ángulo → átomo
       }))
 
       // halo de fondo
@@ -306,25 +313,24 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
       bg.addColorStop(0, 'rgba(57,226,230,0.05)'); bg.addColorStop(1, 'transparent')
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
 
-      // órbitas (elipses)
+      // órbitas — anillos elípticos rotados, con el color de cada fuente
       bodies.forEach(b => {
         ctx.beginPath()
-        for (let k = 0; k <= 56; k++) {
-          const a = (k / 56) * Math.PI * 2 + twist
-          const x = cx + Math.cos(a) * b.orbit, y = cy + Math.sin(a) * b.orbit * ky
-          if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y)
+        for (let k = 0; k <= 64; k++) {
+          const p = epoint(b.orbit, b.rot, (k / 64) * Math.PI * 2)
+          if (k) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y)
         }
-        ctx.closePath(); ctx.strokeStyle = 'rgba(120,150,175,0.10)'; ctx.lineWidth = 1; ctx.stroke()
+        ctx.closePath(); ctx.strokeStyle = b.s.color + '2e'; ctx.lineWidth = 1; ctx.stroke()
       })
 
-      // posiciones + orden por profundidad
+      // posiciones + fase (adelante/atrás del núcleo)
       const T = reduce ? 0 : t
       const drawn = bodies.map(b => {
-        const a = b.base + T * b.spd + twist
-        const x = cx + Math.cos(a) * b.orbit, y = cy + Math.sin(a) * b.orbit * ky
-        const depth = (Math.sin(a) * ky + 1) / 2
-        return { ...b, x, y, depth, scale: 0.62 + depth * 0.55 }
-      }).sort((p, q) => p.depth - q.depth)
+        const a = b.base + T * b.spd
+        const p = epoint(b.orbit, b.rot, a)
+        const depth = (Math.sin(a) + 1) / 2
+        return { ...b, x: p.x, y: p.y, a, depth, scale: 0.62 + depth * 0.5 }
+      })
 
       // pick de hover
       let hoverI = -1
@@ -332,6 +338,32 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
         let best = 24
         drawn.forEach(d => { const dd = Math.hypot(d.x - m.px, d.y - m.py); if (dd < best + d.size) { best = dd; hoverI = d.i } })
       }
+
+      // electrón con estela (trail) brillante — aspecto cuántico/atómico
+      const drawElectron = (d: typeof drawn[number]) => {
+        const isH = d.i === hoverI
+        const rr = d.size * d.scale * (isH ? 1.35 : 1)
+        const dir = d.spd >= 0 ? 1 : -1
+        // estela: rastro de fase reciente con glow aditivo
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'
+        for (let q = 1; q <= 16; q++) {
+          const tp = epoint(d.orbit, d.rot, d.a - q * 0.055 * dir)
+          ctx.globalAlpha = (1 - q / 16) * 0.5 * (0.45 + d.scale * 0.55)
+          ctx.fillStyle = d.s.color
+          ctx.beginPath(); ctx.arc(tp.x, tp.y, rr * (1 - q / 16) * 0.85, 0, 7); ctx.fill()
+        }
+        ctx.restore(); ctx.globalAlpha = 1
+        // electrón
+        const g = ctx.createRadialGradient(d.x - rr * 0.3, d.y - rr * 0.3, 1, d.x, d.y, rr * 1.6)
+        g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, d.s.color); g.addColorStop(1, d.s.color + '00')
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, rr * 1.5, 0, 7); ctx.fill()
+        ctx.globalAlpha = 0.5 + d.scale * 0.4
+        ctx.fillStyle = d.s.color; ctx.beginPath(); ctx.arc(d.x, d.y, rr, 0, 7); ctx.fill()
+        ctx.globalAlpha = 1
+        if (isH) { ctx.strokeStyle = '#5eeaf0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, rr + 4, 0, 7); ctx.stroke() }
+      }
+      // electrones DETRÁS del núcleo (fase lejana)
+      drawn.filter(d => d.depth < 0.5).forEach(drawElectron)
 
       // núcleo central (total) — esfera con relieve real. Fuente de luz
       // arriba-izquierda: highlight especular, cuerpo iluminado y borde
@@ -363,21 +395,8 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
       spec.addColorStop(0, 'rgba(255,255,255,0.9)'); spec.addColorStop(1, 'transparent')
       ctx.fillStyle = spec; ctx.beginPath(); ctx.arc(sx, sy, cr * 0.42, 0, 7); ctx.fill()
 
-      // planetas
-      drawn.forEach(d => {
-        const isH = d.i === hoverI
-        const rr = d.size * d.scale * (isH ? 1.35 : 1)
-        ctx.strokeStyle = isH ? 'rgba(94,234,240,0.5)' : 'rgba(120,150,175,0.05)'
-        ctx.lineWidth = isH ? 1.4 : 1
-        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(d.x, d.y); ctx.stroke()
-        const g = ctx.createRadialGradient(d.x - rr * 0.3, d.y - rr * 0.3, 1, d.x, d.y, rr * 1.5)
-        g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, d.s.color); g.addColorStop(1, d.s.color + '00')
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, rr * 1.4, 0, 7); ctx.fill()
-        ctx.globalAlpha = 0.4 + d.scale * 0.4
-        ctx.fillStyle = d.s.color; ctx.beginPath(); ctx.arc(d.x, d.y, rr, 0, 7); ctx.fill()
-        ctx.globalAlpha = 1
-        if (isH) { ctx.strokeStyle = '#5eeaf0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, rr + 4, 0, 7); ctx.stroke() }
-      })
+      // electrones DELANTE del núcleo (fase cercana)
+      drawn.filter(d => d.depth >= 0.5).forEach(drawElectron)
 
       // tarjeta hover
       if (hoverI >= 0 && segs[hoverI]) {
