@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { supabase } from '@/app/lib/supabase'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { C, cardStyle, numberEmboss } from '@/app/lib/constants'
+import LiveTicket from './LiveTicket'
 
 // chart.js + react-chartjs-2 pesan ~70kB y solo hacen falta cuando el usuario
 // realmente ve un gráfico — se cargan en un chunk aparte en vez de ir en el
@@ -366,14 +367,6 @@ function fmtN(v: number): string {
 function fmt(v: number): string {
   return `${v >= 0 ? '+' : ''}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
-function elapsedSince(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
-  if (mins < 60) return `${mins}m`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ${mins % 60}m`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ${hrs % 24}h`
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -464,39 +457,6 @@ function useCountUp(target: number, dur = 1100) {
 function CountText({ target, format }: { target: number; format: (v: number) => string }) {
   const v = useCountUp(target)
   return <>{format(v)}</>
-}
-
-// ── Barra SL → Entrada → TP del trade abierto (posición del precio en vivo) ──
-function OpenLevelBar({ entry, sl, tp, pnlPct, direction }: {
-  entry: number; sl: number; tp: number; pnlPct: number; direction: 'long' | 'short'
-}) {
-  if (!entry || !sl || !tp) return null
-  const price = direction === 'long' ? entry * (1 + pnlPct / 100) : entry * (1 - pnlPct / 100)
-  const lo = Math.min(sl, tp), hi = Math.max(sl, tp)
-  const span = hi - lo || 1
-  const pos = (v: number) => Math.min(98, Math.max(2, ((v - lo) / span) * 100))
-  const slLeft = sl < tp
-  return (
-    <div style={{ paddingTop: 4 }}>
-      <div style={{ position: 'relative', height: 6, borderRadius: 3, background: `linear-gradient(90deg, ${slLeft ? C.red : C.green}30, ${C.border} 45%, ${C.border} 55%, ${slLeft ? C.green : C.red}30)` }}>
-        {/* entrada */}
-        <div style={{ position: 'absolute', top: -3, left: `${pos(entry)}%`, transform: 'translateX(-50%)', width: 2, height: 12, background: C.dimText }} />
-        {/* precio actual */}
-        <div className="j-price" style={{
-          position: 'absolute', top: -4, left: `${pos(price)}%`, transform: 'translateX(-50%)',
-          width: 14, height: 14, borderRadius: '50%',
-          background: pnlPct >= 0 ? C.green : C.red,
-          boxShadow: `0 0 12px ${pnlPct >= 0 ? C.green : C.red}`,
-          border: `2px solid ${C.bg}`, transition: 'left 0.6s ease',
-        }} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 9, color: C.muted, marginTop: 6 }}>
-        <span style={{ color: slLeft ? C.red : C.green }}>{slLeft ? 'SL' : 'TP'} ${fmtN(lo)}</span>
-        <span style={{ color: C.dimText }}>entrada ${fmtN(entry)}</span>
-        <span style={{ color: slLeft ? C.green : C.red }}>{slLeft ? 'TP' : 'SL'} ${fmtN(hi)}</span>
-      </div>
-    </div>
-  )
 }
 
 // ── Equity curve cinematográfica — canvas con trazo progresivo, valle del
@@ -1398,45 +1358,8 @@ export default function JournalPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
 
-            {/* Trade(s) abierto — en vivo, P&L flotante sobre tu capital */}
-            {scaledOpen.map((t, i) => {
-              const slPct = t.entry > 0 ? Math.abs(((t.sl - t.entry) / t.entry) * 100) : 0
-              const tpPct = t.entry > 0 ? Math.abs(((t.tp - t.entry) / t.entry) * 100) : 0
-              return (
-              <div key={i} className="j-live" style={{ ...cardStyle, background: `linear-gradient(160deg,${C.gold}0c,${C.surface} 55%)`, borderLeft: `3px solid ${C.gold}`, padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', overflow: 'hidden' }}>
-                {/* barrido sutil de fondo — la tarjeta está viva */}
-                <div className="j-live-sweep" aria-hidden />
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20, position: 'relative' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ position: 'relative', display: 'inline-flex', width: 8, height: 8 }}>
-                      <span className="j-ping" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.gold, opacity: 0.5 }} />
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: C.gold, boxShadow: `0 0 8px ${C.gold}` }} />
-                    </span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.2em', color: C.gold }}>EN VIVO · NO REALIZADO</span>
-                  </div>
-                  <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color: C.text }}>{t.sym}</div>
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, padding: '2px 8px', color: t.direction === 'long' ? C.green : C.red, background: `${t.direction === 'long' ? C.green : C.red}12`, border: `1px solid ${t.direction === 'long' ? C.green : C.red}40` }}>
-                    {t.direction === 'long' ? '▲ LONG' : '▼ SHORT'}
-                  </span>
-                  <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{t.strategy.replace(/_/g, ' ')} · {t.grade} · {t.tf}</div>
-                  <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                    <div className="j-breathe" style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 30, color: t.pnlUsd >= 0 ? C.green : C.red, textShadow: `${numberEmboss}, 0 0 18px ${t.pnlUsd >= 0 ? C.green : C.red}40` }}>
-                      {fmt(t.pnlUsd)}
-                    </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct.toFixed(2)}%</div>
-                  </div>
-                </div>
-                {/* Dónde va el precio dentro del rango SL → TP */}
-                <OpenLevelBar entry={t.entry} sl={t.sl} tp={t.tp} pnlPct={t.pnl_pct} direction={t.direction} />
-                {/* Pequeño resumen de la posición — contexto, no solo el P&L */}
-                <div style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, paddingTop: 8, borderTop: `1px solid ${C.border}`, position: 'relative' }}>
-                  Abierta hace {elapsedSince(t.opened_at)} · Entry <span style={{ color: C.text }}>${fmtN(t.entry)}</span>
-                  {' · '}SL <span style={{ color: C.red }}>${fmtN(t.sl)}</span> <span style={{ color: C.muted }}>(-{slPct.toFixed(1)}%)</span>
-                  {' · '}TP <span style={{ color: C.green }}>${fmtN(t.tp)}</span> <span style={{ color: C.muted }}>(+{tpPct.toFixed(1)}%)</span>
-                </div>
-              </div>
-              )
-            })}
+            {/* Trade(s) abierto — boleta en vivo, P&L flotante sobre tu capital */}
+            {scaledOpen.map((t, i) => <LiveTicket key={i} t={t} />)}
 
             {motorAnalytics ? (
               <>
