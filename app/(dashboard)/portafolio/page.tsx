@@ -333,13 +333,12 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
         drawn.forEach(d => { const dd = Math.hypot(d.x - m.px, d.y - m.py); if (dd < best + d.size) { best = dd; hoverI = d.i } })
       }
 
-      // núcleo central (total) — pulso. Centro atenuado (el brillo queda como
-      // anillo) para que el chip de texto encima se lea con claridad.
+      // núcleo central (total) — pulso
       const pulse = 1 + (reduce ? 0 : Math.sin(t * 1.8) * 0.035)
       const cr = coreR * pulse
       const cg = ctx.createRadialGradient(cx, cy - cr * 0.3, 3, cx, cy, cr * 1.7)
-      cg.addColorStop(0, 'rgba(120,210,228,0.45)'); cg.addColorStop(0.42, 'rgba(94,234,240,0.55)')
-      cg.addColorStop(0.72, 'rgba(79,146,255,0.4)'); cg.addColorStop(1, 'transparent')
+      cg.addColorStop(0, '#eafcff'); cg.addColorStop(0.35, '#5eeaf0')
+      cg.addColorStop(0.7, 'rgba(79,146,255,0.5)'); cg.addColorStop(1, 'transparent')
       ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, cy, cr * 1.7, 0, 7); ctx.fill()
 
       // planetas
@@ -397,22 +396,13 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
   return (
     <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: '100%', minHeight: 300 }}>
       <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
-      {/* Total al centro — chip oscuro con borde para máxima legibilidad sobre el glow */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-          padding: '13px 30px', borderRadius: 16,
-          background: 'radial-gradient(120% 120% at 50% 42%, rgba(5,8,13,0.92) 0%, rgba(5,8,13,0.66) 62%, rgba(5,8,13,0.12) 100%)',
-          border: `1px solid ${C.gold}59`,
-          boxShadow: `0 0 22px rgba(4,6,11,0.55), inset 0 1px 0 rgba(255,255,255,0.06)`,
-          backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
-        }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.3em', color: C.dimText }}>PATRIMONIO TOTAL</span>
-          <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(30px,4.4vw,48px)', lineHeight: 1, letterSpacing: '0.02em', textShadow: '0 2px 6px rgba(0,0,0,0.7)', background: `linear-gradient(135deg,${C.glow},${C.gold})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {fmtUSD(animTotal)}
-          </span>
-          <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText }}>USD equiv.</span>
-        </div>
+      {/* Total al centro — sin tarjeta: solo sombra detrás de las letras para legibilidad */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', gap: 3 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.3em', color: C.dimText, textShadow: '0 1px 4px rgba(0,0,0,0.85)' }}>PATRIMONIO TOTAL</span>
+        <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(30px,4.4vw,48px)', lineHeight: 1, letterSpacing: '0.02em', textShadow: '0 2px 7px rgba(0,0,0,0.9), 0 0 18px rgba(0,0,0,0.6)', background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          {fmtUSD(animTotal)}
+        </span>
+        <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, textShadow: '0 1px 4px rgba(0,0,0,0.85)' }}>USD equiv.</span>
       </div>
     </div>
   )
