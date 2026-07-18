@@ -290,7 +290,7 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
       const ky = Math.cos(tilt)
 
       const n = segs.length || 1
-      const coreR = Math.max(30, Math.min(W, H) * 0.12)
+      const coreR = Math.max(34, Math.min(W, H) * 0.14)
       const maxR  = Math.min(W * 0.44, H * 0.46)
       const minR  = coreR * 1.8
       const bodies = segs.map((s, i) => ({
@@ -333,24 +333,35 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
         drawn.forEach(d => { const dd = Math.hypot(d.x - m.px, d.y - m.py); if (dd < best + d.size) { best = dd; hoverI = d.i } })
       }
 
-      // núcleo central (total) — orbe vivo: halo amplio + esfera con relieve.
-      // El centro es cian saturado (no blanco) para que el texto blanco resalte.
+      // núcleo central (total) — esfera con relieve real. Fuente de luz
+      // arriba-izquierda: highlight especular, cuerpo iluminado y borde
+      // inferior-derecho en sombra (terminador) para que se lea como 3D.
       const pulse = 1 + (reduce ? 0 : Math.sin(t * 1.8) * 0.035)
       const cr = coreR * pulse
-      // halo exterior
-      const halo = ctx.createRadialGradient(cx, cy, cr * 0.5, cx, cy, cr * 2.0)
-      halo.addColorStop(0, 'rgba(94,234,240,0.34)'); halo.addColorStop(0.5, 'rgba(79,146,255,0.16)')
+      // halo/atmósfera exterior
+      const halo = ctx.createRadialGradient(cx, cy, cr * 0.75, cx, cy, cr * 2.1)
+      halo.addColorStop(0, 'rgba(94,234,240,0.30)'); halo.addColorStop(0.55, 'rgba(79,146,255,0.12)')
       halo.addColorStop(1, 'transparent')
-      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, cr * 2.0, 0, 7); ctx.fill()
-      // esfera con highlight arriba-izquierda (aspecto 3D)
-      const body = ctx.createRadialGradient(cx - cr * 0.34, cy - cr * 0.4, cr * 0.1, cx, cy, cr * 1.08)
-      body.addColorStop(0, 'rgba(150,238,248,0.95)'); body.addColorStop(0.5, 'rgba(57,190,224,0.72)')
-      body.addColorStop(1, 'rgba(24,86,150,0.30)')
-      ctx.fillStyle = body; ctx.beginPath(); ctx.arc(cx, cy, cr * 1.08, 0, 7); ctx.fill()
-      // aro/atmósfera
-      ctx.save(); ctx.strokeStyle = 'rgba(94,234,240,0.5)'; ctx.lineWidth = 1.5
-      ctx.shadowColor = '#5eeaf0'; ctx.shadowBlur = 10
-      ctx.beginPath(); ctx.arc(cx, cy, cr * 1.08, 0, 7); ctx.stroke(); ctx.restore()
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, cr * 2.1, 0, 7); ctx.fill()
+      // cuerpo de la esfera — degradado desde la luz (arriba-izq) al borde en sombra
+      const body = ctx.createRadialGradient(cx - cr * 0.42, cy - cr * 0.46, cr * 0.05, cx, cy, cr * 1.02)
+      body.addColorStop(0, 'rgba(210,249,255,0.98)')
+      body.addColorStop(0.22, 'rgba(122,227,245,0.96)')
+      body.addColorStop(0.6, 'rgba(46,150,206,0.95)')
+      body.addColorStop(1, 'rgba(11,44,80,0.97)')
+      ctx.fillStyle = body; ctx.beginPath(); ctx.arc(cx, cy, cr * 1.02, 0, 7); ctx.fill()
+      // oclusión inferior-derecha — refuerza el volumen
+      const occ = ctx.createRadialGradient(cx + cr * 0.36, cy + cr * 0.44, cr * 0.1, cx, cy, cr * 1.02)
+      occ.addColorStop(0, 'rgba(3,11,22,0.42)'); occ.addColorStop(0.7, 'transparent')
+      ctx.fillStyle = occ; ctx.beginPath(); ctx.arc(cx, cy, cr * 1.02, 0, 7); ctx.fill()
+      // rim-light inferior — luz reflejada en el borde en sombra
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, cr * 1.0, Math.PI * 0.12, Math.PI * 0.7)
+      ctx.strokeStyle = 'rgba(120,232,246,0.5)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore()
+      // brillo especular puntual (arriba-izquierda)
+      const sx = cx - cr * 0.4, sy = cy - cr * 0.45
+      const spec = ctx.createRadialGradient(sx, sy, 0, sx, sy, cr * 0.42)
+      spec.addColorStop(0, 'rgba(255,255,255,0.9)'); spec.addColorStop(1, 'transparent')
+      ctx.fillStyle = spec; ctx.beginPath(); ctx.arc(sx, sy, cr * 0.42, 0, 7); ctx.fill()
 
       // planetas
       drawn.forEach(d => {
