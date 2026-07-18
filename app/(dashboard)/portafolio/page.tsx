@@ -333,13 +333,24 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
         drawn.forEach(d => { const dd = Math.hypot(d.x - m.px, d.y - m.py); if (dd < best + d.size) { best = dd; hoverI = d.i } })
       }
 
-      // núcleo central (total) — pulso
+      // núcleo central (total) — orbe vivo: halo amplio + esfera con relieve.
+      // El centro es cian saturado (no blanco) para que el texto blanco resalte.
       const pulse = 1 + (reduce ? 0 : Math.sin(t * 1.8) * 0.035)
       const cr = coreR * pulse
-      const cg = ctx.createRadialGradient(cx, cy - cr * 0.3, 3, cx, cy, cr * 1.7)
-      cg.addColorStop(0, '#eafcff'); cg.addColorStop(0.35, '#5eeaf0')
-      cg.addColorStop(0.7, 'rgba(79,146,255,0.5)'); cg.addColorStop(1, 'transparent')
-      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, cy, cr * 1.7, 0, 7); ctx.fill()
+      // halo exterior
+      const halo = ctx.createRadialGradient(cx, cy, cr * 0.5, cx, cy, cr * 2.0)
+      halo.addColorStop(0, 'rgba(94,234,240,0.34)'); halo.addColorStop(0.5, 'rgba(79,146,255,0.16)')
+      halo.addColorStop(1, 'transparent')
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, cr * 2.0, 0, 7); ctx.fill()
+      // esfera con highlight arriba-izquierda (aspecto 3D)
+      const body = ctx.createRadialGradient(cx - cr * 0.34, cy - cr * 0.4, cr * 0.1, cx, cy, cr * 1.08)
+      body.addColorStop(0, 'rgba(150,238,248,0.95)'); body.addColorStop(0.5, 'rgba(57,190,224,0.72)')
+      body.addColorStop(1, 'rgba(24,86,150,0.30)')
+      ctx.fillStyle = body; ctx.beginPath(); ctx.arc(cx, cy, cr * 1.08, 0, 7); ctx.fill()
+      // aro/atmósfera
+      ctx.save(); ctx.strokeStyle = 'rgba(94,234,240,0.5)'; ctx.lineWidth = 1.5
+      ctx.shadowColor = '#5eeaf0'; ctx.shadowBlur = 10
+      ctx.beginPath(); ctx.arc(cx, cy, cr * 1.08, 0, 7); ctx.stroke(); ctx.restore()
 
       // planetas
       drawn.forEach(d => {
@@ -396,13 +407,13 @@ function WealthCore({ segments, total }: { segments: CoreSeg[]; total: number })
   return (
     <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: '100%', minHeight: 300 }}>
       <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
-      {/* Total al centro — sin tarjeta: solo sombra detrás de las letras para legibilidad */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', gap: 3 }}>
-        <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.3em', color: C.dimText, textShadow: '0 1px 4px rgba(0,0,0,0.85)' }}>PATRIMONIO TOTAL</span>
-        <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(30px,4.4vw,48px)', lineHeight: 1, letterSpacing: '0.02em', textShadow: '0 2px 7px rgba(0,0,0,0.9), 0 0 18px rgba(0,0,0,0.6)', background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+      {/* Total al centro — blanco con aura oscura detrás de las letras (sin tarjeta) */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', gap: 4 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.3em', color: '#dff6fb', textShadow: '0 0 6px rgba(2,8,16,0.95), 0 1px 3px rgba(0,0,0,0.9)' }}>PATRIMONIO TOTAL</span>
+        <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(30px,4.4vw,48px)', lineHeight: 1, letterSpacing: '0.02em', color: '#ffffff', textShadow: '0 0 14px rgba(2,10,20,0.95), 0 0 26px rgba(2,10,20,0.75), 0 2px 4px rgba(0,0,0,0.85)' }}>
           {fmtUSD(animTotal)}
         </span>
-        <span style={{ fontFamily: 'monospace', fontSize: 10, color: C.dimText, textShadow: '0 1px 4px rgba(0,0,0,0.85)' }}>USD equiv.</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#cfe9f0', textShadow: '0 0 6px rgba(2,8,16,0.95), 0 1px 3px rgba(0,0,0,0.9)' }}>USD equiv.</span>
       </div>
     </div>
   )
