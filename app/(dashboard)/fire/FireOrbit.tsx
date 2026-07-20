@@ -153,7 +153,7 @@ export default function FireOrbit({ progress, color, capital, target }: Props) {
         <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>TU CAMINO A LA LIBERTAD</span>
         <span style={{ fontFamily: 'monospace', fontSize: 12, color }}>{pct.toFixed(1)}%</span>
       </div>
-      <canvas ref={canvasRef} height={280} style={{ display: 'block', width: '100%' }} />
+      <canvas ref={canvasRef} height={280} style={{ display: 'block', width: '100%', height: 280 }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 2 }}>
         <span>{fmt(capital)}</span><span>Meta: {fmtK(target)}</span>
       </div>
