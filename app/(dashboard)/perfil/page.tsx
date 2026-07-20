@@ -6,6 +6,7 @@ import { supabase } from '@/app/lib/supabase'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { useFireProfile } from '@/app/lib/useFireProfile'
 import PerfilSeal from './PerfilSeal'
+import PasswordCard from './PasswordCard'
 import type { User } from '@supabase/supabase-js'
 
 // Acento Cyan Deck — el nombre GOLD se mantiene por compatibilidad con el resto del archivo
@@ -662,9 +663,12 @@ export default function PerfilPage() {
 
         {/* ══ SEGURIDAD ══ */}
         {tab === 'seguridad' && (
-          <div style={panelCss}>
-            <div style={filoCss} />
-            <div style={{ padding: '0 26px 12px' }}>
+          <div style={{ ...panelCss, position: 'relative' }}>
+            <div className="pf-lightfield" aria-hidden>
+              <span className="pf-lf pf-lf1" /><span className="pf-lf pf-lf2" />
+            </div>
+            <div style={{ ...filoCss, position: 'relative', zIndex: 2 }} />
+            <div style={{ padding: '0 26px 12px', position: 'relative', zIndex: 2 }}>
             {hasStoredCreds && (
               <Row label="Credenciales guardadas" hint="Claves de Binance, IBKR o MetaTrader 5 guardadas en una versión anterior. Ya no se gestionan ni sincronizan — puedes borrarlas de forma permanente.">
                 {clearMsg && <div style={{ fontFamily: MONO, fontSize: 11, color: clearMsg.startsWith('Error') ? RED : GREEN, marginBottom: 12 }}>{clearMsg}</div>}
@@ -687,21 +691,12 @@ export default function PerfilPage() {
 
             {!isOAuth ? (
               <Row label="Cambiar contraseña" hint="Mínimo 8 caracteres. El cambio se aplica de inmediato.">
-                <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 380 }}>
-                  <Field label="Nueva contraseña">
-                    <input type="password" value={pwdNew} onChange={e => setPwdNew(e.target.value)} placeholder="Mínimo 8 caracteres" className="perf-input" style={inputCss} />
-                  </Field>
-                  <Field label="Confirmar contraseña">
-                    <input type="password" value={pwdConfirm} onChange={e => setPwdConfirm(e.target.value)} placeholder="Repite la nueva contraseña" className="perf-input" style={inputCss} />
-                  </Field>
-                  {pwdError && <div style={{ fontFamily: MONO, fontSize: 11, color: RED }}>{pwdError}</div>}
-                  {pwdMsg   && <div style={{ fontFamily: MONO, fontSize: 11, color: GREEN }}>{pwdMsg}</div>}
-                  <div>
-                    <button type="submit" disabled={savingPwd} className="btn-outline" style={{ ...btnOutline, opacity: savingPwd ? 0.6 : 1 }}>
-                      {savingPwd ? 'ACTUALIZANDO…' : 'ACTUALIZAR CONTRASEÑA'}
-                    </button>
-                  </div>
-                </form>
+                <PasswordCard
+                  value={pwdNew} confirm={pwdConfirm}
+                  onValue={setPwdNew} onConfirm={setPwdConfirm}
+                  onSubmit={handleChangePassword}
+                  saving={savingPwd} error={pwdError} msg={pwdMsg}
+                />
               </Row>
             ) : (
               <Row label="Contraseña" hint="Tu acceso está gestionado por un proveedor externo.">
