@@ -17,7 +17,9 @@ export interface Challenge {
 
 export interface Badge {
   id: string
-  emoji: string
+  emoji: string        // solo para texto externo (notificaciones, compartir en Telegram)
+  glyph: string        // clave en GLYPHS de FireVisuals — es lo que se dibuja en pantalla
+  color: string
   name: string
   description: string
 }
@@ -104,25 +106,25 @@ export const WEEKLY_CHALLENGES: Challenge[] = [
 export const ALL_CHALLENGES = [...DAILY_CHALLENGES, ...WEEKLY_CHALLENGES]
 
 export const BADGES: Badge[] = [
-  { id: 'primer_paso',     emoji: '⚡', name: 'Primer paso',     description: 'Completa tu primer reto' },
-  { id: 'on_fire',         emoji: '🔥', name: 'On Fire',         description: '7 días seguidos con retos' },
-  { id: 'centenario',      emoji: '💰', name: 'Centenario',      description: 'Acumula 100 puntos' },
-  { id: 'recortador',      emoji: '✂️', name: 'Recortador',      description: 'Cancela 3 suscripciones' },
-  { id: 'fire_ready',      emoji: '🎯', name: 'FIRE Ready',      description: 'Completa todos los retos de una semana' },
-  { id: 'silver_trader',   emoji: '🥈', name: 'Silver Trader',   description: 'Alcanza nivel SILVER' },
-  { id: 'gold_trader',     emoji: '🥇', name: 'Gold Trader',     description: 'Alcanza nivel GOLD' },
-  { id: 'diamond_trader',  emoji: '💎', name: 'Diamond Trader',  description: 'Alcanza nivel DIAMOND' },
-  { id: 'imparable',       emoji: '🔥🔥', name: 'Imparable',    description: '30 días seguidos' },
-  { id: 'ahorrador_elite', emoji: '🚀', name: 'Ahorrador Elite', description: 'Sube el ahorro 10 veces' },
+  { id: 'primer_paso',     emoji: '⚡', glyph: 'bolt',   color: '#39e2e6', name: 'Primer paso',     description: 'Completa tu primer reto' },
+  { id: 'on_fire',         emoji: '🔥', glyph: 'flame',  color: '#ffb454', name: 'On Fire',         description: '7 días seguidos con retos' },
+  { id: 'centenario',      emoji: '💰', glyph: 'coins',  color: '#2fd39a', name: 'Centenario',      description: 'Acumula 100 puntos' },
+  { id: 'recortador',      emoji: '✂️', glyph: 'cut',    color: '#4f92ff', name: 'Recortador',      description: 'Cancela 3 suscripciones' },
+  { id: 'fire_ready',      emoji: '🎯', glyph: 'target', color: '#39e2e6', name: 'FIRE Ready',      description: 'Completa todos los retos de una semana' },
+  { id: 'silver_trader',   emoji: '🥈', glyph: 'medal',  color: '#c7d2e0', name: 'Silver Trader',   description: 'Alcanza nivel SILVER' },
+  { id: 'gold_trader',     emoji: '🥇', glyph: 'medal',  color: '#ffd76a', name: 'Gold Trader',     description: 'Alcanza nivel GOLD' },
+  { id: 'diamond_trader',  emoji: '💎', glyph: 'medal',  color: '#5eeaf0', name: 'Diamond Trader',  description: 'Alcanza nivel DIAMOND' },
+  { id: 'imparable',       emoji: '🔥🔥', glyph: 'flame', color: '#ff8a4c', name: 'Imparable',      description: '30 días seguidos' },
+  { id: 'ahorrador_elite', emoji: '🚀', glyph: 'rocket', color: '#2fd39a', name: 'Ahorrador Elite', description: 'Sube el ahorro 10 veces' },
 ]
 
 export const LEVELS = [
-  { name: 'STARTER', emoji: '🌱', min: 0,    max: 99 },
-  { name: 'SILVER',  emoji: '🥈', min: 100,  max: 499 },
-  { name: 'GOLD',    emoji: '🥇', min: 500,  max: 999 },
-  { name: 'DIAMOND', emoji: '💎', min: 1000, max: 1999 },
-  { name: 'MASTER',  emoji: '⭐', min: 2000, max: 4999 },
-  { name: 'LEGEND',  emoji: '👑', min: 5000, max: Infinity },
+  { name: 'STARTER', emoji: '🌱', color: '#39e2e6', min: 0,    max: 99 },
+  { name: 'SILVER',  emoji: '🥈', color: '#c7d2e0', min: 100,  max: 499 },
+  { name: 'GOLD',    emoji: '🥇', color: '#ffd76a', min: 500,  max: 999 },
+  { name: 'DIAMOND', emoji: '💎', color: '#5eeaf0', min: 1000, max: 1999 },
+  { name: 'MASTER',  emoji: '⭐', color: '#a78bfa', min: 2000, max: 4999 },
+  { name: 'LEGEND',  emoji: '👑', color: '#ffb454', min: 5000, max: Infinity },
 ] as const
 
 export function getLevelFromPoints(points: number) {

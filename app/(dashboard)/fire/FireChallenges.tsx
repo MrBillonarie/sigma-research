@@ -4,6 +4,8 @@ import { supabase } from '@/app/lib/supabase'
 import { createNotification } from '@/app/lib/notify'
 import FireBadges from './FireBadges'
 import { BADGES, LEVELS, getLevelFromPoints, getNextLevel } from './challenges'
+import { StreakFlame, LevelOrb, RankLadder, MissionIcon, WeeklyRing, useConfetti } from './FireVisuals'
+import { C } from '@/app/lib/constants'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Difficulty = 'FÁCIL' | 'MEDIO' | 'DIFÍCIL'
@@ -11,7 +13,7 @@ type GoalType   = 'amount' | 'days' | 'boolean'
 
 interface DailyChallenge {
   id:        string
-  icon:      string
+  glyph:     string           // clave en GLYPHS (FireVisuals) — se dibuja, no es emoji
   title:     string
   desc:      string
   amountBase: number          // 0 = no monetary component
@@ -56,8 +58,10 @@ const GOLD   = '#39e2e6'
 const GREEN  = '#22c55e'
 const ORANGE = '#f97316'
 const MONO   = "var(--font-dm-mono,'DM Mono',monospace)"
+const DISP   = "var(--font-bebas,'Bebas Neue',Impact,sans-serif)"
 const MUTED  = 'rgba(255,255,255,0.38)'
 const DIM    = 'rgba(255,255,255,0.22)'
+const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getToday(): string { return new Date().toISOString().split('T')[0] }
@@ -113,7 +117,7 @@ function monthsToTarget(capital: number, ahorro: number, retornoPct: number, tar
 const DAILY_1: DailyChallenge[] = [
   // 0 Sun
   {
-    id: 'sun', icon: '🗓️',
+    id: 'sun', glyph: 'calendar',
     title: 'Planifica la semana financiera',
     desc:  'Define tu presupuesto de la semana, revisa tus metas FIRE y ajusta el slider de ahorro si cambiaste ingresos.',
     amountBase: 0,
@@ -122,7 +126,7 @@ const DAILY_1: DailyChallenge[] = [
   },
   // 1 Mon
   {
-    id: 'mon', icon: '⚡',
+    id: 'mon', glyph: 'bolt',
     title: 'El café de hoy, al portafolio',
     desc:  'Transfiere al ahorro en vez de un gasto extra. Pequeño sacrificio, gran impacto compuesto.',
     amountBase: 2,
@@ -135,7 +139,7 @@ const DAILY_1: DailyChallenge[] = [
   },
   // 2 Tue
   {
-    id: 'tue', icon: '📵',
+    id: 'tue', glyph: 'tag',
     title: 'Día sin compras impulsivas',
     desc:  'Pausa cualquier compra no planificada por 24h. Si mañana igual la quieres, entonces cómprala.',
     amountBase: 0,
@@ -144,7 +148,7 @@ const DAILY_1: DailyChallenge[] = [
   },
   // 3 Wed
   {
-    id: 'wed', icon: '📈',
+    id: 'wed', glyph: 'chartUp',
     title: 'Revisa tu equity curve',
     desc:  'Abre el HUD y revisa el rendimiento de tus modelos activos. Toma nota de una mejora posible.',
     amountBase: 0,
@@ -153,7 +157,7 @@ const DAILY_1: DailyChallenge[] = [
   },
   // 4 Thu
   {
-    id: 'thu', icon: '🎯',
+    id: 'thu', glyph: 'target',
     title: 'Busca ingresos extra hoy',
     desc:  'Vende algo que no uses, ofrece un servicio pequeño o negocia un descuento.',
     amountBase: 5,
@@ -162,7 +166,7 @@ const DAILY_1: DailyChallenge[] = [
   },
   // 5 Fri
   {
-    id: 'fri', icon: '🧮',
+    id: 'fri', glyph: 'calc',
     title: 'Calcula tu tasa de ahorro real',
     desc:  'Divide tu ahorro mensual entre tu ingreso total. Si es menor al 20%, ajusta un gasto esta semana.',
     amountBase: 0,
@@ -171,7 +175,7 @@ const DAILY_1: DailyChallenge[] = [
   },
   // 6 Sat
   {
-    id: 'sat', icon: '📚',
+    id: 'sat', glyph: 'book',
     title: 'Lee 10 páginas sobre finanzas',
     desc:  '"The Psychology of Money", "A Random Walk Down Wall Street" o cualquier libro financiero.',
     amountBase: 0,
@@ -183,7 +187,7 @@ const DAILY_1: DailyChallenge[] = [
 const DAILY_2: DailyChallenge[] = [
   // 0 Sun
   {
-    id: 'sun2', icon: '🔍',
+    id: 'sun2', glyph: 'search',
     title: 'Audita tus suscripciones activas',
     desc:  'Revisa streaming, apps y membresías. Detecta al menos una que no usas hace más de un mes.',
     amountBase: 0,
@@ -192,7 +196,7 @@ const DAILY_2: DailyChallenge[] = [
   },
   // 1 Mon
   {
-    id: 'mon2', icon: '🔁',
+    id: 'mon2', glyph: 'repeat',
     title: 'Automatiza una transferencia a tu ahorro',
     desc:  'Programa una transferencia automática, aunque sea pequeña. Quitarle la decisión al futuro-tú.',
     amountBase: 3,
@@ -201,7 +205,7 @@ const DAILY_2: DailyChallenge[] = [
   },
   // 2 Tue
   {
-    id: 'tue2', icon: '🏷️',
+    id: 'tue2', glyph: 'tag',
     title: 'Compara precios antes de comprar algo',
     desc:  'Antes de tu próxima compra, compara al menos 2 alternativas de precio.',
     amountBase: 0,
@@ -210,7 +214,7 @@ const DAILY_2: DailyChallenge[] = [
   },
   // 3 Wed
   {
-    id: 'wed2', icon: '📉',
+    id: 'wed2', glyph: 'chartDown',
     title: 'Revisa el drawdown de tu portafolio',
     desc:  'Abre el HUD y revisa cuánto ha caído tu equity curve desde su máximo. Conocerlo evita el pánico.',
     amountBase: 0,
@@ -219,7 +223,7 @@ const DAILY_2: DailyChallenge[] = [
   },
   // 4 Thu
   {
-    id: 'thu2', icon: '☎️',
+    id: 'thu2', glyph: 'phone',
     title: 'Negocia una cuenta o servicio fijo',
     desc:  'Llama a tu compañía de internet, celular o luz y pide un mejor plan. Casi siempre hay margen.',
     amountBase: 4,
@@ -228,7 +232,7 @@ const DAILY_2: DailyChallenge[] = [
   },
   // 5 Fri
   {
-    id: 'fri2', icon: '🧾',
+    id: 'fri2', glyph: 'doc',
     title: 'Registra todos tus gastos de la semana',
     desc:  'Anota cada gasto, sin excepción, aunque sea $1. El gasto hormiga se esconde en lo que no anotas.',
     amountBase: 0,
@@ -237,7 +241,7 @@ const DAILY_2: DailyChallenge[] = [
   },
   // 6 Sat
   {
-    id: 'sat2', icon: '🧠',
+    id: 'sat2', glyph: 'book',
     title: 'Aprende sobre un instrumento de inversión nuevo',
     desc:  'ETFs, bonos, REITs — elige uno que no conozcas y entiende cómo funciona.',
     amountBase: 0,
@@ -249,7 +253,7 @@ const DAILY_2: DailyChallenge[] = [
 const DAILY_3: DailyChallenge[] = [
   // 0 Sun
   {
-    id: 'sun3', icon: '🎯',
+    id: 'sun3', glyph: 'target',
     title: 'Define una meta de ahorro para el mes',
     desc:  'Pon un número concreto, no "ahorrar más". Lo que se mide, se mejora.',
     amountBase: 0,
@@ -258,7 +262,7 @@ const DAILY_3: DailyChallenge[] = [
   },
   // 1 Mon
   {
-    id: 'mon3', icon: '📦',
+    id: 'mon3', glyph: 'box',
     title: 'Vende algo que no usas',
     desc:  'Ropa, electrónica, lo que sea. Convierte desorden en capital FIRE.',
     amountBase: 6,
@@ -267,7 +271,7 @@ const DAILY_3: DailyChallenge[] = [
   },
   // 2 Tue
   {
-    id: 'tue3', icon: '🍳',
+    id: 'tue3', glyph: 'pot',
     title: 'Día sin delivery ni comida fuera',
     desc:  'Cocina todas tus comidas hoy. Simple, pero el ahorro se acumula rápido.',
     amountBase: 0,
@@ -276,7 +280,7 @@ const DAILY_3: DailyChallenge[] = [
   },
   // 3 Wed
   {
-    id: 'wed3', icon: '🧭',
+    id: 'wed3', glyph: 'compass',
     title: 'Revisa el ranking de tus modelos activos',
     desc:  'Abre /modelos o /terminal y revisa cuál estrategia está rindiendo mejor este mes.',
     amountBase: 0,
@@ -285,7 +289,7 @@ const DAILY_3: DailyChallenge[] = [
   },
   // 4 Thu
   {
-    id: 'thu3', icon: '💼',
+    id: 'thu3', glyph: 'briefcase',
     title: 'Ofrece un servicio o freelance hoy',
     desc:  'Una habilidad tuya, aunque sea pequeña, puede generar ingreso extra hoy mismo.',
     amountBase: 7,
@@ -294,7 +298,7 @@ const DAILY_3: DailyChallenge[] = [
   },
   // 5 Fri
   {
-    id: 'fri3', icon: '🛟',
+    id: 'fri3', glyph: 'shield',
     title: 'Calcula tu fondo de emergencia',
     desc:  '¿Cuántos meses de gastos cubre tu efectivo disponible? La meta sana es 3-6 meses.',
     amountBase: 0,
@@ -303,7 +307,7 @@ const DAILY_3: DailyChallenge[] = [
   },
   // 6 Sat
   {
-    id: 'sat3', icon: '🗣️',
+    id: 'sat3', glyph: 'speak',
     title: 'Comparte lo que aprendiste esta semana',
     desc:  'Cuéntale a alguien (o escríbelo) un aprendizaje financiero de esta semana.',
     amountBase: 0,
@@ -312,7 +316,140 @@ const DAILY_3: DailyChallenge[] = [
   },
 ]
 
-const DAILY_SETS = [DAILY_1, DAILY_2, DAILY_3]
+const DAILY_4: DailyChallenge[] = [
+  // 0 Sun
+  {
+    id: 'sun4', glyph: 'scale',
+    title: 'Revisa tu asignación de activos',
+    desc:  'Mira qué porcentaje tienes en cripto, acciones y efectivo. ¿Se parece a tu perfil de riesgo real?',
+    amountBase: 0,
+    unitFn:    () => 'Asignación revisada',
+    impactFn:  () => 'La asignación de activos explica ~90% de la variabilidad de tus retornos a largo plazo',
+  },
+  // 1 Mon
+  {
+    id: 'mon4', glyph: 'bank',
+    title: 'Compara comisiones de tu corredora',
+    desc:  'Revisa cuánto pagas por operación y custodia. Compara con una alternativa antes de terminar el día.',
+    amountBase: 4,
+    unitFn:    (a) => `+${fmtUSD(a)}/mes ahorrado`,
+    impactFn:  (a) => `Bajar comisiones ${fmtUSD(a)}/mes → +${fmtUSD(a * 12)}/año que se queda componiendo`,
+  },
+  // 2 Tue
+  {
+    id: 'tue4', glyph: 'car',
+    title: 'Día sin auto ni taxi',
+    desc:  'Camina, usa bici o transporte público hoy. Cuenta lo que no gastaste en combustible o viajes.',
+    amountBase: 3,
+    unitFn:    (a) => `+${fmtUSD(a)} no gastado`,
+    impactFn:  (a) => `2 días/semana sin auto → +${fmtUSD(a * 2 * 52)}/año al portafolio`,
+  },
+  // 3 Wed
+  {
+    id: 'wed4', glyph: 'calc',
+    title: 'Calcula tu patrimonio neto real',
+    desc:  'Suma todo lo que tienes y réstale todo lo que debes. Ese número, no tu sueldo, es tu marcador.',
+    amountBase: 0,
+    unitFn:    () => 'Patrimonio neto calculado',
+    impactFn:  () => 'Medir tu patrimonio neto mensual es el hábito #1 de quienes alcanzan FIRE',
+  },
+  // 4 Thu
+  {
+    id: 'thu4', glyph: 'percent',
+    title: 'Revisa la tasa de tus deudas',
+    desc:  'Lista tus deudas por tasa de interés. Cualquiera sobre 15% rinde más pagarla que invertir.',
+    amountBase: 0,
+    unitFn:    () => 'Deudas ordenadas por tasa',
+    impactFn:  () => 'Pagar una deuda al 20% equivale a una inversión garantizada al 20% libre de riesgo',
+  },
+  // 5 Fri
+  {
+    id: 'fri4', glyph: 'doc',
+    title: 'Aprende sobre impuestos a la inversión',
+    desc:  'Entiende cómo tributan tus ganancias de capital. Lo que no sabes te está costando dinero.',
+    amountBase: 0,
+    unitFn:    () => '1 concepto tributario nuevo',
+    impactFn:  () => 'Optimizar la tributación de tu portafolio puede sumar 0.5–1% de retorno neto anual',
+  },
+  // 6 Sat
+  {
+    id: 'sat4', glyph: 'search',
+    title: 'Audita una suscripción familiar',
+    desc:  'Revisa planes compartidos: streaming, nube, celular. Un plan familiar suele costar menos que 3 individuales.',
+    amountBase: 0,
+    unitFn:    () => '1 plan optimizado',
+    impactFn:  () => 'Consolidar servicios en planes familiares ahorra en promedio $12–$25/mes',
+  },
+]
+
+const DAILY_5: DailyChallenge[] = [
+  // 0 Sun
+  {
+    id: 'sun5', glyph: 'shield',
+    title: 'Actualiza tus beneficiarios',
+    desc:  'Revisa a quién dejas designado en tus cuentas y seguros. Toma 10 minutos y casi nadie lo hace.',
+    amountBase: 0,
+    unitFn:    () => 'Beneficiarios al día',
+    impactFn:  () => 'Un beneficiario desactualizado puede trabar tu patrimonio por años en sucesión',
+  },
+  // 1 Mon
+  {
+    id: 'mon5', glyph: 'percent',
+    title: 'Revisa el costo anual de tus fondos',
+    desc:  'Busca el "expense ratio" de tus fondos o ETFs. Sobre 1% anual es caro y erosiona el interés compuesto.',
+    amountBase: 0,
+    unitFn:    () => 'Costos de fondos revisados',
+    impactFn:  () => 'Bajar el costo de 1.5% a 0.2% anual puede sumar +30% de capital final en 30 años',
+  },
+  // 2 Tue
+  {
+    id: 'tue5', glyph: 'pot',
+    title: 'Cocina en lote para la semana',
+    desc:  'Prepara varias porciones de una vez. Menos delivery esta semana con cero fuerza de voluntad extra.',
+    amountBase: 6,
+    unitFn:    (a) => `+${fmtUSD(a)} no gastado`,
+    impactFn:  (a) => `Batch-cooking semanal → +${fmtUSD(a * 52)}/año directo al portafolio`,
+  },
+  // 3 Wed
+  {
+    id: 'wed5', glyph: 'chartUp',
+    title: 'Aprende sobre bonos indexados a inflación',
+    desc:  'Entiende cómo funcionan los instrumentos que protegen tu poder adquisitivo (UF, TIPS, linkers).',
+    amountBase: 0,
+    unitFn:    () => '1 instrumento nuevo entendido',
+    impactFn:  () => 'La inflación es el impuesto invisible: 4% anual corta tu poder de compra a la mitad en 18 años',
+  },
+  // 4 Thu
+  {
+    id: 'thu5', glyph: 'phone',
+    title: 'Compara tu seguro antes de renovar',
+    desc:  'Pide al menos 2 cotizaciones alternativas de tu seguro de auto, salud u hogar.',
+    amountBase: 5,
+    unitFn:    (a) => `+${fmtUSD(a)}/mes ahorrado`,
+    impactFn:  (a) => `Cotizar seguros cada año ahorra en promedio ${fmtUSD(a * 12)}/año sin perder cobertura`,
+  },
+  // 5 Fri
+  {
+    id: 'fri5', glyph: 'speak',
+    title: 'Practica decir que no a un gasto social',
+    desc:  'Propone una alternativa más barata en vez de aceptar por inercia. Nadie se ofende, y tú ahorras.',
+    amountBase: 8,
+    unitFn:    (a) => `+${fmtUSD(a)} no gastado`,
+    impactFn:  (a) => `1 vez/semana → +${fmtUSD(a * 52)}/año, sin sacrificar tu vida social`,
+  },
+  // 6 Sat
+  {
+    id: 'sat5', glyph: 'box',
+    title: 'Dona o vende ropa que no usas',
+    desc:  'Revisa tu clóset: lo que no usaste en un año, no lo vas a usar. Conviértelo en capital o espacio.',
+    amountBase: 7,
+    unitFn:    (a) => `+${fmtUSD(a)} ingreso extra`,
+    impactFn:  (a) => `Una limpieza de clóset al trimestre → +${fmtUSD(a * 4)}/año y menos gasto impulsivo`,
+  },
+]
+
+// 5 sets rotando por semana: el mismo día no repite reto hasta 5 semanas después.
+const DAILY_SETS = [DAILY_1, DAILY_2, DAILY_3, DAILY_4, DAILY_5]
 
 const WEEKLY_A: WeeklyChallenge[] = [
   {
@@ -487,28 +624,44 @@ function computeEarnedBadges(store: ChallengeStore): string[] {
 }
 
 // ─── Subcomponents ────────────────────────────────────────────────────────────
-function DiffBadge({ d }: { d: Difficulty }) {
-  const styles: Record<Difficulty, { bg: string; color: string }> = {
-    'FÁCIL':   { bg: 'rgba(34,197,94,0.12)',   color: GREEN  },
-    'MEDIO':   { bg: 'rgba(57,226,230,0.12)',   color: GOLD   },
-    'DIFÍCIL': { bg: 'rgba(249,115,22,0.12)',   color: ORANGE },
-  }
-  const s = styles[d]
+// Dificultad como 1–3 puntos encendidos, no como badge de texto.
+const DIFF_COLOR: Record<Difficulty, string> = { 'FÁCIL': GREEN, 'MEDIO': GOLD, 'DIFÍCIL': ORANGE }
+const DIFF_LEVEL: Record<Difficulty, number> = { 'FÁCIL': 1, 'MEDIO': 2, 'DIFÍCIL': 3 }
+function DiffDots({ d }: { d: Difficulty }) {
+  const lvl = DIFF_LEVEL[d], col = DIFF_COLOR[d]
   return (
-    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
-      background: s.bg, color: s.color, borderRadius: 4, padding: '2px 7px' }}>
-      {d}
+    <span title={d} style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+      {[1, 2, 3].map(i => (
+        <span key={i} style={{
+          width: 5, height: 5, borderRadius: '50%',
+          background: i <= lvl ? col : C.border2,
+          boxShadow: i <= lvl ? `0 0 6px ${col}` : 'none',
+        }} />
+      ))}
     </span>
   )
 }
 
-function ProgressBar({ value, max, color = GOLD }: { value: number; max: number; color?: string }) {
-  const pct = Math.min(100, max > 0 ? (value / max) * 100 : 0)
+// Íconos de línea inline (sin emoji) para etiquetas y el ticker de stats.
+function LineIcon({ d, size = 14, style }: { d: string; size?: number; style?: React.CSSProperties }) {
   return (
-    <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 4, transition: 'width 0.4s' }} />
-    </div>
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor"
+      strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, ...style }}>
+      <path d={d} />
+    </svg>
   )
+}
+const PATH = {
+  flame:   'M10 2c1 3-2 4-2 7a4 4 0 108 0c0-1.5-1-2-1-2 .5 2-1 3-1 3 .5-3-2-4-2-6-1 1-2 2-2 4a2 2 0 104 0',
+  spark:   'M10 2v3M10 15v3M2 10h3M15 10h3M4.9 4.9l2.1 2.1M13 13l2.1 2.1M15.1 4.9L13 7M7 13l-2.1 2.1',
+  arrowUp: 'M5 13l7.5-7.5M12.5 5.5H6.5M12.5 5.5v6',
+  bars:    'M3 9h4v8H3zM8 5h4v12H8zM13 11h4v6h-4z',
+  check:   'M4 10.5l4 4 8-9',
+  shield:  'M10 2.5l6 2.5v5c0 4.4-2.8 7.1-6 8-3.2-.9-6-3.6-6-8V5z',
+  clock:   'M10 3a7 7 0 100 14 7 7 0 000-14zM10 6.2V10l2.6 1.8',
+  trophy:  'M6 3.5h8v3a4 4 0 01-8 0zM6 4.5H3.5v1a2.5 2.5 0 002.5 2.5M14 4.5h2.5v1A2.5 2.5 0 0114 8M10 10.5v3M7 16.5h6',
+  share:   'M6 11.5l8-4.5M6 11.5l8 4.5M6 11.5a2 2 0 10-4 0 2 2 0 004 0zM18 6a2 2 0 10-4 0 2 2 0 004 0zM18 16a2 2 0 10-4 0 2 2 0 004 0z',
+  gear:    'M10 2.5l1.2 2.1 2.4-.4.4 2.4 2.1 1.2-1.5 1.9 1.5 1.9-2.1 1.2-.4 2.4-2.4-.4L10 17.5l-1.2-2.1-2.4.4-.4-2.4-2.1-1.2L5.4 10 3.9 8.1 6 6.9l.4-2.4 2.4.4z',
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -522,6 +675,8 @@ export default function FireChallenges({ ahorro, gasto, capital, retorno, target
   const [userId,    setUserId]    = useState<string | null>(null)
   const [serverSynced, setServerSynced] = useState(false)
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const completeBtnRef = useRef<HTMLButtonElement>(null)
+  const { fire: fireConfetti, node: confettiNode } = useConfetti()
 
   useEffect(() => {
     try {
@@ -806,14 +961,17 @@ export default function FireChallenges({ ahorro, gasto, capital, retorno, target
   // ── Unconfigured state ───────────────────────────────────────────────────────
   if (isUnconfigured) {
     return (
-      <div style={{ marginTop: 32 }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.25em', color: GOLD, marginBottom: 20 }}>
-          {'// RETOS FIRE · HOY & ESTA SEMANA'}
-        </div>
-        <div style={{ background: '#111', border: '1px solid rgba(255,255,255,0.08)', borderLeft: `3px solid ${GOLD}`, borderRadius: 12, padding: '24px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 28 }}>⚙</span>
+      <div style={{ marginTop: 40 }}>
+        <SectionLabel />
+        <div style={{
+          background: `linear-gradient(168deg,rgba(57,226,230,.06),${C.surface2} 45%,#0a0d14)`,
+          border: `1px solid ${C.border}`, borderRadius: 12, padding: '24px 28px',
+          display: 'flex', alignItems: 'center', gap: 18, position: 'relative', overflow: 'hidden',
+        }}>
+          <span style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 4, background: `linear-gradient(180deg,${C.glow},${C.blue})` }} />
+          <span style={{ color: GOLD, marginLeft: 6 }}><LineIcon d={PATH.gear} size={26} /></span>
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 14, color: '#e8e9f0', fontWeight: 600, marginBottom: 6 }}>
+            <div style={{ fontFamily: MONO, fontSize: 14, color: C.text, fontWeight: 600, marginBottom: 6 }}>
               Configura tu capital para activar retos personalizados
             </div>
             <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED }}>
@@ -825,255 +983,275 @@ export default function FireChallenges({ ahorro, gasto, capital, retorno, target
     )
   }
 
+  // Tira de la semana: qué días ya tienen al menos un reto completado.
+  const weekStrip = ['D', 'L', 'M', 'X', 'J', 'V', 'S'].map((letter, i) => {
+    const d = new Date(); d.setDate(d.getDate() - dayOfWeek + i)
+    const key = d.toISOString().split('T')[0]
+    return { letter, done: (store.completed[key]?.length ?? 0) > 0, isToday: i === dayOfWeek }
+  })
+
+  // Escalera de impacto: para retos con monto, proyecta hoy → 1 año → 10 años.
+  const decade = (v: number) => v * 365 * ((Math.pow(1.08, 10) - 1) / 0.08)
+  const ladder = daily.amountBase > 0
+    ? [
+        { k: 'Hoy',             v: `+${fmtUSD(amt)}`,             d: 'al portafolio',          c: GOLD },
+        { k: 'Repetido 1 año',  v: `+${fmtUSD(amt * 365)}`,       d: '365 días seguidos',      c: C.glow },
+        { k: 'En 10 años',      v: `+${fmtUSD(decade(amt))}`,     d: 'al 8% anual compuesto',  c: GREEN },
+      ]
+    : null
+
+  const levelIdx = LEVELS.indexOf(currentLevel)
+
   return (
     <div style={{ marginTop: 40 }}>
+      <style>{`
+        .fch-wd{width:19px;height:19px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+          font-size:8px;font-family:${MONO};color:${C.muted};background:#0c1018;border:1px solid ${C.border2};
+          box-shadow:inset 0 -2px 0 rgba(0,0,0,.5)}
+        .fch-wd.done{color:#04060b;background:linear-gradient(180deg,#3ee0a8,${GREEN});border-color:transparent;
+          box-shadow:0 2px 0 #0d6b4d, inset 0 1px 0 rgba(255,255,255,.4)}
+        .fch-wd.today{color:#04060b;background:linear-gradient(180deg,#7df3f7,${GOLD});border-color:transparent;
+          box-shadow:0 2px 0 #12707a, 0 0 12px rgba(57,226,230,.6), inset 0 1px 0 rgba(255,255,255,.45)}
+        .fch-btn{position:relative;padding:14px 0;border-radius:10px;font-family:${MONO};font-size:11.5px;
+          font-weight:700;letter-spacing:.14em;cursor:pointer;border:none;color:#04060b;
+          background:linear-gradient(180deg,#7df3f7,${GOLD} 55%,#1fa6ad);
+          box-shadow:0 6px 0 #12707a, 0 16px 28px -10px rgba(57,226,230,.6), inset 0 1px 0 rgba(255,255,255,.5);
+          transition:transform .09s, box-shadow .09s, background .2s}
+        .fch-btn:hover{transform:translateY(-1px);box-shadow:0 7px 0 #12707a, 0 20px 34px -10px rgba(57,226,230,.7), inset 0 1px 0 rgba(255,255,255,.5)}
+        .fch-btn:active{transform:translateY(5px);box-shadow:0 1px 0 #12707a, 0 8px 16px -10px rgba(57,226,230,.5), inset 0 1px 0 rgba(255,255,255,.4)}
+        .fch-btn.done{background:linear-gradient(180deg,#3ee0a8,${GREEN} 55%,#159169);cursor:default;
+          box-shadow:0 6px 0 #0d6b4d, 0 16px 28px -10px rgba(47,211,154,.5), inset 0 1px 0 rgba(255,255,255,.45)}
+        .fch-step{position:relative;border-radius:10px;padding:13px 15px 12px;overflow:hidden;
+          background:linear-gradient(180deg,#151b26,#0c1119);border:1px solid ${C.border2};
+          box-shadow:0 6px 0 -2px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07)}
+        .fch-step::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--sc)}
+        .fch-step.s2{transform:translateY(-5px)}
+        .fch-step.s3{transform:translateY(-10px);box-shadow:0 9px 0 -2px rgba(0,0,0,.6), 0 0 26px -10px rgba(47,211,154,.5), inset 0 1px 0 rgba(255,255,255,.09)}
+        @media(max-width:720px){.fch-step.s2,.fch-step.s3{transform:none}}
+        .fch-status{display:grid;grid-template-columns:150px 168px 1fr auto;align-items:center}
+        @media(max-width:900px){.fch-status{grid-template-columns:1fr 1fr}}
+        .fch-cell{padding:16px 20px;position:relative}
+        .fch-cell + .fch-cell::before{content:'';position:absolute;left:0;top:16%;bottom:16%;width:1px;background:${C.border}}
+        .fch-main{display:flex;gap:22px;padding:22px 26px 20px 28px}
+        @media(max-width:640px){.fch-main{flex-direction:column;gap:16px}}
+        .fch-ladder{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+        @media(max-width:720px){.fch-ladder{grid-template-columns:1fr}}
+        .fch-week{display:flex;justify-content:space-between;gap:22px;position:relative;margin-top:6px}
+        .fch-week::before{content:'';position:absolute;left:60px;right:60px;top:44px;height:1px;
+          background:linear-gradient(90deg,transparent,${C.border2} 15%,${C.border2} 85%,transparent)}
+        @media(max-width:720px){.fch-week{flex-direction:column;gap:26px}.fch-week::before{display:none}}
+        .fch-wm{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px}
+        .fch-reg{font-family:${MONO};font-size:10px;letter-spacing:.1em;padding:8px 14px;border-radius:7px;cursor:pointer;
+          border:1px solid ${C.border2};color:${C.dimText};background:transparent;transition:all .15s}
+        .fch-reg:hover{border-color:${GOLD};color:${GOLD};box-shadow:0 0 14px rgba(57,226,230,.22)}
+        .fch-share{font-family:${MONO};font-size:9px;letter-spacing:.1em;color:${C.dimText};background:transparent;
+          border:1px solid ${C.border2};border-radius:6px;padding:9px 13px;cursor:pointer;white-space:nowrap;
+          display:flex;align-items:center;gap:7px;transition:all .15s}
+        .fch-share:hover{border-color:${GOLD};color:${GOLD};box-shadow:0 0 14px rgba(57,226,230,.25)}
+        .fch-tick{display:flex;flex-wrap:wrap;margin-top:26px;padding:16px 22px;
+          background:linear-gradient(180deg,${C.surface2},${C.surface});border-radius:10px;border:1px solid ${C.border};
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+        .fch-ts{padding:0 20px;border-left:1px solid ${C.border};display:flex;align-items:center;gap:10px}
+        .fch-ts:first-child{border-left:none;padding-left:0}
+      `}</style>
 
-      {/* Section header */}
-      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.25em', color: GOLD, marginBottom: 20 }}>
-        {'// RETOS FIRE · HOY & ESTA SEMANA'}
-      </div>
+      <SectionLabel />
 
-      {/* Nivel / XP */}
+      {/* ── Barra de estado: llama de racha · esfera de nivel · escalera de rangos ── */}
       <div style={{
-        background: '#111', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
-        padding: '16px 22px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 18,
+        position: 'relative', borderRadius: 14, overflow: 'hidden',
+        background: `linear-gradient(180deg,${C.surface2},#0a0d14)`, border: `1px solid ${C.border}`,
+        boxShadow: '0 18px 40px -24px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.05)',
       }}>
-        <span style={{ fontSize: 30, lineHeight: 1 }}>{currentLevel.emoji}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontFamily: MONO, fontSize: 13, color: '#e8e9f0', fontWeight: 700, letterSpacing: '0.08em' }}>
-              NIVEL {currentLevel.name}
-            </span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-              {store.totalPoints} XP{nextLevel ? ` · ${nextLevel.min - store.totalPoints} para ${nextLevel.name}` : ' · NIVEL MÁXIMO'}
-            </span>
+        <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, zIndex: 3, background: `linear-gradient(90deg,${ORANGE},${GOLD},transparent 85%)` }} />
+        <div className="fch-status">
+          <div className="fch-cell">
+            <StreakFlame height={78} color={ORANGE} />
+            <div style={{ textAlign: 'center', marginTop: -6 }}>
+              <div style={{ fontFamily: DISP, fontSize: 30, color: ORANGE, lineHeight: 1, textShadow: '0 0 18px rgba(255,180,84,.5)' }}>{streak}</div>
+              <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.dimText }}>
+                {streak === 1 ? 'día de racha' : 'días de racha'}
+              </div>
+            </div>
           </div>
-          <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${levelPct}%`, background: `linear-gradient(90deg,${GOLD},#5eeaf0)`, borderRadius: 4, transition: 'width 0.4s' }} />
+          <div className="fch-cell">
+            <LevelOrb pct={levelPct} height={96} />
+            <div style={{ textAlign: 'center', marginTop: -8 }}>
+              <div style={{ fontFamily: DISP, fontSize: 19, color: GOLD, letterSpacing: '0.04em' }}>{currentLevel.name}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.dimText }}>
+                {store.totalPoints} XP{nextLevel ? ` · ${nextLevel.min - store.totalPoints} para ${nextLevel.name}` : ' · nivel máximo'}
+              </div>
+            </div>
+          </div>
+          <div className="fch-cell">
+            <RankLadder ranks={LEVELS.map(l => ({ name: l.name, color: l.color }))} currentIdx={levelIdx} height={88} />
+          </div>
+          <div className="fch-cell">
+            <button className="fch-share" onClick={shareProgress} title="Compartir tu progreso en Telegram">
+              <LineIcon d={PATH.share} size={12} /> COMPARTIR
+            </button>
           </div>
         </div>
-        <button
-          onClick={shareProgress}
-          title="Compartir tu progreso en Telegram"
-          style={{
-            fontFamily: MONO, fontSize: 9, letterSpacing: '0.08em', color: MUTED,
-            background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6,
-            padding: '6px 10px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = GOLD; (e.currentTarget as HTMLElement).style.color = GOLD }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLElement).style.color = MUTED }}
-        >
-          ↗ COMPARTIR
-        </button>
       </div>
 
-      {/* Perfect week banner */}
+      {/* ── Misión de hoy ── */}
+      <div style={{ marginTop: 34 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ color: GOLD }}><LineIcon d={PATH.spark} /></span>MISIÓN DE HOY
+        </div>
+        <div style={{
+          position: 'relative', borderRadius: 14, overflow: 'hidden',
+          background: `linear-gradient(168deg,rgba(57,226,230,.09),${C.surface2} 42%,#0a0d14)`,
+          border: `1px solid ${isDailyDone ? 'rgba(47,211,154,.3)' : 'rgba(57,226,230,.26)'}`,
+          boxShadow: `0 26px 52px -28px rgba(0,0,0,.95), 0 0 32px -14px ${isDailyDone ? 'rgba(47,211,154,.3)' : 'rgba(57,226,230,.3)'}, inset 0 1px 0 rgba(255,255,255,.08)`,
+        }}>
+          <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, zIndex: 3, background: `linear-gradient(90deg,${C.glow},${GOLD} 35%,transparent 78%)` }} />
+          <span style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 5, background: isDailyDone ? `linear-gradient(180deg,#3ee0a8,${GREEN})` : `linear-gradient(180deg,${C.glow},${C.blue})`, boxShadow: `inset -1px 0 0 rgba(0,0,0,.55), 0 0 16px ${isDailyDone ? 'rgba(47,211,154,.5)' : 'rgba(57,226,230,.5)'}` }} />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 20px 11px 24px', flexWrap: 'wrap', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,rgba(57,226,230,.07),transparent 55%)' }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.glow }}>
+              {DAY_NAMES[dayOfWeek]} · misión diaria
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.1em', color: '#04060b', background: `linear-gradient(180deg,#7df3f7,${GOLD})`, borderRadius: 20, padding: '3px 10px', fontWeight: 700, boxShadow: '0 2px 8px -2px rgba(57,226,230,.7)' }}>
+              +{DAILY_POINTS} XP
+            </span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+              {weekStrip.map((w, i) => (
+                <span key={i} className={`fch-wd${w.isToday ? ' today' : w.done ? ' done' : ''}`}>{w.letter}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="fch-main">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, flexShrink: 0 }}>
+              <MissionIcon glyph={daily.glyph} size={76} color={isDailyDone ? GREEN : GOLD} />
+              <span style={{ width: 58, height: 7, borderRadius: '50%', background: `radial-gradient(closest-side,${isDailyDone ? 'rgba(47,211,154,.35)' : 'rgba(57,226,230,.35)'},transparent 75%)` }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: DISP, fontSize: 26, letterSpacing: '0.02em', color: C.text, lineHeight: 1.05, marginBottom: 7 }}>
+                {daily.title}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.dimText, lineHeight: 1.65, maxWidth: '62ch' }}>
+                {daily.desc}
+              </div>
+
+              {ladder ? (
+                <div className="fch-ladder">
+                  {ladder.map((s, i) => (
+                    <div key={s.k} className={`fch-step s${i + 1}`} style={{ ['--sc' as string]: s.c }}>
+                      <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: C.dimText }}>{s.k}</div>
+                      <div style={{ fontFamily: DISP, fontSize: 30, lineHeight: 1.05, color: s.c, marginTop: 3, textShadow: '0 2px 6px rgba(0,0,0,.7)' }}>{s.v}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.muted, marginTop: 2 }}>{s.d}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="fch-ladder" style={{ gridTemplateColumns: 'minmax(0,220px) 1fr' }}>
+                  <div className="fch-step s1" style={{ ['--sc' as string]: GOLD }}>
+                    <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: C.dimText }}>Meta de hoy</div>
+                    <div style={{ fontFamily: DISP, fontSize: 22, lineHeight: 1.15, color: GOLD, marginTop: 3 }}>{daily.unitFn(0)}</div>
+                  </div>
+                  <div className="fch-step s2" style={{ ['--sc' as string]: GREEN }}>
+                    <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: C.dimText }}>Por qué importa</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11.5, color: GREEN, lineHeight: 1.6, marginTop: 5 }}>{daily.impactFn(0)}</div>
+                  </div>
+                </div>
+              )}
+
+              {daily.amountBase > 0 && ahorro > 0 && (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.muted, marginTop: 12 }}>
+                  ≈ {((amt / ahorro) * 100).toFixed(1)}% de tu ahorro mensual
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '0 26px 22px 28px', flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: MONO, fontSize: 11, color: ORANGE, letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+              <LineIcon d={PATH.flame} size={13} />
+              RACHA: {streak} {streak === 1 ? 'día' : 'días'} seguidos
+            </span>
+            <button
+              ref={completeBtnRef}
+              className={`fch-btn${isDailyDone ? ' done' : ''}`}
+              style={{ flex: 1, minWidth: 230 }}
+              disabled={isDailyDone}
+              onClick={() => { if (!isDailyDone) { completeDaily(); fireConfetti(completeBtnRef.current) } }}
+            >
+              {isDailyDone ? '✓ COMPLETADO' : '✓ MARCAR COMPLETADO'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Racha rota / semana perfecta ── */}
       {showPerfectBanner && (
-        <div style={{ background: 'rgba(57,226,230,0.07)', border: `1px solid ${GOLD}44`, borderRadius: 10, padding: '12px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 20 }}>🏆</span>
+        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderRadius: 10, background: 'rgba(57,226,230,0.07)', border: `1px solid ${GOLD}44` }}>
+          <span style={{ color: GOLD }}><LineIcon d={PATH.trophy} size={18} /></span>
           <span style={{ fontFamily: MONO, fontSize: 12, color: GOLD }}>
             ¡{streak} días de racha perfecta! Estás adelantando tu FIRE.
           </span>
         </div>
       )}
-
-      {/* Missed yesterday banner */}
       {missedYesterday && (
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16 }}>💪</span>
+        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+          <span style={{ color: C.muted }}><LineIcon d={PATH.clock} size={15} /></span>
           <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>
             Ayer no completaste tu reto. Hoy puedes retomar la racha.
           </span>
         </div>
       )}
 
-      {/* Two-column grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-        {/* ── Daily challenge ── */}
-        <div style={{
-          background: isDailyDone ? 'rgba(34,197,94,0.03)' : '#111111',
-          border: `1px solid rgba(255,255,255,0.08)`,
-          borderLeft: isDailyDone ? `3px solid ${GREEN}` : `3px solid ${GOLD}`,
-          borderRadius: 12,
-          padding: '20px 24px',
-          display: 'flex', flexDirection: 'column', gap: 14,
-        } as React.CSSProperties}>
-          {/* Eyebrow */}
-          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: isDailyDone ? GREEN : MUTED }}>
-            {'// RETO DE HOY'}
-          </div>
-          {/* Icon + title */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-            <span style={{ fontSize: 28, lineHeight: 1 }}>{daily.icon}</span>
-            <div>
-              <div style={{ fontFamily: MONO, fontSize: 15, color: '#e8e9f0', fontWeight: 600, lineHeight: 1.3, marginBottom: 8 }}>
-                {daily.title}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED, lineHeight: 1.65 }}>
-                {daily.desc}
-              </div>
-            </div>
-          </div>
-
-          {/* Meta amount — calibrado a tu ahorro real, no un monto genérico */}
-          {daily.amountBase > 0 && (
-            <div>
-              <div style={{ fontFamily: MONO, fontSize: 20, color: GOLD, fontWeight: 600 }}>
-                {daily.unitFn(amt)}
-              </div>
-              {ahorro > 0 && (
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 2 }}>
-                  ≈ {((amt / ahorro) * 100).toFixed(1)}% de tu ahorro mensual
-                </div>
-              )}
-            </div>
-          )}
-          {daily.amountBase === 0 && (
-            <div style={{ fontFamily: MONO, fontSize: 13, color: DIM }}>
-              Meta: {daily.unitFn(0)}
-            </div>
-          )}
-
-          {/* FIRE impact */}
-          <div style={{ fontFamily: MONO, fontSize: 11, color: GREEN, lineHeight: 1.6, background: 'rgba(34,197,94,0.05)', borderRadius: 6, padding: '8px 12px' }}>
-            ↗ {daily.impactFn(amt)}
-          </div>
-
-          {/* Streak */}
-          <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, letterSpacing: '0.06em' }}>
-            🔥 RACHA: {streak} {streak === 1 ? 'día' : 'días'} seguidos
-          </div>
-
-          {/* Complete button */}
-          <button
-            onClick={completeDaily}
-            disabled={isDailyDone}
-            style={{
-              padding: '11px 0', borderRadius: 8, fontFamily: MONO, fontSize: 11,
-              fontWeight: 700, letterSpacing: '0.12em', cursor: isDailyDone ? 'default' : 'pointer',
-              border: `1px solid ${isDailyDone ? GREEN : GOLD}`,
-              color: isDailyDone ? GREEN : '#000',
-              background: isDailyDone ? 'transparent' : GOLD,
-              transition: 'all 0.2s',
-            }}
-          >
-            {isDailyDone ? '✓ COMPLETADO' : '✓ MARCAR COMPLETADO'}
-          </button>
+      {/* ── Misiones de la semana ── */}
+      <div style={{ marginTop: 34 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ color: GOLD }}><LineIcon d={PATH.arrowUp} /></span>MISIONES DE ESTA SEMANA
         </div>
-
-        {/* ── Weekly challenges ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="fch-week">
           {weeklys.map(ch => {
             const progress = getWeeklyProgress(ch.id)
-            const isDone   = progress >= ch.goalMax
+            const isDone = progress >= ch.goalMax
             const isShowing = showInput === ch.id
-
+            const col = isDone ? GREEN : DIFF_COLOR[ch.difficulty]
             let progressLabel = ''
             if (ch.goalType === 'amount')  progressLabel = `${fmtUSD(progress)} de ${fmtUSD(ch.goalMax)}`
             if (ch.goalType === 'days')    progressLabel = `${Math.round(progress)} de ${ch.goalMax} días`
             if (ch.goalType === 'boolean') progressLabel = isDone ? 'Completado' : 'Pendiente'
-
             return (
-              <div key={ch.id} style={{
-                background: isDone ? 'rgba(34,197,94,0.03)' : '#111111',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderLeft: isDone ? `3px solid ${GREEN}` : `2px solid rgba(255,255,255,0.06)`,
-                borderRadius: 12, padding: '16px 20px',
-                display: 'flex', flexDirection: 'column', gap: 10,
-              }}>
-                {/* Eyebrow + badge */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: MUTED }}>
-                    {'// RETO SEMANAL'}
-                  </span>
-                  <DiffBadge d={ch.difficulty} />
-                </div>
-
-                {/* Title + desc */}
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 13, color: '#e8e9f0', fontWeight: 600, marginBottom: 5 }}>
-                    {ch.title}
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, lineHeight: 1.6 }}>
-                    {ch.desc}
-                  </div>
-                  {ch.goalType === 'amount' && ahorro > 0 && (
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 4 }}>
-                      ≈ {((ch.goalMax / ahorro) * 100).toFixed(1)}% de tu ahorro mensual
-                    </div>
-                  )}
-                </div>
-
-                {/* Progress bar */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: isDone ? GREEN : DIM }}>
-                      {progressLabel}
-                    </span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: DIM }}>
-                      {Math.round((progress / ch.goalMax) * 100)}%
-                    </span>
-                  </div>
-                  <ProgressBar value={progress} max={ch.goalMax} color={isDone ? GREEN : GOLD} />
-                </div>
-
-                {/* Reward */}
-                <div style={{ fontFamily: MONO, fontSize: 10, color: GOLD }}>
-                  {ch.reward}
-                </div>
-
-                {/* Input for amount type */}
-                {isShowing && (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      type="number"
-                      value={inputVal}
-                      onChange={e => setInputVal(e.target.value)}
-                      placeholder="Monto $"
-                      autoFocus
-                      style={{
-                        flex: 1, background: 'rgba(255,255,255,0.05)',
-                        border: `1px solid ${GOLD}44`, borderRadius: 6,
-                        padding: '7px 10px', color: '#e8e9f0',
-                        fontFamily: MONO, fontSize: 12, outline: 'none',
-                      }}
-                    />
-                    <button
-                      onClick={() => handleRegister(ch)}
-                      style={{ padding: '7px 14px', background: GOLD, color: '#000', border: 'none', borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => { setShowInput(null); setInputVal('') }}
-                      style={{ padding: '7px 10px', background: 'transparent', color: MUTED, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontFamily: MONO, fontSize: 11, cursor: 'pointer' }}
-                    >
-                      ✕
-                    </button>
+              <div key={ch.id} className="fch-wm">
+                <WeeklyRing pct={ch.goalMax > 0 ? progress / ch.goalMax : 0} color={col} size={88} />
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 600, maxWidth: '22ch' }}>{ch.title}</div>
+                <DiffDots d={ch.difficulty} />
+                <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.dimText, maxWidth: '26ch', lineHeight: 1.6 }}>{ch.desc}</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: isDone ? GREEN : C.muted }}>{progressLabel}</div>
+                {ch.goalType === 'amount' && ahorro > 0 && !isDone && (
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.muted }}>
+                    ≈ {((ch.goalMax / ahorro) * 100).toFixed(1)}% de tu ahorro mensual
                   </div>
                 )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 10, color: GREEN, maxWidth: '26ch' }}>
+                  <LineIcon d={PATH.arrowUp} size={11} />{ch.reward.replace(/^🏆\s*/, '')}
+                </div>
 
-                {/* Register button */}
+                {isShowing && (
+                  <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 220 }}>
+                    <input
+                      type="number" value={inputVal} onChange={e => setInputVal(e.target.value)}
+                      placeholder="Monto $" autoFocus
+                      style={{ flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.05)', border: `1px solid ${GOLD}44`, borderRadius: 6, padding: '7px 10px', color: C.text, fontFamily: MONO, fontSize: 12, outline: 'none' }}
+                    />
+                    <button onClick={() => handleRegister(ch)} style={{ padding: '7px 13px', background: GOLD, color: '#04060b', border: 'none', borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+</button>
+                    <button onClick={() => { setShowInput(null); setInputVal('') }} style={{ padding: '7px 10px', background: 'transparent', color: MUTED, border: `1px solid ${C.border2}`, borderRadius: 6, fontFamily: MONO, fontSize: 11, cursor: 'pointer' }}>✕</button>
+                  </div>
+                )}
                 {!isDone && !isShowing && (
-                  <button
-                    onClick={() => handleRegister(ch)}
-                    style={{
-                      padding: '9px 0', borderRadius: 8, fontFamily: MONO, fontSize: 10,
-                      letterSpacing: '0.1em', cursor: 'pointer',
-                      border: `1px solid rgba(255,255,255,0.12)`,
-                      color: MUTED, background: 'transparent', transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = GOLD; (e.currentTarget as HTMLElement).style.color = GOLD }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLElement).style.color = MUTED }}
-                  >
+                  <button className="fch-reg" onClick={() => handleRegister(ch)}>
                     {ch.goalType === 'days' ? '✓ HOY LO HICE' : ch.goalType === 'boolean' ? '✓ COMPLETAR' : '+ REGISTRAR AVANCE'}
                   </button>
                 )}
-
                 {isDone && (
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: GREEN, letterSpacing: '0.1em', textAlign: 'center' }}>
-                    ✓ RETO SEMANAL COMPLETADO
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 10, color: GREEN, letterSpacing: '0.1em' }}>
+                    <LineIcon d={PATH.check} size={12} /> COMPLETADO
                   </div>
                 )}
               </div>
@@ -1082,38 +1260,41 @@ export default function FireChallenges({ ahorro, gasto, capital, retorno, target
         </div>
       </div>
 
-      {/* ── Stats bar ── */}
-      <div style={{
-        marginTop: 20, background: '#111', border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: 10, padding: '14px 20px',
-        display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap',
-      }}>
+      {/* ── Ticker de stats ── */}
+      <div className="fch-tick">
         {[
-          { emoji: currentLevel.emoji, label: 'XP total', val: `${store.totalPoints} pts`          },
-          { emoji: '🔥', label: 'Racha actual',   val: `${streak} días`                           },
-          { emoji: '🏆', label: 'Mejor racha',     val: `${store.maxStreak} días`                   },
-          { emoji: '✓',  label: 'Completados',     val: `${store.totalCompleted} retos`             },
-          { emoji: '💰', label: 'Ahorrado via retos', val: `$${Math.round(store.totalSaved)}`      },
-          { emoji: '📅', label: 'Adelantaste tu FIRE', val: monthsAdvanced > 0 ? `${monthsAdvanced} ${monthsAdvanced === 1 ? 'mes' : 'meses'}` : '—' },
-          { emoji: '🛡️', label: 'Protectores de racha', val: `${store.streakFreezes}/3` },
-        ].map((s, i, arr) => (
-          <div key={s.label} style={{
-            flex: 1, minWidth: 120, textAlign: 'center',
-            borderRight: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
-            padding: '0 16px',
-          }}>
-            <div style={{ fontFamily: MONO, fontSize: 18, marginBottom: 4 }}>{s.emoji}</div>
-            <div style={{ fontFamily: MONO, fontSize: 14, color: GOLD, fontWeight: 600 }}>{s.val}</div>
-            <div style={{ fontFamily: MONO, fontSize: 9, color: DIM, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>{s.label}</div>
+          { icon: PATH.bars,    label: 'XP total',            val: `${store.totalPoints}` },
+          { icon: PATH.flame,   label: 'Mejor racha',         val: `${store.maxStreak}d` },
+          { icon: PATH.check,   label: 'Completados',         val: `${store.totalCompleted}` },
+          { icon: PATH.arrowUp, label: 'Ahorrado via retos',  val: `$${Math.round(store.totalSaved)}` },
+          { icon: PATH.clock,   label: 'Adelantaste tu FIRE', val: monthsAdvanced > 0 ? `${monthsAdvanced}m` : '—' },
+          { icon: PATH.shield,  label: 'Protectores',         val: `${store.streakFreezes}/3` },
+        ].map(s => (
+          <div key={s.label} className="fch-ts">
+            <span style={{ color: GOLD }}><LineIcon d={s.icon} size={16} /></span>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.dimText }}>{s.label}</div>
+              <div style={{ fontFamily: DISP, fontSize: 21, color: C.text }}>{s.val}</div>
+            </div>
           </div>
         ))}
       </div>
 
       {/* ── Insignias ── */}
-      <div style={{ marginTop: 20, background: '#111', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
-        <FireBadges earnedBadges={store.earnedBadges} />
-      </div>
+      <FireBadges earnedBadges={store.earnedBadges} />
 
+      {confettiNode}
+    </div>
+  )
+}
+
+// Encabezado de sección compartido por el estado configurado y el vacío.
+function SectionLabel() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 18 }}>
+      <span aria-hidden style={{ width: 3, height: 19, borderRadius: 2, background: `linear-gradient(180deg,${C.glow},${C.blue})`, boxShadow: `0 0 8px ${GOLD}80` }} />
+      <span style={{ fontFamily: DISP, fontSize: 20, letterSpacing: '0.03em', color: C.text }}>RETOS FIRE</span>
+      <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted }}>hoy &amp; esta semana</span>
     </div>
   )
 }
