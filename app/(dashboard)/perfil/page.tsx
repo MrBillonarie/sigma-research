@@ -38,10 +38,13 @@ type SetupTipo = 'LONG' | 'SHORT' | 'LP'
 const TF_OPTIONS = ['1m','5m','15m','1H','4H','1D','1W']
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
+// Input "hundido": la sombra interior superior + filo claro abajo lo hacen leer
+// como fresado en la placa, en vez de una caja plana con borde.
 const inputCss: React.CSSProperties = {
-  background: '#0b0d14', border: '1px solid #1a1d2e',
-  borderRadius: 8, outline: 'none', color: TEXT,
+  background: 'rgba(255,255,255,0.035)', border: '1px solid #1a1d2e',
+  borderRadius: 9, outline: 'none', color: TEXT,
   fontFamily: MONO, fontSize: 13, padding: '12px 16px', width: '100%',
+  boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.6), inset 0 -1px 0 rgba(255,255,255,0.10)',
   transition: 'border-color 0.2s, box-shadow 0.2s',
 }
 // Panel contenedor de cada pestaña — card con elevación y filo cian
@@ -57,11 +60,14 @@ const labelCss: React.CSSProperties = {
   fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em',
   textTransform: 'uppercase', color: MUTED, marginBottom: 8, display: 'block',
 }
+// Botón que "emerge": brillo cenital arriba, canto propio abajo. Se hunde
+// hasta su canto al presionarlo (ver .btn-primary:active).
 const btnPrimary: React.CSSProperties = {
-  padding: '12px 24px', background: `linear-gradient(100deg,${GLOW},${BLUE})`, color: '#04050a', fontWeight: 700,
+  padding: '12px 24px', color: '#04050a', fontWeight: 700,
+  background: `linear-gradient(180deg,rgba(180,250,253,0.96),${GOLD} 52%,rgba(31,166,173,0.95))`,
   fontFamily: MONO, fontSize: 11, letterSpacing: '0.15em', border: 'none',
-  borderRadius: 8, cursor: 'pointer', transition: 'filter 0.15s, box-shadow 0.15s, transform 0.15s',
-  boxShadow: '0 0 18px rgba(57,226,230,0.22)',
+  borderRadius: 9, cursor: 'pointer', transition: 'transform 0.1s, box-shadow 0.1s',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(0,0,0,0.25), 0 4px 0 rgba(18,112,122,0.9), 0 12px 22px -8px rgba(57,226,230,0.5)',
 }
 const btnOutline: React.CSSProperties = {
   padding: '12px 24px', background: 'transparent', color: GOLD,
@@ -385,9 +391,48 @@ export default function PerfilPage() {
     <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: MONO }}>
       <style>{`
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
-        .perf-input:focus { border-color:${GOLD}!important; box-shadow:0 0 0 2px rgba(57,226,230,0.14)!important; }
-        .btn-primary:hover { filter: brightness(1.12); box-shadow: 0 0 28px rgba(57,226,230,0.35)!important; }
+        .perf-input:focus { border-color:${GOLD}!important;
+          box-shadow: inset 0 2px 6px rgba(0,0,0,0.6), inset 0 -1px 0 rgba(255,255,255,0.14), 0 0 0 2px rgba(57,226,230,0.22)!important; }
+        .btn-primary:hover { transform: translateY(-1px);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 5px 0 rgba(18,112,122,0.9), 0 16px 28px -8px rgba(57,226,230,0.6)!important; }
+        .btn-primary:active { transform: translateY(3px);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 0 rgba(18,112,122,0.9), 0 6px 14px -8px rgba(57,226,230,0.5)!important; }
         .btn-outline:hover { background:rgba(57,226,230,0.08)!important; box-shadow: 0 0 16px rgba(57,226,230,0.16); }
+
+        /* ── Cristal esmerilado (pestaña CUENTA) ──
+           El grano en superficie y el canto apilado son lo que lo separan de un
+           glassmorphism genérico; el backdrop-filter necesita la luz de fondo detrás. */
+        .pf-lightfield { position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+        .pf-lf { position:absolute; left:0; top:-25%; width:100%; height:150%; filter:blur(60px); }
+        .pf-lf1 { background:linear-gradient(105deg,${GOLD} 0%,transparent 42%); opacity:.20; }
+        .pf-lf2 { background:linear-gradient(285deg,${BLUE} 0%,transparent 46%); opacity:.18; }
+
+        .pf-metrics { display:grid; grid-template-columns:repeat(6,1fr); gap:9px; }
+        @media(max-width:900px){ .pf-metrics{ grid-template-columns:repeat(3,1fr); } }
+        @media(max-width:520px){ .pf-metrics{ grid-template-columns:repeat(2,1fr); } }
+
+        .pf-glass { position:relative; border-radius:12px; padding:15px 16px 14px;
+          background:linear-gradient(180deg,rgba(255,255,255,0.075),rgba(255,255,255,0.022));
+          backdrop-filter:blur(26px) brightness(.94); -webkit-backdrop-filter:blur(26px) brightness(.94);
+          box-shadow:
+            inset 0 1.5px 0 rgba(255,255,255,0.30),
+            inset 0 -2px 3px rgba(0,0,0,0.5),
+            0 3px 0 -1px rgba(255,255,255,0.045),
+            0 5px 0 -1px rgba(0,0,0,0.55),
+            0 14px 28px -14px rgba(0,0,0,0.9);
+          transition:transform .26s cubic-bezier(.3,.7,.3,1), box-shadow .26s; }
+        .pf-glass::after { content:''; position:absolute; inset:0; border-radius:12px; pointer-events:none; opacity:.4;
+          background-image:radial-gradient(rgba(255,255,255,0.07) .5px,transparent .5px); background-size:3px 3px; }
+        .pf-glass > * { position:relative; z-index:2; }
+        .pf-glass:hover { transform:translateY(-3px);
+          box-shadow:
+            inset 0 1.5px 0 rgba(255,255,255,0.38),
+            inset 0 -2px 3px rgba(0,0,0,0.5),
+            0 3px 0 -1px rgba(255,255,255,0.06),
+            0 6px 0 -1px rgba(0,0,0,0.55),
+            0 22px 38px -14px rgba(0,0,0,0.95),
+            0 0 24px -10px var(--gc); }
+        @media (prefers-reduced-motion: reduce) { .pf-glass, .btn-primary { transition:none; } }
         .pf-stat { transition: background 0.15s, box-shadow 0.15s; text-decoration: none; display: block; }
         .pf-stat:hover { background: rgba(57,226,230,0.05); box-shadow: inset 0 2px 0 ${GOLD}; }
         .pf-tab:hover { color: ${TEXT} !important; }
@@ -562,9 +607,13 @@ export default function PerfilPage() {
 
         {/* ══ CUENTA ══ */}
         {tab === 'cuenta' && (
-          <div style={panelCss}>
-            <div style={filoCss} />
-            <div style={{ padding: '0 26px 12px' }}>
+          <div style={{ ...panelCss, position: 'relative' }}>
+            {/* Luz ambiental detrás del vidrio — sin esto el backdrop-filter no tiene qué difuminar */}
+            <div className="pf-lightfield" aria-hidden>
+              <span className="pf-lf pf-lf1" /><span className="pf-lf pf-lf2" />
+            </div>
+            <div style={{ ...filoCss, position: 'relative', zIndex: 2 }} />
+            <div style={{ padding: '0 26px 12px', position: 'relative', zIndex: 2 }}>
 
             <Row label="Nombre visible" hint="Cómo te ven otros usuarios en la comunidad y en tus setups publicados.">
               <form onSubmit={handleSaveName} style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -581,7 +630,7 @@ export default function PerfilPage() {
 
             {tradeStats && (
               <Row label="Performance de trading" hint="Sincronizado desde tu Journal.">
-                <div style={{ display: 'flex', gap: '20px 40px', flexWrap: 'wrap' }}>
+                <div className="pf-metrics">
                   {[
                     { label: 'TOTAL TRADES', val: String(tradeStats.total),                                                                   color: GOLD },
                     { label: 'WIN RATE',     val: `${tradeStats.winRate}%`,                                                                   color: tradeStats.winRate >= 50 ? GREEN : RED },
@@ -590,9 +639,9 @@ export default function PerfilPage() {
                     { label: 'PEOR',         val: `$${Math.round(tradeStats.worst).toLocaleString('es-CL')}`,                                color: RED },
                     { label: 'STREAK',       val: `${tradeStats.streak}W`,                                                                   color: tradeStats.streak >= 3 ? GOLD : DIM },
                   ].map(({ label, val, color }) => (
-                    <div key={label}>
-                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 24, color, lineHeight: 1, marginBottom: 4 }}>{val}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em' }}>{label}</div>
+                    <div key={label} className="pf-glass" style={{ ['--gc' as string]: color }}>
+                      <div style={{ fontFamily: MONO, fontSize: 8.5, color: MUTED, letterSpacing: '0.17em' }}>{label}</div>
+                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 27, color, lineHeight: 1, marginTop: 5 }}>{val}</div>
                     </div>
                   ))}
                 </div>
