@@ -10,11 +10,14 @@ import { useFireProfile } from '@/app/lib/useFireProfile'
 import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
 import { supabase } from '@/app/lib/supabase'
 import { createNotification } from '@/app/lib/notify'
-import { getLevelFromPoints } from './challenges'
 
 const FireChart = dynamic(() => import('./FireChart'), {
   ssr: false,
   loading: () => <div style={{ height: 320, background: '#04050a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'monospace', fontSize: 12, color: '#7a7f9a' }}>Cargando proyección…</span></div>,
+})
+const FireOrbit = dynamic(() => import('./FireOrbit'), {
+  ssr: false,
+  loading: () => <div style={{ height: 280, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Cargando trayectoria…</span></div>,
 })
 
 // ─── FIRE modes ───────────────────────────────────────────────────────────────
@@ -104,51 +107,6 @@ function Label({ text }: { text: string }) {
   return <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>{text}</div>
 }
 
-// ─── Camino 3D al objetivo — plano en perspectiva con compuertas ─────────────
-function FireRoad({ progress, color, capital, target, avatar }: { progress: number; color: string; capital: number; target: number; avatar: string }) {
-  const pct = Math.min(Math.max(progress, 0), 100)
-  return (
-    <div style={{ padding: '18px 18px 10px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>TU CAMINO AL OBJETIVO</span>
-        <span style={{ fontFamily: 'monospace', fontSize: 12, color }}>{pct.toFixed(1)}%</span>
-      </div>
-
-      <div className="fr-wrap">
-        <div className="fr-plane">
-          {/* recorrido iluminado */}
-          <div className="fr-fill" style={{ width: `${pct}%` }} />
-          {/* textura del camino avanzando hacia el portal */}
-          <div className="fr-dashes" aria-hidden />
-          {/* compuertas intermedias */}
-          {[25, 50, 75].map(ms => (
-            <div key={ms} className={`fr-gate${pct >= ms ? ' fr-lit' : ''}`} style={{ left: `${ms}%` }}>
-              <span className="fr-post fr-pl" /><span className="fr-beam" /><span className="fr-post fr-pr" />
-              <span className="fr-glabel">{ms}%</span>
-            </div>
-          ))}
-          {/* portal de la meta */}
-          <div className={`fr-gate fr-portal${pct >= 100 ? ' fr-lit' : ''}`} style={{ left: '100%' }}>
-            <span className="fr-post fr-pl" /><span className="fr-beam" /><span className="fr-post fr-pr" />
-            <span className="fr-glabel">META</span>
-            <span className="fr-halo" aria-hidden />
-          </div>
-          {/* tu posición — faro que avanza */}
-          <div className="fr-marker" style={{ left: `${pct}%` }}>
-            <span className="fr-ray" />
-            <span className="fr-orb" />
-            <span className="fr-avatar">{avatar}</span>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 2 }}>
-        <span>{fmt(capital)}</span><span>Meta: {fmtK(target)}</span>
-      </div>
-    </div>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function FirePage() {
   const { totalUSD: portfolioTotal, ready: portfolioReady } = usePortfolio()
@@ -165,23 +123,6 @@ export default function FirePage() {
   const [edad,    setEdad]    = useState(29)
   const [gasto,   setGasto]   = useState(MODES[1].defaultGasto)
   const [retornoMotor, setRetornoMotor] = useState<number | null>(null)
-  const [levelEmoji, setLevelEmoji] = useState('🌱')
-
-  // Nivel del juego de retos FIRE — mismo localStorage que FireChallenges,
-  // leído acá solo para mostrar el avatar en el camino 3D. Poll simple en vez
-  // de levantar el store completo, para no acoplar los dos componentes.
-  useEffect(() => {
-    function syncLevel() {
-      try {
-        const raw = localStorage.getItem('fire_challenges')
-        const pts = raw ? JSON.parse(raw)?.totalPoints ?? 0 : 0
-        setLevelEmoji(getLevelFromPoints(pts).emoji)
-      } catch {}
-    }
-    syncLevel()
-    const id = setInterval(syncLevel, 4000)
-    return () => clearInterval(id)
-  }, [])
 
   // Retorno real del motor en vivo (mismo origen de datos que el HUD/motor-en-vivo,
   // vía la ruta ya protegida /api/vps/portfolio) — solo precarga el slider una vez,
@@ -307,57 +248,6 @@ export default function FirePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)" }}>
-      <style>{`
-        /* ── Camino 3D al objetivo ── */
-        .fr-wrap { position:relative; height:104px; perspective:520px; overflow:hidden; margin-top:2px; }
-        .fr-plane { position:absolute; left:24px; right:34px; bottom:4px; height:140px;
-          transform: rotateX(52deg); transform-origin:50% 100%; transform-style:preserve-3d;
-          background: linear-gradient(180deg, transparent 30%, rgba(57,226,230,0.04));
-          border-top:1px solid rgba(57,226,230,0.14); border-bottom:1px solid rgba(57,226,230,0.10); }
-        .fr-fill { position:absolute; top:0; bottom:0; left:0;
-          background: linear-gradient(90deg, rgba(57,226,230,0.10), rgba(57,226,230,0.26));
-          border-right: 2px solid rgba(240,204,90,0.7); box-shadow: 0 0 22px rgba(57,226,230,0.18);
-          transition: width .5s ease; }
-        .fr-dashes { position:absolute; inset:0; pointer-events:none;
-          background-image: repeating-linear-gradient(90deg, rgba(57,226,230,0.10) 0 2px, transparent 2px 42px);
-          animation: frMove 2.8s linear infinite; }
-        @keyframes frMove { to { background-position: 42px 0; } }
-
-        .fr-gate { position:absolute; bottom:38%; width:0; transform: rotateX(-52deg); transform-origin:50% 100%; }
-        .fr-post { position:absolute; bottom:0; width:2px; height:26px; background:#3a3f55; transition: background .3s, box-shadow .3s; }
-        .fr-pl { left:-13px; } .fr-pr { left:11px; }
-        .fr-beam { position:absolute; bottom:26px; left:-13px; width:26px; height:2px; background:#3a3f55; transition: background .3s, box-shadow .3s; }
-        .fr-glabel { position:absolute; bottom:32px; left:0; transform:translateX(-50%);
-          font-family:monospace; font-size:8px; letter-spacing:0.12em; color:#3a3f55; transition:color .3s; white-space:nowrap; }
-        .fr-lit .fr-post, .fr-lit .fr-beam { background:#39e2e6; box-shadow:0 0 10px rgba(57,226,230,0.55); }
-        .fr-lit .fr-glabel { color:#5eeaf0; }
-
-        .fr-portal .fr-post { height:38px; }
-        .fr-portal .fr-pl { left:-17px; } .fr-portal .fr-pr { left:15px; }
-        .fr-portal .fr-beam { bottom:38px; left:-17px; width:34px; }
-        .fr-portal .fr-glabel { bottom:44px; color:#7a7f9a; }
-        .fr-halo { position:absolute; bottom:0; left:-24px; width:48px; height:48px; pointer-events:none;
-          background: radial-gradient(circle at 50% 100%, rgba(57,226,230,0.22), transparent 70%); }
-        .fr-portal.fr-lit .fr-halo { background: radial-gradient(circle at 50% 100%, rgba(52,211,153,0.35), transparent 70%); }
-        .fr-portal.fr-lit .fr-post, .fr-portal.fr-lit .fr-beam { background:#34d399; box-shadow:0 0 14px rgba(52,211,153,0.6); }
-        .fr-portal.fr-lit .fr-glabel { color:#34d399; }
-
-        .fr-marker { position:absolute; bottom:38%; width:0; transform: rotateX(-52deg); transform-origin:50% 100%; transition:left .5s ease; }
-        .fr-ray { position:absolute; bottom:0; left:-1px; width:2px; height:30px;
-          background: linear-gradient(180deg, transparent, rgba(240,204,90,0.9)); }
-        .fr-orb { position:absolute; bottom:-4px; left:-4px; width:8px; height:8px; border-radius:50%;
-          background:#5eeaf0; box-shadow:0 0 12px rgba(57,226,230,0.9); animation: frPulse 1.6s ease-in-out infinite; }
-        @keyframes frPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.35); } }
-        .fr-avatar { position:absolute; bottom:10px; left:-9px; font-size:15px; line-height:1;
-          filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7)); animation: frBob 1.8s ease-in-out infinite; }
-        @keyframes frBob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
-
-        @media (prefers-reduced-motion: reduce) {
-          .fr-dashes { animation:none; }
-          .fr-orb, .fr-avatar { animation:none; }
-          .fr-fill, .fr-marker { transition:none; }
-        }
-      `}</style>
       <div className="dash-content" style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 24px 64px' }}>
 
         {/* Header */}
@@ -478,8 +368,8 @@ export default function FirePage() {
               </div>
             </div>
 
-            {/* Progress — camino 3D en perspectiva con compuertas */}
-            <FireRoad progress={progress} color={m.color} capital={capital} target={target} avatar={levelEmoji} />
+            {/* Progress — Órbita de Escape, trayectoria hacia el planeta "Libertad" */}
+            <FireOrbit progress={progress} color={m.color} capital={capital} target={target} />
 
             {/* Chart */}
             <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
