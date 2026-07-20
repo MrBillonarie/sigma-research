@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { supabase } from '@/app/lib/supabase'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { useFireProfile } from '@/app/lib/useFireProfile'
+import PerfilSeal from './PerfilSeal'
 import type { User } from '@supabase/supabase-js'
 
 // Acento Cyan Deck — el nombre GOLD se mantiene por compatibilidad con el resto del archivo
@@ -18,8 +19,13 @@ const MUTED  = 'rgba(255,255,255,0.38)'
 const DIM    = 'rgba(255,255,255,0.55)'
 const RED    = '#f87171'
 const GREEN  = '#1D9E75'
+const STEEL  = '#8fa3b8'   // acento del sello en plan FREE
 const MONO   = "var(--font-dm-mono,'DM Mono',monospace)"
 const EMBOSS = '0 2px 5px rgba(0,0,0,0.5), 0 -1px 0 rgba(255,255,255,0.1)'
+
+// Sello personal: lienzo exterior y foto centrada dentro del hueco
+const SEAL   = 118
+const AVATAR = 62
 
 const MIN_REP = 10
 
@@ -342,6 +348,8 @@ export default function PerfilPage() {
   const provider = user?.app_metadata?.provider ?? 'email'
   const isOAuth  = provider !== 'email'
   const plan     = (user?.app_metadata?.plan as string) ?? 'free'
+  // 'anual' también es plan pagado — mismo criterio que usa el CTA "ACTIVAR PRO"
+  const isPro    = plan === 'pro' || plan === 'anual'
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—'
@@ -377,7 +385,6 @@ export default function PerfilPage() {
     <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: MONO }}>
       <style>{`
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
-        @keyframes pf-spin { to { transform: rotate(360deg) } }
         .perf-input:focus { border-color:${GOLD}!important; box-shadow:0 0 0 2px rgba(57,226,230,0.14)!important; }
         .btn-primary:hover { filter: brightness(1.12); box-shadow: 0 0 28px rgba(57,226,230,0.35)!important; }
         .btn-outline:hover { background:rgba(57,226,230,0.08)!important; box-shadow: 0 0 16px rgba(57,226,230,0.16); }
@@ -449,19 +456,29 @@ export default function PerfilPage() {
           </div>
 
           <div className="pf-head" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 24, padding: '20px 32px 30px', flexWrap: 'wrap' }}>
-            {/* Avatar con anillo dorado animado */}
-            <div style={{ position: 'relative', width: 92, height: 92, flexShrink: 0 }}>
-              <div style={{ position: 'absolute', inset: -3, borderRadius: '50%', background: `conic-gradient(from 0deg, transparent 0%, ${GOLD} 14%, ${BLUE} 26%, transparent 45%)`, animation: 'pf-spin 5s linear infinite', filter: 'drop-shadow(0 0 6px rgba(57,226,230,0.45))' }} />
-              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', overflow: 'hidden', border: '3px solid #0b0d14', background: 'rgba(57,226,230,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/* Avatar dentro del sello personal — las capas orbitales marcan el plan */}
+            <div style={{ position: 'relative', width: SEAL, height: SEAL, flexShrink: 0 }}>
+              <PerfilSeal seedKey={user?.id ?? email ?? 'sigma'} isPro={isPro} size={SEAL} />
+              <div style={{
+                position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
+                width: AVATAR, height: AVATAR, borderRadius: '50%', overflow: 'hidden',
+                border: `1px solid ${isPro ? 'rgba(57,226,230,0.32)' : 'rgba(143,163,184,0.3)'}`,
+                background: 'linear-gradient(160deg, rgba(57,226,230,0.16), #0a0d15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
                 {avatarUrl
-                  ? <Image src={avatarUrl} alt="avatar" width={92} height={92} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
-                  : <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 34, color: GOLD, letterSpacing: '0.05em' }}>{initials}</span>}
+                  ? <Image src={avatarUrl} alt="avatar" width={AVATAR} height={AVATAR} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                  : <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color: isPro ? GOLD : STEEL, letterSpacing: '0.05em' }}>{initials}</span>}
               </div>
               <button
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={uploadingAvatar}
                 title="Cambiar foto"
-                style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: '50%', background: GOLD, border: '2px solid #0b0d14', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, zIndex: 2 }}
+                style={{
+                  position: 'absolute', bottom: 12, right: 12, width: 24, height: 24, borderRadius: '50%',
+                  background: isPro ? GOLD : STEEL, border: '2px solid #0b0d14', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, zIndex: 3,
+                }}
               >
                 {uploadingAvatar ? '…' : '✎'}
               </button>
