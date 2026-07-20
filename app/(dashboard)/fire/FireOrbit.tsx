@@ -36,6 +36,11 @@ function tangentNormal(path: (u: number) => Pt, u: number) {
 
 export default function FireOrbit({ progress, color, capital, target }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  // Snapshot vivo de las props — el efecto de canvas monta una sola vez;
+  // arrastrar un slider o cambiar de modo no debe recrear el ResizeObserver
+  // ni el loop de animación, solo actualizar qué se dibuja en el próximo frame.
+  const stateRef = useRef({ progress, capital, target })
+  stateRef.current = { progress, capital, target }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -47,7 +52,13 @@ export default function FireOrbit({ progress, color, capital, target }: Props) {
     let W = 0, H = 0
     const size = () => {
       const r = canvas.getBoundingClientRect()
-      W = r.width || 700; H = +(canvas.getAttribute('height') || 280)
+      // Ojo: leer canvas.getAttribute('height') acá es una trampa — ya lo
+      // pisamos más abajo con el valor en px físicos, así que en la próxima
+      // pasada se releería ese valor inflado por el DPR y compondría en cada
+      // resize (280 → 560 → 1120 → ...). getBoundingClientRect() siempre da
+      // el tamaño CSS real, así que es idempotente sin importar cuántas
+      // veces se llame.
+      W = r.width || 700; H = r.height || 280
       canvas.width = W * DPR; canvas.height = H * DPR; c.setTransform(DPR, 0, 0, DPR, 0, 0)
     }
     size()
@@ -59,6 +70,7 @@ export default function FireOrbit({ progress, color, capital, target }: Props) {
 
     const draw = (t: number) => {
       if (!W) return
+      const { progress, capital, target } = stateRef.current
       const prog = Math.min(Math.max(progress, 0), 100)
       c.clearRect(0, 0, W, H)
       c.fillStyle = '#03050a'; c.fillRect(0, 0, W, H)
@@ -136,14 +148,13 @@ export default function FireOrbit({ progress, color, capital, target }: Props) {
       c.strokeStyle = '#5eeaf0'; c.lineWidth = 1.2; c.stroke(); c.restore()
     }
 
-    if (RM) {
-      draw(0)
-    } else {
-      const frame = () => { raf = requestAnimationFrame(frame); if (visible) draw(performance.now() / 1000) }
-      raf = requestAnimationFrame(frame)
-    }
+    // El loop corre siempre — incluso con reduced-motion, para que mover un
+    // slider siga redibujando la escena con los valores nuevos. RM solo
+    // apaga el centelleo de estrellas y la estela de partículas dentro de draw().
+    const frame = () => { raf = requestAnimationFrame(frame); if (visible) draw(performance.now() / 1000) }
+    raf = requestAnimationFrame(frame)
     return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect() }
-  }, [progress, capital, target])
+  }, [])
 
   const pct = Math.min(Math.max(progress, 0), 100)
 
