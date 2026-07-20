@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { fmt, fmtK } from '@/app/lib/format'
 import FireChallenges from './FireChallenges'
@@ -7,7 +7,7 @@ import FireOnboarding from './FireOnboarding'
 import FirePushOptIn from './FirePushOptIn'
 import { usePortfolio } from '@/app/lib/usePortfolio'
 import { useFireProfile } from '@/app/lib/useFireProfile'
-import { C, cardStyle, heroCardStyle, numberEmboss } from '@/app/lib/constants'
+import { C, cardStyle } from '@/app/lib/constants'
 import { supabase } from '@/app/lib/supabase'
 import { createNotification } from '@/app/lib/notify'
 
@@ -18,6 +18,10 @@ const FireChart = dynamic(() => import('./FireChart'), {
 const FireOrbit = dynamic(() => import('./FireOrbit'), {
   ssr: false,
   loading: () => <div style={{ height: 280, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Cargando trayectoria…</span></div>,
+})
+const ModeAscender = dynamic(() => import('./ModeAscender'), {
+  ssr: false,
+  loading: () => <div style={{ height: 190, background: '#060810', borderRadius: 10, marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText }}>Cargando modos…</span></div>,
 })
 
 // ─── FIRE modes ───────────────────────────────────────────────────────────────
@@ -50,22 +54,6 @@ const MODES = [
   },
 ]
 
-// Sparkline ascendente — la altura a la que llega representa la altitud de
-// libertad de cada modo, conectando con el lenguaje de curva del resto de
-// la página (no un ícono literal, no un emoji).
-function ModeSparkline({ color, peak }: { color: string; peak: number }) {
-  const w = 46, h = 28, padX = 3, padTop = 4, padBottom = 4
-  const x0 = padX, y0 = h - padBottom
-  const x1 = w - padX, y1 = padTop + (1 - peak) * (h - padTop - padBottom)
-  const cx = (x0 + x1) / 2
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block', flexShrink: 0 }}>
-      <path d={`M${x0},${y0} Q${cx},${y0} ${x1},${y1}`} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" opacity={0.85} />
-      <circle cx={x1} cy={y1} r={3} fill={color} />
-    </svg>
-  )
-}
-
 // ─── Simulation ───────────────────────────────────────────────────────────────
 function project(capital: number, ahorro: number, retorno: number, gastoFire: number, maxYears = 50) {
   const target = (gastoFire * 12) / 0.04  // Regla del 4%
@@ -82,25 +70,45 @@ function project(capital: number, ahorro: number, retorno: number, gastoFire: nu
 }
 
 
-function Slider({ label, value, min, max, step, display, onChange }: {
-  label: string; value: number; min: number; max: number
+function Slider({ icon, accent = C.gold, label, value, min, max, step, display, onChange }: {
+  icon?: ReactNode; accent?: string; label: string; value: number; min: number; max: number
   step: number; display: string; onChange: (v: number) => void
 }) {
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dimText }}>{label}</span>
-        <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.gold, fontWeight: 500 }}>{display}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7 }}>
+        {icon && (
+          <span style={{
+            width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+            background: `${accent}1f`, border: `1px solid ${accent}4d`, color: accent,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {icon}
+          </span>
+        )}
+        <span style={{ fontFamily: 'monospace', fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.dimText, flex: 1 }}>{label}</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 13, color: C.gold, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{display}</span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{ width: '100%', accentColor: C.gold, cursor: 'pointer' }}
-      />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 2 }}>
-        <span>{min}</span><span>{max}</span>
+      <div style={{ marginLeft: icon ? 31 : 0 }}>
+        <input type="range" min={min} max={max} step={step} value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          style={{ width: '100%', accentColor: accent, cursor: 'pointer' }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 10, color: C.muted, marginTop: 2 }}>
+          <span>{min}</span><span>{max}</span>
+        </div>
       </div>
     </div>
   )
+}
+
+// ─── Íconos de línea (sin emoji) — trazo 1.4px, currentColor ─────────────────
+const ICONS = {
+  capital: <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4}><rect x="2" y="7" width="3.5" height="7" rx=".5" /><rect x="6.3" y="4" width="3.5" height="10" rx=".5" /><rect x="10.6" y="9" width="3" height="5" rx=".5" /></svg>,
+  ahorro: <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4}><path d="M2 13h12M4 9l3-3 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" /><path d="M10 4h3v3" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+  gasto: <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4}><path d="M2 3v10h12" strokeLinecap="round" strokeLinejoin="round" /><path d="M4 10l3-3 2 2 4-5" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+  retorno: <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4}><path d="M2 11l4-4 3 3 5-6" strokeLinecap="round" strokeLinejoin="round" /><path d="M10 4h4v4" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+  edad: <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4}><path d="M4 2h8M4 14h8M4 2c0 4 8 4 8 8s-8 4-8 8" strokeLinecap="round" strokeLinejoin="round" /></svg>,
 }
 
 function Label({ text }: { text: string }) {
@@ -264,51 +272,37 @@ export default function FirePage() {
           </h1>
         </div>
 
-        {/* Mode selector — el activo pesa más (su propio color, no el dorado
-            genérico); el que calza con tu gasto real lleva su propio badge */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-          {MODES.map((md, i) => {
-            const active = mode === i
-            const isYours = closestModeIdx === i
-            return (
-              <button key={md.id} onClick={() => { setMode(i); setGasto(md.defaultGasto) }} style={{
-                position: 'relative', padding: '18px 20px', textAlign: 'left', cursor: 'pointer',
-                borderRadius: cardStyle.borderRadius,
-                border: active ? `1px solid ${md.color}40` : cardStyle.border,
-                background: active ? `linear-gradient(160deg,${md.color}14,${C.surface} 60%)` : C.surface,
-                boxShadow: active ? `${cardStyle.boxShadow}, 0 0 18px ${md.color}22` : cardStyle.boxShadow,
-                transition: 'background 0.2s, border-color 0.2s',
-              }}>
-                {isYours && (
-                  <span style={{ position: 'absolute', top: 12, right: 14, fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.12em', color: md.color, border: `1px solid ${md.color}50`, borderRadius: 4, padding: '2px 6px' }}>
-                    TU NIVEL ACTUAL
-                  </span>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-                  <ModeSparkline color={md.color} peak={md.peak} />
-                  <span style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 24, color: active ? md.color : C.text }}>{md.name}</span>
-                </div>
-                <p style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, margin: 0, lineHeight: 1.6 }}>{md.description}</p>
-              </button>
-            )
-          })}
+        {/* Mode selector — trayectoria ascendente con tabs accesibles; el activo
+            pesa más (su propio color); el que calza con tu gasto real lleva un halo */}
+        <div style={{ marginBottom: 24 }}>
+          <ModeAscender
+            modes={MODES}
+            activeIndex={mode}
+            closestIndex={closestModeIdx}
+            onSelect={i => { setMode(i); setGasto(MODES[i].defaultGasto) }}
+          />
         </div>
 
         {/* Main grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20 }}>
 
-          {/* Controls */}
-          <div style={{ ...cardStyle, background: C.surface, padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
+          {/* Controls — consola de instrumento: filo superior + íconos en placa, ambos con el color del modo activo */}
+          <div style={{
+            background: `linear-gradient(180deg,${C.surface2},${C.surface})`, borderRadius: cardStyle.borderRadius,
+            border: cardStyle.border, boxShadow: cardStyle.boxShadow, padding: 24,
+            display: 'flex', flexDirection: 'column', gap: 22, position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${m.color},transparent 75%)` }} />
             <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.3em', textTransform: 'uppercase', color: m.color }}>
               {m.name}
             </div>
-            <Slider label="Capital actual"    value={capital} min={0}      max={1_000_000} step={5_000}  display={fmt(capital)}          onChange={setCapital} />
-            <Slider label="Ahorro mensual"     value={ahorro}  min={0}      max={15_000}    step={100}    display={fmt(ahorro)}            onChange={setAhorro} />
-            <Slider label="Gasto mensual FIRE" value={gasto}   min={500}    max={15_000}    step={100}    display={fmt(gasto)}             onChange={setGasto} />
+            <Slider icon={ICONS.capital} accent={m.color} label="Capital actual"    value={capital} min={0}      max={1_000_000} step={5_000}  display={fmt(capital)}          onChange={setCapital} />
+            <Slider icon={ICONS.ahorro}  accent={m.color} label="Ahorro mensual"     value={ahorro}  min={0}      max={15_000}    step={100}    display={fmt(ahorro)}            onChange={setAhorro} />
+            <Slider icon={ICONS.gasto}   accent={m.color} label="Gasto mensual FIRE" value={gasto}   min={500}    max={15_000}    step={100}    display={fmt(gasto)}             onChange={setGasto} />
             <div>
-              <Slider label="Retorno anual est." value={retorno} min={1}      max={20}        step={0.5}    display={`${retorno}%`}          onChange={setRetorno} />
+              <Slider icon={ICONS.retorno} accent={m.color} label="Retorno anual est." value={retorno} min={1}      max={20}        step={0.5}    display={`${retorno}%`}          onChange={setRetorno} />
               {retornoMotor !== null && (
-                <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginTop: 4 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 9, color: C.dimText, marginTop: 4, marginLeft: 31 }}>
                   Motor en vivo: <span style={{ color: C.green }}>{retornoMotor}%</span>
                   {retorno !== retornoMotor && (
                     <button onClick={() => setRetorno(Math.min(20, retornoMotor))} style={{ marginLeft: 8, background: 'none', border: 'none', color: C.gold, fontFamily: 'monospace', fontSize: 9, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
@@ -318,7 +312,7 @@ export default function FirePage() {
                 </div>
               )}
             </div>
-            <Slider label="Edad actual"        value={edad}    min={18}     max={65}        step={1}      display={`${edad} años`}         onChange={setEdad} />
+            <Slider icon={ICONS.edad} accent={m.color} label="Edad actual"        value={edad}    min={18}     max={65}        step={1}      display={`${edad} años`}         onChange={setEdad} />
 
             {/* Key derived */}
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -339,31 +333,34 @@ export default function FirePage() {
           {/* Results */}
           <div style={{ ...cardStyle, background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-            {/* Big result — tu fecha real, no un conteo de años abstracto */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '18px 18px 0' }}>
-              <div style={{ ...heroCardStyle, padding: '22px 22px' }}>
-                <Label text="Tu día de libertad financiera" />
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 32, lineHeight: 1.05, textTransform: 'capitalize', background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: numberEmboss }}>
-                  {fireDateLabel ?? 'Más de 50 años'}
+            {/* Resultado como momento tipográfico — tu fecha real pesa más que 3 cajas iguales */}
+            <div style={{ padding: '30px 34px 0', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: '-40%', right: '-10%', width: '60%', height: '180%', background: `radial-gradient(closest-side, ${C.gold}18, transparent 70%)`, pointerEvents: 'none' }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 36, flexWrap: 'wrap', paddingBottom: 22, borderBottom: `1px solid ${C.border}` }}>
+                <div>
+                  <Label text="Tu día de libertad financiera" />
+                  <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 'clamp(44px, 5.4vw, 72px)', lineHeight: 0.88, textTransform: 'capitalize', letterSpacing: '0.01em', background: `linear-gradient(135deg,${C.gold},${C.glow})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: `drop-shadow(0 0 22px ${C.gold}48)` }}>
+                    {fireDateLabel ?? 'Más de 50 años'}
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 8 }}>
+                    {edadFire ? `Tendrás ${edadFire} años · en ${fireYear} ${fireYear === 1 ? 'año' : 'años'} más` : 'Aumenta ahorro / retorno'}
+                  </div>
                 </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 6 }}>
-                  {edadFire ? `Tendrás ${edadFire} años · en ${fireYear} ${fireYear === 1 ? 'año' : 'años'} más` : 'Aumenta ahorro / retorno'}
-                </div>
-              </div>
-              <div style={{ ...cardStyle, background: C.surface, padding: '22px 22px' }}>
-                <Label text="Capital objetivo" />
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 36, color: C.gold, lineHeight: 1, textShadow: numberEmboss }}>
-                  {fmtK(target)}
-                </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 6 }}>25× gastos anuales</div>
-              </div>
-              <div style={{ ...cardStyle, background: C.surface, padding: '22px 22px' }}>
-                <Label text={`Capital en año ${Math.min(years, 50)}`} />
-                <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 36, color: capitalFinal >= target ? C.green : C.yellow, lineHeight: 1, textShadow: numberEmboss }}>
-                  {fmtK(capitalFinal)}
-                </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginTop: 6 }}>
-                  {capitalFinal >= target ? '✓ Objetivo alcanzado' : `Falta ${fmtK(target - capitalFinal)}`}
+                <div style={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', gap: 11, paddingLeft: 26, borderLeft: `1px solid ${C.border}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: 12 }}>
+                    <span style={{ color: C.dimText }}>Capital objetivo</span>
+                    <b style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, fontWeight: 400, color: C.text, letterSpacing: '0.02em' }}>{fmtK(target)}</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: 12 }}>
+                    <span style={{ color: C.dimText }}>Capital en año {Math.min(years, 50)}</span>
+                    <b style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, fontWeight: 400, color: capitalFinal >= target ? C.green : C.yellow, letterSpacing: '0.02em' }}>{fmtK(capitalFinal)}</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: 12 }}>
+                    <span style={{ color: C.dimText }}>{capitalFinal >= target ? 'Objetivo' : 'Progreso actual'}</span>
+                    <b style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 20, fontWeight: 400, color: capitalFinal >= target ? C.green : C.text, letterSpacing: '0.02em' }}>
+                      {capitalFinal >= target ? '✓ alcanzado' : `${progress.toFixed(1)}%`}
+                    </b>
+                  </div>
                 </div>
               </div>
             </div>
