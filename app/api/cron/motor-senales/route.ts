@@ -79,7 +79,7 @@ interface OpenPos {
 
 interface ClosedPos {
   sym: string; tf: string; strategy?: string
-  pnl_pct?: number; reason?: string; paper?: boolean; closed_at?: string
+  pnl_pct?: number; reason?: string; mode?: string | null; closed_at?: string
 }
 
 // ── Destinatarios: owner + usuarios PRO/anual ─────────────────────────────────
@@ -161,7 +161,11 @@ export async function GET(req: Request) {
     for (const h of (data.history ?? []) as ClosedPos[]) {
       if (!withinWindow(h.closed_at)) continue
       const pnl = h.pnl_pct ?? 0
-      const real = h.paper === false
+      // El campo `paper` del historial es inservible para esto: en producción
+      // vale None en 110 registros, True en 6 y **nunca** False, así que
+      // `paper === false` jamás detectaría un cierre real. `mode` sí distingue
+      // (LIVE 16 / PAPER 31 / MANUAL 36 / None 33), igual que en las aperturas.
+      const real = isReal(h.mode)
       pend.push({
         title: `${h.sym} ${up(h.tf)} ${pnl > 0 ? 'WIN' : 'LOSS'}${real ? ' · REAL' : ''}`,
         body: [
