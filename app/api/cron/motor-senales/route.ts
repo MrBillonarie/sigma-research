@@ -33,51 +33,53 @@ function checkCronAuth(req: Request): boolean {
   return timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
 }
 
-// 2026-07-21: BUGFIX de re-notificación en loop.
-//
-// El motor expone un feed rodante de los últimos ~50 eventos, que incluye
-// eventos de días anteriores. La idempotencia de abajo mira una ventana de 6h,
-// así que pasadas esas 6h un evento viejo "ya no figura como notificado" y se
-// volvía a insertar — para siempre y a todos los destinatarios.
-//
-// Medido: "BNB 1H LONG" (evento del 20-jul 12:03) se había notificado 200+
-// veces, en tandas separadas por exactamente 6h. De ahí las 12.916 filas de
-// tipo señal: eran ~50 eventos reales repetidos en loop. Además confundía al
-// usuario, porque la campanita mostraba "hace 3m" una señal de ayer que ya no
-// estaba abierta en el HUD.
-//
-// Ahora sólo se procesan eventos recientes. La ventana es holgada respecto del
-// cron (corre cada 2 min) para tolerar reinicios o atrasos sin perder señales.
-const MAX_EVENT_AGE_MIN = 30
+// Ventana de elegibilidad. Sólo se avisan posiciones abiertas/cerradas en los
+// últimos 60 min. Cumple dos funciones:
+//   - Al arrancar por primera vez no inunda con las 10 posiciones ya abiertas.
+//   - Evita que una posición longeva se re-notifique cuando la purga de
+//     retención borra su notificación original.
+// Es holgada frente al cron (cada 2 min), así que tolera reinicios sin perder
+// avisos.
+const WINDOW_MIN = 60
 
-// El motor emite 'YYYY-MM-DD HH:MM:SS' en hora local del servidor, el mismo
-// host donde corre este proceso.
-function isFresh(ts: string): boolean {
-  if (!ts) return false
+// El motor emite 'YYYY-MM-DD HH:MM:SS[.micros]' en hora local del servidor, el
+// mismo host donde corre este proceso.
+function parseTs(ts?: string | null): number | null {
+  if (!ts) return null
   const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/)
-  if (!m) return false
-  const [, y, mo, d, h, mi, s] = m
-  const when = new Date(+y, +mo - 1, +d, +h, +mi, +s).getTime()
-  if (!Number.isFinite(when)) return false
-  const ageMin = (Date.now() - when) / 60000
-  return ageMin >= -5 && ageMin <= MAX_EVENT_AGE_MIN   // -5: tolera desfase de reloj
+  if (!m) return null
+  const [, y, mo, d, h, mi, sec] = m
+  const t = new Date(+y, +mo - 1, +d, +h, +mi, +sec).getTime()
+  return Number.isFinite(t) ? t : null
 }
 
-interface MotorEvent {
-  ts: string
-  type: string
-  sym: string
-  tf: string
-  strategy: string
-  direction?: string
-  grade?: string
-  entry?: number
-  sl?: number
-  tp?: number
-  kelly_pct?: number
-  rr?: number
-  pnl_pct?: number
-  reason?: string
+function withinWindow(ts?: string | null): boolean {
+  const t = parseTs(ts)
+  if (t === null) return false
+  const ageMin = (Date.now() - t) / 60000
+  return ageMin >= -5 && ageMin <= WINDOW_MIN   // -5: tolera desfase de reloj
+}
+
+/** 'DD/MM HH:MM' — legible y, a la vez, clave de idempotencia dentro del cuerpo. */
+function stamp(ts?: string | null): string {
+  const m = (ts ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/)
+  return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : '?'
+}
+
+const up = (v?: string | null) => (v ?? '').toUpperCase()
+
+// El motor marca dinero real como mode='LIVE'; 'PAPER' y null son simulación.
+const isReal = (mode?: string | null) => up(mode) === 'LIVE'
+
+interface OpenPos {
+  sym: string; tf: string; direction?: string; strategy?: string
+  grade?: string; entry?: number; sl?: number; tp?: number
+  rr?: number; kelly_pct?: number; mode?: string | null; opened_at?: string
+}
+
+interface ClosedPos {
+  sym: string; tf: string; strategy?: string
+  pnl_pct?: number; reason?: string; paper?: boolean; closed_at?: string
 }
 
 // ── Destinatarios: owner + usuarios PRO/anual ─────────────────────────────────
@@ -103,6 +105,20 @@ async function getProUserIds(supabase: ReturnType<typeof serviceClient>): Promis
 // owner (estudio interno, señales silenciadas del grupo público de Telegram
 // desde 2026-05-31). Ahora también hace fan-out a suscriptores PRO como
 // beneficio del plan.
+//
+// 2026-07-21 — CAMBIO DE FUENTE. Antes se leía /api/notifications (feed rodante
+// de eventos del motor). Dos problemas medidos en producción:
+//   1. Repetía eventos viejos: la idempotencia usaba una ventana de 6h y el feed
+//      conserva días, así que cada evento se re-notificaba cada 6h para siempre.
+//      "BNB 1H LONG" del 20-jul llegó a 200+ copias.
+//   2. Se saltaba órdenes reales: la apertura LIVE de NVDA 15m (12:33:19, dinero
+//      real) no apareció en el feed ni 7 min después, mientras sí estaba en el
+//      HUD y en trade_state.
+//
+// Ahora se deriva de /api/trades, que es lo que muestra el HUD: autoritativo,
+// fresco y con `mode` para distinguir dinero real de papel. La idempotencia deja
+// de depender de ventanas de tiempo: cada posición trae `opened_at` único, que
+// va dentro del cuerpo de la notificación y sirve de clave natural.
 export async function GET(req: Request) {
   if (!checkCronAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -118,66 +134,82 @@ export async function GET(req: Request) {
   }
   const recipientList = Array.from(recipients)
 
-  const results: string[] = []
-
   try {
-    const res = await fetch(`${VPS}/api/notifications`, {
-      signal: AbortSignal.timeout(15000),
-      cache: 'no-store',
-    })
-    if (!res.ok) return NextResponse.json({ ok: true, generated: [] })
-
+    const res = await fetch(`${VPS}/api/trades`, { signal: AbortSignal.timeout(15000), cache: 'no-store' })
+    if (!res.ok) return NextResponse.json({ ok: true, generated: [], note: 'motor no responde' })
     const data = await res.json()
-    const events: MotorEvent[] = (data.events || []).filter(
-      (e: MotorEvent) =>
-        (e.type === 'per_model_open' || e.type === 'per_model_close') && isFresh(e.ts)
-    )
-    const sinceWindow = new Date(Date.now() - 6 * 3600 * 1000).toISOString()
 
-    for (const e of events) {
-      const isOpen = e.type === 'per_model_open'
-      const isShort = e.direction === 'short'
-      const title = isOpen
-        ? `${e.sym} ${(e.tf || '').toUpperCase()} ${isShort ? 'SHORT' : 'LONG'}`
-        : `${e.sym} ${(e.tf || '').toUpperCase()} ${(e.pnl_pct ?? 0) > 0 ? 'WIN' : 'LOSS'}`
-      const body = isOpen
-        ? `${e.strategy} [${e.grade ?? '?'}] · Entry ${e.entry} · SL ${e.sl} · TP ${e.tp} · Kelly ${e.kelly_pct}% · RR ${e.rr}:1`
-        : `${e.strategy} ${(e.pnl_pct ?? 0) >= 0 ? '+' : ''}${e.pnl_pct}% [${e.reason ?? ''}]`
+    const pend: { title: string; body: string; urgent: boolean }[] = []
 
-      // Idempotencia por usuario: quién ya recibió este evento en la ventana
-      const { data: existing } = await supabase
-        .from('notifications')
-        .select('user_id')
-        .in('user_id', recipientList)
-        .eq('type', 'señal')
-        .eq('title', title)
-        .eq('body', body)
-        .gte('created_at', sinceWindow)
-      const done = new Set((existing ?? []).map(r => r.user_id as string))
-
-      const rows = recipientList
-        .filter(uid => !done.has(uid))
-        .map(uid => ({
-          user_id:      uid,
-          type:         'señal',
-          title,
-          body,
-          urgente:      isOpen,
-          accion_label: 'Ver HUD',
-          accion_href:  '/hud',
-          read:         false,
-        }))
-      if (rows.length === 0) continue
-
-      const { error } = await supabase.from('notifications').insert(rows)
-      if (!error) {
-        results.push(`${title} ×${rows.length}`)
-        // Push real solo en aperturas (lo urgente); los cierres se ven en la campanita
-        if (isOpen && vapidConfigured) await sendWebPush(supabase, rows)
-      }
+    for (const p of (data.open ?? []) as OpenPos[]) {
+      if (!withinWindow(p.opened_at)) continue
+      const real = isReal(p.mode)
+      pend.push({
+        title: `${p.sym} ${up(p.tf)} ${up(p.direction)}${real ? ' · REAL' : ''}`,
+        body: [
+          `${p.strategy} [${p.grade ?? '?'}]`,
+          `Entry ${p.entry}`, `SL ${p.sl}`, `TP ${p.tp}`,
+          p.rr != null ? `RR ${p.rr}:1` : null,
+          p.kelly_pct != null ? `Kelly ${p.kelly_pct}%` : null,
+          real ? 'DINERO REAL' : 'paper',
+          `abrió ${stamp(p.opened_at)}`,   // clave de idempotencia
+        ].filter(Boolean).join(' · '),
+        urgent: true,
+      })
     }
 
-    return NextResponse.json({ ok: true, generated: results })
+    for (const h of (data.history ?? []) as ClosedPos[]) {
+      if (!withinWindow(h.closed_at)) continue
+      const pnl = h.pnl_pct ?? 0
+      const real = h.paper === false
+      pend.push({
+        title: `${h.sym} ${up(h.tf)} ${pnl > 0 ? 'WIN' : 'LOSS'}${real ? ' · REAL' : ''}`,
+        body: [
+          `${h.strategy} ${pnl >= 0 ? '+' : ''}${pnl}%`,
+          h.reason ? `[${h.reason}]` : null,
+          real ? 'DINERO REAL' : 'paper',
+          `cerró ${stamp(h.closed_at)}`,   // clave de idempotencia
+        ].filter(Boolean).join(' · '),
+        urgent: real,
+      })
+    }
+
+    if (pend.length === 0) return NextResponse.json({ ok: true, generated: [] })
+
+    // Idempotencia por (usuario, título, cuerpo). El cuerpo lleva el timestamp
+    // exacto de apertura/cierre, así que una posición nunca se duplica y una
+    // reapertura del mismo modelo sí genera aviso nuevo. La ventana de consulta
+    // (3h) cubre con holgura la de elegibilidad.
+    const lookback = new Date(Date.now() - 3 * 3600 * 1000).toISOString()
+    const { data: existing } = await supabase
+      .from('notifications')
+      .select('user_id, title, body')
+      .in('user_id', recipientList)
+      .eq('type', 'señal')
+      .gte('created_at', lookback)
+    const seen = new Set((existing ?? []).map(r => `${r.user_id}|${r.title}|${r.body}`))
+
+    const rows = pend.flatMap(n =>
+      recipientList
+        .filter(uid => !seen.has(`${uid}|${n.title}|${n.body}`))
+        .map(uid => ({
+          user_id: uid, type: 'señal', title: n.title, body: n.body,
+          urgente: n.urgent, accion_label: 'Ver HUD', accion_href: '/hud', read: false,
+        }))
+    )
+    if (rows.length === 0) return NextResponse.json({ ok: true, generated: [] })
+
+    const { error } = await supabase.from('notifications').insert(rows)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Push sólo lo urgente: aperturas y cierres con dinero real.
+    if (vapidConfigured) {
+      const urgentRows = rows.filter(r => r.urgente)
+      if (urgentRows.length > 0) await sendWebPush(supabase, urgentRows)
+    }
+
+    const titles = Array.from(new Set(rows.map(r => r.title)))
+    return NextResponse.json({ ok: true, generated: titles, inserted: rows.length })
   } catch {
     return NextResponse.json({ ok: true, generated: [] })
   }
