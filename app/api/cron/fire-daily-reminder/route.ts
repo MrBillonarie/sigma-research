@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
+import { pickDaily, scaleAmt } from '@/app/(dashboard)/fire/dailyChallenges'
 
 const vapidConfigured = !!(process.env.VAPID_PRIVATE_KEY && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY)
 if (vapidConfigured) {
@@ -61,28 +62,35 @@ interface FireRow {
   max_streak:    number | null
 }
 
+// El reto concreto del día sale del mismo módulo que usa /fire en el cliente,
+// así el aviso y la pantalla nunca se contradicen.
+// Nota de huso: pickDaily() usa el día local del servidor (-04, igual que el
+// público objetivo), mientras isoDay() calcula la clave en UTC — misma tensión
+// que ya existía entre el cron y el cliente, no se cambia acá.
+const daily = () => pickDaily()
+
 // Recordatorio diario del FIRE Planner — el hueco que faltaba: todo el resto
 // de notificaciones (completaste reto, racha, insignia, nivel) es reactivo y
 // solo dispara si el usuario tiene /fire abierto. Este cron es el único aviso
 // PROACTIVO: llega aunque no hayas entrado al sitio en todo el día.
-export async function POST(req: Request) {
-  if (!checkCronAuth(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+async function run() {
   const supabase = serviceClient()
   const today     = isoDay(0)
   const yesterday = isoDay(-1)
+  const reto      = daily()
 
-  // 1. Usuarios que terminaron el onboarding FIRE (candidatos al recordatorio)
+  // 1. Usuarios que terminaron el onboarding FIRE (candidatos al recordatorio).
+  // Se trae fire_ahorro_mensual para escalar el monto del reto a cada usuario,
+  // igual que hace scaleAmt() en la pantalla.
   const { data: prefs, error: prefsErr } = await supabase
     .from('user_preferences')
-    .select('user_id')
+    .select('user_id, fire_ahorro_mensual')
     .eq('fire_completed', true)
   if (prefsErr) return NextResponse.json({ error: prefsErr.message }, { status: 500 })
   if (!prefs || prefs.length === 0) return NextResponse.json({ ok: true, generated: 0, note: 'no fire users' })
 
   const userIds = prefs.map(p => p.user_id as string)
+  const ahorroBy = new Map<string, number>(prefs.map(p => [p.user_id as string, (p.fire_ahorro_mensual as number) ?? 0]))
 
   // 2. Progreso real de esos usuarios (fire_challenges — puede no existir aún
   // para quien nunca tocó un reto, se trata como estado vacío)
@@ -114,38 +122,31 @@ export async function POST(req: Request) {
     // urgente:true en las 3 variantes — así se fijan arriba en la campanita
     // (bucket "// URGENTES") junto a las señales de trading, en vez de quedar
     // escondidas abajo en "// RECIENTES" donde nadie las ve sin hacer scroll.
+    // Monto del reto escalado al ahorro real de este usuario (0 si el reto no
+    // tiene componente monetario) — mismo cálculo que muestra la pantalla.
+    const amt  = scaleAmt(ahorroBy.get(uid) ?? 0, reto.amountBase)
+    const meta = reto.amountBase > 0 ? ` · ${reto.unitFn(amt)}` : ''
+
+    const base = { user_id: uid, type: 'fire_daily_digest', urgente: true,
+                   accion_label: 'Ver FIRE', accion_href: '/fire', read: false }
+
     if (didToday) {
       toInsert.push({
-        user_id:      uid,
-        type:         'fire_daily_digest',
-        title:        '✅ Cumpliste tu misión FIRE de hoy',
-        body:         `Racha actual: ${streak} ${streak === 1 ? 'día' : 'días'}. Cada día cuenta para tu libertad financiera.`,
-        urgente:      true,
-        accion_label: 'Ver FIRE',
-        accion_href:  '/fire',
-        read:         false,
+        ...base,
+        title: '✅ Cumpliste tu misión FIRE de hoy',
+        body:  `Racha actual: ${streak} ${streak === 1 ? 'día' : 'días'}. Cada día cuenta para tu libertad financiera.`,
       })
     } else if (streak > 0 || hadYesterday) {
       toInsert.push({
-        user_id:      uid,
-        type:         'fire_daily_digest',
-        title:        `⏰ Tu racha de ${streak} ${streak === 1 ? 'día' : 'días'} está en riesgo`,
-        body:         'Aún no completas tu misión FIRE de hoy. Complétala antes de medianoche — recuerda ahorrar para tu futuro.',
-        urgente:      true,
-        accion_label: 'Ver FIRE',
-        accion_href:  '/fire',
-        read:         false,
+        ...base,
+        title: `⏰ Tu racha de ${streak} ${streak === 1 ? 'día' : 'días'} está en riesgo`,
+        body:  `Reto de hoy: ${reto.title}${meta}. ${reto.desc}`,
       })
     } else {
       toInsert.push({
-        user_id:      uid,
-        type:         'fire_daily_digest',
-        title:        'Recuerda tu misión FIRE de hoy',
-        body:         'Un hábito pequeño y diario te acerca a tu libertad financiera. Entra y completa tu reto de hoy.',
-        urgente:      true,
-        accion_label: 'Ver FIRE',
-        accion_href:  '/fire',
-        read:         false,
+        ...base,
+        title: `Reto FIRE de hoy: ${reto.title}`,
+        body:  `${reto.desc}${meta ? ` (${reto.unitFn(amt)})` : ''}`,
       })
     }
   }
@@ -157,7 +158,14 @@ export async function POST(req: Request) {
 
   const pushed = vapidConfigured ? await sendWebPush(supabase, toInsert) : 0
 
-  return NextResponse.json({ ok: true, generated: toInsert.length, pushed })
+  return NextResponse.json({ ok: true, generated: toInsert.length, pushed, reto: reto.title })
+}
+
+export async function POST(req: Request) {
+  if (!checkCronAuth(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  return run()
 }
 
 // ── Web Push real (llega sin abrir el sitio) ──────────────────────────────
@@ -206,10 +214,21 @@ async function sendWebPush(
   return sent
 }
 
-// GET — dry run preview (no DB writes) — admin/cron only
+// GET — mismo trabajo que POST.
+//
+// 2026-07-21: BUGFIX. sigma_web_cron.sh invoca los endpoints con `curl` a secas,
+// es decir GET. Como acá el trabajo real vivía sólo en POST y GET era un dry
+// run, el cron devolvía 200 todos los días a las 20:00 sin escribir una sola
+// notificación — se confirmó con 3 filas fire_daily_digest en toda la historia
+// (pruebas manuales) contra ~5 días de ejecuciones "exitosas" en el log.
+// El dry run sigue disponible con ?dry=1.
 export async function GET(req: Request) {
   if (!checkCronAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  return NextResponse.json({ dry_run: true, today: isoDay(0), yesterday: isoDay(-1) })
+  if (new URL(req.url).searchParams.get('dry') === '1') {
+    const reto = daily()
+    return NextResponse.json({ dry_run: true, today: isoDay(0), yesterday: isoDay(-1), reto: reto.title })
+  }
+  return run()
 }

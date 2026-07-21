@@ -34,11 +34,7 @@ function checkCronAuth(req: Request): boolean {
   return timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
 }
 
-export async function POST(req: Request) {
-  if (!checkCronAuth(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+async function run() {
   const supabase = serviceClient()
   const now      = new Date()
   const results: string[] = []
@@ -137,11 +133,21 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, generated: results })
 }
 
-// GET — dry run preview (no DB writes) — admin only
+export async function POST(req: Request) {
+  if (!checkCronAuth(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  return run()
+}
+
+// GET — mismo trabajo que POST. Ver el bugfix documentado en
+// fire-daily-reminder: sigma_web_cron.sh usa GET, así que tener el trabajo real
+// sólo en POST dejaba este cron corriendo en vacío cada 6h. Dry run con ?dry=1.
 export async function GET(req: Request) {
   if (!checkCronAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  if (new URL(req.url).searchParams.get('dry') !== '1') return run()
 
   const now         = new Date()
   const tomorrowStr = new Date(now.getTime() + 24 * 3600 * 1000).toISOString().split('T')[0]
