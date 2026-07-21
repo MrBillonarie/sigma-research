@@ -2,15 +2,17 @@
 import { useEffect, useRef } from 'react'
 import { C } from '@/app/lib/constants'
 
-// ─── Rosa de 24 horas ─────────────────────────────────────────────────────────
-// Cada sector es una hora del día (00:00 arriba, 12:00 abajo) y su largo es
-// cuántos avisos llegaron en esa hora, apilados por canal. La aguja marca ahora.
+// ─── Núcleo con anillo de actividad ───────────────────────────────────────────
+// Anillo exterior: 24 tramos, uno por hora del día en curso (00:00 arriba). Cada
+// tramo se enciende según cuántos avisos llegaron en esa hora y toma el color del
+// canal dominante. Muescas verdes por fuera donde hubo dinero real.
 //
-// La primera versión dibujaba un punto por notificación. Funcionaba con datos de
-// muestra y se rompía con los reales: el motor genera >130 señales por día, así
-// que la banda exterior se saturaba y quedaba un anillo sólido — decorativo, que
-// es justo lo que este instrumento vino a evitar. Agregar por hora escala sin
-// techo y además responde algo útil: en qué franjas dispara el motor.
+// El poliedro del centro es decorativo — no codifica nada más que "hay actividad".
+// Queda dicho para que nadie lo lea como dato.
+//
+// Historia: la primera versión ponía un punto por notificación y se saturaba con
+// el volumen real (>130 señales/día formaban un anillo sólido). La segunda pasó a
+// barras radiales, que escalaban bien pero quedaban como un gráfico cualquiera.
 
 export type DialChannel = 'señal' | 'fire' | 'mercado' | 'otro'
 
@@ -18,7 +20,7 @@ export interface DialPoint {
   hour:    number       // 0–24 en hora local
   channel: DialChannel
   unread:  boolean
-  real:    boolean      // dinero real
+  real:    boolean
 }
 
 const CH_COLOR: Record<DialChannel, string> = {
@@ -28,18 +30,7 @@ const CH_COLOR: Record<DialChannel, string> = {
   'otro':    C.textDim,
 }
 
-// Orden de apilado, de adentro hacia afuera. Fijo, para que la lectura no
-// cambie de forma entre repintados.
-const STACK: DialChannel[] = ['señal', 'fire', 'mercado', 'otro']
-
-const SWEEP_MS = 620   // entrada de la aguja
-
-interface Bin {
-  total:  number
-  ch:     Record<DialChannel, number>
-  unread: number
-  real:   boolean
-}
+interface Bin { total: number; ch: Record<DialChannel, number>; unread: number; real: boolean }
 
 function binByHour(points: DialPoint[]): Bin[] {
   const bins: Bin[] = Array.from({ length: 24 }, () => ({
@@ -47,8 +38,7 @@ function binByHour(points: DialPoint[]): Bin[] {
     ch: { 'señal': 0, 'fire': 0, 'mercado': 0, 'otro': 0 },
   }))
   for (const p of points) {
-    const h = Math.min(23, Math.max(0, Math.floor(p.hour)))
-    const b = bins[h]
+    const b = bins[Math.min(23, Math.max(0, Math.floor(p.hour)))]
     b.total++
     b.ch[p.channel] = (b.ch[p.channel] ?? 0) + 1
     if (p.unread) b.unread++
@@ -57,16 +47,34 @@ function binByHour(points: DialPoint[]): Bin[] {
   return bins
 }
 
-export default function NotifDial({ points, size = 132 }: { points: DialPoint[]; size?: number }) {
+const dominant = (b: Bin): DialChannel =>
+  (Object.keys(b.ch) as DialChannel[]).reduce((a, k) => (b.ch[k] > b.ch[a] ? k : a), 'señal')
+
+// Geometría del icosaedro, calculada una vez para todas las instancias.
+const PHI = (1 + Math.sqrt(5)) / 2
+const VERTS: number[][] = [
+  [-1, PHI, 0], [1, PHI, 0], [-1, -PHI, 0], [1, -PHI, 0],
+  [0, -1, PHI], [0, 1, PHI], [0, -1, -PHI], [0, 1, -PHI],
+  [PHI, 0, -1], [PHI, 0, 1], [-PHI, 0, -1], [-PHI, 0, 1],
+].map(p => { const l = Math.hypot(p[0], p[1], p[2]); return p.map(x => x / l) })
+
+const EDGES: [number, number][] = (() => {
+  const e: [number, number][] = []
+  for (let i = 0; i < VERTS.length; i++)
+    for (let j = i + 1; j < VERTS.length; j++)
+      if (Math.hypot(VERTS[i][0] - VERTS[j][0], VERTS[i][1] - VERTS[j][1], VERTS[i][2] - VERTS[j][2]) < 1.12)
+        e.push([i, j])
+  return e
+})()
+
+export default function NotifDial({ points, size = 168 }: { points: DialPoint[]; size?: number }) {
   const ref       = useRef<HTMLCanvasElement>(null)
   const dataRef   = useRef<DialPoint[]>(points)
   const redrawRef = useRef<(() => void) | null>(null)
 
-  // Snapshot de los datos sin re-montar el efecto: si el efecto dependiera de
-  // `points`, cada notificación entrante reiniciaría la animación de entrada.
-  // El repintado explícito sí hace falta: las notificaciones llegan por fetch y
-  // por realtime, así que la rosa se monta vacía y sin esto no se actualizaría
-  // hasta el siguiente tick del minutero.
+  // Snapshot sin re-montar el efecto. El repintado explícito sí hace falta: las
+  // notificaciones llegan por fetch y por realtime, así que el anillo se monta
+  // vacío y sin esto no se actualizaría hasta el siguiente tick del minutero.
   useEffect(() => {
     dataRef.current = points
     redrawRef.current?.()
@@ -81,162 +89,142 @@ export default function NotifDial({ points, size = 132 }: { points: DialPoint[];
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     // Canvas no resuelve var(--…) en `ctx.font`: hay que pasarle la familia ya
-    // resuelta, y repintar cuando la fuente termine de cargar (el primer pintado
-    // le gana y caería a una fuente de respaldo).
+    // resuelta, y repintar en document.fonts.ready porque el primer pintado le
+    // gana a la carga de la fuente y caería a una de respaldo.
     const mono = getComputedStyle(document.documentElement)
       .getPropertyValue('--font-dm-mono').trim()
-    const FONT = `500 8px ${mono ? mono + ',' : ''}ui-monospace,monospace`
+    const FONT = `500 7.5px ${mono ? mono + ',' : ''}ui-monospace,monospace`
 
     const DPR = Math.min(window.devicePixelRatio || 1, 2)
     cv.width  = size * DPR
     cv.height = size * DPR
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
 
-    const cx = size / 2, cy = size / 2, R = size * 0.41
-    const R0 = R * 0.34               // hueco central
-    const R1 = R * 0.97               // tope de las barras
-    const SLICE = (Math.PI * 2) / 24
-    const GAP   = SLICE * 0.16
+    const cx = size / 2, cy = size / 2
+    const RING = size * 0.37          // radio del anillo de actividad
+    const LW   = Math.max(3, size * 0.024)
+    const CORE = size * 0.225         // radio del poliedro
 
-    const ang  = (h: number) => (h / 24) * Math.PI * 2 - Math.PI / 2
-    const hourNow = () => { const d = new Date(); return d.getHours() + d.getMinutes() / 60 }
-
-    let raf = 0, start = 0, visible = true
+    let raf = 0, spin = reduced ? 0.6 : 0, visible = true
     let cleanupIO: (() => void) | undefined
 
-    function wedge(a0: number, a1: number, r0: number, r1: number, fill: string, alpha: number) {
-      const c = ctx!
-      c.globalAlpha = alpha
-      c.fillStyle = fill
-      c.beginPath()
-      c.arc(cx, cy, r1, a0, a1)
-      c.arc(cx, cy, r0, a1, a0, true)
-      c.closePath()
-      c.fill()
-      c.globalAlpha = 1
-    }
-
-    function draw(needle: number) {
+    function draw() {
       const c = ctx!
       c.clearRect(0, 0, size, size)
 
       const bins = binByHour(dataRef.current)
       const max  = Math.max(1, ...bins.map(b => b.total))
+      const step = (Math.PI * 2) / 24
+      const gap  = step * 0.18
 
-      // Guías: hueco interior y tope. Sin números — la escala se lee en los
-      // medidores de al lado; acá lo que importa es la forma del día.
-      c.strokeStyle = 'rgba(57,226,230,0.10)'; c.lineWidth = 1
-      c.beginPath(); c.arc(cx, cy, R0, 0, Math.PI * 2); c.stroke()
-      c.beginPath(); c.arc(cx, cy, R1, 0, Math.PI * 2); c.stroke()
-
-      // Marcas cada 6 h, por fuera de las barras
-      for (let h = 0; h < 24; h += 6) {
-        const a = ang(h)
-        c.strokeStyle = 'rgba(57,226,230,0.30)'; c.lineWidth = 1.2
-        c.beginPath()
-        c.moveTo(cx + Math.cos(a) * R1 * 1.02, cy + Math.sin(a) * R1 * 1.02)
-        c.lineTo(cx + Math.cos(a) * R * 1.06,  cy + Math.sin(a) * R * 1.06)
-        c.stroke()
-      }
-
-      if (size >= 118) {
-        c.font = FONT
-        c.fillStyle = 'rgba(122,127,154,0.85)'
-        c.textAlign = 'center'; c.textBaseline = 'middle'
-        for (const h of [0, 6, 12, 18]) {
-          const a = ang(h)
-          c.fillText(String(h).padStart(2, '0'), cx + Math.cos(a) * R * 1.16, cy + Math.sin(a) * R * 1.16)
-        }
-      }
-
-      // Barras por hora
       bins.forEach((b, h) => {
+        const a0 = (h / 24) * Math.PI * 2 - Math.PI / 2 + gap / 2
+        const a1 = a0 + step - gap
+
+        // Carril de fondo: mantiene visible la forma del reloj aunque el día
+        // esté vacío, para que el instrumento nunca se vea "roto".
+        c.strokeStyle = 'rgba(255,255,255,0.05)'; c.lineWidth = LW
+        c.beginPath(); c.arc(cx, cy, RING, a0, a1); c.stroke()
         if (b.total === 0) return
-        const a0 = ang(h) + GAP / 2
-        const a1 = ang(h + 1) - GAP / 2
+
         // Raíz cuadrada: una hora con 1 aviso tiene que verse aunque otra
         // tenga 40. Con escala lineal desaparecería.
-        const len = (R1 - R0) * Math.sqrt(b.total / max)
-        let r = R0
+        const k   = Math.sqrt(b.total / max)
+        const col = CH_COLOR[dominant(b)]
+        c.strokeStyle = col
+        c.globalAlpha = 0.22 + 0.75 * k
+        c.shadowBlur  = 9 * k; c.shadowColor = col
+        c.beginPath(); c.arc(cx, cy, RING, a0, a1); c.stroke()
+        c.shadowBlur = 0; c.globalAlpha = 1
 
-        for (const ch of STACK) {
-          const n = b.ch[ch]
-          if (!n) continue
-          const seg = len * (n / b.total)
-          // Lo leído se apaga; lo pendiente queda a plena intensidad.
-          const alpha = b.unread > 0 ? 0.9 : 0.34
-          wedge(a0, a1, r, r + seg, CH_COLOR[ch], alpha)
-          r += seg
-        }
-
-        // Cresta luminosa si esa hora tiene algo sin leer
+        // Cresta si esa hora tiene algo sin leer
         if (b.unread > 0) {
-          c.shadowBlur = 8; c.shadowColor = C.glow
-          wedge(a0, a1, r, r + 1.6, C.glow, 1)
-          c.shadowBlur = 0
+          c.strokeStyle = C.glow; c.lineWidth = 1.6
+          c.shadowBlur = 7; c.shadowColor = C.glow
+          c.beginPath(); c.arc(cx, cy, RING - LW / 2 - 1.6, a0, a1); c.stroke()
+          c.shadowBlur = 0; c.lineWidth = LW
         }
-        // Marca verde si en esa hora hubo dinero real. Va a radio fijo, fuera
-        // del anillo: colgada del tope de la barra quedaba a una altura distinta
-        // en cada hora y en las barras cortas casi no se veía. Es el dato más
-        // importante del panel, tiene que leerse siempre igual.
+
+        // Dinero real: por fuera y a radio fijo, el dato más importante del panel.
         if (b.real) {
           c.strokeStyle = C.green; c.lineWidth = 2.2
           c.shadowBlur = 7; c.shadowColor = C.green
-          c.beginPath(); c.arc(cx, cy, R1 + 2.8, a0, a1); c.stroke()
+          c.beginPath(); c.arc(cx, cy, RING + LW / 2 + 3.2, a0, a1); c.stroke()
           c.shadowBlur = 0
         }
       })
 
-      // Estela y aguja = ahora
-      if (typeof c.createConicGradient === 'function') {
-        const g = c.createConicGradient(needle, cx, cy)
-        g.addColorStop(0,    'rgba(57,226,230,0.20)')
-        g.addColorStop(0.08, 'rgba(57,226,230,0)')
-        g.addColorStop(1,    'rgba(57,226,230,0)')
-        c.fillStyle = g
-        c.beginPath(); c.arc(cx, cy, R0, 0, Math.PI * 2); c.fill()
+      // Referencias horarias
+      c.font = FONT
+      c.fillStyle = 'rgba(122,127,154,0.8)'
+      c.textAlign = 'center'; c.textBaseline = 'middle'
+      for (const h of [0, 6, 12, 18]) {
+        const a = (h / 24) * Math.PI * 2 - Math.PI / 2
+        const r = RING + LW / 2 + 12
+        c.fillText(String(h).padStart(2, '0'), cx + Math.cos(a) * r, cy + Math.sin(a) * r)
       }
-      c.strokeStyle = 'rgba(94,234,240,0.9)'; c.lineWidth = 1.5
-      c.beginPath()
-      c.moveTo(cx, cy)
-      c.lineTo(cx + Math.cos(needle) * R * 1.02, cy + Math.sin(needle) * R * 1.02)
-      c.stroke()
 
-      c.fillStyle = 'rgba(94,234,240,0.95)'
-      c.beginPath(); c.arc(cx, cy, 2.2, 0, Math.PI * 2); c.fill()
+      // ── Núcleo (decorativo) ──
+      const ca = Math.cos(spin), sa = Math.sin(spin)
+      const cb = Math.cos(spin * 0.6), sb = Math.sin(spin * 0.6)
+      const P = VERTS.map(v => {
+        const vx = v[0] * CORE, vy = v[1] * CORE, vz = v[2] * CORE
+        const X = vx * ca - vz * sa
+        let Z = vx * sa + vz * ca
+        const Y = vy * cb - Z * sb; Z = vy * sb + Z * cb
+        const s = 280 / (280 + Z)
+        return [cx + X * s, cy + Y * s, Z]
+      })
+
+      const g = c.createRadialGradient(cx, cy, 3, cx, cy, CORE * 1.35)
+      g.addColorStop(0, 'rgba(57,226,230,0.24)')
+      g.addColorStop(1, 'rgba(57,226,230,0)')
+      c.fillStyle = g
+      c.beginPath(); c.arc(cx, cy, CORE * 1.35, 0, Math.PI * 2); c.fill()
+
+      for (const [i, j] of EDGES) {
+        const dep = (P[i][2] + P[j][2]) / 2
+        const o = 0.14 + 0.5 * (1 - (dep + CORE) / (2 * CORE))
+        c.strokeStyle = `rgba(94,234,240,${o.toFixed(3)})`
+        c.lineWidth = dep < 0 ? 1.5 : 0.8
+        c.beginPath(); c.moveTo(P[i][0], P[i][1]); c.lineTo(P[j][0], P[j][1]); c.stroke()
+      }
+      for (const p of P) {
+        const o = 0.3 + 0.7 * (1 - (p[2] + CORE) / (2 * CORE))
+        c.fillStyle = `rgba(94,234,240,${o.toFixed(3)})`
+        c.beginPath(); c.arc(p[0], p[1], p[2] < 0 ? 2.6 : 1.6, 0, Math.PI * 2); c.fill()
+      }
+      c.fillStyle = 'rgba(255,255,255,0.92)'
+      c.shadowBlur = 16; c.shadowColor = C.gold
+      c.beginPath(); c.arc(cx, cy, 3, 0, Math.PI * 2); c.fill()
+      c.shadowBlur = 0
     }
 
-    // Entrada: la aguja barre hasta la hora actual y se detiene. No queda un rAF
-    // vivo — el latido de "en línea" lo da el punto CSS del panel lateral.
-    function animate(ts: number) {
-      if (!start) start = ts
-      const k = Math.min(1, (ts - start) / SWEEP_MS)
-      const e = 1 - Math.pow(1 - k, 3)
-      draw(ang(hourNow()) - (1 - e) * 0.9)
-      if (k < 1 && visible) raf = requestAnimationFrame(animate)
+    function loop() {
+      draw()
+      // El giro es el punto de esta variante, así que el rAF vive mientras el
+      // panel esté a la vista; el IntersectionObserver lo corta al salir.
+      spin += 0.006
+      if (visible) raf = requestAnimationFrame(loop)
     }
 
-    if (reduced) draw(ang(hourNow()))
+    if (reduced) draw()
     else {
       const io = new IntersectionObserver(es => {
-        visible = es[0].isIntersecting
-        if (visible && !start) raf = requestAnimationFrame(animate)
+        const nowVisible = es[0].isIntersecting
+        if (nowVisible && !visible) { visible = true; raf = requestAnimationFrame(loop) }
+        else if (!nowVisible) { visible = false; cancelAnimationFrame(raf) }
       }, { threshold: 0 })
       io.observe(cv)
       cleanupIO = () => io.disconnect()
+      raf = requestAnimationFrame(loop)
     }
 
-    // Repintado bajo demanda cuando cambian los datos (ver efecto de arriba).
-    redrawRef.current = () => draw(ang(hourNow()))
-
-    // Las fuentes de Next llegan después del primer pintado.
-    if (document.fonts?.ready) document.fonts.ready.then(() => draw(ang(hourNow())))
-    // Y la aguja tiene que seguir avanzando en una pestaña abierta todo el día.
-    const tick = window.setInterval(() => draw(ang(hourNow())), 60_000)
+    redrawRef.current = () => draw()
+    if (document.fonts?.ready) document.fonts.ready.then(() => draw())
 
     return () => {
       cancelAnimationFrame(raf)
-      window.clearInterval(tick)
       cleanupIO?.()
       redrawRef.current = null
     }

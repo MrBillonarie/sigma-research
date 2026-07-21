@@ -370,9 +370,9 @@ export default function NotificacionesPage() {
             background: 'radial-gradient(circle at 50% 50%, rgba(57,226,230,0.055), transparent 70%)',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
           }}>
-            <NotifDial points={dial} size={132} />
+            <NotifDial points={dial} size={168} />
             {/* El número grande de al lado son las pendientes de todo el historial;
-                la rosa es la actividad de hoy. Conviene decirlo. */}
+                el anillo es la actividad de hoy. Conviene decirlo. */}
             <span style={{ fontSize: 8, letterSpacing: '0.2em', color: C.muted }}>
               ACTIVIDAD DE HOY · {dial.length}
             </span>
