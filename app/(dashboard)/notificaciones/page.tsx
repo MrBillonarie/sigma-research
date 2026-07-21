@@ -275,8 +275,14 @@ export default function NotificacionesPage() {
   const groups   = groupByDate(filtered)
 
   // ── Lecturas del instrumento — todas derivadas de datos reales ──────────────
+  // Sólo el día en curso, no una ventana móvil de 24 h. Con ventana móvil un
+  // aviso de ayer a las 18:40 caía en el mismo sector que uno de hoy a las
+  // 18:40 y quedaban indistinguibles. Desde medianoche, cada sector es una
+  // hora única — y de paso la rosa no carga con el historial entero.
   const dial = useMemo<DialPoint[]>(() => {
-    const cutoff = Date.now() - 24 * 3600 * 1000
+    const midnight = new Date()
+    midnight.setHours(0, 0, 0, 0)
+    const cutoff = midnight.getTime()
     return notifs
       .filter(n => new Date(n.created_at).getTime() >= cutoff)
       .map(n => {
@@ -359,8 +365,17 @@ export default function NotificacionesPage() {
           background: `linear-gradient(140deg,${C.surface},#07090e)`,
           boxShadow: `0 18px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)`,
         }}>
-          <div style={{ padding: 14, background: 'radial-gradient(circle at 50% 50%, rgba(57,226,230,0.055), transparent 70%)' }}>
+          <div style={{
+            padding: '14px 14px 11px',
+            background: 'radial-gradient(circle at 50% 50%, rgba(57,226,230,0.055), transparent 70%)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+          }}>
             <NotifDial points={dial} size={132} />
+            {/* El número grande de al lado son las pendientes de todo el historial;
+                la rosa es la actividad de hoy. Conviene decirlo. */}
+            <span style={{ fontSize: 8, letterSpacing: '0.2em', color: C.muted }}>
+              ACTIVIDAD DE HOY · {dial.length}
+            </span>
           </div>
           <div style={{
             flex: 1, minWidth: 236, padding: '18px 20px', borderLeft: `1px solid ${C.border}`,
