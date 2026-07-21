@@ -33,6 +33,36 @@ function checkCronAuth(req: Request): boolean {
   return timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
 }
 
+// 2026-07-21: BUGFIX de re-notificación en loop.
+//
+// El motor expone un feed rodante de los últimos ~50 eventos, que incluye
+// eventos de días anteriores. La idempotencia de abajo mira una ventana de 6h,
+// así que pasadas esas 6h un evento viejo "ya no figura como notificado" y se
+// volvía a insertar — para siempre y a todos los destinatarios.
+//
+// Medido: "BNB 1H LONG" (evento del 20-jul 12:03) se había notificado 200+
+// veces, en tandas separadas por exactamente 6h. De ahí las 12.916 filas de
+// tipo señal: eran ~50 eventos reales repetidos en loop. Además confundía al
+// usuario, porque la campanita mostraba "hace 3m" una señal de ayer que ya no
+// estaba abierta en el HUD.
+//
+// Ahora sólo se procesan eventos recientes. La ventana es holgada respecto del
+// cron (corre cada 2 min) para tolerar reinicios o atrasos sin perder señales.
+const MAX_EVENT_AGE_MIN = 30
+
+// El motor emite 'YYYY-MM-DD HH:MM:SS' en hora local del servidor, el mismo
+// host donde corre este proceso.
+function isFresh(ts: string): boolean {
+  if (!ts) return false
+  const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/)
+  if (!m) return false
+  const [, y, mo, d, h, mi, s] = m
+  const when = new Date(+y, +mo - 1, +d, +h, +mi, +s).getTime()
+  if (!Number.isFinite(when)) return false
+  const ageMin = (Date.now() - when) / 60000
+  return ageMin >= -5 && ageMin <= MAX_EVENT_AGE_MIN   // -5: tolera desfase de reloj
+}
+
 interface MotorEvent {
   ts: string
   type: string
@@ -99,7 +129,8 @@ export async function GET(req: Request) {
 
     const data = await res.json()
     const events: MotorEvent[] = (data.events || []).filter(
-      (e: MotorEvent) => e.type === 'per_model_open' || e.type === 'per_model_close'
+      (e: MotorEvent) =>
+        (e.type === 'per_model_open' || e.type === 'per_model_close') && isFresh(e.ts)
     )
     const sinceWindow = new Date(Date.now() - 6 * 3600 * 1000).toISOString()
 
