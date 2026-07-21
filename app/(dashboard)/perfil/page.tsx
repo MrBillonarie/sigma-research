@@ -7,6 +7,8 @@ import { usePortfolio } from '@/app/lib/usePortfolio'
 import { useFireProfile } from '@/app/lib/useFireProfile'
 import PerfilSeal from './PerfilSeal'
 import PasswordCard from './PasswordCard'
+import RankLadder from './RankLadder'
+import SetupComposer from './SetupComposer'
 import type { User } from '@supabase/supabase-js'
 
 // Acento Cyan Deck — el nombre GOLD se mantiene por compatibilidad con el resto del archivo
@@ -21,6 +23,7 @@ const DIM    = 'rgba(255,255,255,0.55)'
 const RED    = '#f87171'
 const GREEN  = '#1D9E75'
 const STEEL  = '#8fa3b8'   // acento del sello en plan FREE
+const AMBER  = '#ffb454'
 const MONO   = "var(--font-dm-mono,'DM Mono',monospace)"
 const EMBOSS = '0 2px 5px rgba(0,0,0,0.5), 0 -1px 0 rgba(255,255,255,0.1)'
 
@@ -57,10 +60,6 @@ const filoCss: React.CSSProperties = {
   height: 2,
   background: 'linear-gradient(90deg, rgba(57,226,230,0.85), rgba(79,146,255,0.4) 45%, transparent 82%)',
 }
-const labelCss: React.CSSProperties = {
-  fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em',
-  textTransform: 'uppercase', color: MUTED, marginBottom: 8, display: 'block',
-}
 // Botón que "emerge": brillo cenital arriba, canto propio abajo. Se hunde
 // hasta su canto al presionarlo (ver .btn-primary:active).
 const btnPrimary: React.CSSProperties = {
@@ -77,14 +76,6 @@ const btnOutline: React.CSSProperties = {
   transition: 'background 0.15s, box-shadow 0.15s, border-color 0.15s',
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <span style={labelCss}>{label}</span>
-      {children}
-    </div>
-  )
-}
 
 // Fila plana de panel de ajustes: etiqueta + descripción a la izquierda,
 // control a la derecha, separadas por un divisor fino (sin tarjetas).
@@ -434,6 +425,29 @@ export default function PerfilPage() {
             0 22px 38px -14px rgba(0,0,0,0.95),
             0 0 24px -10px var(--gc); }
         @media (prefers-reduced-motion: reduce) { .pf-glass, .btn-primary { transition:none; } }
+
+        /* ── Estado bloqueado de COMUNIDAD ── */
+        .pf-locked{ position:relative; border-radius:12px; overflow:hidden; max-width:440px; padding:22px; text-align:center;
+          background:linear-gradient(180deg,rgba(255,255,255,0.075),rgba(255,255,255,0.022));
+          backdrop-filter:blur(26px) brightness(.94); -webkit-backdrop-filter:blur(26px) brightness(.94);
+          box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.30), inset 0 -2px 3px rgba(0,0,0,0.5),
+            0 3px 0 -1px rgba(255,255,255,0.045), 0 5px 0 -1px rgba(0,0,0,0.55), 0 14px 28px -14px rgba(0,0,0,0.9); }
+        .pf-lockring{ width:64px; height:64px; margin:0 auto 13px; border-radius:50%;
+          display:flex; align-items:center; justify-content:center;
+          background:radial-gradient(circle at 35% 30%, rgba(255,180,84,0.18), rgba(0,0,0,0.4));
+          border:1px solid rgba(255,180,84,0.3); box-shadow:0 0 22px -8px rgba(255,180,84,0.5); }
+        .pf-lockpct{ font-family:'Bebas Neue',Impact,sans-serif; font-size:21px; color:${AMBER}; }
+        .pf-lockt{ font-family:${MONO}; font-size:12.5px; color:${TEXT}; font-weight:600; margin-bottom:5px; }
+        .pf-lockd{ font-family:${MONO}; font-size:10.5px; color:${MUTED}; line-height:1.7; max-width:46ch; margin:0 auto; }
+        .pf-lockd b{ color:${AMBER}; font-weight:400; }
+        .pf-lockbar{ height:6px; border-radius:3px; background:rgba(0,0,0,0.5); overflow:hidden;
+          max-width:280px; margin:14px auto 0; box-shadow:inset 0 1px 3px rgba(0,0,0,0.8); }
+        .pf-lockbar i{ display:block; height:100%; border-radius:3px;
+          background:linear-gradient(90deg,${AMBER},${GOLD}); box-shadow:0 0 10px -1px ${AMBER}; }
+        .pf-lockcta{ display:inline-block; margin-top:16px; font-family:${MONO}; font-size:9.5px; letter-spacing:0.14em;
+          color:${GOLD}; text-decoration:none; border:1px solid rgba(57,226,230,0.35); border-radius:20px; padding:8px 16px;
+          transition:background 0.15s, box-shadow 0.15s; }
+        .pf-lockcta:hover{ background:rgba(57,226,230,0.09); box-shadow:0 0 16px -4px rgba(57,226,230,0.5); }
         .pf-stat { transition: background 0.15s, box-shadow 0.15s; text-decoration: none; display: block; }
         .pf-stat:hover { background: rgba(57,226,230,0.05); box-shadow: inset 0 2px 0 ${GOLD}; }
         .pf-tab:hover { color: ${TEXT} !important; }
@@ -711,93 +725,56 @@ export default function PerfilPage() {
 
         {/* ══ COMUNIDAD ══ */}
         {tab === 'comunidad' && (
-          <div style={panelCss}>
-            <div style={filoCss} />
-            <div style={{ padding: '0 26px 12px' }}>
+          <div style={{ ...panelCss, position: 'relative' }}>
+            <div className="pf-lightfield" aria-hidden>
+              <span className="pf-lf pf-lf1" /><span className="pf-lf pf-lf2" />
+            </div>
+            <div style={{ ...filoCss, position: 'relative', zIndex: 2 }} />
+            <div style={{ padding: '0 26px 12px', position: 'relative', zIndex: 2 }}>
+
             {profile !== null && (
-              <Row
-                label="Reputación"
-                hint={profile.reputation >= 50
-                  ? <span style={{ color: GOLD }}>★ Trader Senior — tus setups se publican con destaque.</span>
-                  : profile.reputation >= 20
-                    ? <span style={{ color: GREEN }}>◆ Trader Verificado — tus setups son visibles en la sidebar.</span>
-                    : profile.reputation >= MIN_REP
-                      ? 'Puedes publicar setups. Sigue obteniendo votos para subir de rango.'
-                      : <span>Necesitas <strong style={{ color: GOLD }}>{MIN_REP - profile.reputation} puntos más</strong> de reputación para publicar setups.</span>}
-              >
-                <div style={{ display: 'flex', gap: '20px 40px', flexWrap: 'wrap' }}>
-                  {[
-                    { label: 'REPUTACIÓN',    val: profile.reputation,       color: profile.reputation >= 50 ? GOLD : profile.reputation >= 20 ? GREEN : DIM },
-                    { label: 'SETUPS PUB.',   val: profile.setups_published, color: DIM },
-                    { label: 'TP ALCANZADOS', val: profile.setups_won,       color: GREEN },
-                  ].map(({ label, val, color }) => (
-                    <div key={label}>
-                      <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 28, color, lineHeight: 1, marginBottom: 4 }}>{val}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em' }}>{label}</div>
-                    </div>
-                  ))}
+              <Row label="Tu rango" hint="La reputación es la suma de votos netos positivos que reciben tus setups publicados.">
+                <div>
+                  <RankLadder reputation={profile.reputation} />
+                  <div style={{ display: 'flex', gap: '20px 34px', flexWrap: 'wrap', marginTop: 16 }}>
+                    {[
+                      { label: 'REPUTACIÓN',    val: profile.reputation,       color: profile.reputation >= 50 ? AMBER : profile.reputation >= 20 ? GREEN : GOLD },
+                      { label: 'SETUPS PUB.',   val: profile.setups_published, color: DIM },
+                      { label: 'TP ALCANZADOS', val: profile.setups_won,       color: GREEN },
+                    ].map(({ label, val, color }) => (
+                      <div key={label}>
+                        <div style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 26, color, lineHeight: 1, marginBottom: 4 }}>{val}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: '0.12em' }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </Row>
             )}
 
             <Row label="Publicar setup" hint={`Los setups publicados aparecen en la barra lateral para todos los usuarios. Reputación mínima: ${MIN_REP}.`}>
               {profile !== null && (profile.reputation ?? 0) < MIN_REP ? (
-                <div style={{ fontFamily: MONO, fontSize: 11, color: DIM, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '14px 18px' }}>
-                  Reputación actual: <span style={{ color: GOLD }}>{profile.reputation}</span> / {MIN_REP} requeridos.
+                <div className="pf-locked">
+                  <div className="pf-lockring"><span className="pf-lockpct">{profile.reputation}/{MIN_REP}</span></div>
+                  <div className="pf-lockt">Aún no podés publicar setups</div>
+                  <div className="pf-lockd">
+                    Te {MIN_REP - profile.reputation === 1 ? 'falta' : 'faltan'} <b>{MIN_REP - profile.reputation} {MIN_REP - profile.reputation === 1 ? 'punto' : 'puntos'}</b> de reputación.
+                    Se gana con los votos positivos que reciben tus setups publicados.
+                  </div>
+                  <div className="pf-lockbar"><i style={{ width: `${Math.min(100, (profile.reputation / MIN_REP) * 100)}%` }} /></div>
+                  <a href="/soporte" className="pf-lockcta">SOLICITAR ACCESO →</a>
                 </div>
               ) : (
-                <form onSubmit={handlePublishSetup} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <Field label="Par (ej. BTCUSDT)">
-                      <input type="text" value={setupForm.par} onChange={e => setSetupForm(f => ({ ...f, par: e.target.value }))} placeholder="BTCUSDT" className="perf-input" style={inputCss} />
-                    </Field>
-                    <Field label="Tipo">
-                      <select value={setupForm.tipo} onChange={e => setSetupForm(f => ({ ...f, tipo: e.target.value as SetupTipo }))} className="perf-input" style={inputCss}>
-                        <option value="LONG">LONG</option>
-                        <option value="SHORT">SHORT</option>
-                        <option value="LP">LP (Liquidity)</option>
-                      </select>
-                    </Field>
-                  </div>
-                  {setupForm.tipo !== 'LP' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
-                      {['entry', 'sl', 'tp', 'rr'].map(f => (
-                        <Field key={f} label={f.toUpperCase()}>
-                          <input type="number" value={(setupForm as Record<string, string | number>)[f]} onChange={e => setSetupForm(prev => ({ ...prev, [f]: e.target.value }))} placeholder="0" className="perf-input" style={inputCss} />
-                        </Field>
-                      ))}
-                    </div>
-                  )}
-                  {setupForm.tipo === 'LP' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <Field label="Rango Bajo"><input type="number" value={setupForm.rangeLow} onChange={e => setSetupForm(f => ({ ...f, rangeLow: e.target.value }))} placeholder="1580" className="perf-input" style={inputCss} /></Field>
-                      <Field label="Rango Alto"><input type="number" value={setupForm.rangeHigh} onChange={e => setSetupForm(f => ({ ...f, rangeHigh: e.target.value }))} placeholder="1950" className="perf-input" style={inputCss} /></Field>
-                      <Field label="Protocol"><input type="text" value={setupForm.protocol} onChange={e => setSetupForm(f => ({ ...f, protocol: e.target.value }))} placeholder="Uniswap v3" className="perf-input" style={inputCss} /></Field>
-                      <Field label="Fee Tier"><input type="text" value={setupForm.feeTier} onChange={e => setSetupForm(f => ({ ...f, feeTier: e.target.value }))} placeholder="0.05%" className="perf-input" style={inputCss} /></Field>
-                    </div>
-                  )}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <Field label="Timeframe">
-                      <select value={setupForm.timeframe} onChange={e => setSetupForm(f => ({ ...f, timeframe: e.target.value }))} className="perf-input" style={inputCss}>
-                        {TF_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                        <option value="—">—</option>
-                      </select>
-                    </Field>
-                    <Field label="Metodología">
-                      <input type="text" value={setupForm.metodologia} onChange={e => setSetupForm(f => ({ ...f, metodologia: e.target.value }))} placeholder="OB+MACD" className="perf-input" style={inputCss} />
-                    </Field>
-                  </div>
-                  <Field label="Nota">
-                    <textarea value={setupForm.nota} onChange={e => setSetupForm(f => ({ ...f, nota: e.target.value }))} placeholder="Describe el setup brevemente..." rows={3} className="perf-input" style={{ ...inputCss, resize: 'vertical', lineHeight: 1.5 }} />
-                  </Field>
-                  {setupError && <div style={{ fontFamily: MONO, fontSize: 11, color: RED }}>{setupError}</div>}
-                  {setupMsg   && <div style={{ fontFamily: MONO, fontSize: 11, color: GREEN }}>{setupMsg}</div>}
-                  <div>
-                    <button type="submit" disabled={publishingSetup} className="btn-primary" style={{ ...btnPrimary, opacity: publishingSetup ? 0.6 : 1 }}>
-                      {publishingSetup ? 'PUBLICANDO…' : 'PUBLICAR SETUP'}
-                    </button>
-                  </div>
-                </form>
+                <SetupComposer
+                  form={setupForm}
+                  onPatch={patch => setSetupForm(f => ({ ...f, ...patch }))}
+                  onSubmit={handlePublishSetup}
+                  publishing={publishingSetup}
+                  error={setupError} msg={setupMsg}
+                  username={displayName}
+                  reputation={profile?.reputation ?? 0}
+                  tfOptions={[...TF_OPTIONS]}
+                />
               )}
             </Row>
             </div>
