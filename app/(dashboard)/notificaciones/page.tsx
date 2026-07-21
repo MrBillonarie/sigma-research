@@ -247,8 +247,12 @@ export default function NotificacionesPage() {
 
   // fire_daily_digest (cron proactivo) cae en el mismo balde visual que 'fire'
   // (notificaciones reactivas al completar retos) — mismo icono, mismo tab.
+  // lp_signal comparte ícono con señal (ver getIcon) pero el filtro hacía match
+  // exacto, así que caía sólo en "Todas" y nunca en la pestaña Señales.
   const matchesType = (n: Notification, key: string) =>
-    key === 'fire' ? (n.type === 'fire' || n.type === 'fire_daily_digest') : n.type === key
+    key === 'fire'  ? (n.type === 'fire' || n.type === 'fire_daily_digest')
+  : key === 'señal' ? (n.type === 'señal' || n.type === 'lp_signal')
+  : n.type === key
 
   const filtered = filter === 'all' ? notifs : notifs.filter(n => matchesType(n, filter))
   const unread   = notifs.filter(n => !n.read).length
