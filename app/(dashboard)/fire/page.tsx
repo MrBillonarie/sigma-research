@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react'
 import dynamic from 'next/dynamic'
 import { fmt, fmtK } from '@/app/lib/format'
 import FireChallenges from './FireChallenges'
@@ -113,6 +113,20 @@ const ICONS = {
 
 function Label({ text }: { text: string }) {
   return <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText, marginBottom: 4 }}>{text}</div>
+}
+
+// ─── Tabla "Libro Mayor" — tratamiento visual del desglose anual ─────────────
+// Premium por refinamiento, no por brillo: la órbita y el gráfico 3D de arriba
+// se llevan la atención, así que la tabla es el descanso de la página. Acero
+// apagado para el progreso corriente; el oro cálido queda RESERVADO para la
+// única línea del año FIRE, para que "el día de libertad" resalte sin competir.
+// Mismos datos que antes — sólo cambia el CSS.
+const STEEL = '#3c4759'
+const LGOLD = '#e9c877'
+const LCOLS = '64px 56px 1fr 150px 150px 120px'
+const ledgerHead: CSSProperties = {
+  fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.16em',
+  textTransform: 'uppercase', color: C.muted, whiteSpace: 'nowrap',
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -376,36 +390,72 @@ export default function FirePage() {
               <FireChart labels={labels} acum={data} target={target} fireYear={fireYear} capital={capital} />
             </div>
 
-            {/* Desglose anual - primeros 10 años */}
+            {/* Desglose anual — tratamiento "Libro Mayor" (solo visual; mismos datos) */}
             <div>
-              <div style={{ padding: '10px 18px', borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>PROYECCIÓN ANUAL (PRIMEROS 15 AÑOS)</span>
+              <div style={{ padding: '13px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase', color: C.dimText }}>PROYECCIÓN ANUAL</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 9.5, color: C.muted, fontVariantNumeric: 'tabular-nums' }}>primeros 15 años · meta {fmtK(target)}</span>
               </div>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                      {['Año', 'Edad', 'Capital', 'Ahorro acum.', '% Meta'].map(h => (
-                        <th key={h} style={{ padding: '8px 16px', textAlign: 'left', color: C.dimText, fontWeight: 400, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.slice(0, 16).map((val, yr) => {
-                      const pct = Math.min((val / target) * 100, 100)
-                      const isFire = fireYear !== null && yr === fireYear
-                      return (
-                        <tr key={yr} style={{ borderBottom: `1px solid ${C.border}`, background: isFire ? 'rgba(52,211,153,0.06)' : yr % 2 === 0 ? 'transparent' : 'rgba(57,226,230,0.02)' }}>
-                          <td style={{ padding: '9px 16px', color: isFire ? C.green : C.dimText }}>{isFire ? '🎯 ' : ''}{yr}</td>
-                          <td style={{ padding: '9px 16px', color: C.dimText }}>{edad + yr}</td>
-                          <td style={{ padding: '9px 16px', color: isFire ? C.green : (val >= target ? C.green : C.text) }}>{fmt(val)}</td>
-                          <td style={{ padding: '9px 16px', color: C.dimText }}>{fmt(ahorro * 12 * yr)}</td>
-                          <td style={{ padding: '9px 16px', color: pct >= 100 ? C.green : C.gold }}>{pct.toFixed(1)}%</td>
-                        </tr>
+                <div style={{ minWidth: 560 }}>
+                  {/* Cabecera */}
+                  <div style={{ display: 'grid', gridTemplateColumns: LCOLS, alignItems: 'center', columnGap: 16, padding: '0 22px', height: 34, borderBottom: `1px solid ${C.border}` }}>
+                    <span style={ledgerHead}>Año</span>
+                    <span style={ledgerHead}>Edad</span>
+                    <span />
+                    <span style={{ ...ledgerHead, textAlign: 'right' }}>Ahorro acum.</span>
+                    <span style={{ ...ledgerHead, textAlign: 'right' }}>Capital</span>
+                    <span style={{ ...ledgerHead, textAlign: 'right' }}>% Meta</span>
+                  </div>
+                  {data.slice(0, 16).flatMap((val, yr) => {
+                    const pct     = Math.min((val / target) * 100, 100)
+                    const prevPct = yr > 0 ? Math.min((data[yr - 1] / target) * 100, 100) : 0
+                    const q = Math.floor(pct / 25), pq = Math.floor(prevPct / 25)
+                    const isFire = fireYear !== null && yr === fireYear
+                    const els: ReactNode[] = []
+
+                    // Separador de hito al cruzar 25 / 50 / 75 % — pausa discreta en la lectura
+                    if (q > pq && q < 4) {
+                      els.push(
+                        <div key={`sep-${yr}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 22px', height: 30 }}>
+                          <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+                          <span style={{ fontFamily: 'monospace', fontSize: 8.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.muted }}>{q * 25}% de la meta</span>
+                          <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+                        </div>
                       )
-                    })}
-                  </tbody>
-                </table>
+                    }
+
+                    els.push(
+                      <div key={yr} style={{
+                        display: 'grid', gridTemplateColumns: LCOLS, alignItems: 'center', columnGap: 16,
+                        padding: '0 22px', height: isFire ? 58 : 46,
+                        borderBottom: '1px solid rgba(255,255,255,0.045)',
+                        borderTop: isFire ? `1px solid ${LGOLD}66` : undefined,
+                        background: isFire ? `linear-gradient(90deg,${LGOLD}0d,transparent 60%)` : undefined,
+                      }}>
+                        <span style={{ fontFamily: 'monospace', color: isFire ? LGOLD : C.dimText, fontVariantNumeric: 'tabular-nums' }}>{yr}</span>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted, fontVariantNumeric: 'tabular-nums' }}>{edad + yr}</span>
+                        <span>
+                          {isFire && <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: LGOLD }}>día de libertad</span>}
+                        </span>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, textAlign: 'right', color: C.muted, fontVariantNumeric: 'tabular-nums' }}>{fmt(ahorro * 12 * yr)}</span>
+                        <span style={{
+                          textAlign: 'right', fontVariantNumeric: 'tabular-nums',
+                          fontFamily: isFire ? "'Bebas Neue', Impact, sans-serif" : 'monospace',
+                          fontSize: isFire ? 22 : 12, letterSpacing: isFire ? '0.03em' : '0.01em',
+                          color: isFire ? LGOLD : (val >= target ? C.green : C.text),
+                        }}>{fmt(val)}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
+                          <span style={{ position: 'relative', width: 78, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}>
+                            <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 2, background: isFire ? LGOLD : STEEL }} />
+                          </span>
+                          <span style={{ fontFamily: 'monospace', width: 42, textAlign: 'right', fontSize: 11, color: isFire ? LGOLD : C.dimText, fontVariantNumeric: 'tabular-nums' }}>{pct.toFixed(1)}%</span>
+                        </span>
+                      </div>
+                    )
+                    return els
+                  })}
+                </div>
               </div>
             </div>
           </div>
