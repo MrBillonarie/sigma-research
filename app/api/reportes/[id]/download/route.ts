@@ -1,16 +1,24 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { getPlanInfo } from '@/lib/plan'
 import { checkAdminSessionCookie } from '@/lib/adminAuth'
 
+// Cliente de service role REAL, sin cookies.
+//
+// Antes se construía con `createServerClient` de @supabase/ssr, que adjunta el
+// JWT del usuario logueado como cabecera Authorization: la service key quedaba
+// sólo como `apikey` y toda la petición salía con los permisos del usuario. Con
+// el bucket `Reportes` en privado, Storage la rechazaba y la descarga moría en
+// "Error al obtener el PDF." aunque el objeto existiera y estuviera intacto.
+// Para sesiones de admin era peor todavía: no hay usuario de Supabase, así que
+// las consultas salían como anónimo.
 function makeServiceClient() {
-  const cookieStore = cookies()
-  return createServerClient(
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }
 
