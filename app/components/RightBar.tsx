@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/app/lib/supabase'
+import MarketGlobe from './MarketGlobe'
 
 const T = {
   bg:      '#04050a',
@@ -91,12 +92,32 @@ interface CommunitySetup {
   profiles: { username: string; reputation: number } | null
 }
 
-// ─── Market sessions (UTC hours) ─────────────────────────────────────────────
+// ─── Sesiones de mercado (hora LOCAL de cada plaza) ──────────────────────────
+// Antes estaban fijadas en horas UTC, lo que traía dos errores: Nueva York
+// aparecía abriendo a las 9:00 cuando el NYSE abre 9:30, y —más grave— al no
+// seguir el horario de verano, las ventanas se corrían una hora completa cada
+// vez que Londres o Nueva York cambiaban la hora. Ahora se declaran en hora
+// local y el desplazamiento a UTC se calcula en cada render.
 const SESSIONS = [
-  { name: 'ASIA',     from: 0,  to: 9,  color: T.violet, tz: 'Asia/Tokyo',       label: 'Tokyo'  },
-  { name: 'LONDON',   from: 7,  to: 16, color: T.blue,   tz: 'Europe/London',    label: 'London' },
-  { name: 'NEW YORK', from: 13, to: 22, color: T.green,  tz: 'America/New_York', label: 'NY'     },
+  { name: 'ASIA',     open: 9,   close: 15,   color: T.violet, tz: 'Asia/Tokyo',       label: 'Tokyo',  city: 'Tokyo'  },
+  { name: 'LONDON',   open: 8,   close: 16.5, color: T.blue,   tz: 'Europe/London',    label: 'London', city: 'London' },
+  { name: 'NEW YORK', open: 9.5, close: 16,   color: T.green,  tz: 'America/New_York', label: 'NY',     city: 'NY'     },
 ] as const
+
+// Desplazamiento horario real de una zona en un instante dado. Usa Intl, así
+// que contempla el horario de verano sin tablas propias que mantener.
+function tzOffset(tz: string, at: Date): number {
+  try {
+    const p = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).formatToParts(at)
+    const v = (t: string) => Number(p.find(x => x.type === t)?.value ?? 0)
+    const comoUTC = Date.UTC(v('year'), v('month') - 1, v('day'), v('hour') % 24, v('minute'), v('second'))
+    return Math.round(((comoUTC - at.getTime()) / 3_600_000) * 4) / 4   // cuartos de hora
+  } catch { return 0 }
+}
 
 const SYM_STREAM = SYMBOLS.map(s => `${s.toLowerCase()}usdt@ticker`).join('/')
 const WS_URL     = `wss://stream.binance.com:9443/stream?streams=${SYM_STREAM}`
@@ -383,9 +404,24 @@ export default function RightBar() {
 
   if (!visible) return null
 
-  // Session calc
-  const utcH           = utcNow.getUTCHours() + utcNow.getUTCMinutes() / 60
-  const activeSessions = SESSIONS.filter(s => utcH >= s.from && utcH < s.to)
+  // Session calc — las ventanas se convierten de hora local a UTC en cada
+  // render, así el horario de verano queda contemplado solo.
+  const utcH = utcNow.getUTCHours() + utcNow.getUTCMinutes() / 60
+  const sesiones = SESSIONS.map(s => {
+    const off    = tzOffset(s.tz, utcNow)
+    const uOpen  = ((s.open  - off) % 24 + 24) % 24
+    const uClose = ((s.close - off) % 24 + 24) % 24
+    const isOpen = uOpen < uClose ? (utcH >= uOpen && utcH < uClose) : (utcH >= uOpen || utcH < uClose)
+    const falta  = ((uOpen  - utcH) % 24 + 24) % 24
+    const resta  = ((uClose - utcH) % 24 + 24) % 24
+    const span   = ((uClose - uOpen) % 24 + 24) % 24
+    return {
+      ...s, uOpen, uClose, isOpen,
+      progress: isOpen && span > 0 ? (((utcH - uOpen) % 24 + 24) % 24) / span * 100 : 0,
+      restante: isOpen ? resta : falta,
+    }
+  })
+  const activeSessions = sesiones.filter(s => s.isOpen)
 
   function localTime(tz: string) {
     try { return utcNow.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }) }
@@ -439,11 +475,22 @@ export default function RightBar() {
             <UtcClock color={T.text} />
           </div>
 
-          {SESSIONS.map(s => {
-            const isOpen     = utcH >= s.from && utcH < s.to
-            const hoursLeft  = isOpen ? s.to - utcH : null
-            const hoursUntil = !isOpen ? (utcH < s.from ? s.from - utcH : 24 - utcH + s.from) : null
-            const progress   = isOpen ? ((utcH - s.from) / (s.to - s.from)) * 100 : 0
+          {/* Globo: continentes, terminador día/noche real y bisel de 24 h con
+              los arcos de cada plaza. Dice dónde y cuándo de un vistazo. */}
+          <MarketGlobe
+            size={164}
+            utcNow={utcNow}
+            sessions={sesiones.map(s => ({
+              key: s.name, city: s.city, color: s.color,
+              uOpen: s.uOpen, uClose: s.uClose, isOpen: s.isOpen,
+            }))}
+          />
+
+          {sesiones.map(s => {
+            const isOpen     = s.isOpen
+            const hoursLeft  = isOpen ? s.restante : null
+            const hoursUntil = !isOpen ? s.restante : null
+            const progress   = s.progress
             return (
               <div key={s.name} style={{
                 display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5,
