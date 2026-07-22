@@ -12,12 +12,26 @@ export default function AdminLogin() {
   const [loading,  setLoading]  = useState(true)
   const [working,  setWorking]  = useState(false)
 
+  // La cookie manda, no `sessionStorage`. Antes se confiaba en la marca del
+  // navegador: si la cookie ya había expirado pero la marca seguía puesta, esto
+  // redirigía al dashboard sin tocar `loading`, y la página quedaba en `null`
+  // — pantalla negra, sin formulario y sin forma de volver a entrar.
   useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY) === 'true') {
-      router.replace('/admin/dashboard')
-    } else {
-      setLoading(false)
-    }
+    let vivo = true
+    fetch('/api/admin/login', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(({ authenticated }) => {
+        if (!vivo) return
+        if (authenticated) {
+          sessionStorage.setItem(SESSION_KEY, 'true')
+          router.replace('/admin/dashboard')
+        } else {
+          sessionStorage.removeItem(SESSION_KEY)   // limpia marcas rancias
+          setLoading(false)
+        }
+      })
+      .catch(() => { if (vivo) setLoading(false) })  // ante la duda, el formulario
+    return () => { vivo = false }
   }, [router])
 
   async function handleSubmit(ev: React.FormEvent) {

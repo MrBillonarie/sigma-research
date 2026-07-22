@@ -115,6 +115,20 @@ export async function POST(req: NextRequest) {
   return res
 }
 
+// ─── GET /api/admin/login ─────────────────────────────────────────────────────
+// Dice si la cookie de sesión sigue siendo válida. Existe porque el estado de
+// login del admin vivía sólo en `sessionStorage`, que el servidor no puede ver
+// ni invalidar: cuando la cookie expiraba (2 h) pero la marca del navegador
+// seguía puesta, /admin creía estar logueado, redirigía al dashboard y se
+// quedaba renderizando null — pantalla en negro sin formulario ni error.
+// Con esto el servidor vuelve a ser la única fuente de verdad.
+export async function GET() {
+  const { cookies } = await import('next/headers')
+  const { checkAdminSessionCookie } = await import('@/lib/adminAuth')
+  const ok = checkAdminSessionCookie(cookies().get('sigma_admin_session')?.value)
+  return NextResponse.json({ authenticated: ok })
+}
+
 // ─── DELETE /api/admin/login ──────────────────────────────────────────────────
 export async function DELETE() {
   const res = NextResponse.json({ ok: true })

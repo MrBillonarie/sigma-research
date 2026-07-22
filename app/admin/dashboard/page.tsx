@@ -192,19 +192,32 @@ export default function AdminDashboard() {
   const [pineValidating,  setPineValidating]  = useState(false)
   const [pineValidResult, setPineValidResult] = useState<{ total_errors: number; validated_at: string; motors: { motor: number; total_errors: number; total_warns: number }[] } | null>(null)
 
+  // Igual que en /admin: la cookie del servidor es la fuente de verdad. Con la
+  // marca de `sessionStorage` sola, una sesión vencida dejaba el dashboard
+  // montado disparando peticiones que respondían 401 en cadena.
   useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY) !== 'true') {
-      router.replace('/admin')
-    } else {
-      setLoading(false)
-      fetchUsers()
-      fetchSyncStatus()
-      fetchTickets()
-      fetchModelosState()
-      fetchCampañas()
-      fetchBizMetrics()
-      fetchSystemHealth()
-    }
+    let vivo = true
+    fetch('/api/admin/login', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(({ authenticated }) => {
+        if (!vivo) return
+        if (!authenticated) {
+          sessionStorage.removeItem(SESSION_KEY)
+          router.replace('/admin')
+          return
+        }
+        sessionStorage.setItem(SESSION_KEY, 'true')
+        setLoading(false)
+        fetchUsers()
+        fetchSyncStatus()
+        fetchTickets()
+        fetchModelosState()
+        fetchCampañas()
+        fetchBizMetrics()
+        fetchSystemHealth()
+      })
+      .catch(() => { if (vivo) router.replace('/admin') })
+    return () => { vivo = false }
   }, [router])
 
   // Ctrl+K shortcut
