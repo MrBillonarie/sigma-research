@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { supabase } from '@/app/lib/supabase'
-import { C } from '@/app/lib/constants'
+import { C, cardStyle } from '@/app/lib/constants'
 
 interface ReporteRow {
   id:          string
@@ -17,11 +17,37 @@ interface PortfolioRow {
   fintual: number; santander: number; cash: number
 }
 
+// Paleta del PDF. Vive aparte de los tokens de la web a propósito: jsPDF necesita
+// hex literales y el documento impreso no debe cambiar si el sitio se retematiza.
 const GOLD  = '#39e2e6'
 const DARK  = '#04050a'
 const GRAY  = '#8b8fa8'
-const GREEN = '#34d399'
 const WHITE = '#e8e9f0'
+
+// ─── Superficie de la página ────────────────────────────────────────────────
+// Antes los paneles se pegaban con `marginBottom: 1` sobre un fondo del color del
+// borde — la técnica "gapless" que el sistema de elevación de constants.ts vino a
+// reemplazar. Ahora cada bloque es una tarjeta con radio, sombra y filo superior.
+const PANEL: CSSProperties = {
+  ...cardStyle,
+  background: `linear-gradient(180deg,${C.surface2},${C.surface})`,
+  overflow: 'hidden',
+  position: 'relative',
+}
+const PANEL_HEAD: CSSProperties = {
+  padding: '13px 22px',
+  borderBottom: `1px solid ${C.border}`,
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  gap: 12, flexWrap: 'wrap',
+}
+const PANEL_TITLE: CSSProperties = {
+  fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em',
+  textTransform: 'uppercase', color: C.gold,
+}
+// Filo superior: el mismo gesto que ya usan las tarjetas del resto del dashboard.
+function Filo() {
+  return <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C.gold},${C.goldDim} 45%,transparent 85%)` }} />
+}
 
 const PLATFORM_LABELS: Record<string, string> = {
   ibkr:             'Interactive Brokers',
@@ -497,11 +523,28 @@ export default function MisReportesPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono,'DM Mono',monospace)" }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '88px 24px 80px' }}>
+    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "var(--font-dm-mono,'DM Mono',monospace)", position: 'relative' }}>
+      {/* Fondo: rejilla fija (no se arrastra al hacer scroll) que se desvanece hacia
+          abajo, más un halo cian arriba que le da fuente de luz a las tarjetas —
+          sin algo detrás, sus bordes y sombras internas no tienen contra qué leerse. */}
+      <div aria-hidden style={{
+        position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
+        backgroundImage:
+          'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),' +
+          'linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+        backgroundSize: '40px 40px, 40px 40px',
+        WebkitMaskImage: 'linear-gradient(180deg,#000 0%,#000 42%,transparent 92%)',
+        maskImage:       'linear-gradient(180deg,#000 0%,#000 42%,transparent 92%)',
+      }} />
+      <div aria-hidden style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 620, pointerEvents: 'none', zIndex: 0,
+        background: 'radial-gradient(ellipse 900px 520px at 50% -6%, rgba(57,226,230,0.11), transparent 70%)',
+      }} />
+
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '88px 24px 80px', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 40, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ marginBottom: 22, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.gold, marginBottom: 10 }}>
               {'// SQUANT DESK · REPORTE MENSUAL'}
@@ -514,13 +557,12 @@ export default function MisReportesPage() {
         </div>
 
         {/* ── GENERAR ANÁLISIS ── */}
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, marginBottom: 1 }}>
-          <div style={{ padding: '14px 24px', borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.gold }}>
-              {'// GENERAR ANÁLISIS PERSONAL'}
-            </span>
+        <div style={PANEL}>
+          <Filo />
+          <div style={PANEL_HEAD}>
+            <span style={PANEL_TITLE}>{'// GENERAR ANÁLISIS PERSONAL'}</span>
           </div>
-          <div style={{ padding: '28px 24px', display: 'flex', alignItems: 'stretch', gap: 32, flexWrap: 'wrap' }}>
+          <div style={{ padding: '30px 26px', display: 'flex', alignItems: 'stretch', gap: 34, flexWrap: 'wrap' }}>
             <DossierCover total={totalPatrimonio} email={userEmail} dateStr={hoyStr} />
 
             <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column' }}>
@@ -537,26 +579,35 @@ export default function MisReportesPage() {
                 {genStep < 0 ? (
                   <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                     {['Portafolio multi-plataforma', 'Distribución de capital', '6 secciones de análisis', 'Descarga instantánea'].map(tag => (
-                      <span key={tag} style={{ fontFamily: 'monospace', fontSize: 10, color: GREEN, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', padding: '3px 10px', alignSelf: 'flex-start' }}>
+                      <span key={tag} style={{
+                        fontFamily: 'monospace', fontSize: 10, color: C.green, alignSelf: 'flex-start',
+                        background: 'rgba(47,211,154,0.08)', border: '1px solid rgba(47,211,154,0.22)',
+                        borderRadius: 5, padding: '4px 11px',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+                      }}>
                         ✓ {tag}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <div style={{ background: '#07080d', border: `1px solid ${C.border}`, padding: '14px 16px', fontFamily: 'monospace', fontSize: 11, lineHeight: 2 }}>
+                  <div style={{
+                    background: '#07080d', border: `1px solid ${C.border}`, borderRadius: 9,
+                    padding: '14px 16px', fontFamily: 'monospace', fontSize: 11, lineHeight: 2,
+                    boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.6)',
+                  }}>
                     {GEN_STEPS.map((s, i) => (
                       i > genStep ? null : (
                         <div key={s} style={{ color: i < genStep ? C.dimText : C.gold, display: 'flex', gap: 8 }}>
                           <span style={{ color: C.gold }}>{'>'}</span>
                           <span style={{ flex: 1 }}>{s}…</span>
                           {i < genStep
-                            ? <span style={{ color: GREEN }}>✓</span>
+                            ? <span style={{ color: C.green }}>✓</span>
                             : genStep < GEN_STEPS.length && <span className="rep-blink" style={{ color: C.gold }}>▓</span>}
                         </div>
                       )
                     ))}
                     {genStep >= GEN_STEPS.length && (
-                      <div style={{ color: GREEN, marginTop: 4 }}>✓ DOSSIER GENERADO · DESCARGA INICIADA</div>
+                      <div style={{ color: C.green, marginTop: 4 }}>✓ DOSSIER GENERADO · DESCARGA INICIADA</div>
                     )}
                   </div>
                 )}
@@ -567,18 +618,23 @@ export default function MisReportesPage() {
                 disabled={generating || loading}
                 className="rep-genbtn"
                 style={{
-                  padding: '15px 36px',
-                  background: generating ? 'transparent' : C.gold,
-                  color: generating ? C.gold : C.bg,
-                  border: `1px solid ${C.gold}`,
+                  padding: '14px 34px',
+                  borderRadius: 9,
+                  background: generating ? 'transparent' : `linear-gradient(180deg,${C.glow},#26bec2)`,
+                  color: generating ? C.gold : '#04121a',
+                  border: generating ? `1px solid ${C.gold}` : 'none',
                   fontFamily: "'Bebas Neue',Impact,sans-serif",
                   fontSize: 20, letterSpacing: '0.1em',
                   cursor: generating || loading ? 'not-allowed' : 'pointer',
                   opacity: loading ? 0.5 : 1,
-                  transition: 'all 0.2s',
+                  transition: 'transform 0.15s, box-shadow 0.2s, opacity 0.2s',
                   whiteSpace: 'nowrap',
                   alignSelf: 'flex-start',
                   minWidth: 240,
+                  // Tecla con canto: se hunde al pulsarse (ver .rep-genbtn:active)
+                  boxShadow: generating
+                    ? 'none'
+                    : '0 4px 0 #0b5457, 0 8px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5)',
                 }}
               >
                 {generating
@@ -590,31 +646,49 @@ export default function MisReportesPage() {
         </div>
 
         {/* ── REPORTES PUBLICADOS ── */}
-        <div style={{ marginBottom: 1 }}>
-          <div style={{ background: C.surface, padding: '12px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.gold }}>
-              REPORTES PUBLICADOS · RESEARCH SEMANAL
-            </span>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: isPro ? C.gold : C.muted }}>
+        <div style={PANEL}>
+          <Filo />
+          <div style={PANEL_HEAD}>
+            <span style={PANEL_TITLE}>REPORTES PUBLICADOS · RESEARCH SEMANAL</span>
+            <span style={{
+              fontFamily: 'monospace', fontSize: 9.5, letterSpacing: '0.1em',
+              color: isPro ? C.gold : C.muted,
+              border: `1px solid ${isPro ? `${C.gold}44` : C.border2}`,
+              background: isPro ? 'rgba(57,226,230,0.07)' : 'rgba(255,255,255,0.02)',
+              borderRadius: 5, padding: '4px 10px',
+            }}>
               PLAN {isPro ? 'PRO' : 'FREE · 1 REPORTE/MES'}
             </span>
           </div>
 
           {loading ? (
-            <div style={{ background: C.bg, padding: '40px', textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: C.muted }}>
+            <div style={{ padding: '48px 40px', textAlign: 'center', fontFamily: 'monospace', fontSize: 12, color: C.muted }}>
               Cargando reportes…
             </div>
           ) : reportes.length === 0 ? (
-            <div style={{ background: C.bg, padding: '40px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.muted, marginBottom: 10 }}>
-                Aún no hay reportes publicados.
+            /* Estado vacío: un estante con su hueco marcado pesa más que una línea
+               de texto centrada, y es lo que ve todo el mundo mientras no haya ediciones. */
+            <div style={{ padding: '46px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+              <div aria-hidden style={{
+                width: 128, height: 172, borderRadius: 6,
+                border: `1px dashed ${C.border2}`, background: 'rgba(255,255,255,0.014)',
+                display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 12,
+                boxShadow: 'inset 0 20px 40px rgba(0,0,0,0.35)',
+              }}>
+                <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 46, lineHeight: 1, color: '#232937' }}>Σ</span>
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText }}>
-                El primer reporte se publica el primer miércoles de cada mes.
+              <div style={{ height: 1, width: 200, background: `linear-gradient(90deg,transparent,${C.border},transparent)` }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, color: C.dimText, marginBottom: 8 }}>
+                  Aún no hay reportes publicados.
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: C.muted }}>
+                  El primer reporte se publica el primer miércoles de cada mes.
+                </div>
               </div>
             </div>
           ) : (
-            <div style={{ background: C.bg, padding: '28px 24px 20px', borderTop: 'none' }}>
+            <div style={{ padding: '28px 24px 22px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 20 }}>
                 {reportes.map(r => {
                   const unlocked   = isPro || freeIds.has(r.id)
@@ -626,7 +700,9 @@ export default function MisReportesPage() {
                     <div key={r.id} className={`rep-card${disponible ? ' avail' : ''}`} style={{
                       position: 'relative', display: 'flex', flexDirection: 'column',
                       background: disponible || lockedPro ? 'linear-gradient(180deg,#0c0e16,#07080d)' : '#08090e',
-                      border: disponible ? `1px solid ${C.border}` : lockedPro ? '1px solid rgba(255,180,84,0.25)' : `1px dashed rgba(107,114,128,0.35)`,
+                      border: disponible ? `1px solid ${C.border}` : lockedPro ? `1px solid ${C.amber}40` : `1px dashed ${C.border2}`,
+                      borderRadius: 10,
+                      boxShadow: disponible ? '0 8px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)' : 'none',
                       padding: '16px 16px 14px', minHeight: 250, overflow: 'hidden',
                     }}>
                       {/* filo superior: cian si está disponible, ámbar si es exclusivo PRO */}
@@ -661,24 +737,24 @@ export default function MisReportesPage() {
                         {disponible ? (
                           <>
                             <a href={`/api/reportes/${r.id}/download`} download={fileName}
-                              style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: C.gold, color: C.bg, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                              style={{ flex: 1, textAlign: 'center', padding: '9px 0', borderRadius: 6, background: `linear-gradient(180deg,${C.glow},#26bec2)`, color: '#04121a', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none', whiteSpace: 'nowrap', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45)' }}>
                               ↓ DESCARGAR
                             </a>
                             <a href={`/api/reportes/${r.id}/download?inline=1`} target="_blank" rel="noopener noreferrer" title="Visualizar en el navegador"
-                              style={{ padding: '8px 12px', background: 'transparent', color: C.dimText, border: `1px solid ${C.border}`, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                              style={{ padding: '9px 13px', borderRadius: 6, background: 'rgba(255,255,255,0.02)', color: C.dimText, border: `1px solid ${C.border2}`, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                               VER
                             </a>
                           </>
                         ) : lockedPro ? (
                           <a href="/planes" style={{
-                            flex: 1, textAlign: 'center', padding: '8px 0',
+                            flex: 1, textAlign: 'center', padding: '9px 0', borderRadius: 6,
                             fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', textDecoration: 'none',
-                            color: '#ffb454', border: '1px solid rgba(255,180,84,0.35)', whiteSpace: 'nowrap',
+                            color: C.amber, border: `1px solid ${C.amber}59`, background: 'rgba(255,180,84,0.07)', whiteSpace: 'nowrap',
                           }}>
                             🔒 ACTIVAR PRO →
                           </a>
                         ) : (
-                          <span style={{ flex: 1, textAlign: 'center', padding: '8px 0', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', color: C.muted, border: `1px dashed ${C.border}` }}>
+                          <span style={{ flex: 1, textAlign: 'center', padding: '9px 0', borderRadius: 6, fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em', color: C.muted, border: `1px dashed ${C.border2}` }}>
                             EN PREPARACIÓN
                           </span>
                         )}
@@ -694,23 +770,28 @@ export default function MisReportesPage() {
         </div>
 
         {/* Qué incluye cada reporte */}
-        <div style={{ marginTop: 1, background: C.border }}>
-          <div style={{ background: C.surface, padding: '12px 22px', borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.dimText }}>
-              QUÉ INCLUYE CADA REPORTE
-            </span>
+        <div style={PANEL}>
+          <Filo />
+          <div style={PANEL_HEAD}>
+            <span style={{ ...PANEL_TITLE, color: C.dimText }}>QUÉ INCLUYE CADA REPORTE</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1 }}>
+          {/* Era `repeat(3,1fr)` fijo: en móvil las tres columnas se aplastaban.
+              auto-fit las reacomoda solo. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 1, background: C.border }}>
             {CONTENT.map(s => (
-              <div key={s.num} style={{ background: C.bg, padding: '20px 22px' }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
-                  <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 18, color: C.gold, lineHeight: 1, flexShrink: 0 }}>{s.num}</span>
-                  <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 16, color: C.text, lineHeight: 1.1 }}>{s.title.toUpperCase()}</span>
+              <div key={s.num} style={{ background: C.bg, padding: '22px 24px' }}>
+                <div style={{ display: 'flex', gap: 11, alignItems: 'baseline', marginBottom: 12 }}>
+                  <span style={{
+                    fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 19, lineHeight: 1, flexShrink: 0,
+                    background: `linear-gradient(135deg,${C.gold},${C.glow})`,
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  }}>{s.num}</span>
+                  <span style={{ fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 16, color: C.text, lineHeight: 1.1, letterSpacing: '0.03em' }}>{s.title.toUpperCase()}</span>
                 </div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {s.items.map(item => (
-                    <li key={item} style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.5, display: 'flex', gap: 8 }}>
-                      <span style={{ color: C.gold, flexShrink: 0 }}>▸</span>{item}
+                    <li key={item} style={{ fontFamily: 'monospace', fontSize: 11, color: C.dimText, lineHeight: 1.6, display: 'flex', gap: 9 }}>
+                      <span style={{ color: C.gold, flexShrink: 0, opacity: 0.7 }}>▸</span>{item}
                     </li>
                   ))}
                 </ul>
@@ -728,7 +809,13 @@ export default function MisReportesPage() {
           box-shadow: 0 18px 40px rgba(0,0,0,0.55);
           border-color: rgba(57,226,230,0.45);
         }
-        .rep-genbtn:not(:disabled):hover { box-shadow: 0 0 24px rgba(57,226,230,0.35); }
+        .rep-genbtn:not(:disabled):hover {
+          box-shadow: 0 4px 0 #0b5457, 0 10px 26px rgba(57,226,230,0.28), inset 0 1px 0 rgba(255,255,255,0.55);
+        }
+        .rep-genbtn:not(:disabled):active {
+          transform: translateY(3px);
+          box-shadow: 0 1px 0 #0b5457, 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
+        }
         .rep-blink { animation: repBlink 0.9s steps(2) infinite; }
         @keyframes repBlink { 50% { opacity: 0; } }
         @media (prefers-reduced-motion: reduce) {
