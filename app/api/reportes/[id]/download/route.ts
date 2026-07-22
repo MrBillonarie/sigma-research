@@ -59,13 +59,26 @@ export async function GET(
   // PRO/ANUAL: todas las ediciones + hemeroteca completa. Admin: sin límite.
   if (!isPro && !isAdmin) {
     const month = (reporte.fecha as string | null)?.slice(0, 7) ?? ''
+    // El límite superior se calcula como el día 1 del mes siguiente con `lt`.
+    // Antes era `${month}-31` fijo: en meses de 30 días (abr, jun, sep, nov) y
+    // en febrero, Postgres rechazaba la fecha inexistente con "date/time field
+    // value out of range", la consulta devolvía error en vez de filas y el
+    // chequeo caía en `!monthFirst` → 403. Resultado: durante 5 meses del año
+    // el usuario free no podía descargar NINGÚN reporte, ni siquiera el suyo.
+    const nextMonth = month
+      ? (() => {
+          const y = Number(month.slice(0, 4))
+          const m = Number(month.slice(5, 7))
+          return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+        })()
+      : ''
     const { data: monthFirst } = month
       ? await service
           .from('reportes')
           .select('id')
           .eq('activo', true)
           .gte('fecha', `${month}-01`)
-          .lte('fecha', `${month}-31`)
+          .lt('fecha', nextMonth)
           .order('fecha',  { ascending: true })
           .order('numero', { ascending: true })
           .limit(1)
