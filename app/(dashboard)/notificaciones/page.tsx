@@ -319,7 +319,30 @@ export default function NotificacionesPage() {
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: MONO }}>
+    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: MONO, position: 'relative' }}>
+      {/* ── Fondo ──────────────────────────────────────────────────────────
+          Los tokens `grid-pattern` (40px) y `radial-gold` de tailwind.config
+          sólo se usaban en las páginas de marketing; el dashboard había
+          quedado sobre un plano liso. La rejilla va fija para que no se
+          arrastre al hacer scroll en un listado largo, y se desvanece hacia
+          abajo para no competir con el manifiesto, que es denso.
+          El halo además le da fuente de luz al panel del instrumento: sin algo
+          detrás, sus bordes y sombras internas no tienen contra qué leerse. */}
+      <div aria-hidden style={{
+        position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
+        backgroundImage:
+          'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),' +
+          'linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+        backgroundSize: '40px 40px, 40px 40px',
+        WebkitMaskImage: 'linear-gradient(180deg,#000 0%,#000 42%,transparent 92%)',
+        maskImage:       'linear-gradient(180deg,#000 0%,#000 42%,transparent 92%)',
+      }} />
+      <div aria-hidden style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 620,
+        pointerEvents: 'none', zIndex: 0,
+        background: 'radial-gradient(ellipse 900px 520px at 50% -6%, rgba(57,226,230,0.11), transparent 70%)',
+      }} />
+
       <style>{`
         @keyframes nd-blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
         .nd-row { transition: background 0.15s }
@@ -329,7 +352,7 @@ export default function NotificacionesPage() {
         @media (prefers-reduced-motion: reduce) { * { animation: none !important } }
       `}</style>
 
-      <div style={{ maxWidth: 940, margin: '0 auto', padding: '72px 24px 80px' }}>
+      <div style={{ maxWidth: 940, margin: '0 auto', padding: '72px 24px 80px', position: 'relative', zIndex: 1 }}>
 
         {/* ── Header ── */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
