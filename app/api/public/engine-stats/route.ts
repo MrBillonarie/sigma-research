@@ -19,6 +19,9 @@ const FALLBACK = {
   max_dd_pct:     -8.74,
   win_rate:       59.1,
   total_trades:   22,
+  genetic_strategies_count: 13,
+  cpcv_backtests_total:     19_782,
+  cpcv_models_evaluated:    355,
   computed_at:    '',
 }
 
@@ -62,6 +65,9 @@ export async function GET() {
       max_dd_pct:     p.max_dd_pct           ?? FALLBACK.max_dd_pct,
       win_rate:       p.portfolio_wr         ?? FALLBACK.win_rate,
       total_trades:   p.total_trades         ?? FALLBACK.total_trades,
+      genetic_strategies_count: stats?.genetic_strategies_count ?? FALLBACK.genetic_strategies_count,
+      cpcv_backtests_total:     stats?.cpcv_backtests_total     ?? FALLBACK.cpcv_backtests_total,
+      cpcv_models_evaluated:    stats?.cpcv_models_evaluated    ?? FALLBACK.cpcv_models_evaluated,
       computed_at:    perf?.computed_at      ?? FALLBACK.computed_at,
     }
     _cache = { data: result, ts: Date.now() }

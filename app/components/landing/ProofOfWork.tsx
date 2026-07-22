@@ -9,6 +9,9 @@ interface EngineStats {
   assets:     number
   live:       boolean
   by_tf:      Record<string, number>
+  genetic_strategies_count?: number
+  cpcv_backtests_total?:     number
+  cpcv_models_evaluated?:    number
 }
 
 const FALLBACK: EngineStats = {
@@ -18,6 +21,9 @@ const FALLBACK: EngineStats = {
   assets:     5,
   live:       false,
   by_tf: { '4h': 3_472_285, '1h': 5_672_653, '15m': 5_696_032, '5m': 1_279_475, '1d': 194_571, '2h': 71_282, '1m': 498 },
+  genetic_strategies_count: 13,
+  cpcv_backtests_total:     19_782,
+  cpcv_models_evaluated:    355,
 }
 
 function fmt(n: number): string {
@@ -61,6 +67,12 @@ export default function ProofOfWork() {
 
   const maxPct  = Math.max(...tfEntries.map(t => t.pct), 1)
   const rateVel = Math.min((stats.rate_hr / 200_000) * 100, 100)
+
+  const researchCells = [
+    { label: 'ESTRATEGIAS IA', value: stats.genetic_strategies_count ?? 0, sub: 'descubiertas por programación genética' },
+    { label: 'BACKTESTS CPCV', value: stats.cpcv_backtests_total ?? 0, sub: 'validación combinatoria purgada' },
+    { label: 'MODELOS AUDITADOS', value: stats.cpcv_models_evaluated ?? 0, sub: 'con purge + embargo real' },
+  ].filter(c => c.value > 0)
 
   return (
     <div className="relative bg-surface border border-gold/25 overflow-hidden border-t-0">
@@ -159,6 +171,35 @@ export default function ProofOfWork() {
           </div>
         </div>
       </div>
+
+      {/* Research row — programación genética + CPCV, solo si hay datos reales */}
+      {researchCells.length > 0 && (
+        <>
+          <div className="px-6 py-2.5 border-t border-b border-gold/10 bg-gold/[0.03]">
+            <span className="terminal-text text-[10px] text-gold/70 tracking-[0.3em] uppercase">
+              {'// Investigación autónoma'}
+            </span>
+          </div>
+          <div
+            className="grid gap-px bg-gold/8"
+            style={{ gridTemplateColumns: `repeat(${researchCells.length}, minmax(0,1fr))` }}
+          >
+            {researchCells.map(({ label, value, sub }) => (
+              <div key={label} className="bg-surface px-4 pt-4 pb-3.5 flex flex-col gap-1.5">
+                <div className="terminal-text text-[10px] tracking-[0.2em] uppercase font-bold text-muted">
+                  {label}
+                </div>
+                <div className="num text-xl font-bold tabular-nums leading-none text-gold">
+                  {fmt(value)}
+                </div>
+                <div className="terminal-text text-[9px] text-muted/80 leading-tight">
+                  {sub}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Bottom accent */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
