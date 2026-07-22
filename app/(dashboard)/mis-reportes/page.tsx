@@ -379,6 +379,8 @@ const GEN_STEPS = [
 ]
 
 const MESES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC']
+const MESES_LARGO = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+                     'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
 
 function mesLabel(fecha?: string) {
   if (!fecha) return ''
@@ -386,6 +388,32 @@ function mesLabel(fecha?: string) {
   const m = parseInt(mm, 10)
   if (!yy || !m || m < 1 || m > 12) return fecha
   return `${MESES[m - 1]} ${yy}`
+}
+
+// ─── Hemeroteca por mes ──────────────────────────────────────────────────────
+// Se publica una edición por semana, así que un mes son 4–5 reportes. Agrupar
+// por mes mantiene la estantería legible cuando el archivo crezca: se ve el mes
+// en curso y el resto queda detrás de "Ver más".
+interface MesGroup { key: string; label: string; items: ReporteRow[] }
+
+function agruparPorMes(rows: ReporteRow[]): MesGroup[] {
+  const byMes = new Map<string, ReporteRow[]>()
+  for (const r of rows) {
+    const key = r.fecha?.slice(0, 7) ?? 'sin-fecha'
+    const arr = byMes.get(key)
+    if (arr) arr.push(r)
+    else byMes.set(key, [r])
+  }
+  return Array.from(byMes.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))          // mes más reciente primero
+    .map(([key, items]) => {
+      const m = parseInt(key.slice(5, 7), 10)
+      return {
+        key,
+        label: m >= 1 && m <= 12 ? `${MESES_LARGO[m - 1]} ${key.slice(0, 4)}` : 'SIN FECHA',
+        items: items.sort((a, b) => b.numero - a.numero),
+      }
+    })
 }
 
 // Réplica CSS en miniatura de la portada real del PDF, con tilt 3D al mouse.
@@ -467,6 +495,7 @@ export default function MisReportesPage() {
   const [userEmail,   setUserEmail]   = useState('')
   const [portfolio,   setPortfolio]   = useState<PortfolioRow | null>(null)
   const [isPro,       setIsPro]       = useState(false)
+  const [verTodos,    setVerTodos]    = useState(false)
 
   // Regla de planes: reportes semanales; free = la primera edición de cada mes.
   // (Espejo del check server-side en /api/reportes/[id]/download — el server manda.)
@@ -480,6 +509,12 @@ export default function MisReportesPage() {
     }
     return new Set(Array.from(byMonth.values()).map(r => r.id))
   })()
+
+  // Hemeroteca: el mes en curso queda a la vista y el resto detrás de "Ver más".
+  const grupos       = agruparPorMes(reportes)
+  const gruposVisibles = verTodos ? grupos : grupos.slice(0, 1)
+  const mesesOcultos = grupos.length - gruposVisibles.length
+  const reportesOcultos = grupos.slice(1).reduce((s, g) => s + g.items.length, 0)
 
   const totalPatrimonio = portfolio
     ? Object.keys(PLATFORM_LABELS).reduce((s, k) => s + ((portfolio as unknown as Record<string, number>)[k] ?? 0), 0)
@@ -688,9 +723,25 @@ export default function MisReportesPage() {
               </div>
             </div>
           ) : (
-            <div style={{ padding: '28px 24px 22px' }}>
+            <div style={{ padding: '28px 24px 22px', display: 'flex', flexDirection: 'column', gap: 26 }}>
+              {gruposVisibles.map(grupo => (
+              <div key={grupo.key}>
+              {/* Cabecera de mes — una edición por semana, así que son 4–5 por mes */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <span style={{
+                  fontFamily: "'Bebas Neue',Impact,sans-serif", fontSize: 17, letterSpacing: '0.12em',
+                  color: C.text, lineHeight: 1, flexShrink: 0,
+                }}>{grupo.label}</span>
+                <span style={{
+                  fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.14em', color: C.muted,
+                  border: `1px solid ${C.border2}`, borderRadius: 4, padding: '2px 8px', flexShrink: 0,
+                }}>
+                  {grupo.items.length} {grupo.items.length === 1 ? 'EDICIÓN' : 'EDICIONES'}
+                </span>
+                <span style={{ flex: 1, height: 1, background: `linear-gradient(90deg,${C.border},transparent)` }} />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 20 }}>
-                {reportes.map(r => {
+                {grupo.items.map(r => {
                   const unlocked   = isPro || freeIds.has(r.id)
                   const disponible = !!r.url_pdf && unlocked
                   const lockedPro  = !!r.url_pdf && !unlocked
@@ -765,6 +816,29 @@ export default function MisReportesPage() {
               </div>
               {/* línea de estante */}
               <div style={{ height: 1, marginTop: 20, background: `linear-gradient(90deg,transparent,${C.border} 15%,${C.border} 85%,transparent)` }} />
+              </div>
+              ))}
+
+              {/* Ver más / Ver menos — sólo si hay meses anteriores */}
+              {grupos.length > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <button
+                    onClick={() => setVerTodos(v => !v)}
+                    className="rep-more"
+                    style={{
+                      fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.14em',
+                      color: C.gold, cursor: 'pointer', borderRadius: 7, padding: '10px 22px',
+                      border: `1px solid ${C.gold}44`,
+                      background: 'linear-gradient(180deg,rgba(57,226,230,0.10),rgba(57,226,230,0.02))',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 6px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    {verTodos
+                      ? '↑ VER MENOS'
+                      : `↓ VER MÁS · ${reportesOcultos} ${reportesOcultos === 1 ? 'EDICIÓN' : 'EDICIONES'} EN ${mesesOcultos} ${mesesOcultos === 1 ? 'MES' : 'MESES'} ANTERIOR${mesesOcultos === 1 ? '' : 'ES'}`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -815,6 +889,11 @@ export default function MisReportesPage() {
         .rep-genbtn:not(:disabled):active {
           transform: translateY(3px);
           box-shadow: 0 1px 0 #0b5457, 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
+        }
+        .rep-more { transition: background 0.15s, border-color 0.15s; }
+        .rep-more:hover {
+          background: rgba(57,226,230,0.16) !important;
+          border-color: rgba(57,226,230,0.55) !important;
         }
         .rep-blink { animation: repBlink 0.9s steps(2) infinite; }
         @keyframes repBlink { 50% { opacity: 0; } }
