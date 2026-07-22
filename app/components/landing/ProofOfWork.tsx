@@ -10,6 +10,7 @@ interface EngineStats {
   live:       boolean
   by_tf:      Record<string, number>
   genetic_strategies_count?: number
+  genetic_combos_hr?:        number
   cpcv_backtests_total?:     number
   cpcv_models_evaluated?:    number
 }
@@ -22,6 +23,7 @@ const FALLBACK: EngineStats = {
   live:       false,
   by_tf: { '4h': 3_472_285, '1h': 5_672_653, '15m': 5_696_032, '5m': 1_279_475, '1d': 194_571, '2h': 71_282, '1m': 498 },
   genetic_strategies_count: 13,
+  genetic_combos_hr:        0,
   cpcv_backtests_total:     19_782,
   cpcv_models_evaluated:    355,
 }
@@ -70,6 +72,7 @@ export default function ProofOfWork() {
 
   const researchCells = [
     { label: 'ESTRATEGIAS IA', value: stats.genetic_strategies_count ?? 0, sub: 'descubiertas por programación genética' },
+    { label: 'COMBOS GENÉTICOS/HORA', value: stats.genetic_combos_hr ?? 0, sub: 'evaluados por búsqueda evolutiva continua' },
     { label: 'BACKTESTS CPCV', value: stats.cpcv_backtests_total ?? 0, sub: 'validación combinatoria purgada' },
     { label: 'MODELOS AUDITADOS', value: stats.cpcv_models_evaluated ?? 0, sub: 'con purge + embargo real' },
   ].filter(c => c.value > 0)
