@@ -6,7 +6,9 @@ import {
   BarChart2, Users, MessageSquare, ClipboardList, Mail,
   FileText, Cpu, Search, Plus,
   Bell, LogOut, ExternalLink, X, ChevronRight, RefreshCw,
+  Sparkles, Copy, AlertTriangle,
 } from 'lucide-react'
+import type { ResearchDraft } from '@/lib/researchReport'
 
 const SESSION_KEY   = 'sigma_admin_auth'
 const ADMIN_HEADERS = { 'Content-Type': 'application/json' }
@@ -121,6 +123,82 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
 }
 
+const pct = (v: number | null | undefined, d = 2) =>
+  v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(d)}%`
+
+/**
+ * Serializa el borrador al esqueleto de 10 páginas del research. Lo resuelto va
+ * con el dato; lo que falta va como «[ … ]» para que se vea de una qué queda
+ * por escribir al pasarlo a la plantilla del PDF.
+ */
+function draftATexto(d: ResearchDraft): string {
+  const L: string[] = []
+  const grupos: { k: string; t: string }[] = [
+    { k: 'BTC',     t: 'SECCIÓN 03 — Bitcoin' },
+    { k: 'USA',     t: 'SECCIÓN 04 — USA · SPX / SPY / QQQ' },
+    { k: 'CROSS',   t: 'SECCIÓN 05 — Cross Asset · VIX / DXY / US10Y' },
+    { k: 'METALES', t: 'SECCIÓN 06 — Metales · Oro y Plata' },
+    { k: 'ENERGIA', t: 'SECCIÓN 07 — Energía · WTI y Brent' },
+  ]
+
+  L.push(`SIGMA RESEARCH — EDICIÓN #${String(d.numero).padStart(3, '0')}`)
+  L.push(d.semanaTexto)
+  L.push(d.universoTexto)
+  L.push(d.corteTexto)
+  L.push('')
+  L.push('PORTADA — PANEL DE PRECIOS')
+  for (const p of d.panel) L.push(`  ${p.sym.padEnd(6)} ${p.precioTxt.padStart(12)}   día ${pct(p.chgDia)}   semana ${pct(p.chgSemana)}`)
+  L.push('')
+
+  L.push('SECCIÓN 01 — Eventos clave de la semana')
+  if (d.eventos.length === 0) {
+    L.push('  [ sin eventos macro cargados para esta semana ]')
+  } else {
+    for (const e of d.eventos) L.push(`  ${e.dia.padEnd(7)} ${e.evento.padEnd(38)} ${e.horaET.padEnd(6)} ${e.impacto.padEnd(9)} ${e.lectura}`)
+  }
+  L.push('  CLAVE DE LA SEMANA: [ … ]')
+  L.push('')
+
+  L.push('SECCIÓN 02 — Estado actual del mercado')
+  L.push('  [ narrativa de cierre semanal … ]')
+  L.push(`  Régimen global del motor: ${d.regimenGlobal ?? '[ … ]'}`)
+  L.push('  LECTURA DEL PANEL — 13 ACTIVOS')
+  for (const p of d.panel) {
+    L.push(p.motor
+      ? `    ${p.sym.padEnd(6)} ${p.motor.estado.padEnd(15)} ${p.motor.resumen}`
+      : `    ${p.sym.padEnd(6)} [ estado ]      [ leer del panel Pine en TradingView ]`)
+  }
+  L.push('  LECTURA GENERAL: [ … ]')
+  L.push('')
+
+  for (const g of grupos) {
+    L.push(g.t)
+    for (const p of d.panel.filter(x => x.grupo === g.k)) {
+      L.push(`  ${p.sym.padEnd(6)} ${p.precioTxt.padStart(12)}   día ${pct(p.chgDia)}   semana ${pct(p.chgSemana)}`)
+      if (p.motor) {
+        L.push(`         estado ${p.motor.estado} · ${p.motor.resumen}`)
+        if (p.motor.entrada != null) L.push(`         entrada ${p.motor.entrada} · stop ${p.motor.sl ?? '—'} · objetivo ${p.motor.tp ?? '—'}`)
+      } else {
+        L.push('         [ lectura del panel Pine ]')
+      }
+    }
+    L.push('  [ narrativa de la sección … ]')
+    L.push('')
+  }
+
+  L.push('SECCIÓN 08 — Modelo quant de la semana')
+  L.push(`  Cobertura del motor: ${d.conteo.total - d.conteo.sinCobertura}/${d.conteo.total} activos · ${d.conteo.conTrade} ejecutables · ${d.conteo.sinTrade} en pausa`)
+  L.push('  [ 4 puntos + IDEA DE LA SEMANA + CIERRE METODOLÓGICO … ]')
+  L.push('')
+
+  L.push('SECCIÓN 09 — Fuentes, disclaimer y RRSS')
+  L.push('  Lectura SIGMA · Datos de mercado (Yahoo Finance) · Calendario macro (macro_events) · Motor SIGMA (VPS)')
+  L.push('  [ disclaimer y redes: plantilla fija ]')
+  L.push('')
+  L.push(`Generado ${new Date(d.generadoEn).toLocaleString('es-CL')}`)
+  return L.join('\n')
+}
+
 function relativeTime(iso: string): string {
   const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
   if (h < 1) return 'hace < 1h'
@@ -157,6 +235,12 @@ export default function AdminDashboard() {
   const [formError,  setFormError]  = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLDivElement>(null)
+
+  // ── Borrador automático del research semanal ─────────────────────────────────
+  const [draft,      setDraft]      = useState<ResearchDraft | null>(null)
+  const [generando,  setGenerando]  = useState(false)
+  const [draftError, setDraftError] = useState('')
+  const [copiado,    setCopiado]    = useState(false)
 
   // ── Usuario expandido / email directo ────────────────────────────────────────
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
@@ -411,6 +495,41 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (tab === 'reportes') fetchReportes()
   }, [tab])
+
+  async function generarBorrador() {
+    setGenerando(true)
+    setDraftError('')
+    try {
+      const res  = await fetch('/api/admin/reportes/generar', { headers: ADMIN_HEADERS })
+      const json = await res.json()
+      if (!res.ok || !json.draft) {
+        setDraftError(json.error ?? 'No se pudo generar el borrador.')
+      } else {
+        const d = json.draft as ResearchDraft
+        setDraft(d)
+        // Precargar el formulario con lo que ya está resuelto. El PDF sigue
+        // siendo manual: el borrador alimenta el diseño, no lo reemplaza.
+        setEditingId(null)
+        setForm({
+          numero:      String(d.numero),
+          titulo:      d.titulo,
+          fecha:       d.fechaPub,
+          descripcion: d.descripcion,
+          url_pdf:     '',
+        })
+      }
+    } catch (e) {
+      setDraftError(String(e))
+    }
+    setGenerando(false)
+  }
+
+  async function copiarBorrador() {
+    if (!draft) return
+    await navigator.clipboard.writeText(draftATexto(draft))
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
 
   function startEdit(r: ReporteRow) {
     setEditingId(r.id)
@@ -1644,6 +1763,159 @@ export default function AdminDashboard() {
               <div>
                 <div className="section-label text-gold mb-1">{'// PUBLICACIÓN'}</div>
                 <h2 className="display-heading text-4xl text-text">REPORTES</h2>
+              </div>
+
+              {/* ── Generador del research semanal ────────────────────────── */}
+              <div className="border border-admin-border bg-surface p-6">
+                <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+                  <div>
+                    <div className="section-label text-gold mb-1">{'// GENERADOR AUTOMÁTICO'}</div>
+                    <p className="terminal-text text-xs text-text-dim max-w-xl leading-relaxed">
+                      Arma el borrador de la próxima edición con datos reales: los 13 precios y sus
+                      variaciones, el calendario macro de la semana y la lectura del motor.
+                      Lo editorial y los 9 activos que solo existen en el panel de TradingView
+                      quedan marcados como huecos.
+                    </p>
+                  </div>
+                  <button
+                    onClick={generarBorrador}
+                    disabled={generando}
+                    className="bg-gold text-bg section-label text-sm px-6 py-3 hover:bg-gold-glow transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
+                  >
+                    <Sparkles size={15} />
+                    {generando ? 'GENERANDO…' : 'GENERAR BORRADOR'}
+                  </button>
+                </div>
+
+                {draftError && <p className="terminal-text text-red-400 text-xs">{draftError}</p>}
+
+                {draft && (
+                  <div className="flex flex-col gap-5 mt-2">
+                    {/* Cabecera */}
+                    <div className="bg-admin-bg p-4 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+                      <span className="display-heading text-3xl text-gold">
+                        #{String(draft.numero).padStart(3, '0')}
+                      </span>
+                      <span className="terminal-text text-sm text-text">{draft.semanaTexto}</span>
+                      <span className="terminal-text text-xs text-muted">{draft.corteTexto}</span>
+                    </div>
+
+                    {draft.avisos.length > 0 && (
+                      <div className="border border-orange-400/30 bg-orange-400/5 p-4 flex flex-col gap-1.5">
+                        {draft.avisos.map((a, i) => (
+                          <div key={i} className="flex items-start gap-2 terminal-text text-xs text-orange-300">
+                            <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                            <span>{a}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Panel de 13 activos */}
+                    <div>
+                      <div className="section-label text-text-dim text-xs mb-2">
+                        PANEL — {draft.conteo.total} ACTIVOS · {draft.conteo.total - draft.conteo.sinCobertura} con
+                        motor ({draft.conteo.conTrade} ejecutables, {draft.conteo.sinTrade} en pausa) ·{' '}
+                        {draft.conteo.sinCobertura} solo panel Pine
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[640px] border-collapse">
+                          <thead>
+                            <tr className="terminal-text text-[10px] text-muted uppercase tracking-wider">
+                              <th className="text-left  py-2 pr-3">Activo</th>
+                              <th className="text-right py-2 px-3">Precio</th>
+                              <th className="text-right py-2 px-3">Día</th>
+                              <th className="text-right py-2 px-3">Semana</th>
+                              <th className="text-left  py-2 pl-3">Lectura del motor</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {draft.panel.map(p => (
+                              <tr key={p.sym} className="border-t border-admin-border/60">
+                                <td className="terminal-text text-xs text-text py-2 pr-3 whitespace-nowrap">
+                                  {p.sym}
+                                  <span className="text-muted ml-2">{p.label}</span>
+                                </td>
+                                <td className={`terminal-text text-xs py-2 px-3 text-right tabular-nums ${p.falla ? 'text-red-400' : 'text-text'}`}>
+                                  {p.precioTxt}
+                                </td>
+                                <td className={`terminal-text text-xs py-2 px-3 text-right tabular-nums ${(p.chgDia ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {pct(p.chgDia)}
+                                </td>
+                                <td className={`terminal-text text-xs py-2 px-3 text-right tabular-nums ${(p.chgSemana ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {pct(p.chgSemana)}
+                                </td>
+                                <td className="terminal-text text-xs py-2 pl-3">
+                                  {p.motor ? (
+                                    <>
+                                      <span className={p.motor.estado === 'SIN TRADE' ? 'text-muted' : 'text-gold'}>
+                                        {p.motor.estado}
+                                      </span>
+                                      <span className="text-text-dim ml-2">{p.motor.resumen}</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-orange-300/70">— leer del panel Pine</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Calendario macro */}
+                    <div>
+                      <div className="section-label text-text-dim text-xs mb-2">
+                        SECCIÓN 01 — EVENTOS DE LA SEMANA ({draft.eventos.length})
+                      </div>
+                      {draft.eventos.length === 0 ? (
+                        <div className="bg-admin-bg p-4 terminal-text text-xs text-muted">
+                          Sin eventos macro cargados para esa semana.
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          {draft.eventos.map((e, i) => (
+                            <div key={i} className="bg-admin-bg px-4 py-2.5 flex items-baseline gap-3 flex-wrap">
+                              <span className="terminal-text text-xs text-gold w-16 shrink-0">{e.dia}</span>
+                              <span className="terminal-text text-xs text-text flex-1 min-w-[180px]">{e.evento}</span>
+                              <span className="terminal-text text-xs text-muted w-14 shrink-0">{e.horaET}</span>
+                              <span className={`section-label text-[10px] shrink-0 ${
+                                e.impacto === 'Muy alto' ? 'text-red-400'
+                                : e.impacto === 'Alto'   ? 'text-orange-400'
+                                : 'text-muted'
+                              }`}>{e.impacto}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Huecos por completar */}
+                    <div>
+                      <div className="section-label text-text-dim text-xs mb-2">
+                        FALTA COMPLETAR A MANO ({draft.huecos.length})
+                      </div>
+                      <div className="bg-admin-bg p-4 flex flex-col gap-1">
+                        {draft.huecos.map((h, i) => (
+                          <div key={i} className="terminal-text text-xs text-text-dim">
+                            <span className="text-muted">{h.seccion}</span>
+                            {' · '}{h.campo}
+                            <span className="text-muted"> — {h.motivo}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={copiarBorrador}
+                      className="section-label text-xs border border-admin-border text-text-dim hover:border-gold hover:text-gold transition-colors px-4 py-2.5 self-start flex items-center gap-2"
+                    >
+                      <Copy size={13} />
+                      {copiado ? 'COPIADO' : 'COPIAR ESQUELETO PARA EL DISEÑO'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div ref={formRef} className={`border p-6 ${editingId ? 'bg-gold/5 border-gold/40' : 'bg-surface border-admin-border'}`}>
