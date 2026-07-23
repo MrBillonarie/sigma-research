@@ -8,6 +8,8 @@ import { timingSafeEqual } from 'crypto'
 import { reunirDatos } from '@/lib/researchData'
 import { generarInformeHtml } from '@/lib/researchReportHtml'
 import { htmlAPdf } from '@/lib/renderPdf'
+import { listarDestinatarios } from '@/lib/destinatarios'
+import { sendNuevoReporte } from '@/lib/email'
 
 // Cron de los domingos: genera el research semanal completo (datos reales +
 // narrativas de Claude), lo renderiza a PDF con el Chrome del VPS y lo sube al
@@ -87,8 +89,27 @@ export async function GET(req: NextRequest) {
     }).select().single()
     if (insErr) throw new Error(`insert: ${insErr.message}`)
 
+    // Aviso por email — solo si el informe quedó publicado (nunca en borrador).
+    // Interruptor: RESEARCH_AUTO_EMAIL=0 lo apaga sin necesidad de deploy.
+    let emails: number | string = 'omitido (borrador)'
+    if (publicar) {
+      if (process.env.RESEARCH_AUTO_EMAIL === '0') {
+        emails = 'desactivado (RESEARCH_AUTO_EMAIL=0)'
+      } else {
+        try {
+          const dest = await listarDestinatarios()
+          if (dest.length) await sendNuevoReporte(dest, fila)
+          emails = dest.length
+        } catch (e) {
+          // Un fallo de correo no invalida el informe, que ya está publicado.
+          emails = `error: ${e instanceof Error ? e.message : String(e)}`
+          console.error('[cron/research-semanal] email', emails)
+        }
+      }
+    }
+
     console.log('[cron/research-semanal]', new Date().toISOString(), {
-      numero: salida.numero, publicado: publicar, motivo, bytes: pdf.length,
+      numero: salida.numero, publicado: publicar, motivo, bytes: pdf.length, emails,
     })
 
     return NextResponse.json({
@@ -96,6 +117,7 @@ export async function GET(req: NextRequest) {
       numero: salida.numero,
       id: fila.id,
       publicado: publicar,
+      emailsEnviados: emails,
       estado: publicar ? 'PUBLICADO (visible para usuarios)' : 'BORRADOR (oculto, revisar en el admin)',
       motivoBorrador: motivo,
       precios: `${salida.precios}/13`,

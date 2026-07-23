@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendNuevoReporte } from '@/lib/email'
 import { checkAdminAuth }  from '@/lib/adminAuth'
+import { listarDestinatarios } from '@/lib/destinatarios'
 import { logAdminAction }  from '@/lib/adminAudit'
 
 function makeService() {
@@ -33,32 +34,14 @@ export async function POST(req: NextRequest) {
 
   void logAdminAction('reporte.create', data.id, { numero, titulo })
 
-  // Notificar a todos los usuarios — query profiles para escalar sin límite de 1000
+  // Notificar a todos los usuarios. Antes se consultaba `profiles.email`, que
+  // NO existe: la query fallaba, el catch se la tragaba y no salía ningún
+  // correo. Los emails están en Supabase Auth — ver lib/destinatarios.
   void (async () => {
     try {
-      const service = makeService()
-      let allSubscribers: { email: string; nombre: string }[] = []
-      let from = 0
-      const PAGE = 1000
-      while (true) {
-        const { data: rows, error } = await service
-          .from('profiles')
-          .select('email, nombre')
-          .not('email', 'is', null)
-          .range(from, from + PAGE - 1)
-        if (error || !rows?.length) break
-        allSubscribers = allSubscribers.concat(
-          rows.map((r: { email: string; nombre?: string }) => ({
-            email:  r.email,
-            nombre: r.nombre || r.email.split('@')[0],
-          }))
-        )
-        if (rows.length < PAGE) break
-        from += PAGE
-      }
-      if (allSubscribers.length) {
-        await sendNuevoReporte(allSubscribers, data)
-      }
+      const destinatarios = await listarDestinatarios()
+      if (destinatarios.length) await sendNuevoReporte(destinatarios, data)
+      else console.warn('[reportes] notify: sin destinatarios confirmados')
     } catch (e) {
       console.error('[reportes] notify', e)
     }
