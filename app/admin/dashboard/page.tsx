@@ -531,6 +531,15 @@ export default function AdminDashboard() {
     setTimeout(() => setCopiado(false), 2000)
   }
 
+  // Abre el informe completo (11 páginas, plantilla Terminal) en una pestaña
+  // nueva, listo para imprimir a PDF con Ctrl+P. La cookie de sesión viaja sola.
+  function abrirInformePdf(conNarrativa: boolean) {
+    const q = new URLSearchParams()
+    if (conNarrativa) q.set('narrativa', '1')
+    if (draft?.numero) q.set('numero', String(draft.numero))
+    window.open(`/api/admin/reportes/imprimir?${q.toString()}`, '_blank', 'noopener')
+  }
+
   function startEdit(r: ReporteRow) {
     setEditingId(r.id)
     setForm({ numero: String(r.numero), titulo: r.titulo, fecha: r.fecha, descripcion: r.descripcion ?? '', url_pdf: r.url_pdf ?? '' })
@@ -1907,12 +1916,39 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
+                    {/* Informe completo en PDF (plantilla Terminal) */}
+                    <div className="border border-gold/30 bg-gold/5 p-4 flex flex-col gap-3">
+                      <div>
+                        <div className="section-label text-gold text-xs mb-1">{'// INFORME COMPLETO'}</div>
+                        <p className="terminal-text text-xs text-text-dim max-w-xl leading-relaxed">
+                          Genera las 11 páginas con la plantilla Terminal (paleta SIGMA, A4).
+                          Se abre en una pestaña nueva; imprimí a PDF con <span className="text-text">Ctrl+P</span> (guardar como PDF, márgenes por defecto).
+                          Con narrativa, Claude redacta los textos de sección; sin narrativa, quedan marcados en ámbar.
+                        </p>
+                      </div>
+                      <div className="flex gap-3 flex-wrap">
+                        <button
+                          onClick={() => abrirInformePdf(true)}
+                          className="bg-gold text-bg section-label text-sm px-6 py-3 hover:bg-gold-glow transition-colors flex items-center gap-2"
+                        >
+                          <Sparkles size={15} />
+                          GENERAR PDF · CON NARRATIVA
+                        </button>
+                        <button
+                          onClick={() => abrirInformePdf(false)}
+                          className="section-label text-xs border border-admin-border text-text-dim hover:border-gold hover:text-gold transition-colors px-5 py-3 flex items-center gap-2"
+                        >
+                          PDF RÁPIDO · SIN NARRATIVA
+                        </button>
+                      </div>
+                    </div>
+
                     <button
                       onClick={copiarBorrador}
                       className="section-label text-xs border border-admin-border text-text-dim hover:border-gold hover:text-gold transition-colors px-4 py-2.5 self-start flex items-center gap-2"
                     >
                       <Copy size={13} />
-                      {copiado ? 'COPIADO' : 'COPIAR ESQUELETO PARA EL DISEÑO'}
+                      {copiado ? 'COPIADO' : 'COPIAR ESQUELETO EN TEXTO'}
                     </button>
                   </div>
                 )}
