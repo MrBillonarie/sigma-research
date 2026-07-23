@@ -18,8 +18,9 @@ export async function GET(req: NextRequest) {
   const override = req.nextUrl.searchParams.get('numero')
 
   try {
+    const usarClaude = req.nextUrl.searchParams.get('claude') === '1'
     const datos = await reunirDatos(override ? parseInt(override, 10) : undefined)
-    const salida = await generarInformeHtml({ ...datos, conNarrativa })
+    const salida = await generarInformeHtml({ ...datos, conNarrativa, usarClaude })
 
     return new NextResponse(salida.html, {
       status: 200,

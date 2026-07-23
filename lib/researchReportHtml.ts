@@ -277,10 +277,12 @@ export interface InformeInput {
   regimes: Record<string, RegimeVps>
   eventos: EventoRaw[]
   binance: BinanceResumen
-  /** Narrativas ya redactadas; si se omite y `conNarrativa` es true, las escribe Claude. */
+  /** Narrativas ya redactadas; si se omite y `conNarrativa` es true, se generan. */
   narrativas?: Narrativas | null
-  /** Pedir a Claude que redacte las narrativas a partir de los datos calculados. */
+  /** Rellenar las narrativas automáticamente (por plantilla, gratis). */
   conNarrativa?: boolean
+  /** Además intentar mejorarlas con Claude (requiere ANTHROPIC_API_KEY); cae a plantilla si falla. */
+  usarClaude?: boolean
   hoy?: Date
 }
 
@@ -330,25 +332,89 @@ export async function generarInformeHtml(input: InformeInput): Promise<InformeSa
     }
   })
 
-  // ── Narrativas (Claude) — se piden con el panel y Binance ya resueltos ─────
+  // ── Narrativas ────────────────────────────────────────────────────────────
+  // Plantilla (gratis, determinista, desde los datos reales) como base. Si se
+  // pide Claude y hay key, mejora la redacción; si falla, se queda la plantilla.
+  const B0 = input.binance
+  const g = (sym: string): PanelRow | undefined => P[sym]
+  const vv = (p?: PanelRow) => p?.semana ?? null
+  const dir = (v: number | null | undefined) =>
+    v == null ? 'sin dato' : Math.abs(v) < 0.3 ? 'quedó plano' : v > 0 ? `subió ${pctS(v, 1)}` : `cedió ${pctS(Math.abs(v), 1)}`
+  const movers = [...panel].filter(p => p.semana != null).sort((a, b) => Math.abs(b.semana!) - Math.abs(a.semana!))
+  const topUp = movers.find(p => p.semana! > 0)
+  const topDn = movers.find(p => p.semana! < 0)
+  const nBaja = panel.filter(p => p.semana != null && p.semana! < 0).length
+  const nAlza = panel.filter(p => p.semana != null && p.semana! > 0).length
+  const tono = nBaja > nAlza + 2 ? 'con sesgo defensivo' : nAlza > nBaja + 2 ? 'con sesgo comprador' : 'de forma mixta'
+  const fomc = eventos.find(e => /FOMC/i.test(e.evento))
+  const btcP = g('BTC'), bm = btcP?.motor
+  const narrGrupo = (syms: string[]): string => {
+    const ps = syms.map(g).filter(Boolean) as PanelRow[]
+    const partes = ps.map(p => `${p.sym} ${dir(vv(p))}`).join(', ')
+    const conM = ps.filter(p => p.motor)
+    const est = conM.length
+      ? ` El motor cubre ${conM.map(p => p.sym).join('/')}: ${conM.map(p => `${p.sym} ${p.motor!.estado.toLowerCase()}${p.motor!.freno ? ` (${p.motor!.freno.toLowerCase()})` : ''}`).join('; ')}.`
+      : ' Todos se leen del panel en TradingView, sin lectura del motor.'
+    return `En la semana: ${partes}.${est}`
+  }
+  const fmtU = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)}`
+
+  const plantilla: Narrativas = {
+    clave: fomc
+      ? `El foco de la semana es el ${fomc.dia}: ${fomc.evento}.`
+      : topUp && Math.abs(topUp.semana!) >= Math.abs(topDn?.semana ?? 0)
+        ? `El movimiento a vigilar es ${topUp.sym}, que ${dir(topUp.semana)} en la semana.`
+        : `La semana llega ${tono}: ${nBaja} de 13 activos cerraron a la baja.`,
+    estado:
+      `La semana operativa ${rango} cerró ${tono}. El mayor movimiento fue ${topUp?.sym ?? '—'} (${pctS(topUp?.semana ?? null, 1)})` +
+      `${topDn ? ` y en el otro extremo ${topDn.sym} (${pctS(topDn.semana, 1)})` : ''}. En renta variable, SPX ${dir(vv(g('SPX')))} y el Nasdaq (QQQ) ${dir(vv(g('QQQ')))}. ` +
+      `En energía, WTI ${dir(vv(g('WTI')))} y Brent ${dir(vv(g('BRENT')))}. En metales, el oro ${dir(vv(g('XAU')))} y la plata ${dir(vv(g('XAG')))}. ` +
+      `Las tasas (US10Y) ${dir(vv(g('US10Y')))} y el dólar (DXY) ${dir(vv(g('DXY')))}.\n\n` +
+      `El motor mantiene lectura sobre ${conMotor.length} de los 13 activos${input.regimenGlobal ? `, con régimen global ${input.regimenGlobal.toLowerCase()}` : ''}; el resto se lee del panel en TradingView.`,
+    lecturaGeneral:
+      `De 13 activos, ${conMotor.length} tienen lectura del motor y ${ejecutables.length} ${ejecutables.length === 1 ? 'presenta señal ejecutable' : 'presentan señal ejecutable'}; ` +
+      `los ${13 - conMotor.length} restantes se leen del panel. ` +
+      `${ejecutables.length === 0 ? 'El motor no habilita ninguna operación esta semana: sin estructura ni control de riesgo suficiente, se mantiene en pausa.' : 'El motor solo habilita lo que pasa estructura, timing y control de drawdown; lo demás queda en observación.'}`,
+    btc:
+      `Bitcoin cerró en ${num(btcP?.precio, 2)}, ${dir(vv(btcP))} en la semana. ` +
+      `${bm ? `El motor lo marca ${bm.estado}${bm.regimen ? ` en régimen ${bm.regimen.toLowerCase()}` : ''}${bm.freno ? `: ${bm.freno.toLowerCase()}` : ''}.` : ''}\n\n` +
+      `${bm?.ev != null ? `El valor esperado de la señal es ${bm.ev.toFixed(2)}R${bm.ev < 0 ? ', que no compensa el riesgo' : ''}. ` : ''}` +
+      `${bm?.vsEma != null ? `El precio opera ${pctS(bm.vsEma, 1)} respecto de la EMA200. ` : ''}` +
+      `No todo SIN TRADE es igual: acá la pausa nace de la lectura del propio motor, no de un castigo por drawdown.`,
+    diferenciaBtc:
+      `BTC ${vv(btcP) != null && Math.abs(vv(btcP)!) < Math.abs(topDn?.semana ?? 99) ? 'se movió menos que el grueso del tablero' : 'acompañó al resto del mercado'} esta semana; ` +
+      `su lectura depende de la estructura, no del ruido de una sesión.`,
+    usa: narrGrupo(['SPX', 'SPY', 'QQQ']),
+    cross: narrGrupo(['VIX', 'DXY', 'US10Y']),
+    metales: narrGrupo(['XAU', 'GLD', 'XAG', 'SLV']),
+    energia: narrGrupo(['WTI', 'BRENT']),
+    idea:
+      `${ejecutables.length} de ${conMotor.length} activos con permiso operativo. Dirección y permiso son preguntas distintas: el motor puede tener sesgo, ` +
+      `pero no opera sin estructura, timing y control de riesgo. Esa disciplina —no la cantidad de operaciones— es lo que hace replicable al sistema.`,
+    resultados: B0.ok && B0.nOps > 0
+      ? `En la cuenta real de futuros, el motor cerró ${B0.nOps} operaciones en 7 días con ${Math.round(B0.wr)} % de acierto y un resultado neto de ${fmtU(B0.neto)} USDT tras comisiones. ` +
+        `${B0.neto >= 0 ? 'La semana cerró en positivo, con la mayoría de las operaciones acompañando.' : 'La semana cerró en rojo; el método prioriza sobrevivir a las rachas adversas antes que forzar operaciones.'}`
+      : `Sin operaciones cerradas en la cuenta real esta semana.`,
+  }
+
   let N: Partial<Narrativas> = input.narrativas ?? {}
   let narrativaError: string | null = null
   if (input.conNarrativa && !input.narrativas) {
-    const resumen = {
-      edicion: NUM3, semana: rango, regimenGlobal: input.regimenGlobal,
-      panel: panel.map(p => ({
-        sym: p.sym, label: p.label, grupo: p.grupo, precio: p.precio,
-        variacionDia: p.dia, variacionSemana: p.semana,
-        motor: p.motor ? { estado: p.motor.estado, regimen: p.motor.regimen, freno: p.motor.freno, resumen: p.motor.resumen } : 'panel Pine (sin motor)',
-      })),
-      eventos: input.eventos.map(e => ({ fecha: e.event_date, evento: e.title, impacto: e.impact, fuente: e.source })),
-      binance: input.binance.ok
-        ? { operaciones: input.binance.nOps, aciertoPct: Math.round(input.binance.wr), netoUSDT: input.binance.neto, brutoUSDT: input.binance.pnlBruto }
-        : 'sin datos de la cuenta esta semana',
+    N = plantilla                                   // base gratis y determinista
+    if (input.usarClaude) {
+      const resumen = {
+        edicion: NUM3, semana: rango, regimenGlobal: input.regimenGlobal,
+        panel: panel.map(p => ({
+          sym: p.sym, grupo: p.grupo, precio: p.precio, variacionSemana: p.semana,
+          motor: p.motor ? { estado: p.motor.estado, regimen: p.motor.regimen, freno: p.motor.freno } : 'panel Pine (sin motor)',
+        })),
+        eventos: input.eventos.map(e => ({ fecha: e.event_date, evento: e.title, fuente: e.source })),
+        binance: input.binance.ok ? { operaciones: input.binance.nOps, aciertoPct: Math.round(input.binance.wr), netoUSDT: input.binance.neto } : 'sin datos',
+      }
+      const r = await redactarNarrativas(resumen)
+      if (r.narrativas) N = r.narrativas          // mejora sobre la plantilla
+      else narrativaError = r.error               // informativo; la plantilla queda
     }
-    const r = await redactarNarrativas(resumen)
-    if (r.narrativas) N = r.narrativas
-    narrativaError = r.error
   }
 
   // ── Bloques compartidos ───────────────────────────────────────────────────

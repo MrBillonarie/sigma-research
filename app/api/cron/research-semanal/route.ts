@@ -60,12 +60,11 @@ export async function GET(req: NextRequest) {
     const salida = await generarInformeHtml({ ...datos, conNarrativa: true })
 
     // Control de calidad — decide publicar en vivo vs dejar borrador.
-    const narrativasOk = salida.narrativaError == null
-    const datosOk = salida.precios === 13 && salida.conMotor >= 1
-    const publicar = narrativasOk && datosOk
+    // Las narrativas siempre vienen rellenas (plantilla determinista desde los
+    // datos), así que el único bloqueo real es que falten datos de mercado.
+    const publicar = salida.precios === 13 && salida.conMotor >= 1
     const motivo = publicar ? null
-      : [!narrativasOk ? `narrativas: ${salida.narrativaError}` : null,
-         salida.precios !== 13 ? `precios ${salida.precios}/13` : null,
+      : [salida.precios !== 13 ? `precios ${salida.precios}/13` : null,
          salida.conMotor < 1 ? 'motor sin respuesta' : null].filter(Boolean).join('; ')
 
     // Render + subida.
