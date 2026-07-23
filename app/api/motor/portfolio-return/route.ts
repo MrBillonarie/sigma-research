@@ -28,12 +28,20 @@ async function getMotorAuthCookie(): Promise<string> {
   return match ? match[1] : ''
 }
 
-interface EquityPoint { eq: number; date: string }
+interface HistTrade { mode?: string; pnl_pct?: number; closed_at?: string }
 
 // Endpoint angosto a propósito: el motor expone /api/trades con posiciones
 // abiertas, SL/TP y señales — datos que no deben llegar al navegador de
 // cualquier usuario logueado. Acá se calcula server-side y solo se devuelve
 // el % de retorno agregado (mes actual + acumulado), nada operacional.
+//
+// 2026-07-23: el retorno se calcula componiendo pnl_pct (fórmula backtest,
+// mismo campo que usa el resto de SIGMA para WR/PF) de cada trade LIVE
+// cerrado -- NO diferenciando equity real, que queda contaminado por
+// depósitos/retiros de capital del usuario y por el mark-to-market de otras
+// posiciones abiertas al momento del snapshot. Ver conversación 2026-07-23:
+// el widget mostró +108% que en realidad era ~$715 de depósitos manuales
+// sobre una cuenta de ~$550, con trading real levemente negativo ese mes.
 export async function GET() {
   const { data: { user } } = await makeClient().auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
@@ -47,23 +55,21 @@ export async function GET() {
     })
     if (!res.ok) throw new Error(`motor ${res.status}`)
     const data = await res.json()
-    const portfolio = data.portfolio ?? {}
-    const initial: number = portfolio.initial ?? 10000
-    const history: EquityPoint[] = portfolio.equity_history ?? []
+    const portfolio: { days_active?: number } = data.portfolio ?? {}
+    const history: HistTrade[] = data.history ?? []
 
     const now = new Date()
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 
-    let monthStartEq = initial
-    for (const pt of history) {
-      if (pt.date < monthStart) monthStartEq = pt.eq
-      else break
-    }
-    const latestEq = history.length > 0 ? history[history.length - 1].eq : (portfolio.equity ?? monthStartEq)
+    const liveClosed  = history.filter(t => t.mode === 'LIVE' && typeof t.pnl_pct === 'number')
+    const monthClosed = liveClosed.filter(t => (t.closed_at ?? '') >= monthStart)
 
-    const monthlyReturnPct     = monthStartEq > 0 ? ((latestEq - monthStartEq) / monthStartEq) * 100 : 0
-    const cumulativeReturnPct: number = portfolio.return_pct ?? 0
-    const daysActive: number = portfolio.days_active ?? 0
+    const compoundPct = (trades: HistTrade[]) =>
+      (trades.reduce((acc, t) => acc * (1 + (t.pnl_pct as number) / 100), 1) - 1) * 100
+
+    const monthlyReturnPct    = Math.round(compoundPct(monthClosed) * 100) / 100
+    const cumulativeReturnPct = Math.round(compoundPct(liveClosed) * 100) / 100
+    const daysActive: number  = portfolio.days_active ?? 0
 
     return NextResponse.json(
       { monthlyReturnPct, cumulativeReturnPct, daysActive },
