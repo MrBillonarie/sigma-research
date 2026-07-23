@@ -845,6 +845,7 @@ export default function HUDPage() {
       set('.smh-sig', txt('kpi-signals') || '—')
       set('.smh-sigsub', txt('kpi-signals-sub'))
       set('.smh-lev', txt('kpi-leverage') || '—')
+      set('.smh-vp', txt('vol-premium-open') || '0')
       const regEl = hero.querySelector('.smh-reg') as HTMLElement | null
       if (regEl) {
         const color = regime === 'BEAR' ? '#ff5d6c' : regime === 'BULL' ? '#39e2e6' : '#ffb454'
@@ -909,6 +910,7 @@ export default function HUDPage() {
             '<div class="smh-it"><div class="smh-k">WIN RATE</div><div class="smh-v smh-wr" style="color:#ffb454">—</div><div class="smh-s smh-wrsub"></div></div>' +
             '<div class="smh-it"><div class="smh-k">SEÑALES ACTIVAS</div><div class="smh-v smh-sig" style="color:#5eeaf0">—</div><div class="smh-s smh-sigsub"></div></div>' +
             '<div class="smh-it"><div class="smh-k">APALANCAMIENTO</div><div class="smh-v smh-lev" style="color:#4f92ff">—</div></div>' +
+            '<div class="smh-it"><div class="smh-k">🧪 OPC PAPER (EXPERIMENTAL)</div><div class="smh-v smh-vp" style="color:#ffb454">0</div></div>' +
             '<div class="smh-it"><div class="smh-k">RÉGIMEN BTC</div><div class="smh-v smh-reg">—</div></div>' +
           '</div>' +
           '<div class="smh-b"><span><b>Σ</b> PARTÍCULAS = MODELOS DEL MOTOR</span><span>PULSO = LATIDO DE EVALUACIÓN</span><span>TINTE = RÉGIMEN</span></div>'
