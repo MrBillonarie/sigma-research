@@ -44,6 +44,11 @@ const MOTORS: MotorDef[] = [
   { id:9, name:'M9', label:'LATAM',           color:'#7a7f9a', syms:[],                                  status:'PRÓXIMAMENTE', desc:'Acciones Chile · Brasil · México' },
 ]
 
+// Timeframes fijos de la matriz simbolo x timeframe -- reemplaza el podio
+// top-3-por-CAGR-crudo (mezclaba simbolos/timeframes de un motor sin orden
+// claro) por una grilla donde cada casilla (ej. "BTC 15m") se ubica al toque.
+const FIXED_TFS = ['15m', '1h', '4h', '1d'] as const
+
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const MONO  = "var(--font-dm-mono,'DM Mono',monospace)"
 const BEBAS = "'Bebas Neue',Impact,sans-serif"
@@ -284,8 +289,8 @@ const PODIUM_FRAME: Record<number, { grad:string; glow:string; wm:string }> = {
 }
 
 // ─── Tarjeta de champion (vitrina) ───────────────────────────────────────────
-function ChampCard({ c, rank, motorColor, expanded, onToggle, podium, isPro }: {
-  c:Champion; rank?:number; motorColor:string; expanded:boolean; onToggle:()=>void; podium?:boolean; isPro:boolean
+function ChampCard({ c, rank, motorColor, expanded, onToggle, podium, isPro, hideBadge }: {
+  c:Champion; rank?:number; motorColor:string; expanded:boolean; onToggle:()=>void; podium?:boolean; isPro:boolean; hideBadge?:boolean
 }) {
   const d = champDir(c)
   const isShort = d==='short', isAdapt = d==='adaptive'
@@ -333,7 +338,7 @@ function ChampCard({ c, rank, motorColor, expanded, onToggle, podium, isPro }: {
           {champSym(c)}
         </span>
       )}
-      {rs && (
+      {rs && !hideBadge && (
         <span style={{
           position:'absolute', top:podium?10:-9, right:12,
           fontFamily:BEBAS, fontSize:podium?13:11, letterSpacing:'0.05em',
@@ -534,60 +539,49 @@ function ChampionsBoard({ motor, champs, isPro }: { motor:MotorDef; champs:Champ
           </button>
         ))}
       </div>
-      {filtered.length >= 3 ? (
-        <>
-          {/* ── Podio top 3 — #1 al centro, elevado ── */}
-          <div className="mdl-podium" key={`p-${motor.id}-${filter}`}>
-            {[1, 0, 2].map(idx => {
-              const c = filtered[idx]
-              const k = champKey(c)
-              const card = (
-                <ChampCard
-                  c={c} motorColor={motor.color} rank={idx+1} podium isPro={isPro}
-                  expanded={expandedKey===k} onToggle={()=>toggle(k)}
-                />
-              )
-              const span = expandedKey===k ? '1 / -1' : undefined
-              return idx===0 ? (
-                <TiltWrap key={k} style={{ gridColumn: span }} delay="80ms">{card}</TiltWrap>
-              ) : (
-                <div key={k} className="mdl-in mdl-side" style={{ gridColumn: span, animationDelay: idx===1?'0ms':'160ms' }}>{card}</div>
-              )
-            })}
-          </div>
-          {/* ── Resto de champions ── */}
-          {filtered.length > 3 && (
-            <div key={`g-${motor.id}-${filter}`} style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
-              {filtered.slice(3).map((c,i)=>{
+      {/* ── Matriz simbolo x timeframe: cada casilla es 1 champion, sin ── */}
+      {/* ranking artificial -- solo tiering visual por grade (oro/plata/bronce). */}
+      <div className="mdl-matrix-head" style={{ display:'grid', gridTemplateColumns:`92px repeat(${FIXED_TFS.length}, minmax(150px,1fr))`, gap:10, marginBottom:8, padding:'0 2px' }}>
+        <div />
+        {FIXED_TFS.map(tf => (
+          <div key={tf} style={{ fontFamily:MONO, fontSize:10, letterSpacing:'0.16em', color:MUTED, textAlign:'center' }}>{tf.toUpperCase()}</div>
+        ))}
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {motor.syms.map((sym, si) => {
+          const rowChamps = FIXED_TFS.map(tf => filtered.find(c => champSym(c)===sym && champTF(c)===tf))
+          const hasAny = rowChamps.some(Boolean)
+          return (
+            <div
+              key={sym} className="mdl-in"
+              style={{ display:'grid', gridTemplateColumns:`92px repeat(${FIXED_TFS.length}, minmax(150px,1fr))`, gap:10, alignItems:'start', opacity:hasAny?1:0.4, animationDelay:`${Math.min(si,10)*40}ms` }}
+            >
+              <div style={{ fontFamily:BEBAS, fontSize:19, color:'#e8e9f0', letterSpacing:'0.03em', display:'flex', alignItems:'center' }}>{sym}</div>
+              {FIXED_TFS.map((tf, ci) => {
+                const c = rowChamps[ci]
+                if (!c) {
+                  return (
+                    <div key={tf} style={{ border:`1px dashed ${BDR}`, borderRadius:6, minHeight:58, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <span style={{ fontFamily:MONO, fontSize:9, color:MUTED }}>—</span>
+                    </div>
+                  )
+                }
                 const k = champKey(c)
+                const tier = c.grade==='A+' ? 1 : c.grade==='A' ? 2 : 3
                 return (
-                  <div key={k} className="mdl-in" style={{ gridColumn: expandedKey===k?'1 / -1':undefined, animationDelay:`${220+Math.min(i,10)*50}ms` }}>
+                  <div key={tf} style={{ gridColumn: expandedKey===k ? `${ci+2} / -1` : undefined }}>
                     <ChampCard
                       c={c} motorColor={motor.color} isPro={isPro}
+                      podium rank={tier} hideBadge
                       expanded={expandedKey===k} onToggle={()=>toggle(k)}
                     />
                   </div>
                 )
               })}
             </div>
-          )}
-        </>
-      ) : (
-        <div key={`g-${motor.id}-${filter}`} style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
-          {filtered.map((c,i)=>{
-            const k = champKey(c)
-            return (
-              <div key={k} className="mdl-in" style={{ gridColumn: expandedKey===k?'1 / -1':undefined, animationDelay:`${Math.min(i,10)*50}ms` }}>
-                <ChampCard
-                  c={c} motorColor={motor.color} isPro={isPro}
-                  rank={i<3?i+1:undefined}
-                  expanded={expandedKey===k} onToggle={()=>toggle(k)}
-                />
-              </div>
-            )
-          })}
-        </div>
-      )}
+          )
+        })}
+      </div>
     </div>
   )
 }
