@@ -135,15 +135,26 @@ function pad2(n: number) { return String(n).padStart(2, '0') }
 // Reloj UTC aislado (PERF-6): el tick de 1s re-renderiza SOLO este span, no todo
 // el RightBar (que vive en cada página del dashboard con ~13 estados). El resto
 // del RightBar usa un utcNow más lento (30s) para sesiones/hora-local/NYSE.
-function UtcClock({ color }: { color: string }) {
+// Reloj de Santiago. Sólo cambia lo que se muestra: los cálculos de sesiones y
+// la posición del sol en el globo siguen en UTC, que es donde tienen sentido.
+function SantiagoClock({ color }: { color: string }) {
   const [now, setNow] = useState(new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
+  let hhmmss: string
+  try {
+    hhmmss = now.toLocaleTimeString('es-CL', {
+      timeZone: 'America/Santiago', hour12: false,
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    })
+  } catch {
+    hhmmss = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`
+  }
   return (
     <span style={{ fontFamily: 'monospace', fontSize: 14, color, letterSpacing: '0.04em' }}>
-      {pad2(now.getUTCHours())}:{pad2(now.getUTCMinutes())}:{pad2(now.getUTCSeconds())}
+      {hhmmss}
     </span>
   )
 }
@@ -469,10 +480,10 @@ export default function RightBar() {
         {/* ══ MERCADO ══ */}
         <Section label="MERCADO" />
         <div style={{ padding: '8px 12px', borderBottom: `1px solid ${T.border}` }}>
-          {/* UTC clock */}
+          {/* Reloj local (Santiago) */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 8, color: T.muted, letterSpacing: '0.2em' }}>UTC</span>
-            <UtcClock color={T.text} />
+            <span style={{ fontFamily: 'monospace', fontSize: 8, color: T.muted, letterSpacing: '0.2em' }}>SANTIAGO</span>
+            <SantiagoClock color={T.text} />
           </div>
 
           {/* Globo: continentes, terminador día/noche real y bisel de 24 h con

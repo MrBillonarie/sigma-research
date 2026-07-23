@@ -78,10 +78,30 @@ export default function MarketGlobe({ sessions, utcNow, size = 164 }: {
 
       const solLat = declinacion(now)
       const solLon = (12 - U) * 15
-      // La cámara no mira al punto subsolar: se desplaza 70°. Si mirara al sol,
-      // la cara visible sería siempre el mediodía y el terminador quedaría
-      // escondido en el limbo — la sombra no se vería nunca.
-      const lon0 = solLon - 70
+
+      // El globo gira para mostrar la plaza que está operando. Antes la cámara
+      // iba fija a 70° del sol —para garantizar que se viera el terminador— y
+      // eso dejaba a la plaza abierta fuera de cuadro: con Asia operando el
+      // globo mostraba África. La sombra es contexto; el mercado abierto es el
+      // dato. Si hay varias abiertas (el solape Londres–NY) se apunta al medio
+      // de ellas, así entran las dos.
+      const abiertas = SS.filter(s => s.isOpen)
+      let foco = abiertas
+      if (foco.length === 0 && SS.length > 0) {
+        let prox = SS[0], menor = Infinity
+        for (const s of SS) {
+          const falta = ((s.uOpen - U) % 24 + 24) % 24
+          if (falta < menor) { menor = falta; prox = s }
+        }
+        foco = [prox]
+      }
+      let sx = 0, sy = 0
+      for (const s of foco) {
+        const l = rad(CITY[s.city][1])
+        sx += Math.cos(l); sy += Math.sin(l)
+      }
+      // Media circular: promediar longitudes a secas se rompe al cruzar el ±180.
+      const lon0 = foco.length ? (Math.atan2(sy, sx) * 180) / Math.PI : solLon - 70
 
       const proj = (lat: number, lon: number) => {
         const la = rad(lat), lo = rad(lon - lon0)
