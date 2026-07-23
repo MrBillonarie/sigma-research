@@ -338,8 +338,9 @@ export async function generarInformeHtml(input: InformeInput): Promise<InformeSa
   const B0 = input.binance
   const g = (sym: string): PanelRow | undefined => P[sym]
   const vv = (p?: PanelRow) => p?.semana ?? null
+  // El verbo ya da el signo: "cedió 1.7 %", nunca "cedió +1.7 %".
   const dir = (v: number | null | undefined) =>
-    v == null ? 'sin dato' : Math.abs(v) < 0.3 ? 'quedó plano' : v > 0 ? `subió ${pctS(v, 1)}` : `cedió ${pctS(Math.abs(v), 1)}`
+    v == null ? 'sin dato' : Math.abs(v) < 0.3 ? 'quedó plano' : `${v > 0 ? 'subió' : 'cedió'} ${Math.abs(v).toFixed(1)} %`
   const movers = [...panel].filter(p => p.semana != null).sort((a, b) => Math.abs(b.semana!) - Math.abs(a.semana!))
   const topUp = movers.find(p => p.semana! > 0)
   const topDn = movers.find(p => p.semana! < 0)
@@ -369,7 +370,7 @@ export async function generarInformeHtml(input: InformeInput): Promise<InformeSa
       `La semana operativa ${rango} cerró ${tono}. El mayor movimiento fue ${topUp?.sym ?? '—'} (${pctS(topUp?.semana ?? null, 1)})` +
       `${topDn ? ` y en el otro extremo ${topDn.sym} (${pctS(topDn.semana, 1)})` : ''}. En renta variable, SPX ${dir(vv(g('SPX')))} y el Nasdaq (QQQ) ${dir(vv(g('QQQ')))}. ` +
       `En energía, WTI ${dir(vv(g('WTI')))} y Brent ${dir(vv(g('BRENT')))}. En metales, el oro ${dir(vv(g('XAU')))} y la plata ${dir(vv(g('XAG')))}. ` +
-      `Las tasas (US10Y) ${dir(vv(g('US10Y')))} y el dólar (DXY) ${dir(vv(g('DXY')))}.\n\n` +
+      `La tasa a 10 años (US10Y) ${dir(vv(g('US10Y')))} y el dólar (DXY) ${dir(vv(g('DXY')))}.\n\n` +
       `El motor mantiene lectura sobre ${conMotor.length} de los 13 activos${input.regimenGlobal ? `, con régimen global ${input.regimenGlobal.toLowerCase()}` : ''}; el resto se lee del panel en TradingView.`,
     lecturaGeneral:
       `De 13 activos, ${conMotor.length} tienen lectura del motor y ${ejecutables.length} ${ejecutables.length === 1 ? 'presenta señal ejecutable' : 'presentan señal ejecutable'}; ` +
