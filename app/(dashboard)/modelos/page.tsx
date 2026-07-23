@@ -122,39 +122,6 @@ function useCountUp(target: number, dur = 1000) {
   return v
 }
 
-// ─── Tilt 3D para el #1 del podio — CSS vars al DOM, sin re-renders ───────────
-function TiltWrap({ children, style, delay }: { children: React.ReactNode; style?: React.CSSProperties; delay?: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  function onMove(e: React.MouseEvent) {
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const el = ref.current
-    if (!el) return
-    const r  = el.getBoundingClientRect()
-    const px = (e.clientX - r.left) / r.width - 0.5
-    const py = (e.clientY - r.top) / r.height - 0.5
-    el.style.setProperty('--px', px.toFixed(3))
-    el.style.setProperty('--py', py.toFixed(3))
-    el.style.setProperty('--mx', `${((px + 0.5) * 100).toFixed(1)}%`)
-    el.style.setProperty('--my', `${((py + 0.5) * 100).toFixed(1)}%`)
-    el.classList.add('mdl-on')
-  }
-  function onLeave() {
-    const el = ref.current
-    if (!el) return
-    el.style.setProperty('--px', '0')
-    el.style.setProperty('--py', '0')
-    el.classList.remove('mdl-on')
-  }
-  return (
-    <div style={{ perspective: 750, ...style }} className="mdl-in">
-      <div ref={ref} className="mdl-tilt" onMouseMove={onMove} onMouseLeave={onLeave} style={{ animationDelay: delay }}>
-        <span className="mdl-tilt-shine" aria-hidden />
-        {children}
-      </div>
-    </div>
-  )
-}
-
 // ─── Panel de detalles (expandible) ──────────────────────────────────────────
 function DetailPanel({ c }: { c: Champion }) {
   const kl = c._kelly_ledger ?? {}
@@ -639,26 +606,9 @@ export default function ModelosPage() {
           50%      { box-shadow: 0 0 32px rgba(57,226,230,0.55), 0 14px 34px rgba(0,0,0,0.5); }
         }
 
-        /* ── Podio top 3 ── */
-        .mdl-podium { display:grid; grid-template-columns:1fr 1.18fr 1fr; gap:14px; align-items:start; margin-bottom:18px; }
-        .mdl-side { margin-top:28px; }
-        @media (max-width:760px) {
-          .mdl-podium { grid-template-columns:1fr; }
-          .mdl-side { margin-top:0; }
-        }
-
         /* ── Cascada de entrada ── */
         .mdl-in { animation: mdlIn .42s ease both; }
         @keyframes mdlIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
-
-        /* ── Tilt 3D del #1 ── */
-        .mdl-tilt { --px:0; --py:0; --mx:50%; --my:30%; position:relative;
-          transform: rotateX(calc(var(--py) * -5deg)) rotateY(calc(var(--px) * 7deg));
-          transition: transform .5s ease; will-change: transform; }
-        .mdl-tilt.mdl-on { transition: transform .1s ease-out; }
-        .mdl-tilt-shine { position:absolute; inset:0; z-index:2; opacity:0; transition:opacity .35s; pointer-events:none; border-radius:6px;
-          background: radial-gradient(280px circle at var(--mx) var(--my), rgba(57,226,230,.13), transparent 65%); }
-        .mdl-tilt.mdl-on .mdl-tilt-shine { opacity:1; }
 
         /* ── Loader encendido ── */
         .mdl-pulse { animation: mdlPulse 1.5s ease-in-out infinite; }
@@ -668,8 +618,6 @@ export default function ModelosPage() {
 
         @media (prefers-reduced-motion: reduce) {
           .mdl-in { animation:none; }
-          .mdl-tilt { transform:none !important; transition:none; }
-          .mdl-tilt-shine { display:none; }
           .mdl-pulse, .mdl-scan { animation:none; }
           .modelos-champ-card--rank1 { animation:none; }
           .modelos-champ-card:hover { transform:none; }
