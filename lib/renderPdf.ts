@@ -19,13 +19,16 @@ export async function htmlAPdf(html: string): Promise<Buffer> {
   try {
     await writeFile(htmlPath, html, 'utf8')
     await new Promise<void>((resolve, reject) => {
+      // El servicio systemd corre con $HOME restringido; sin un HOME escribible
+      // Chrome falla al escribir su perfil y el crashpad. Se le da el temp dir.
       const p = spawn(CHROME, [
         '--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
-        '--no-pdf-header-footer',
+        '--disable-crash-reporter', '--disable-breakpad', '--no-first-run',
+        `--crash-dumps-dir=${dir}`, '--no-pdf-header-footer',
         `--user-data-dir=${path.join(dir, 'profile')}`,
         `--print-to-pdf=${pdfPath}`,
         `file://${htmlPath}`,
-      ], { timeout: 60_000 })
+      ], { timeout: 60_000, env: { ...process.env, HOME: dir, XDG_CONFIG_HOME: dir, XDG_CACHE_HOME: dir } })
       let err = ''
       p.stderr.on('data', d => { err += String(d) })
       p.on('error', reject)
