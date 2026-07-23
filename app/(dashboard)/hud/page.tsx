@@ -693,21 +693,30 @@ export default function HUDPage() {
     const img = octx.getImageData(0, 0, 340, 400).data
     const filled = (x: number, y: number) =>
       x >= 0 && y >= 0 && x < 340 && y < 400 && img[((y | 0) * 340 + (x | 0)) * 4 + 3] > 128
-    type Pt = { x: number; y: number; z: number; e: number; ph: number }
+    type Pt = { x: number; y: number; z: number; e: number; ph: number; ox: number; oy: number; vx: number; vy: number }
     const P: Pt[] = []
     for (let gy = 0; gy < 400; gy += 2) for (let gx = 0; gx < 340; gx += 2) {
       if (!filled(gx, gy)) continue
       const e = !(filled(gx - 3, gy) && filled(gx + 3, gy) && filled(gx, gy - 3) && filled(gx, gy + 3)) ? 1 : 0
       if (e || Math.random() < 0.075) {
-        P.push({ x: (gx - 170) / 170, y: (gy - 205) / 170, z: (Math.random() * 2 - 1) * 0.12 * (e ? 1 : 0.7), e, ph: Math.random() * 6.28 })
+        P.push({ x: (gx - 170) / 170, y: (gy - 205) / 170, z: (Math.random() * 2 - 1) * 0.12 * (e ? 1 : 0.7), e, ph: Math.random() * 6.28, ox: 0, oy: 0, vx: 0, vy: 0 })
       }
     }
     if (P.length < 200) return // glifo no renderizó: no montar el hero
 
     let t = 0
     // PERF-5: gradientes estáticos cacheados (solo cambian al redimensionar / de régimen)
-    let _gFloor: { w: number; g: CanvasGradient } | null = null
     let _gHalo: { k: string; g: CanvasGradient } | null = null
+
+    // ── interacción: el monolito responde al usuario ──────────────────────────
+    // Arrastrar lo gira (con inercia al soltar) y el cursor aparta las partículas
+    // cercanas, que vuelven con resorte. Tras unos segundos quieto retoma el
+    // péndulo original, así quien no interactúa ve exactamente lo de siempre.
+    const SENS = 0.0035   // rad por px: cruzar el panel recorre todo el rango
+    const LIM  = 0.75     // tope ±43°: más allá el glifo se ve de canto y se espeja
+    const VMAX = 0.02     // techo de inercia (~1,2 rad/s)
+    let ang = 0.28, angVel = 0, arrastrando = false, ultimoX = 0, inactivo = 0
+    let mx = -9999, my = -9999
     function draw(cv: HTMLCanvasElement) {
       const ctx = cv.getContext('2d')
       if (!ctx) return
@@ -717,62 +726,83 @@ export default function HUDPage() {
       if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, w, h)
-      const cx = w * 0.5, cy = h * 0.46, S = Math.min(w, h) * 0.42
-      const ang = reduced ? 0.28 : 0.44 * Math.sin(t * 0.004)
+      // El glifo mide 2.35·S de alto y 2.00·S de ancho. Antes S salía de
+      // min(w,h)*0.42 con cy en 0.46h, lo que le recortaba ~20 px por arriba.
+      // Ahora se ajusta a cada eje y queda centrado de verdad.
+      const cx = w * 0.5, cy = h * 0.5, S = Math.min(h * 0.405, w * 0.47)
+
+      if (!arrastrando) {
+        angVel = Math.max(-VMAX, Math.min(VMAX, angVel))
+        ang += angVel
+        angVel *= 0.93
+        if (Math.abs(angVel) < 0.0004) angVel = 0
+        inactivo++
+        // ~1,8 s quieto y detenida → vuelve al péndulo original, sin salto
+        if (inactivo > 110 && !reduced && angVel === 0) {
+          ang += (0.44 * Math.sin(t * 0.004) - ang) * 0.012
+        }
+      }
+      if (ang >  LIM) { ang =  LIM; angVel = -Math.abs(angVel) * 0.25 }
+      if (ang < -LIM) { ang = -LIM; angVel =  Math.abs(angVel) * 0.25 }
       const cosA = Math.cos(ang), sinA = Math.sin(ang)
       const pulseY = ((t * 0.006) % 2.6) - 1.3
       const REG = regime === 'BEAR' ? [255, 93, 108] : regime === 'BULL' ? [57, 226, 230] : [255, 180, 84]
-
-      const floorY = cy + S * 1.06
-      if (!_gFloor || _gFloor.w !== w) {
-        const fl = ctx.createLinearGradient(w * 0.2, 0, w * 0.8, 0)
-        fl.addColorStop(0, 'transparent'); fl.addColorStop(0.5, 'rgba(94,234,240,0.22)'); fl.addColorStop(1, 'transparent')
-        _gFloor = { w, g: fl }
-      }
-      ctx.fillStyle = _gFloor.g; ctx.fillRect(w * 0.2, floorY, w * 0.6, 1)
 
       // glifo fantasma en vidrio: garantiza que la Σ siempre se lea
       const gw = 340 * (S / 170) * 0.98, gh = 400 * (S / 170) * 0.98
       ctx.save()
       ctx.translate(cx, cy + S * 0.03); ctx.scale(cosA, 1)
-      ctx.globalAlpha = 0.10; ctx.shadowColor = 'rgba(94,234,240,0.9)'; ctx.shadowBlur = 26
+      ctx.globalAlpha = 0.12; ctx.shadowColor = 'rgba(94,234,240,0.9)'; ctx.shadowBlur = 26
       ctx.drawImage(off, -gw / 2, -gh / 2, gw, gh)
       ctx.globalAlpha = 0.055; ctx.shadowBlur = 0
       ctx.drawImage(off, -gw / 2, -gh / 2, gw, gh)
       ctx.restore()
 
+      // Radio de repulsión atado a la escala: fijo en px se sentiría distinto
+      // según el tamaño del panel.
+      const R_REP = S * 0.45, F_REP = 1500
       const pts = P.map(p => {
         const x1 = p.x * cosA + p.z * sinA
         const z1 = -p.x * sinA + p.z * cosA
         const persp = 1 / (1 + z1 * 0.55)
-        return { sx: cx + x1 * S * persp, sy: cy + p.y * S * persp, z: z1, e: p.e, y: p.y, ph: p.ph, persp }
+        const bx = cx + x1 * S * persp, by = cy + p.y * S * persp
+        if (!reduced) {
+          const dx = bx + p.ox - mx, dy = by + p.oy - my
+          const d2 = dx * dx + dy * dy
+          if (d2 < R_REP * R_REP && d2 > 0.5) {
+            const d = Math.sqrt(d2)
+            const f = (1 - d / R_REP) * F_REP / (d2 + 90)
+            p.vx += (dx / d) * f; p.vy += (dy / d) * f
+          }
+          p.vx += -p.ox * 0.055; p.vy += -p.oy * 0.055   // resorte de vuelta
+          p.vx *= 0.86; p.vy *= 0.86
+          p.ox += p.vx; p.oy += p.vy
+        }
+        return {
+          sx: bx + p.ox, sy: by + p.oy, z: z1, e: p.e, y: p.y, ph: p.ph, persp,
+          des: Math.min(1, Math.hypot(p.ox, p.oy) / 26),
+        }
       }).sort((a, b) => b.z - a.z)
 
       for (const q of pts) {
         const front = Math.max(0, Math.min(1, (0.16 - q.z) / 0.32))
         const pulse = Math.exp(-Math.pow((q.y - pulseY) * 3.2, 2)) * 0.55
         const shim = reduced ? 0 : 0.10 * Math.sin(t * 0.03 + q.ph)
-        const L = Math.max(0.08, Math.min(1, 0.24 + front * 0.52 + pulse + shim + (q.e ? 0.16 : 0)))
-        const mr = pulse * 1.4 // el pulso arrastra el tinte del régimen
+        // las partículas apartadas brillan: se nota la mano del usuario
+        const L = Math.max(0.08, Math.min(1, 0.24 + front * 0.52 + pulse + shim + (q.e ? 0.16 : 0) + q.des * 0.5))
+        const mr = pulse * 1.4 + q.des * 0.35 // el pulso arrastra el tinte del régimen
         const r = Math.round(34 + L * 86 + (REG[0] - 120) * mr * 0.5)
         const g = Math.round(86 + L * 162 + (REG[1] - 160) * mr * 0.35)
         const b = Math.round(104 + L * 152 + (REG[2] - 150) * mr * 0.3)
-        const rad = (q.e ? 1.7 : 1.2) * q.persp * (1 + pulse * 0.8)
+        const rad = (q.e ? 1.95 : 1.35) * q.persp * (1 + pulse * 0.8 + q.des * 0.6)
         ctx.fillStyle = `rgba(${r},${g},${b},${(0.42 + L * 0.58).toFixed(2)})`
         ctx.beginPath(); ctx.arc(q.sx, q.sy, rad, 0, 7); ctx.fill()
-        if (q.e) { // reflejo en piso, solo contorno
-          const ry = floorY + (floorY - q.sy) * 0.28
-          if (ry > floorY && ry < floorY + 92) {
-            ctx.fillStyle = `rgba(${r},${g},${b},${(0.05 + L * 0.07).toFixed(3)})`
-            ctx.beginPath(); ctx.arc(q.sx, ry, rad * 0.9, 0, 7); ctx.fill()
-          }
-        }
       }
       const haloKey = `${w}x${h}x${regime}`
       if (!_gHalo || _gHalo.k !== haloKey) {
         const halo = ctx.createRadialGradient(cx, cy, S * 0.2, cx, cy, S * 1.5)
         halo.addColorStop(0, `rgba(${REG[0]},${REG[1]},${REG[2]},0.03)`)
-        halo.addColorStop(0.4, 'rgba(57,226,230,0.035)'); halo.addColorStop(1, 'transparent')
+        halo.addColorStop(0.4, 'rgba(57,226,230,0.05)'); halo.addColorStop(1, 'transparent')
         _gHalo = { k: haloKey, g: halo }
       }
       ctx.globalCompositeOperation = 'lighter'
@@ -824,6 +854,42 @@ export default function HUDPage() {
       }
     }
 
+    // Se engancha una sola vez, cuando el hero entra al DOM. `touch-action:none`
+    // vive en el CSS del canvas: sin eso, en móvil el navegador se queda el
+    // gesto horizontal para hacer scroll y el arrastre nunca llega.
+    let enganchado = false
+    function engancharPuntero(cv: HTMLCanvasElement | null) {
+      if (!cv || enganchado) return
+      enganchado = true
+      const pos = (ev: PointerEvent) => {
+        const r = cv.getBoundingClientRect()
+        return { x: ev.clientX - r.left, y: ev.clientY - r.top }
+      }
+      cv.addEventListener('pointerdown', ev => {
+        arrastrando = true; ultimoX = ev.clientX; inactivo = 0
+        cv.style.cursor = 'grabbing'
+        try { cv.setPointerCapture(ev.pointerId) } catch {}
+      })
+      cv.addEventListener('pointermove', ev => {
+        const p = pos(ev); mx = p.x; my = p.y; inactivo = 0
+        if (arrastrando) {
+          // El ángulo sigue al gesto directamente; la velocidad se guarda como
+          // media móvil sólo para la inercia. Acumularla acá la dispara.
+          const d = (ev.clientX - ultimoX) * SENS
+          ultimoX = ev.clientX
+          ang += d
+          angVel = angVel * 0.55 + d * 0.45
+        }
+      })
+      const soltar = (ev: PointerEvent) => {
+        arrastrando = false; cv.style.cursor = 'grab'
+        try { cv.releasePointerCapture(ev.pointerId) } catch {}
+      }
+      cv.addEventListener('pointerup', soltar)
+      cv.addEventListener('pointercancel', soltar)
+      cv.addEventListener('pointerleave', () => { mx = my = -9999 })
+    }
+
     function apply() {
       const strip = root!.querySelector('#kpi-strip') as HTMLElement | null
       if (!strip || !strip.parentElement) return
@@ -845,6 +911,7 @@ export default function HUDPage() {
           '<div class="smh-b"><span><b>Σ</b> PARTÍCULAS = MODELOS DEL MOTOR</span><span>PULSO = LATIDO DE EVALUACIÓN</span><span>TINTE = RÉGIMEN</span></div>'
         strip.parentElement.insertBefore(hero, strip)
         strip.classList.add('sigma-strip-hidden')
+        engancharPuntero(hero.querySelector('.sigma-mono-cv') as HTMLCanvasElement | null)
       }
       syncReadouts(hero)
     }
@@ -1884,7 +1951,10 @@ export default function HUDPage() {
           border: 1px solid rgba(255,255,255,0.08);
           box-shadow: 0 40px 90px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
         }
-        #sigma-hud-root .sigma-mono-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+        /* touch-action:none — sin esto el navegador se queda el gesto horizontal
+           para hacer scroll y el arrastre del monolito no llega nunca en móvil.
+           Sólo aplica al canvas: el scroll del resto de la página sigue igual. */
+        #sigma-hud-root .sigma-mono-cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
         #sigma-hud-root .smh-tl { position: absolute; left: 26px; top: 24px; pointer-events: none; }
         #sigma-hud-root .smh-k { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.24em; color: #8b97ad; margin-bottom: 5px; }
         #sigma-hud-root .smh-eq { font-family: var(--font-bebas,'Bebas Neue',Impact,sans-serif); font-size: 44px; line-height: 1; color: #eef3fa; }
