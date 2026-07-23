@@ -715,7 +715,7 @@ export default function HUDPage() {
     const SENS = 0.0035   // rad por px: cruzar el panel recorre todo el rango
     const LIM  = 0.75     // tope ±43°: más allá el glifo se ve de canto y se espeja
     const VMAX = 0.02     // techo de inercia (~1,2 rad/s)
-    let ang = 0.28, angVel = 0, arrastrando = false, ultimoX = 0, inactivo = 0
+    let ang = 0, angVel = 0, arrastrando = false, ultimoX = 0, inactivo = 0
     let mx = -9999, my = -9999
     function draw(cv: HTMLCanvasElement) {
       const ctx = cv.getContext('2d')
@@ -737,9 +737,12 @@ export default function HUDPage() {
         angVel *= 0.93
         if (Math.abs(angVel) < 0.0004) angVel = 0
         inactivo++
-        // ~1,8 s quieto y detenida → vuelve al péndulo original, sin salto
-        if (inactivo > 110 && !reduced && angVel === 0) {
-          ang += (0.44 * Math.sin(t * 0.004) - ang) * 0.012
+        // ~1,8 s quieto y detenida → vuelve al frente y se queda ahí. Antes
+        // regresaba al péndulo, que es un blanco móvil: el reposo quedaba
+        // inclinado y el glifo nunca terminaba de leerse como el logo.
+        if (inactivo > 110 && angVel === 0) {
+          ang += (0 - ang) * 0.035
+          if (Math.abs(ang) < 0.002) ang = 0
         }
       }
       if (ang >  LIM) { ang =  LIM; angVel = -Math.abs(angVel) * 0.25 }
