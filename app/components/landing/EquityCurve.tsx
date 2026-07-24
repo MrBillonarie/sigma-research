@@ -49,7 +49,7 @@ export default function EquityCurve() {
     {
       label:    'RETORNO',
       value:    `${isPos ? '+' : ''}${fmt1(data.return_pct)}%`,
-      sub:      'últimos 30 días',
+      sub:      'cuenta real · desde el inicio',
       color:    retColor,
       shimmer:  isPos,
       span2:    false,
@@ -100,7 +100,7 @@ export default function EquityCurve() {
         </span>
         <span className="terminal-text text-[10px] text-muted tracking-widest flex items-center gap-2">
           <span className="inline-block w-1 h-1 rounded-full bg-muted" />
-          {data.total_trades} OPERACIONES · PAPER TRADING
+          {data.total_trades} OPERACIONES · CUENTA REAL
         </span>
       </div>
 

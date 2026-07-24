@@ -12,13 +12,13 @@ const FALLBACK = {
   assets:         5,
   live:           false,
   regime:         'BEAR',
-  equity:         11_422.53,
-  equity_initial: 10_000,
-  return_pct:     14.23,
-  profit_factor:  1.935,
-  max_dd_pct:     -8.74,
-  win_rate:       59.1,
-  total_trades:   22,
+  equity:         550.51,
+  equity_initial: 550.51,
+  return_pct:     0,
+  profit_factor:  0,
+  max_dd_pct:     0,
+  win_rate:       0,
+  total_trades:   0,
   genetic_strategies_count: 13,
   genetic_combos_hr:        0,
   cpcv_backtests_total:     19_782,
@@ -37,19 +37,26 @@ export async function GET() {
   }
   if (!VPS) return NextResponse.json({ ...FALLBACK, live: false })
   try {
-    const [statsRes, perfRes, signalsRes] = await Promise.all([
-      fetch(`${VPS}/api/stats`,       { cache: 'no-store', signal: AbortSignal.timeout(3000) }),
-      fetch(`${VPS}/api/performance`, { cache: 'no-store', signal: AbortSignal.timeout(3000) }),
-      fetch(`${VPS}/api/signals`,     { cache: 'no-store', signal: AbortSignal.timeout(3000) }),
+    // 2026-07-23: reemplaza /api/performance (utils/performance_tracker.py) --
+    // ese script mezclaba TODO trade_state.json['history'] sin filtrar por
+    // mode, así que "portfolio_wr"/"profit_factor" incluían trades PAPER bajo
+    // nombres de variable que decían "live" (live_wr, live_n...) sin serlo.
+    // Confirmado con datos reales: portfolio_wr=37.7% ahí vs 71.2% real
+    // (LIVE+MANUAL únicamente). /api/public ya calcula esto correcto server-side
+    // (ver web_server.py) -- una sola fuente de verdad para "qué tan real es esto".
+    const [statsRes, pubRes, signalsRes] = await Promise.all([
+      fetch(`${VPS}/api/stats`,   { cache: 'no-store', signal: AbortSignal.timeout(3000) }),
+      fetch(`${VPS}/api/public`,  { cache: 'no-store', signal: AbortSignal.timeout(3000) }),
+      fetch(`${VPS}/api/signals`, { cache: 'no-store', signal: AbortSignal.timeout(3000) }),
     ])
 
     const stats   = statsRes.ok   ? await statsRes.json()   : null
-    const perf    = perfRes.ok    ? await perfRes.json()    : null
+    const pub     = pubRes.ok     ? await pubRes.json()     : null
     const signals = signalsRes.ok ? await signalsRes.json() : null
 
     const byTf = stats?.by_tf ?? {}
     const tfs  = Object.keys(byTf).length
-    const p    = perf?.portfolio ?? {}
+    const p    = pub?.portfolio ?? {}
 
     const result = {
       total:          stats?.total                                       ?? FALLBACK.total,
@@ -57,20 +64,20 @@ export async function GET() {
       timeframes:     tfs > 0 ? tfs : 7,
       by_tf:          byTf,
       assets:         5,
-      live:           !!(stats || perf || signals),
+      live:           !!(stats || pub || signals),
       regime:         signals?.regime        ?? FALLBACK.regime,
       equity:         p.equity               ?? FALLBACK.equity,
-      equity_initial: p.initial              ?? FALLBACK.equity_initial,
-      return_pct:     p.return_pct           ?? FALLBACK.return_pct,
-      profit_factor:  p.profit_factor        ?? FALLBACK.profit_factor,
+      equity_initial: p.initial_capital      ?? FALLBACK.equity_initial,
+      return_pct:     p.real_return_pct      ?? FALLBACK.return_pct,
+      profit_factor:  p.pf                   ?? FALLBACK.profit_factor,
       max_dd_pct:     p.max_dd_pct           ?? FALLBACK.max_dd_pct,
-      win_rate:       p.portfolio_wr         ?? FALLBACK.win_rate,
-      total_trades:   p.total_trades         ?? FALLBACK.total_trades,
+      win_rate:       p.wr                   ?? FALLBACK.win_rate,
+      total_trades:   p.real_n_trades        ?? FALLBACK.total_trades,
       genetic_strategies_count: stats?.genetic_strategies_count ?? FALLBACK.genetic_strategies_count,
       genetic_combos_hr:        stats?.genetic_combos_hr        ?? FALLBACK.genetic_combos_hr,
       cpcv_backtests_total:     stats?.cpcv_backtests_total     ?? FALLBACK.cpcv_backtests_total,
       cpcv_models_evaluated:    stats?.cpcv_models_evaluated    ?? FALLBACK.cpcv_models_evaluated,
-      computed_at:    perf?.computed_at      ?? FALLBACK.computed_at,
+      computed_at:    new Date().toISOString(),
     }
     _cache = { data: result, ts: Date.now() }
     return NextResponse.json(result, { headers: CACHE_HEADER })
