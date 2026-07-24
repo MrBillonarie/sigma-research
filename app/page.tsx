@@ -50,13 +50,20 @@ interface FireData {
   current_equity: number; starting_equity: number
   target_equity: number; progress_pct: number; baseline_date: string
 }
-// Portafolio real de paper trading (/api/public → portfolio). Es la fuente
-// correcta para el retorno público: fire.starting_equity es la línea base del
-// reto FIRE ($550 en BTC virtual), NO el capital inicial del paper trading —
-// usarla inflaba el retorno a +1900%.
+// Cuenta real de Binance (/api/public → portfolio, mode LIVE+MANUAL). Es la
+// fuente correcta para el retorno público: fire.starting_equity es la línea
+// base del reto FIRE ($550 en BTC virtual), NO el capital inicial de la
+// cuenta real — usarla inflaba el retorno a +1900%.
+//
+// 2026-07-23: equity/initial (diff de balance real) NO es el retorno a
+// mostrar -- incluye depósitos manuales del usuario, no solo trading (dio
+// +99% cuando el trading real fue +3%). realReturnPct ya viene calculado
+// server-side desde pnl_dollar realizado / capital inicial, sin ese ruido.
 interface PaperData {
   initial: number; equity: number; startDate: string | null
   equityHistory: { eq: number }[]
+  realWr: number | null; realPf: number | null; realNTrades: number
+  realReturnPct: number | null; maxDdPct: number
 }
 interface Ticker { symbol: string; price: number; change24h: number }
 
@@ -97,6 +104,11 @@ async function getPageData() {
       equity:        Number(pub.portfolio.equity ?? 0),
       startDate:     (pub.portfolio.start_date ?? null) as string | null,
       equityHistory: Array.isArray(pub.portfolio.equity_history) ? pub.portfolio.equity_history : [],
+      realWr:        typeof pub.portfolio.wr === 'number' ? pub.portfolio.wr : null,
+      realPf:        typeof pub.portfolio.pf === 'number' ? pub.portfolio.pf : null,
+      realNTrades:   Number(pub.portfolio.real_n_trades ?? 0),
+      realReturnPct: typeof pub.portfolio.real_return_pct === 'number' ? pub.portfolio.real_return_pct : null,
+      maxDdPct:      Number(pub.portfolio.max_dd_pct ?? 0),
     } : null
     const tickers: Ticker[] = (binRaw as Array<{ symbol: string; lastPrice: string; priceChangePercent: string }>).map(t => ({
       symbol:    t.symbol.replace('USDT', ''),
@@ -104,7 +116,14 @@ async function getPageData() {
       change24h: parseFloat(t.priceChangePercent),
     }))
     return {
-      metrics:       engine?.portfolio ?? null,
+      // 2026-07-23: antes engine?.portfolio (snapshot de BACKTEST agregado,
+      // port_snapshot.json) -- se mostraba en la landing pública etiquetado
+      // como si fuera desempeño real. Ahora WR/PF/trades vienen de la cuenta
+      // real (LIVE+MANUAL) vía /api/public; ver PaperData/paper más abajo.
+      metrics:       pub?.portfolio ? {
+        wr: pub.portfolio.wr, pf: pub.portfolio.pf,
+        maxDd: pub.portfolio.max_dd_pct, n_trades: pub.portfolio.real_n_trades,
+      } : null,
       fire,
       paper,
       coverage:      engine?.coverage ?? null,
@@ -396,12 +415,13 @@ export default async function RootPage() {
     getUserCount(),
   ])
 
-  // Retorno real del paper trading: equity vs capital inicial del portafolio
-  // ($10.000 desde el 10-may). NO usar fire.starting_equity (baseline del reto
-  // FIRE, $550 virtual) — inflaba el número a +1900%.
-  const returnPct = paper && paper.initial > 0
-    ? (((paper.equity - paper.initial) / paper.initial) * 100).toFixed(2)
-    : '13.19'
+  // Retorno real de la cuenta de Binance: PnL realizado (LIVE+MANUAL) sobre
+  // el capital inicial -- NO diff de equity, que incluye depósitos manuales
+  // del usuario y no es retorno de trading (ver PaperData arriba). NO usar
+  // fire.starting_equity tampoco (baseline del reto FIRE, $550 virtual).
+  const returnPct = paper && paper.realReturnPct != null
+    ? paper.realReturnPct.toFixed(2)
+    : '0.00'
 
   // Color del glow del panel Motor en Vivo — espeja la clasificación de RegimePill.
   const regimeRo   = regime === 'risk-on'  || regime.toUpperCase() === 'BULL'
@@ -480,7 +500,7 @@ export default async function RootPage() {
             {([
               { k: 'MERCADOS',     v: '16 activos · cripto · commodities · stocks US',  accent: false, dot: false },
               { k: 'ESTRATEGIAS',  v: '70+ validadas · walk-forward OOS', accent: false, dot: false },
-              { k: 'PAPER TRADING', v: paper ? `$${Math.round(paper.equity).toLocaleString('es-CL')}  ·  +${returnPct}%` : `$11.319  ·  +${returnPct}%`, accent: true, dot: false },
+              { k: 'CUENTA REAL',   v: paper ? `$${Math.round(paper.equity).toLocaleString('es-CL')}  ·  +${returnPct}%` : `$1.100  ·  +${returnPct}%`, accent: true, dot: false },
               { k: 'ESTADO',       v: `LIVE · ${regime}`, accent: true, dot: true },
             ] as Array<{ k: string; v: string; accent: boolean; dot: boolean }>).map(
               ({ k, v, accent, dot }, idx, arr) => (
@@ -558,9 +578,9 @@ export default async function RootPage() {
           <Reveal>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', background: B, gap: 1 }}>
             {[
-              { num: metrics?.wr     ?? 68,               dec: 1, suffix: '%', label: 'Win Rate',      detail: 'backtesting out-of-sample' },
-              { num: metrics?.pf     ?? 1.70,             dec: 2, suffix: '×', label: 'Profit Factor', detail: 'PRO · SIGMA ENGINE'        },
-              { num: metrics?.calmar ?? 1.61,             dec: 2, suffix: '',  label: 'Calmar Ratio',  detail: '12M rolling'               },
+              { num: metrics?.wr     ?? 71.2,             dec: 1, suffix: '%', label: 'Win Rate',      detail: 'cuenta real · Binance'     },
+              { num: metrics?.pf     ?? 2.05,             dec: 2, suffix: '×', label: 'Profit Factor', detail: 'cuenta real · Binance'     },
+              { num: metrics?.maxDd  ?? -7.6,             dec: 1, suffix: '%', label: 'Drawdown Máx.', detail: 'desde el pico · real'      },
               { num: backtests / 1_000_000,               dec: 1, suffix: 'M', label: 'Backtests',     detail: 'escenarios validados'      },
             ].map(s => (
               <div key={s.label} style={{ background: BG, padding: '44px 32px', position: 'relative', overflow: 'hidden' }}>
@@ -649,10 +669,10 @@ export default async function RootPage() {
         </div>
       </section>
 
-      {/* ══ 5. EQUITY CURVE — datos reales de paper trading ══════════════════ */}
+      {/* ══ 5. EQUITY CURVE — datos reales de la cuenta LIVE ═══════════════════ */}
       <section style={{ padding: `clamp(56px, 12vw, 80px) ${PX}`, background: S, borderBottom: `1px solid ${B}` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <SectionRule label="// PAPER TRADING EN PRODUCCIÓN" />
+          <SectionRule label="// CUENTA REAL EN VIVO · BINANCE" />
 
           <Reveal>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 36, flexWrap: 'wrap', gap: 20 }}>
@@ -668,7 +688,7 @@ export default async function RootPage() {
               <div style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 64, color: '#2fd39a', lineHeight: 1, textShadow: '0 0 40px rgba(52,211,153,0.3)' }}>
                 <CountUp value={parseFloat(returnPct)} decimals={2} prefix="+" suffix="%" duration={1800} />
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', marginTop: 4 }}>RETORNO PAPER</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 9, color: M, letterSpacing: '0.15em', marginTop: 4 }}>RETORNO REAL</div>
             </div>
           </div>
 
@@ -692,7 +712,7 @@ export default async function RootPage() {
                 <span style={{ fontFamily: 'monospace', fontSize: 9, color: M }}>RETROCESO</span>
               </div>
               <span style={{ fontFamily: 'monospace', fontSize: 9, color: M, marginLeft: 'auto' }}>
-                PAPER TRADING · ALGORITMO REAL · NO SE GESTIONA CAPITAL DE TERCEROS
+                CUENTA REAL EN BINANCE · NO SE GESTIONA CAPITAL DE TERCEROS
               </span>
             </div>
           </div>
@@ -700,10 +720,10 @@ export default async function RootPage() {
           {/* Stats bar */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1, background: B, marginTop: 1 }}>
             {[
-              { n: metrics?.wr     ?? 68,                       dec: 1, suffix: '%', l: 'Win Rate'          },
-              { n: metrics?.pf     ?? 1.70,                     dec: 2, suffix: '×', l: 'Profit Factor'     },
-              { n: metrics?.calmar ?? 1.61,                     dec: 2, suffix: '',  l: 'Calmar Ratio'      },
-              { n: metrics?.n_trades ?? history.length + 1,     dec: 0, suffix: '',  l: 'Trades registrados' },
+              { n: metrics?.wr     ?? 71.2,                     dec: 1, suffix: '%', l: 'Win Rate'          },
+              { n: metrics?.pf     ?? 2.05,                     dec: 2, suffix: '×', l: 'Profit Factor'     },
+              { n: metrics?.maxDd  ?? -7.6,                     dec: 1, suffix: '%', l: 'Drawdown Máx.'     },
+              { n: metrics?.n_trades ?? paper?.realNTrades ?? 0, dec: 0, suffix: '',  l: 'Trades reales'     },
             ].map(({ n, dec, suffix, l }) => (
               <div key={l} style={{ background: BG, padding: '24px 28px', textAlign: 'center' }}>
                 <div style={{ fontFamily: "-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif", fontSize: 44, color: G, lineHeight: 1, marginBottom: 6, textShadow: `0 0 20px rgba(57,226,230,0.25)` }}>
